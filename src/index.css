@@ -1,0 +1,79 @@
+:root {
+   /* ===========================
+      BRAND / PRIMARY COLORS
+  ============================ */
+   --color-primary: #556B2F;
+   /* Deep Olive Green */
+   --color-primary-light: #9CAF88;
+   /* Sage Green */
+   --color-primary-dark: #3F4F23;
+   /* Dark Olive */
+
+   /* ===========================
+      BACKGROUND COLORS
+  ============================ */
+   --color-bg-header: #5C3D2E;
+   /* Deep Brown */
+   --color-bg-side-bar: #cd987d38;
+   /* Light Transparent Beige */
+   --color-background: #EFE7DA;
+   /* Soft Cream Background */
+   --color-bg-card: #FFFFFF;
+   /* White Cards */
+   --color-bg-hover: #F4F0E5;
+   /* Soft Hover Beige */
+   --color-bg-table: #F7F3ED;
+   /* Table Background */
+
+   /* ===========================
+      TEXT COLORS
+  ============================ */
+   --color-text-header: #EFEAD8;
+   /* Light text on header */
+   --color-text-side-bar: #5C3D2E;
+   /* Dark Brown text on Sidebar */
+   --color-text-dark: #5C3D2E;
+   /* Dark Brown */
+   --color-text-light: #885c46a0;
+   /* Light Brown */
+   --color-text-muted: #857466;
+   /* Warm Muted Brown */
+   --color-text-white: #FFFFFF;
+   /* White text */
+
+   /* ===========================
+      ACCENTS & ICON COLORS
+  ============================ */
+   --color-icons: #556B2F;
+   /* Olive Icons */
+   --color-accent: #F2E8C6;
+   /* Soft Yellow Accent */
+
+   /* ===========================
+      STATE COLORS
+  ============================ */
+   --color-success: #6A8E3F;
+   /* Herbal Green */
+   --color-warning: #E8A84E;
+   /* Warm Golden Orange */
+   --color-error: #B54545;
+   /* Muted Red */
+   --color-info: #4E7BA8;
+   /* Calm Blue */
+
+   /* ===========================
+      BORDERS & SHADOWS
+  ============================ */
+   --color-border: #D6D2C4;
+   /* Soft Grayish Beige */
+   --color-border-dark: #B8B2A5;
+   /* Darker Beige Border */
+   --shadow-soft: 0 2px 6px rgba(0, 0, 0, 0.07);
+   --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.12);
+
+   /* ===========================
+      WHITE / BLACK
+  ============================ */
+   --color-white: #FFFFFF;
+   --color-black: #000000;
+}

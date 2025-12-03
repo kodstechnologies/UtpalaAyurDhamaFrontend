@@ -1,0 +1,87 @@
+import React, { useEffect, useState } from "react";
+import { Card, CardContent, Typography, Box } from "@mui/material";
+
+function DashboardCard({
+    title = "Users",
+    count = 100,
+    icon: Icon = null,
+    iconColor = "#3f51b5",
+}) {
+    const [displayValue, setDisplayValue] = useState(0);
+
+    useEffect(() => {
+        let start = 0;
+        const duration = 800;
+        const startTime = performance.now();
+
+        const animate = (currentTime) => {
+            const progress = Math.min((currentTime - startTime) / duration, 1);
+            const value = Math.floor(progress * count);
+            setDisplayValue(value);
+
+            if (progress < 1) requestAnimationFrame(animate);
+        };
+
+        requestAnimationFrame(animate);
+    }, [count]);
+
+    return (
+        <Card
+            sx={{
+                width: 260,
+                borderRadius: 4,
+                padding: 2,
+                background: "var(--color-bg-table)",
+                boxShadow: "0px 4px 18px rgba(0,0,0,0.08)",
+                cursor: "pointer",
+                transition: "0.2s",
+                "&:hover": {
+                    boxShadow: "0px 6px 22px rgba(0,0,0,0.12)",
+                    transform: "translateY(-3px)",
+                },
+            }}
+        >
+            <CardContent>
+
+                {/* ICON ON TOP */}
+                {Icon && (
+                    <Box
+                        sx={{
+                            width: 55,
+                            height: 55,
+                            borderRadius: 2,
+                            background: "var(--color-bg-header)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            mb: 2,
+                        }}
+                    >
+                        <Icon sx={{ fontSize: 32, color: "var(--color-text-header)" }} />
+                    </Box>
+                )}
+
+                {/* Title */}
+                <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, color: "var(--color-text-dark)", mb: 1 }}
+                >
+                    {title}
+                </Typography>
+
+                {/* Animated Count */}
+                <Typography
+                    variant="h4"
+                    sx={{
+                        fontWeight: "bold",
+                        color: "var(--color-text-dark)",
+                    }}
+                >
+                    {displayValue}
+                </Typography>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default DashboardCard;
