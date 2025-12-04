@@ -4,7 +4,8 @@ import Layout from "../components/layout/Layout";
 
 import { authRoutes } from "./subRouter/authRoutes";
 import { adminRoutes } from "./subRouter/adminRoutes";
-import { doctorRoutes } from "./subRouter/doctorRoutes";  // ✅ FIXED
+import { doctorRoutes } from "./subRouter/doctorRoutes";
+import { nurseRoutes } from "./subRouter/nurseRoutes";
 
 function AppRouter() {
   return (
@@ -26,6 +27,10 @@ function AppRouter() {
 
           {/* DOCTOR ROUTES → MUST ADD */}
           {doctorRoutes.map((route, index) => (
+            <Route key={index} path={route.path} element={route.element} />
+          ))}
+          {/* NURSE ROUTES → MUST ADD */}
+          {nurseRoutes.map((route, index) => (
             <Route key={index} path={route.path} element={route.element} />
           ))}
 

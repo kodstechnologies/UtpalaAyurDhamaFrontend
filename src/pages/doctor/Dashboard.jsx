@@ -3,7 +3,7 @@ import React from "react";
 
 // Icons
 import PeopleIcon from "@mui/icons-material/People";
-import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
+import LocalHospital from "@mui/icons-material/LocalHospital";
 import HotelIcon from "@mui/icons-material/Hotel";
 import Breadcrumb from "../../components/breadcrumb/Breadcrumb";
 import GreetingBanner from "../../components/card/GreetingCard";
@@ -47,7 +47,7 @@ function Doctor_Dashboard() {
                 <DashboardCard
                     title="Today's Appointments"
                     count={14}
-                    icon={LocalHospitalIcon}
+                    icon={LocalHospital}
                 />
 
                 <DashboardCard

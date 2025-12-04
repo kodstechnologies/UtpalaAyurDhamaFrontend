@@ -105,6 +105,14 @@ import {
     Inventory2 as Inventory2Icon,
     RestaurantMenu as RestaurantMenuIcon,
     Analytics as AnalyticsIcon,
+
+    //doctor 
+    People as PeopleIcon,
+    LocalHospital as LocalHospitalIcon,
+
+    // nurse 
+    MonitorHeart as MonitorHeartIcon,
+    AssignmentTurnedIn as AssignmentTurnedInIcon,
 } from "@mui/icons-material";
 
 export const sidebarMenus = {
@@ -182,17 +190,41 @@ export const sidebarMenus = {
             to: "/doctor/dashboard",
         },
         {
-            key: "mypatients",
+            key: "myPatients",
             label: "My Patients",
-            icon: <DashboardIcon />,
+            icon: <PeopleIcon />,
             to: "/doctor/my-patients",
         },
         {
-            key: "inpatients",
+            key: "inPatients",
             label: "In-Patients",
-            icon: <DashboardIcon />,
+            icon: <LocalHospitalIcon />,
             to: "/doctor/in-patients",
         },
     ],
+
+
+    nurse: [
+        {
+            key: "dashboard",
+            label: "Dashboard",
+            icon: <DashboardIcon />,
+            to: "/nurse/dashboard",
+        },
+        {
+            key: "patientMonitoring",
+            label: "Patient Monitoring",
+            icon: <MonitorHeartIcon />,  // updated icon
+            to: "/nurse/monitoring",
+        },
+        {
+            key: "dischargePreparation",
+            label: "Discharge Preparation",
+            icon: <AssignmentTurnedInIcon />, // updated icon
+            to: "/nurse/patients",
+        },
+    ],
+
+
 
 };

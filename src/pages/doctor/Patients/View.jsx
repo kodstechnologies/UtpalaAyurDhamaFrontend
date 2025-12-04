@@ -5,7 +5,7 @@ import DashboardCard from "../../../components/card/DashboardCard";
 
 // ICONS
 import PeopleIcon from "@mui/icons-material/People";
-import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
+import LocalHospital from "@mui/icons-material/LocalHospital";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -82,7 +82,7 @@ function All_Patients_View() {
                 <DashboardCard
                     title="Active Treatments"
                     count={2}
-                    icon={LocalHospitalIcon}
+                    icon={LocalHospital}
                     iconColor="#2e7d32"
                 />
 
