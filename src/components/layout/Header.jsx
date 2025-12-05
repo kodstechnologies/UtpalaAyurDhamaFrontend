@@ -31,7 +31,8 @@ import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'; // Fo
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import logo from "../../assets/logo/utpala_logo.png";
 import { Link } from 'react-router-dom';
-
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 const settings = [
   { label: 'Profile', icon: <PersonIcon fontSize="small" /> },
   { label: 'Account', icon: <AccountCircleIcon fontSize="small" /> },
@@ -191,7 +192,8 @@ function ResponsiveAppBar({ pageTitle = '' }) {
                 "&:hover": { backgroundColor: "rgba(255,255,255,0.1)", transform: "rotate(5deg)" },
               }}
             >
-              <CalendarViewDayIcon />
+              <KeyboardArrowLeftIcon />
+              <ChevronRightIcon />
             </IconButton>
           </Tooltip>
 

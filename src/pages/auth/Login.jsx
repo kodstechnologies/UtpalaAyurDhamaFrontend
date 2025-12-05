@@ -6,67 +6,80 @@ import {
     TextField,
     Typography,
     Button,
-    Grid2,
-    Divider,
+    Grid,
+    IconButton,
+    InputAdornment,
+    CircularProgress,
     Fade,
-    Slide,
-    Grow,
-    Zoom,
+    Slide
 } from "@mui/material";
-import Check from "@mui/icons-material/Check";
-import Person from "@mui/icons-material/Person";
-import Favorite from "@mui/icons-material/Favorite";
-import Phone from "@mui/icons-material/Phone";
-import { useNavigate } from "react-router-dom";
-// ========== Logo ==================
-import logo from "../../assets/logo/utpala_logo.png";
+import {
+    Phone as PhoneIcon,
+    ArrowBack as ArrowBackIcon,
+    Healing as HealingIcon,
+    Spa as SpaIcon,
+    Verified as VerifiedIcon
+} from "@mui/icons-material";
+
+import logo from "../../assets/logo/utpala_logo.png"
+import bgImg from "../../assets/bg-img/bg4.jpg"
 
 export default function Login() {
-    const navigate = useNavigate();
+    const [step, setStep] = useState(1); // 1: phone, 2: OTP
     const [phone, setPhone] = useState("");
-    const [referralCode, setReferralCode] = useState(""); // Added for referral
-    const [showOtp, setShowOtp] = useState(false);
     const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-    const [logoAnimation, setLogoAnimation] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [timer, setTimer] = useState(300);
     const otpInputs = useRef([]);
 
-    // Logo floating animation
+    // Timer for OTP expiry
     useEffect(() => {
-        const interval = setInterval(() => {
-            setLogoAnimation(prev => !prev);
-        }, 3000);
+        let interval;
+        if (step === 2 && timer > 0) {
+            interval = setInterval(() => {
+                setTimer((prev) => prev - 1);
+            }, 1000);
+        }
         return () => clearInterval(interval);
-    }, []);
+    }, [step, timer]);
 
-    // Auto-focus first OTP input
     useEffect(() => {
-        if (showOtp && otpInputs.current[0]) {
+        if (step === 2 && otpInputs.current[0]) {
             otpInputs.current[0].focus();
         }
-    }, [showOtp]);
+    }, [step]);
 
-    const handlePhoneSubmit = () => {
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    const handlePhoneSubmit = async () => {
         if (phone.length === 10) {
-            // Add a smooth transition
-            setTimeout(() => setShowOtp(true), 300);
+            setLoading(true);
+            // Simulate API call
+            setTimeout(() => {
+                setLoading(false);
+                setStep(2);
+                setTimer(300);
+            }, 1500);
         } else {
-            alert("Enter valid phone number");
+            alert("Please enter a valid 10-digit phone number");
         }
     };
 
     const handleOtpChange = (index, value) => {
         const newOtp = [...otpDigits];
-        newOtp[index] = value.slice(-1); // Ensure single digit
+        newOtp[index] = value.slice(-1);
         setOtpDigits(newOtp);
 
-        // Move to next input if value entered
         if (value && index < 5) {
             otpInputs.current[index + 1].focus();
         }
     };
 
     const handleOtpKeyDown = (index, e) => {
-        // Backspace to previous if empty
         if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
             otpInputs.current[index - 1].focus();
         }
@@ -75,455 +88,489 @@ export default function Login() {
     const handleOtpSubmit = () => {
         const fullOtp = otpDigits.join('');
         if (fullOtp.length === 6) {
-            // Add loading animation before navigation
+            setLoading(true);
+            // Simulate API call to verify OTP and get user role
             setTimeout(() => {
-                navigate("/admin/dashboard");
-            }, 500);
+                // Mock role-based redirect
+                const userRole = 'admin'; // This would come from API response
+
+                if (userRole === 'admin') {
+                    window.location.href = '/admin/dashboard';
+                } else if (userRole === 'doctor') {
+                    window.location.href = '/doctor/dashboard';
+                } else if (userRole === 'patient') {
+                    window.location.href = '/patient/dashboard';
+                } else {
+                    window.location.href = '/dashboard';
+                }
+            }, 1000);
         } else {
-            alert("Enter valid 6-digit OTP");
+            alert("Please enter the complete 6-digit OTP");
+        }
+    };
+
+    const handleBackToPhone = () => {
+        setStep(1);
+        setOtpDigits(['', '', '', '', '', '']);
+    };
+
+    const handleResendOtp = () => {
+        setTimer(300);
+        setOtpDigits(['', '', '', '', '', '']);
+        if (otpInputs.current[0]) {
+            otpInputs.current[0].focus();
         }
     };
 
     return (
-        <Grid2
-            container
+        <Box
             sx={{
-                height: "100vh",
-                background: "linear-gradient(135deg, #f0f8f0 0%, #e8f5e8 100%)",
+                minHeight: "100vh",
+                minWidth: "100vw",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
                 overflow: "hidden",
+                p: 2,
+
+                "&::before": {
+                    content: '""',
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundImage: `url(${bgImg})`,
+                    backgroundSize: "cover",       // ✅ apply here
+                    backgroundRepeat: "no-repeat", // ✅ apply here
+                    backgroundPosition: "center",  // ✅ apply here
+                    opacity: 0.35,
+                    zIndex: 0,
+                },
+
+                background: "linear-gradient(135deg, #faf8f5 0%, #f5f0e8 100%)",
             }}
         >
-            {/* LEFT IMAGE/PROMO SECTION - Hidden on mobile */}
-            <Grid2
-                size={{ xs: 12, md: 6 }}
+
+            {/* Decorative floating elements */}
+            <Box
                 sx={{
-                    display: { xs: "none", md: "flex" },
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "linear-gradient(135deg, #4caf50 0%, #81c784 100%)", // Hardcoded for consistency
-                    color: "white",
-                    p: { xs: 2, md: 4 },
-                    textAlign: "center",
-                    position: "relative",
-                    overflow: "hidden",
-                    "&::before": {
-                        content: '""',
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\"><path d=\"M0,0 L100,0 L100,100 Z\" fill=\"rgba(255,255,255,0.05)\"/></svg>')",
-                        opacity: 0.1,
-                    }
+                    position: "absolute",
+                    top: -50,
+                    right: -50,
+                    width: 200,
+                    height: 200,
+                    borderRadius: "50%",
+                    background: "radial-gradient(circle, rgba(139, 90, 43, 0.15) 0%, transparent 70%)",
+                    animation: "float 20s infinite ease-in-out",
+                    zIndex: 0,
                 }}
-            >
-                {/* Animated Logo Container */}
-                <Box
+            />
+            <Box
+                sx={{
+                    position: "absolute",
+                    bottom: -100,
+                    left: -100,
+                    width: 300,
+                    height: 300,
+                    borderRadius: "50%",
+                    background: "radial-gradient(circle, rgba(112, 66, 20, 0.12) 0%, transparent 70%)",
+                    animation: "float 25s infinite ease-in-out reverse",
+                    zIndex: 0,
+                }}
+            />
+
+            <Slide direction="up" in={true} timeout={800}>
+                <Card
                     sx={{
-                        mb: { xs: 2, md: 3 },
+                        width: "100%",
+                        maxWidth: 450,
+                        borderRadius: 3,
+                        overflow: "hidden",
+                        boxShadow: "0 8px 32px rgba(112, 66, 20, 0.15)",
+                        background: "rgba(255, 255, 255, 0.95)",
+                        backdropFilter: "blur(10px)",
+                        border: "1px solid rgba(139, 90, 43, 0.1)",
                         position: "relative",
-                        animation: logoAnimation ? "floatUp 3s ease-in-out infinite" : "floatDown 3s ease-in-out infinite",
-                        "@keyframes floatUp": {
-                            "0%, 100%": {
-                                transform: "translateY(0px) scale(1)",
-                            },
-                            "50%": {
-                                transform: "translateY(-10px) scale(1.05)",
-                            }
-                        },
-                        "@keyframes floatDown": {
-                            "0%, 100%": {
-                                transform: "translateY(0px) scale(1)",
-                            },
-                            "50%": {
-                                transform: "translateY(10px) scale(0.95)",
-                            }
-                        }
+                        zIndex: 1,
                     }}
                 >
-                    {/* Glow effect behind logo */}
+                    {/* Header Section */}
                     <Box
                         sx={{
-                            position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            width: { xs: "120px", md: "150px" },
-                            height: { xs: "120px", md: "150px" },
-                            borderRadius: "50%",
-                            background: "radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%)",
-                            filter: "blur(10px)",
-                            animation: "pulse 3s ease-in-out infinite",
-                            "@keyframes pulse": {
-                                "0%, 100%": {
-                                    opacity: 0.5,
-                                },
-                                "50%": {
-                                    opacity: 0.8,
-                                }
-                            }
-                        }}
-                    />
-
-                    <img
-                        src={logo}
-                        alt="Utpal Ayurveda Logo"
-                        style={{
-                            width: { xs: "80px", md: "120px" },
-                            height: { xs: "80px", md: "120px" },
-                            filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))",
-                            transition: "transform 0.3s ease",
+                            background: "linear-gradient(135deg, #8b5a2b 0%, #704214 100%)",
+                            py: 4,
+                            px: 3,
+                            textAlign: "center",
                             position: "relative",
-                            zIndex: 1,
-                        }}
-                    />
-                </Box>
-
-                {/* Main Title with animation - Smaller on mobile */}
-                <Slide direction="down" in={true} timeout={800}>
-                    <Typography
-                        variant="h4"
-                        sx={{
-                            mb: 1,
-                            fontWeight: 700,
-                            fontSize: { xs: "1.5rem", md: "2.5rem" },
-                            lineHeight: 1.2,
-                            textShadow: "2px 2px 4px rgba(0,0,0,0.3)",
                         }}
                     >
-                        Utpal Ayurveda
-                    </Typography>
-                </Slide>
+                        <HealingIcon
+                            sx={{
+                                position: "absolute",
+                                left: 20,
+                                top: 20,
+                                fontSize: 30,
+                                color: "rgba(255, 255, 255, 0.3)",
+                            }}
+                        />
+                        <SpaIcon
+                            sx={{
+                                position: "absolute",
+                                right: 20,
+                                bottom: 20,
+                                fontSize: 30,
+                                color: "rgba(255, 255, 255, 0.3)",
+                            }}
+                        />
 
-                {/* Subtitle with animation */}
-                <Fade in={true} timeout={1000}>
-                    <Typography
-                        variant="h6"
-                        sx={{
-                            mb: { xs: 2, md: 4 },
-                            fontWeight: 400,
-                            fontSize: { xs: "0.9rem", md: "1.2rem" },
-                            opacity: 0.9,
-                        }}
-                    >
-                        Where Tradition Meets Healing
-                    </Typography>
-                </Fade>
-
-                {/* Feature Checkmarks with staggered animation - Reduced on mobile */}
-                <Box sx={{ mb: { xs: 2, md: 4 }, maxWidth: 400, width: "100%" }}>
-                    {[
-                        { Icon: Check, text: "Authentic Ayurveda", iconColor: "#4caf50" },
-                        { Icon: Check, text: "Time-tested traditional healing methods", iconColor: "#4caf50" },
-                        { Icon: Person, text: "Expert Care", iconColor: "white", border: true },
-                        { Icon: Favorite, text: "Holistic Wellness", iconColor: "#ff9800" }
-                    ].map((item, index) => (
-                        <Grow in={true} timeout={500 + (index * 200)} key={index}>
-                            <Box sx={{
+                        <Box
+                            sx={{
+                                width: 90,
+                                height: 90,
+                                margin: "0 auto 16px",
+                                background: "#fff",
+                                borderRadius: "50%",
                                 display: "flex",
                                 alignItems: "center",
-                                mb: { xs: 1, md: 2 },
-                                animation: `slideInLeft ${0.5 + (index * 0.2)}s ease-out`,
-                                "@keyframes slideInLeft": {
-                                    "0%": {
-                                        transform: "translateX(-20px)",
-                                        opacity: 0,
-                                    },
-                                    "100%": {
-                                        transform: "translateX(0)",
-                                        opacity: 1,
-                                    }
-                                }
-                            }}>
-                                <Box
+                                justifyContent: "center",
+                                boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                                border: "3px solid rgba(255, 255, 255, 0.5)",
+                            }}
+                        >
+                            {/* <SpaIcon sx={{ fontSize: 50, color: "#8b5a2b" }} /> */}
+                            <img src={logo} alt="Utpala Logo" style={{ width: 50, height: 50 }} />
+                        </Box>
+
+                        <Typography
+                            variant="h4"
+                            sx={{
+                                color: "#fff",
+                                fontWeight: 700,
+                                mb: 1,
+                                letterSpacing: 0.5,
+                            }}
+                        >
+                            Utpal Ayurveda
+                        </Typography>
+                        <Typography
+                            variant="subtitle1"
+                            sx={{
+                                color: "rgba(255, 255, 255, 0.9)",
+                                fontStyle: "italic",
+                                fontSize: "0.95rem",
+                            }}
+                        >
+                            Ancient Wisdom • Modern Healing
+                        </Typography>
+                    </Box>
+
+                    <CardContent sx={{ p: 4 }}>
+                        {step === 2 && (
+                            <Fade in={step === 2}>
+                                <IconButton
+                                    onClick={handleBackToPhone}
                                     sx={{
-                                        width: { xs: 20, md: 24 },
-                                        height: { xs: 20, md: 24 },
-                                        borderRadius: "50%",
-                                        background: item.border ? "transparent" : "white",
-                                        border: item.border ? "2px solid white" : "none",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        mr: { xs: 1.5, md: 2 },
-                                        color: item.iconColor,
-                                        flexShrink: 0,
-                                        transition: "transform 0.3s ease",
-                                        "&:hover": {
-                                            transform: "scale(1.2)",
+                                        mb: 2,
+                                        color: "#704214",
+                                        '&:hover': {
+                                            background: "rgba(139, 90, 43, 0.08)",
                                         }
                                     }}
                                 >
-                                    <item.Icon sx={{ fontSize: { xs: 16, md: 18 } }} />
-                                </Box>
-                                <Typography
-                                    variant="body2"
-                                    sx={{
-                                        fontSize: {
-                                            xs: "0.8rem",
-                                            md: "1rem"
-                                        },
-                                        textAlign: "left"
-                                    }}
-                                >
-                                    {item.text}
-                                </Typography>
-                            </Box>
-                        </Grow>
-                    ))}
-                </Box>
+                                    <ArrowBackIcon />
+                                    <Typography variant="body2" sx={{ ml: 1 }}>
+                                        Back
+                                    </Typography>
+                                </IconButton>
+                            </Fade>
+                        )}
 
-                {/* Quote with animation - Smaller on mobile */}
-                <Zoom in={true} timeout={1500}>
-                    <Box
-                        sx={{
-                            p: { xs: 2, md: 3 },
-                            background: "rgba(255,255,255,0.15)",
-                            borderRadius: 2,
-                            border: "1px solid rgba(255,255,255,0.3)",
-                            fontStyle: "italic",
-                            fontSize: { xs: "0.8rem", md: "1rem" },
-                            opacity: 0.9,
-                            backdropFilter: "blur(10px)",
-                            maxWidth: 400,
-                            width: "100%",
-                            transition: "transform 0.3s ease",
-                            "&:hover": {
-                                transform: "translateY(-5px)",
-                                boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-                            }
-                        }}
-                    >
-                        <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-                            "Health is the greatest wealth. Peace of mind is the greatest happiness."
-                        </Typography>
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                mt: 1,
-                                display: "block",
-                                fontSize: { xs: "0.7rem", md: "0.8rem" },
-                                opacity: 0.8
-                            }}
-                        >
-                            — Ayurvedic Wisdom
-                        </Typography>
-                    </Box>
-                </Zoom>
-            </Grid2>
-
-            {/* RIGHT LOGIN CARD - Full width on mobile */}
-            <Grid2
-                size={{ xs: 12, md: 6 }}
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                sx={{
-                    p: { xs: 2, sm: 3, md: 4 },
-                    background: "rgba(255, 255, 255, 0.97)",
-                    backdropFilter: "blur(15px)",
-                }}
-            >
-                <Slide direction="left" in={true} timeout={800}>
-                    <Card
-                        sx={{
-                            width: "100%",
-                            maxWidth: { xs: "100%", md: 420 },
-                            p: { xs: 2, sm: 2.5, md: 3 },
-                            borderRadius: 3,
-                            boxShadow: "0 15px 50px rgba(0,0,0,0.15)",
-                            border: "1px solid rgba(255,255,255,0.3)",
-                            transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                            "&:hover": {
-                                transform: "translateY(-5px)",
-                                boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-                            }
-                        }}
-                    >
-                        <CardContent sx={{ p: 0 }}>
-                            {/* Heading */}
-                            <Box sx={{ textAlign: "center", mb: { xs: 2, md: 3 } }}>
-                                <Typography
-                                    variant="h5"
-                                    sx={{
-                                        mb: 1,
-                                        fontWeight: 700,
-                                        color: "#2e7d32", // Hardcoded dark green
-                                        fontSize: { xs: "1.6rem", md: "2.2rem" },
-                                        background: "linear-gradient(135deg, #4caf50 0%, #81c784 100%)",
-                                        WebkitBackgroundClip: "text",
-                                        WebkitTextFillColor: "transparent",
-                                        backgroundClip: "text",
-                                    }}
-                                >
-                                    Welcome Back
-                                </Typography>
-                                <Typography
-                                    variant="body1"
-                                    sx={{
-                                        mb: { xs: 2, md: 3 },
-                                        color: "#666",
-                                        fontSize: { xs: "0.9rem", md: "1rem" },
-                                    }}
-                                >
-                                    Sign in to continue your wellness journey
-                                </Typography>
-                            </Box>
-
-                            {/* Phone Input */}
-                            {!showOtp ? (
-                                <Fade in={!showOtp} timeout={500}>
+                        <Fade in={true} timeout={500}>
+                            <Box>
+                                {step === 1 ? (
                                     <Box>
-                                        <Typography variant="body2" sx={{ mb: 1, color: "#333", fontWeight: 600 }}>
-                                            Phone Number
+                                        <Typography
+                                            variant="h6"
+                                            sx={{
+                                                mb: 3,
+                                                color: "#704214",
+                                                fontWeight: 600,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            Welcome Back
                                         </Typography>
-                                        <Divider sx={{ mb: 2, borderColor: "#e0e0e0" }} />
+
                                         <TextField
                                             fullWidth
-                                            placeholder="10-digit mobile number"
-                                            variant="outlined"
+                                            label="Phone Number"
+                                            placeholder="Enter 10-digit mobile number"
                                             value={phone}
                                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                                            inputProps={{ maxLength: 10 }}
-                                            InputProps={{
-                                                startAdornment: <Phone sx={{ color: "#4caf50", mr: 1, my: 0.5 }} fontSize="small" />
+                                            onKeyPress={(e) => {
+                                                if (e.key === 'Enter' && phone.length === 10) {
+                                                    handlePhoneSubmit();
+                                                }
                                             }}
+                                            inputProps={{ maxLength: 10 }}
                                             sx={{
-                                                mb: 2,
-                                                "& .MuiOutlinedInput-root": {
+                                                mb: 4,
+                                                '& .MuiOutlinedInput-root': {
                                                     borderRadius: 2,
-                                                    background: "white",
-                                                    transition: "all 0.3s ease",
-                                                    "&:hover": {
-                                                        "& .MuiOutlinedInput-notchedOutline": {
-                                                            borderColor: "#81c784",
-                                                        }
+                                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                                        borderColor: "#8b5a2b",
+                                                    },
+                                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                                        borderColor: "#704214",
                                                     }
                                                 },
-                                                "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                                    borderColor: "#4caf50",
-                                                    borderWidth: 2,
+                                                '& .MuiInputLabel-root': {
+                                                    color: "#8b5a2b",
+                                                    '&.Mui-focused': {
+                                                        color: "#704214",
+                                                    }
                                                 },
+                                            }}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <PhoneIcon sx={{ color: "#8b5a2b" }} />
+                                                    </InputAdornment>
+                                                ),
                                             }}
                                         />
 
                                         <Button
                                             variant="contained"
                                             fullWidth
+                                            size="large"
+                                            onClick={handlePhoneSubmit}
+                                            disabled={loading || phone.length !== 10}
                                             sx={{
                                                 py: 1.5,
                                                 borderRadius: 2,
-                                                background: "linear-gradient(135deg, #4caf50 0%, #81c784 100%)",
-                                                boxShadow: "0 6px 20px rgba(76, 175, 80, 0.3)",
-                                                fontWeight: 600,
+                                                background: "linear-gradient(135deg, #8b5a2b 0%, #704214 100%)",
                                                 fontSize: "1rem",
-                                                transition: "all 0.3s ease",
-                                                "&:hover": {
-                                                    background: "linear-gradient(135deg, #45a049 0%, #66bb6a 100%)",
-                                                    boxShadow: "0 8px 25px rgba(76, 175, 80, 0.4)",
-                                                    transform: "translateY(-2px)",
+                                                fontWeight: 600,
+                                                textTransform: "none",
+                                                boxShadow: "0 4px 12px rgba(112, 66, 20, 0.3)",
+                                                '&:hover': {
+                                                    background: "linear-gradient(135deg, #704214 0%, #5a3410 100%)",
+                                                    boxShadow: "0 6px 16px rgba(112, 66, 20, 0.4)",
                                                 },
-                                                "&:active": {
-                                                    transform: "translateY(0)",
+                                                '&:disabled': {
+                                                    background: "#d0d0d0",
+                                                    color: "#888",
                                                 }
                                             }}
-                                            onClick={handlePhoneSubmit}
                                         >
-                                            Send OTP
+                                            {loading ? (
+                                                <CircularProgress size={24} sx={{ color: "#fff" }} />
+                                            ) : (
+                                                "Send OTP"
+                                            )}
                                         </Button>
-                                    </Box>
-                                </Fade>
-                            ) : (
-                                <Fade in={showOtp} timeout={500}>
-                                    <Box>
-                                        <Typography variant="body2" sx={{ mb: 1, color: "#333", fontWeight: 600 }}>
-                                            Enter 6 digit OTP
+
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                mt: 3,
+                                                textAlign: "center",
+                                                color: "#8b5a2b",
+                                                fontSize: "0.85rem",
+                                            }}
+                                        >
+                                            By continuing, you agree to our Terms & Privacy Policy
                                         </Typography>
-                                        <Divider sx={{ mb: 3, borderColor: "#e0e0e0" }} />
-                                        {/* 6 OTP Boxes */}
-                                        <Grid2 container spacing={1} sx={{ mb: 3 }}>
+                                    </Box>
+                                ) : (
+                                    <Box>
+                                        <Typography
+                                            variant="h6"
+                                            sx={{
+                                                mb: 2,
+                                                color: "#704214",
+                                                fontWeight: 600,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            Enter Verification Code
+                                        </Typography>
+
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                mb: 3,
+                                                color: "#8b5a2b",
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            We've sent a 6-digit code to +91 {phone}
+                                        </Typography>
+
+                                        <Grid container spacing={1.5} sx={{ mb: 3 }}>
                                             {otpDigits.map((digit, index) => (
-                                                <Grid2 size={{ xs: 2 }} key={index}>
+                                                <Grid item xs={2} key={index}>
                                                     <TextField
                                                         inputRef={(el) => (otpInputs.current[index] = el)}
-                                                        variant="outlined"
                                                         value={digit}
                                                         onChange={(e) => handleOtpChange(index, e.target.value)}
                                                         onKeyDown={(e) => handleOtpKeyDown(index, e)}
                                                         inputProps={{
                                                             maxLength: 1,
-                                                            style: { textAlign: 'center', fontSize: '1.2rem', fontWeight: 600 },
+                                                            style: {
+                                                                textAlign: 'center',
+                                                                fontSize: '1.3rem',
+                                                                fontWeight: 600,
+                                                                color: '#704214'
+                                                            },
                                                         }}
                                                         sx={{
-                                                            "& .MuiOutlinedInput-root": {
-                                                                borderRadius: 1,
-                                                                background: "white",
-                                                                height: 50,
-                                                                "&:hover": {
-                                                                    "& .MuiOutlinedInput-notchedOutline": {
-                                                                        borderColor: "#ff9800",
+                                                            '& .MuiOutlinedInput-root': {
+                                                                borderRadius: 1.5,
+                                                                height: 56,
+                                                                '&.Mui-focused': {
+                                                                    '& .MuiOutlinedInput-notchedOutline': {
+                                                                        borderColor: '#704214',
+                                                                        borderWidth: 2,
                                                                     }
+                                                                },
+                                                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                                                    borderColor: '#8b5a2b',
                                                                 }
-                                                            },
-                                                            "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                                                borderColor: "#ff9800",
-                                                                borderWidth: 2,
                                                             },
                                                         }}
                                                     />
-                                                </Grid2>
+                                                </Grid>
                                             ))}
-                                        </Grid2>
-                                        <Button
-                                            variant="contained"
-                                            fullWidth
-                                            sx={{
-                                                py: 1.5,
-                                                borderRadius: 2,
-                                                background: "linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)",
-                                                boxShadow: "0 6px 20px rgba(255, 152, 0, 0.3)",
-                                                fontWeight: 600,
-                                                fontSize: "1rem",
-                                                color: "white",
-                                                transition: "all 0.3s ease",
-                                                "&:hover": {
-                                                    background: "linear-gradient(135deg, #f57c00 0%, #ff9800 100%)",
-                                                    boxShadow: "0 8px 25px rgba(255, 152, 0, 0.4)",
-                                                    transform: "translateY(-2px)",
-                                                },
-                                                "&:active": {
-                                                    transform: "translateY(0)",
-                                                }
-                                            }}
-                                            onClick={handleOtpSubmit}
-                                        >
-                                            Verify OTP
-                                        </Button>
-                                    </Box>
-                                </Fade>
-                            )}
+                                        </Grid>
 
-                            {/* Footer */}
-                            <Fade in={true} timeout={2000}>
-                                <Box sx={{ mt: 4, pt: 2, borderTop: "1px solid #e0e0e0", textAlign: "center" }}>
-                                    <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                        sx={{
-                                            fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                                            opacity: 0.7
-                                        }}
-                                    >
-                                        © 2025 Utpal Ayurveda. All rights reserved.
-                                    </Typography>
-                                </Box>
-                            </Fade>
-                        </CardContent>
-                    </Card>
-                </Slide>
-            </Grid2>
-        </Grid2>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                textAlign: "center",
+                                                color: timer < 60 ? "#d32f2f" : "#8b5a2b",
+                                                mb: 3,
+                                                fontWeight: timer < 60 ? 600 : 400,
+                                            }}
+                                        >
+                                            Code expires in: {formatTime(timer)}
+                                        </Typography>
+
+                                        <Box sx={{ display: 'flex', gap: 2 }}>
+                                            <Button
+                                                variant="outlined"
+                                                fullWidth
+                                                onClick={handleResendOtp}
+                                                disabled={timer > 0}
+                                                sx={{
+                                                    py: 1.5,
+                                                    borderRadius: 2,
+                                                    borderColor: "#8b5a2b",
+                                                    color: "#8b5a2b",
+                                                    '&:hover': {
+                                                        borderColor: "#704214",
+                                                        background: "rgba(139, 90, 43, 0.08)",
+                                                    },
+                                                    '&:disabled': {
+                                                        borderColor: "#d0d0d0",
+                                                        color: "#888",
+                                                    }
+                                                }}
+                                            >
+                                                Resend OTP
+                                            </Button>
+
+                                            <Button
+                                                variant="contained"
+                                                fullWidth
+                                                size="large"
+                                                onClick={handleOtpSubmit}
+                                                disabled={loading || otpDigits.some(d => d === '')}
+                                                sx={{
+                                                    py: 1.5,
+                                                    borderRadius: 2,
+                                                    background: "linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)",
+                                                    fontSize: "1rem",
+                                                    fontWeight: 600,
+                                                    textTransform: "none",
+                                                    boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
+                                                    '&:hover': {
+                                                        background: "linear-gradient(135deg, #1b5e20 0%, #0d3c14 100%)",
+                                                        boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
+                                                    },
+                                                    '&:disabled': {
+                                                        background: "#d0d0d0",
+                                                        color: "#888",
+                                                    }
+                                                }}
+                                            >
+                                                {loading ? (
+                                                    <CircularProgress size={24} sx={{ color: "#fff" }} />
+                                                ) : (
+                                                    "Verify & Continue"
+                                                )}
+                                            </Button>
+                                        </Box>
+
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                mt: 3,
+                                                textAlign: "center",
+                                                color: "#999",
+                                                fontSize: "0.8rem",
+                                            }}
+                                        >
+                                            Didn't receive the code? Check your spam folder
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Box>
+                        </Fade>
+
+                        <Fade in={true} timeout={2000}>
+                            <Box sx={{
+                                mt: 4,
+                                pt: 3,
+                                borderTop: "1px solid rgba(139, 90, 43, 0.2)"
+                            }}>
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        textAlign: "center",
+                                        color: "#8b5a2b",
+                                        fontSize: "0.8rem",
+                                        mb: 1,
+                                    }}
+                                >
+                                    Need help? Contact support@utpalayurveda.com
+                                </Typography>
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        display: "block",
+                                        textAlign: "center",
+                                        color: "#999",
+                                    }}
+                                >
+                                    © 2025 Utpal Ayurveda. Embracing ancient healing traditions.
+                                </Typography>
+                            </Box>
+                        </Fade>
+                    </CardContent>
+                </Card>
+            </Slide>
+
+            <style jsx global>{`
+                @keyframes float {
+                    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+                    33% { transform: translate(20px, -20px) rotate(120deg); }
+                    66% { transform: translate(-15px, 15px) rotate(240deg); }
+                }
+            `}</style>
+        </Box>
     );
 }
