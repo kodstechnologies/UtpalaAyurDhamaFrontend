@@ -58,6 +58,7 @@
     "react-feather": "^2.0.10",
     "react-full-screen": "^1.1.1",
     "react-helmet": "^6.1.0",
+    "react-helmet-async": "^2.0.5",
     "react-icons": "^5.5.0",
     "react-input-mask": "^2.0.4",
     "react-modal-image": "^2.6.0",

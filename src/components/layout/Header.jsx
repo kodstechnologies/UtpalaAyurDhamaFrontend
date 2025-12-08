@@ -1,3 +1,5 @@
+
+
 // import * as React from 'react';
 // import AppBar from '@mui/material/AppBar';
 // import Box from '@mui/material/Box';
@@ -22,7 +24,9 @@
 // import logo from "../../assets/logo/utpala_logo.png";
 // // import { Link } from 'react-router-dom';
 // import { useDispatch, useSelector } from 'react-redux';
+// import { useNavigate } from 'react-router-dom';
 // import { toggleSidebar } from '../../redux/slices/uiSlice';
+// import { logout } from '../../redux/slices/authSlice'; // Adjust path to your authSlice file
 // import NotificationDrawer from './component/NotificationDrawer'; // Import the separate component here
 
 // const settings = [
@@ -34,6 +38,7 @@
 
 // function ResponsiveAppBar({ pageTitle = '' }) {
 //   const dispatch = useDispatch();
+//   const navigate = useNavigate();
 //   const sidebarOpen = useSelector((state) => state.ui.sidebarOpen);
 //   const [anchorElNav, setAnchorElNav] = React.useState(null);
 //   const [anchorElUser, setAnchorElUser] = React.useState(null);
@@ -59,6 +64,16 @@
 
 //   const handleToggleSidebar = () => {
 //     dispatch(toggleSidebar());
+//   };
+
+//   // Handle menu item clicks
+//   const handleMenuItemClick = (label) => {
+//     handleUserClose();
+//     if (label === 'Logout') {
+//       dispatch(logout());
+//       navigate('/');
+//     }
+//     // Add handlers for other items if needed (e.g., navigate to profile, dashboard)
 //   };
 
 //   // Hover state for UTPALA text
@@ -250,7 +265,7 @@
 //               {settings.map(({ label, icon }) => (
 //                 <MenuItem
 //                   key={label}
-//                   onClick={handleUserClose}
+//                   onClick={() => handleMenuItemClick(label)}
 //                   sx={{
 //                     gap: 1,
 //                     transition: "all 0.2s ease",
@@ -304,7 +319,6 @@ import NotificationDrawer from './component/NotificationDrawer'; // Import the s
 
 const settings = [
   { label: 'Profile', icon: <PersonIcon fontSize="small" /> },
-  { label: 'Account', icon: <AccountCircleIcon fontSize="small" /> },
   { label: 'Dashboard', icon: <DashboardIcon fontSize="small" /> },
   { label: 'Logout', icon: <LogoutIcon fontSize="small" /> },
 ];
@@ -313,6 +327,7 @@ function ResponsiveAppBar({ pageTitle = '' }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const sidebarOpen = useSelector((state) => state.ui.sidebarOpen);
+  const { user, role } = useSelector((state) => state.auth); // Select user and role from auth state
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
@@ -342,12 +357,24 @@ function ResponsiveAppBar({ pageTitle = '' }) {
   // Handle menu item clicks
   const handleMenuItemClick = (label) => {
     handleUserClose();
+
     if (label === 'Logout') {
       dispatch(logout());
       navigate('/');
+      return;
     }
-    // Add handlers for other items if needed (e.g., navigate to profile, dashboard)
+    if (label === 'Dashboard') {
+      navigate(`/${role?.toLowerCase()}/dashboard`);
+      return;
+    }
+
+    if (label === 'Profile') {
+      navigate(`/${role?.toLowerCase()}/profile`);
+      return;
+    }
+
   };
+
 
   // Hover state for UTPALA text
   const [utpalaHovered, setUtpalaHovered] = React.useState(false);
@@ -485,13 +512,13 @@ function ResponsiveAppBar({ pageTitle = '' }) {
               onUnreadChange={setUnreadNotifications}
             />
 
-            {/* USER INFO */}
+            {/* USER INFO - Dynamic with Redux State */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: "column", textAlign: "right", lineHeight: "1rem" }}>
               <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                Sangram
+                {user?.name || 'User'}
               </Typography>
               <Typography variant="body2" sx={{ fontSize: "0.75rem", opacity: 0.7 }}>
-                Admin
+                {role || 'Role'}
               </Typography>
             </Box>
 
@@ -506,8 +533,8 @@ function ResponsiveAppBar({ pageTitle = '' }) {
                 }}
               >
                 <Avatar
-                  alt="Sangram"
-                  src="/static/images/avatar/2.jpg"
+                  alt={user?.name || 'User'}
+                  src={user?.avatar || "/static/images/avatar/2.jpg"}
                   sx={{
                     width: 40,
                     height: 40,

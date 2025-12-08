@@ -1,4 +1,5 @@
 import React, { lazy } from "react";
+import { Helmet } from "react-helmet";
 // src/routes/adminRoutes.jsx
 // ================= ADMIN MAIN PAGES =================
 const Dashboard = lazy(() => import("../../pages/admin/dashboard"));
@@ -53,35 +54,161 @@ const PatientRecords = lazy(() =>
 // Stock List======================================
 
 export const adminRoutes = [
-    { path: "/admin/dashboard", element: <Dashboard /> },
-    { path: "/admin/doctors", element: <Doctors /> },
-    { path: "/admin/nursing", element: <Nursing /> },
-    { path: "/admin/receptionists", element: <Receptionists /> },
-    { path: "/admin/pharmacists", element: <Pharmacists /> },
-    { path: "/admin/therapists", element: <Therapists /> },
-    { path: "/admin/patients", element: <Patients /> },
-
+    {
+        path: "/admin/dashboard", element:
+            <><Helmet>
+                <title>Dashboard | UTPALA</title>
+                <meta name="description" content="Doctor dashboard overview." />
+            </Helmet>
+                <Dashboard />
+            </>
+    },
+    {
+        path: "/admin/doctors", element:
+            <><Helmet>
+                <title>Doctors | UTPALA</title>
+                <meta name="description" content="Doctor dashboard overview." />
+            </Helmet>
+                <Doctors />
+            </>
+    },
+    {
+        path: "/admin/nursing", element:
+            <><Helmet>
+                <title>Nursing | UTPALA</title>
+                <meta name="description" content="Nursing dashboard overview." />
+            </Helmet>
+                <Nursing />
+            </>
+    },
+    {
+        path: "/admin/receptionists", element:
+            <><Helmet>
+                <title>Receptionists | UTPALA</title>
+                <meta name="description" content="Receptionists dashboard overview." />
+            </Helmet>
+                <Receptionists />
+            </>
+    },
+    {
+        path: "/admin/pharmacists", element:
+            <><Helmet>
+                <title>Pharmacists | UTPALA</title>
+                <meta name="description" content="Pharmacists dashboard overview." />
+            </Helmet>
+                <Pharmacists />
+            </>
+    },
+    {
+        path: "/admin/therapists", element:
+            <><Helmet>
+                <title>Therapists | UTPALA</title>
+                <meta name="description" content="Therapists dashboard overview." />
+            </Helmet>
+                <Therapists />
+            </>
+    },
+    {
+        path: "/admin/patients", element:
+            <><Helmet>
+                <title>Patients | UTPALA</title>
+                <meta name="description" content="Patients dashboard overview." />
+            </Helmet>
+                <Patients />
+            </>
+    },
     // Treatment Therapists =================================
-    { path: "/therapist/view", element: <Therapists_View /> },
-    { path: "/therapist/assignments/view", element: <Therapists_Assignment_View /> },
+    {
+        path: "/therapist/view", element:
+            <><Helmet>
+                <title>Therapist | UTPALA</title>
+                <meta name="description" content="Patients dashboard overview." />
+            </Helmet>
+                <Therapists_View />
+            </>
+    },
+    {
+        path: "/therapist/assignments/view", element:
+
+            <><Helmet>
+                <title>Therapist Assignments | UTPALA</title>
+                <meta name="description" content="Therapist assignments overview." />
+            </Helmet>
+                <Therapists_Assignment_View />
+            </>
+    },
 
     // Consultation =========================================
     // ===== slot ===============
-    { path: "/consultation/slot/view", element: <Slot_View /> },
+    {
+        path: "/consultation/slot/view", element:
+
+            <><Helmet>
+                <title>Consultation Slots | UTPALA</title>
+                <meta name="description" content="Consultation slots overview." />
+            </Helmet>
+                <Slot_View /></>
+    },
     // {path : "/consultation/add" ,}
 
     // ===== consultation ===============
-    { path: "/consultation/view", element: <Consultation_View /> },
+    {
+        path: "/consultation/view", element:
+
+            <><Helmet>
+                <title>Consultation | UTPALA</title>
+                <meta name="description" content="Consultation overview." />
+            </Helmet>
+                <Consultation_View /></>
+    },
 
     // Stock List =====================
-    { path: "/inventory/view", element: <Inventory_View /> },
+    {
+        path: "/inventory/view", element:
+
+            <><Helmet>
+                <title>Inventory | UTPALA</title>
+                <meta name="description" content="Inventory overview." />
+            </Helmet>
+                <Inventory_View /></>
+    },
 
     // Food Charges ===================
-    { path: "/foodcharges/view", element: <Food_Charges_View /> },
+    {
+        path: "/foodcharges/view", element:
+
+            <><Helmet>
+                <title>Food Charges | UTPALA</title>
+                <meta name="description" content="Food charges overview." />
+            </Helmet>
+                <Food_Charges_View /></>
+    },
 
     // analytics =============================
-    { path: "/analytics/admissions", element: <Admissions_View /> },
-    { path: "/analytics/discharges", element: <Discharges /> },
-    { path: "/analytics/patient-records", element: <PatientRecords /> },
+    {
+        path: "/analytics/admissions", element:
+
+            <><Helmet>
+                <title>Admissions | UTPALA</title>
+                <meta name="description" content="Admissions overview." />
+            </Helmet>
+                <Admissions_View /></>
+    },
+    {
+        path: "/analytics/discharges", element:
+            <><Helmet>
+                <title>Discharges | UTPALA</title>
+                <meta name="description" content="Discharges overview." />
+            </Helmet>
+                <Discharges /></>
+    },
+    {
+        path: "/analytics/patient-records", element:
+            <><Helmet>
+                <title>Patient Records | UTPALA</title>
+                <meta name="description" content="Patient records overview." />
+            </Helmet>
+                <PatientRecords /></>
+    },
 
 ];

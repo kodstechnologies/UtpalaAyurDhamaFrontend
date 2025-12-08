@@ -1119,6 +1119,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { useNavigate } from "react-router-dom";
 import CreateEditCard from "../card/tableRelated/CreateEditCard"; // Adjust path to import CreateEditCard
 import ViewCard from "../card/tableRelated/ViewCard"; // Adjust path to import ViewCard
+import { X } from 'lucide-react';
 
 function TableComponent({
     title = "Table Name",
@@ -1478,31 +1479,75 @@ function TableComponent({
             />
             {/* CREATE MODAL */}
             <Dialog open={createModalOpen} onClose={handleCreateModalClose} maxWidth="md" fullWidth>
-                <DialogTitle>Create New Item</DialogTitle>
+
+                {/* 🔥 Title + Close Button in ONE ROW */}
+                <DialogTitle
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingRight: 2,
+                    }}
+                >
+                    Create New Item
+
+                    <IconButton onClick={handleCreateModalClose} size="small">
+                        <X />
+                    </IconButton>
+                </DialogTitle>
+
                 <DialogContent>
                     <Box sx={{ p: 2 }}>
                         {createModalContentNode}
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCreateModalClose}>Cancel</Button>
-                </DialogActions>
+
             </Dialog>
+
             {/* EDIT MODAL */}
             <Dialog open={editModalOpen} onClose={handleEditModalClose} maxWidth="md" fullWidth>
-                <DialogTitle>Edit Item</DialogTitle>
+
+                {/* 🔥 Title + X button in ONE row */}
+                <DialogTitle
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingRight: 2,
+                    }}
+                >
+                    Edit Item
+
+                    <IconButton onClick={handleEditModalClose} size="small">
+                        <X />
+                    </IconButton>
+                </DialogTitle>
+
                 <DialogContent>
                     <Box sx={{ p: 2 }}>
                         {editModalContentNode}
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleEditModalClose}>Cancel</Button>
-                </DialogActions>
             </Dialog>
+
             {/* VIEW MODAL */}
             <Dialog open={viewModalOpen} onClose={handleViewModalClose} maxWidth="md" fullWidth>
-                <DialogTitle>View Details</DialogTitle>
+
+                <DialogTitle
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingRight: 2,
+                    }}
+                >
+                    View Details
+
+                    <IconButton onClick={handleViewModalClose} size="small">
+                        <X />
+                    </IconButton>
+                </DialogTitle>
+
                 <DialogContent>
                     <Box sx={{ p: 2 }}>
                         {viewRow ? (
@@ -1516,10 +1561,9 @@ function TableComponent({
                         )}
                     </Box>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleViewModalClose}>Close</Button>
-                </DialogActions>
+
             </Dialog>
+
         </Paper>
     );
 }
