@@ -1,6 +1,10 @@
 import React, { lazy } from "react";
 import { Helmet } from "react-helmet";
 // src/routes/adminRoutes.jsx
+
+// =================== PROFILE =====================
+const AdminProfile = lazy(() => import("../../pages/admin/Profile"));
+
 // ================= ADMIN MAIN PAGES =================
 const Dashboard = lazy(() => import("../../pages/admin/dashboard"));
 const Doctors = lazy(() => import("../../pages/admin/Doctors"));
@@ -32,6 +36,9 @@ const Therapists_Assignment_View = lazy(() =>
 const Inventory_View = lazy(() =>
     import("../../pages/admin/inventory/View")
 );
+const Batch_Log_View = lazy(() =>
+    import("../../pages/admin/inventory/BatchLog")
+);
 
 // ================= FOOD CHARGES =================
 const Food_Charges_View = lazy(() =>
@@ -54,6 +61,17 @@ const PatientRecords = lazy(() =>
 // Stock List======================================
 
 export const adminRoutes = [
+    // Profile ========================================
+    {
+        path: "/admin/profile", element:
+            <><Helmet>
+                <title>Profile | UTPALA</title>
+                <meta name="description" content="Admin profile overview." />
+            </Helmet>
+                <AdminProfile />
+            </>
+    },
+
     {
         path: "/admin/dashboard", element:
             <><Helmet>
@@ -171,6 +189,15 @@ export const adminRoutes = [
                 <meta name="description" content="Inventory overview." />
             </Helmet>
                 <Inventory_View /></>
+    },
+    {
+        path: "/inventory/batch-log/:stockId", element:
+
+            <><Helmet>
+                <title>Batch Log | UTPALA</title>
+                <meta name="description" content="Batch log overview." />
+            </Helmet>
+                <Batch_Log_View /></>
     },
 
     // Food Charges ===================

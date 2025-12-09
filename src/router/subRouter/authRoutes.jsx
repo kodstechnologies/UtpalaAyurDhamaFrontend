@@ -1,13 +1,10 @@
 // src/routes/authRoutes.jsx
+// import path from "path";
 import Login from "../../pages/auth/Login";
-// import Signup from "../../components/pages/login/Signup";
-// import ForgotPassword from "../../components/pages/login/ForgotPassword";
-// import ChangePassword from "../../components/pages/login/ChangePassword";
+import PageNotFound from "../../pages/auth/PageNotFound";
 
 export const authRoutes = [
     { path: "/", element: <Login /> },
     { path: "/login", element: <Login /> },
-    // { path: "/signup", element: <Signup /> },
-    // { path: "/forgotpassword", element: <ForgotPassword /> },
-    // { path: "/changepassword", element: <ChangePassword /> }
+    { path: "*", element: <PageNotFound /> },
 ];

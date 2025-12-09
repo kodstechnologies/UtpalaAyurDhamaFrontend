@@ -9,6 +9,8 @@ import Breadcrumb from "../../components/breadcrumb/Breadcrumb";
 import GreetingBanner from "../../components/card/GreetingCard";
 import DashboardCard from "../../components/card/DashboardCard";
 
+import GreetingsImg from "../../assets/greeting/doctor.png";
+
 function Doctor_Dashboard() {
     return (
         <div>
@@ -26,7 +28,7 @@ function Doctor_Dashboard() {
                 title="Good Morning"
                 name="Doctor"
                 subtitle="Here’s a quick overview of your today's activities & patient updates."
-                image="https://cdn.pixabay.com/photo/2016/12/06/18/27/doctor-1886768_960_720.png"
+                image={GreetingsImg}
             />
 
             {/* Dashboard Cards */}

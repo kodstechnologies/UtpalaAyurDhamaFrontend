@@ -1,293 +1,3 @@
-
-
-// import * as React from 'react';
-// import AppBar from '@mui/material/AppBar';
-// import Box from '@mui/material/Box';
-// import Toolbar from '@mui/material/Toolbar';
-// import IconButton from '@mui/material/IconButton';
-// import Typography from '@mui/material/Typography';
-// import Menu from '@mui/material/Menu';
-// import MenuIcon from '@mui/icons-material/Menu';
-// import Container from '@mui/material/Container';
-// import Avatar from '@mui/material/Avatar';
-// // import Button from '@mui/material/Button';
-// import Tooltip from '@mui/material/Tooltip';
-// import MenuItem from '@mui/material/MenuItem';
-// import Badge from '@mui/material/Badge';
-// import NotificationsIcon from '@mui/icons-material/Notifications';
-// import DashboardIcon from '@mui/icons-material/Dashboard';
-// import PersonIcon from '@mui/icons-material/Person';
-// import LogoutIcon from '@mui/icons-material/Logout';
-// import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-// // import CircleNotificationsIcon from '@mui/icons-material/CircleNotifications';
-// // import CalendarViewDayIcon from '@mui/icons-material/CalendarViewDay';
-// import logo from "../../assets/logo/utpala_logo.png";
-// // import { Link } from 'react-router-dom';
-// import { useDispatch, useSelector } from 'react-redux';
-// import { useNavigate } from 'react-router-dom';
-// import { toggleSidebar } from '../../redux/slices/uiSlice';
-// import { logout } from '../../redux/slices/authSlice'; // Adjust path to your authSlice file
-// import NotificationDrawer from './component/NotificationDrawer'; // Import the separate component here
-
-// const settings = [
-//   { label: 'Profile', icon: <PersonIcon fontSize="small" /> },
-//   { label: 'Account', icon: <AccountCircleIcon fontSize="small" /> },
-//   { label: 'Dashboard', icon: <DashboardIcon fontSize="small" /> },
-//   { label: 'Logout', icon: <LogoutIcon fontSize="small" /> },
-// ];
-
-// function ResponsiveAppBar({ pageTitle = '' }) {
-//   const dispatch = useDispatch();
-//   const navigate = useNavigate();
-//   const sidebarOpen = useSelector((state) => state.ui.sidebarOpen);
-//   const [anchorElNav, setAnchorElNav] = React.useState(null);
-//   const [anchorElUser, setAnchorElUser] = React.useState(null);
-//   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
-//   const [scrolled, setScrolled] = React.useState(false);
-//   const [unreadNotifications, setUnreadNotifications] = React.useState(2);
-
-//   // Scroll detection
-//   React.useEffect(() => {
-//     const handleScroll = () => {
-//       setScrolled(window.scrollY > 20);
-//     };
-//     window.addEventListener("scroll", handleScroll);
-//     return () => window.removeEventListener("scroll", handleScroll);
-//   }, []);
-
-//   const handleNavClose = () => setAnchorElNav(null);
-//   const handleUserClose = () => setAnchorElUser(null);
-
-//   const handleNotificationToggle = () => {
-//     setNotificationDrawerOpen((prev) => !prev);
-//   };
-
-//   const handleToggleSidebar = () => {
-//     dispatch(toggleSidebar());
-//   };
-
-//   // Handle menu item clicks
-//   const handleMenuItemClick = (label) => {
-//     handleUserClose();
-//     if (label === 'Logout') {
-//       dispatch(logout());
-//       navigate('/');
-//     }
-//     // Add handlers for other items if needed (e.g., navigate to profile, dashboard)
-//   };
-
-//   // Hover state for UTPALA text
-//   const [utpalaHovered, setUtpalaHovered] = React.useState(false);
-
-//   return (
-//     <AppBar
-//       position="sticky"
-//       sx={{
-//         top: 0,
-//         zIndex: 1201,
-//         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-//         backgroundColor: scrolled
-//           ? "var(--color-bg-header-scroll) !important"
-//           : "var(--color-bg-header) !important",
-//         color: "var(--color-text-header)",
-//         boxShadow: scrolled ? "0 4px 20px rgba(0,0,0,0.1)" : "none",
-//         backdropFilter: scrolled ? "blur(10px)" : "none",
-//       }}
-//     >
-//       <Container maxWidth="xl">
-//         <Toolbar disableGutters sx={{ gap: "1.5rem", minHeight: { xs: 56, md: 72 } }}>
-
-//           {/* LOGO & TITLE SECTION */}
-//           <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
-//             <Tooltip title="Home">
-//               <IconButton
-//                 size="large"
-//                 edge="start"
-//                 color="inherit"
-//                 sx={{
-//                   transition: "all 0.2s ease",
-//                   "&:hover": { transform: "scale(1.05)", backgroundColor: "rgba(255,255,255,0.1)" },
-//                 }}
-//               >
-//                 <img src={logo} alt="UTPALA Logo" style={{ height: "2.2rem", width: "auto" }} />
-//               </IconButton>
-//             </Tooltip>
-//             <Typography
-//               variant="h5"
-//               noWrap
-//               component="a"
-//               href="/"
-//               onMouseEnter={() => setUtpalaHovered(true)}
-//               onMouseLeave={() => setUtpalaHovered(false)}
-//               sx={{
-//                 display: { xs: 'none', md: 'flex' },
-//                 fontFamily: 'serif',
-//                 fontWeight: 800,
-//                 letterSpacing: '.15rem',
-//                 color: utpalaHovered
-//                   ? (scrolled ? "#8B4513" : "#228B22") // Brown on scroll, green initially
-//                   : "inherit",
-//                 textDecoration: 'none',
-//                 transition: "color 0.2s ease",
-//                 mr: 2,
-//               }}
-//             >
-//               UTPALA
-//             </Typography>
-//           </Box>
-
-//           {/* DESKTOP SIDEBAR TOGGLE */}
-//           <Tooltip title={sidebarOpen ? "Close Sidebar" : "Open Sidebar"}>
-//             <IconButton
-//               size="large"
-//               color="inherit"
-//               onClick={handleToggleSidebar}
-//               sx={{
-//                 display: { xs: 'none', md: 'flex' },
-//                 transition: "all 0.2s ease",
-//                 "&:hover": { backgroundColor: "rgba(255,255,255,0.1)", transform: "scale(1.05)" },
-//                 transform: sidebarOpen ? 'rotate(180deg)' : 'none',
-//               }}
-//             >
-//               <MenuIcon />
-//             </IconButton>
-//           </Tooltip>
-
-//           {/* MOBILE MENU (Toggle Sidebar on Mobile for Consistency) */}
-//           <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
-//             <IconButton
-//               size="large"
-//               aria-label="toggle sidebar"
-//               onClick={handleToggleSidebar}
-//               color="inherit"
-//               sx={{ ml: "auto" }}
-//             >
-//               <MenuIcon />
-//             </IconButton>
-//           </Box>
-
-//           {/* DESKTOP NAV (Optional - Add if needed) */}
-//           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }} />
-
-//           {/* RIGHT SIDE SECTION */}
-//           <Box sx={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
-
-//             {/* Notification Bell Icon with Red Dot Badge (No Count) */}
-//             <Tooltip title="Notifications">
-//               <IconButton
-//                 size="large"
-//                 color="inherit"
-//                 onClick={handleNotificationToggle}
-//                 sx={{
-//                   transition: "all 0.2s ease",
-//                   "&:hover": { backgroundColor: "rgba(255,255,255,0.1)", transform: "scale(1.05)" },
-//                 }}
-//               >
-//                 <Badge
-//                   badgeContent={null}
-//                   invisible={!unreadNotifications || unreadNotifications === 0}
-//                   color="error"
-//                   variant="dot"
-//                   anchorOrigin={{
-//                     vertical: 'top',
-//                     horizontal: 'right',
-//                   }}
-//                   sx={{
-//                     '& .MuiBadge-badge': {
-//                       backgroundColor: '#f44336', // Red dot
-//                       boxShadow: '0 0 0 2px var(--color-bg-header)', // Border to make it pop
-//                     },
-//                   }}
-//                 >
-//                   <NotificationsIcon />
-//                 </Badge>
-//               </IconButton>
-//             </Tooltip>
-
-//             {/* Single Call to the Separate Component - Handles Display on Click */}
-//             <NotificationDrawer
-//               open={notificationDrawerOpen}
-//               onClose={() => setNotificationDrawerOpen(false)}
-//               unreadCount={unreadNotifications}
-//               onUnreadChange={setUnreadNotifications}
-//             />
-
-//             {/* USER INFO */}
-//             <Box sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: "column", textAlign: "right", lineHeight: "1rem" }}>
-//               <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
-//                 Sangram
-//               </Typography>
-//               <Typography variant="body2" sx={{ fontSize: "0.75rem", opacity: 0.7 }}>
-//                 Admin
-//               </Typography>
-//             </Box>
-
-//             {/* AVATAR MENU */}
-//             <Tooltip title="Open settings">
-//               <IconButton
-//                 onClick={(e) => setAnchorElUser(e.currentTarget)}
-//                 sx={{
-//                   p: 0,
-//                   transition: "all 0.2s ease",
-//                   "&:hover": { "& .MuiAvatar-root": { transform: "scale(1.1)" } },
-//                 }}
-//               >
-//                 <Avatar
-//                   alt="Sangram"
-//                   src="/static/images/avatar/2.jpg"
-//                   sx={{
-//                     width: 40,
-//                     height: 40,
-//                     transition: "all 0.2s ease",
-//                     bgcolor: "var(--color-primary)",
-//                   }}
-//                 />
-//               </IconButton>
-//             </Tooltip>
-
-//             <Menu
-//               anchorEl={anchorElUser}
-//               open={Boolean(anchorElUser)}
-//               onClose={handleUserClose}
-//               anchorOrigin={{
-//                 vertical: 'bottom',
-//                 horizontal: 'right',
-//               }}
-//               transformOrigin={{
-//                 vertical: 'top',
-//                 horizontal: 'right',
-//               }}
-//               sx={{
-//                 mt: 0.5,
-//                 '& .MuiPaper-root': { minWidth: 180 },
-//               }}
-//             >
-//               {settings.map(({ label, icon }) => (
-//                 <MenuItem
-//                   key={label}
-//                   onClick={() => handleMenuItemClick(label)}
-//                   sx={{
-//                     gap: 1,
-//                     transition: "all 0.2s ease",
-//                     '&:hover': { backgroundColor: "rgba(var(--color-primary-rgb), 0.1)" },
-//                   }}
-//                 >
-//                   {icon}
-//                   <Typography variant="body2">{label}</Typography>
-//                 </MenuItem>
-//               ))}
-//             </Menu>
-
-//           </Box>
-
-//         </Toolbar>
-//       </Container>
-//     </AppBar>
-//   );
-// }
-
-// export default ResponsiveAppBar;
-
 import * as React from 'react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -309,7 +19,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 // import CircleNotificationsIcon from '@mui/icons-material/CircleNotifications';
 // import CalendarViewDayIcon from '@mui/icons-material/CalendarViewDay';
-import logo from "../../assets/logo/utpala_logo.png";
+import logo from "../../assets/logo/logo.webp";
 // import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -398,42 +108,42 @@ function ResponsiveAppBar({ pageTitle = '' }) {
         <Toolbar disableGutters sx={{ gap: "1.5rem", minHeight: { xs: 56, md: 72 } }}>
 
           {/* LOGO & TITLE SECTION */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              flexShrink: 0,
+            }}
+          >
             <Tooltip title="Home">
               <IconButton
                 size="large"
                 edge="start"
                 color="inherit"
+                onClick={() => navigate("/")}   // ⭐ go to home
                 sx={{
-                  transition: "all 0.2s ease",
-                  "&:hover": { transform: "scale(1.05)", backgroundColor: "rgba(255,255,255,0.1)" },
+                  p: 1,
+                  borderRadius: 2,
+                  transition: "all 0.25s ease",
+                  "&:hover": {
+                    transform: "scale(1.06)",
+                    backgroundColor: "rgba(255,255,255,0.12)",
+                  },
                 }}
               >
-                <img src={logo} alt="UTPALA Logo" style={{ height: "2.2rem", width: "auto" }} />
+                <img
+                  src={logo}
+                  alt="UTPALA Logo"
+                  style={{
+                    height: "3rem",
+                    width: "auto",
+                    display: "block",
+                    objectFit: "contain",
+                  }}
+                />
               </IconButton>
             </Tooltip>
-            <Typography
-              variant="h5"
-              noWrap
-              component="a"
-              href="/"
-              onMouseEnter={() => setUtpalaHovered(true)}
-              onMouseLeave={() => setUtpalaHovered(false)}
-              sx={{
-                display: { xs: 'none', md: 'flex' },
-                fontFamily: 'serif',
-                fontWeight: 800,
-                letterSpacing: '.15rem',
-                color: utpalaHovered
-                  ? (scrolled ? "#8B4513" : "#228B22") // Brown on scroll, green initially
-                  : "inherit",
-                textDecoration: 'none',
-                transition: "color 0.2s ease",
-                mr: 2,
-              }}
-            >
-              UTPALA
-            </Typography>
           </Box>
 
           {/* DESKTOP SIDEBAR TOGGLE */}

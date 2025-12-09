@@ -4,6 +4,7 @@ import GreetingCard from '../../components/card/GreetingCard'
 import PeopleIcon from "@mui/icons-material/People";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
+import GreetingsImg from "../../assets/greeting/admin.png";
 
 function dashboard() {
     // ⭐ Scroll to top on page load
@@ -23,7 +24,7 @@ function dashboard() {
                 <GreetingCard
                     title="Good Morning"
                     message="Wishing you a productive and positive day ahead."
-                    image="https://images.unsplash.com/photo-1554224154-22dec7ec8818"
+                    image={GreetingsImg}
                 />
 
             </div>
