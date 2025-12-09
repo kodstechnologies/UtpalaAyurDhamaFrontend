@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 import Layout from "../components/layout/Layout";
 
@@ -11,6 +12,31 @@ import { pharmacistRoutes } from "./subRouter/pharmacistRoutes";
 import { therapistRoutes } from "./subRouter/TherapistRouter";
 import { patientRoutes } from "./subRouter/patientRouter";
 import ScrollToTop from "./ScrollToTop";
+
+// Component to redirect /dashboard based on user role
+function DashboardRedirect() {
+  const role = useSelector((state) => state.auth.role) || localStorage.getItem("role");
+  const roleLower = role?.toLowerCase();
+
+  if (roleLower === "admin") {
+    return <Navigate to="/admin/dashboard" replace />;
+  } else if (roleLower === "doctor") {
+    return <Navigate to="/doctor/dashboard" replace />;
+  } else if (roleLower === "nurse") {
+    return <Navigate to="/nurse/dashboard" replace />;
+  } else if (roleLower === "receptionist") {
+    return <Navigate to="/receptionist/dashboard" replace />;
+  } else if (roleLower === "pharmacist") {
+    return <Navigate to="/pharmacist/dashboard" replace />;
+  } else if (roleLower === "therapist") {
+    return <Navigate to="/therapist/dashboard" replace />;
+  } else if (roleLower === "patient") {
+    return <Navigate to="/patient/dashboard" replace />;
+  } else {
+    return <Navigate to="/login" replace />;
+  }
+}
+
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -26,6 +52,9 @@ function AppRouter() {
 
         {/* ===== PROTECTED ROUTES (WITH SIDEBAR + HEADER) ===== */}
         <Route element={<Layout />}>
+
+          {/* Dashboard redirect route */}
+          <Route path="/dashboard" element={<DashboardRedirect />} />
 
           {/* ADMIN ROUTES */}
           {adminRoutes.map((route, index) => (

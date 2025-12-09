@@ -16,7 +16,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+//import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 // import CircleNotificationsIcon from '@mui/icons-material/CircleNotifications';
 // import CalendarViewDayIcon from '@mui/icons-material/CalendarViewDay';
 import logo from "../../assets/logo/logo.webp";
@@ -33,12 +33,11 @@ const settings = [
   { label: 'Logout', icon: <LogoutIcon fontSize="small" /> },
 ];
 
-function ResponsiveAppBar({ pageTitle = '' }) {
+function ResponsiveAppBar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const sidebarOpen = useSelector((state) => state.ui.sidebarOpen);
   const { user, role } = useSelector((state) => state.auth); // Select user and role from auth state
-  const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
@@ -52,8 +51,6 @@ function ResponsiveAppBar({ pageTitle = '' }) {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const handleNavClose = () => setAnchorElNav(null);
   const handleUserClose = () => setAnchorElUser(null);
 
   const handleNotificationToggle = () => {
@@ -74,12 +71,22 @@ function ResponsiveAppBar({ pageTitle = '' }) {
       return;
     }
     if (label === 'Dashboard') {
-      navigate(`/${role?.toLowerCase()}/dashboard`);
+      const userRole = role?.toLowerCase() || localStorage.getItem("role")?.toLowerCase();
+      if (userRole) {
+        navigate(`/${userRole}/dashboard`);
+      } else {
+        navigate("/login");
+      }
       return;
     }
 
     if (label === 'Profile') {
-      navigate(`/${role?.toLowerCase()}/profile`);
+      const userRole = role?.toLowerCase() || localStorage.getItem("role")?.toLowerCase();
+      if (userRole) {
+        navigate(`/${userRole}/profile`);
+      } else {
+        navigate("/login");
+      }
       return;
     }
 
@@ -87,7 +94,7 @@ function ResponsiveAppBar({ pageTitle = '' }) {
 
 
   // Hover state for UTPALA text
-  const [utpalaHovered, setUtpalaHovered] = React.useState(false);
+  // const [utpalaHovered, setUtpalaHovered] = React.useState(false);
 
   return (
     <AppBar

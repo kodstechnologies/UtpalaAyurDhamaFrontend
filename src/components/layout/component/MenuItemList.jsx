@@ -87,6 +87,11 @@ const MenuItemList = ({ className = "", items = [], activeItem }) => {
                         <Link
                             to={item.to || "#"} // Fallback if no to
                             className="submenu-link"
+                            onClick={() => {
+                                if (onNavigate && item.to) {
+                                    onNavigate();
+                                }
+                            }}
                             style={{
                                 display: "flex",
                                 alignItems: "center",

@@ -60,7 +60,7 @@ function SidebarLoader({ isOpen = true, onClose, isMobile = false }) {
         <SidebarComponent
             roleMenu={menu}
             activeItem=""
-            isOpen={isMobile ? true : isOpen || reduxIsOpen}   // ✅ CRITICAL FIX
+            isOpen={isMobile ? (isOpen || reduxIsOpen) : (isOpen || reduxIsOpen)}   // ✅ CRITICAL FIX
             onClose={onClose}
             isMobile={isMobile}
         />

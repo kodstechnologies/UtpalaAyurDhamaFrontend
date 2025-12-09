@@ -1,4 +1,4 @@
-import React, { lazy } from "react";
+import { lazy } from "react";
 
 const Nurse_Dashboard = lazy(() =>
     import("../../pages/nurse/Dashboard")
@@ -15,5 +15,5 @@ const Discharge_Preparation = lazy(() =>
 export const nurseRoutes = [
     { path: "/nurse/dashboard", element: <Nurse_Dashboard /> },
     { path: "/nurse/monitoring", element: <Patient_Monitoring /> },
-    { path: "/nurse/patients", element: <Discharge_Preparation /> },
+    { path: "/nurse/discharge-preparation", element: <Discharge_Preparation /> },
 ];

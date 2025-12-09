@@ -5,12 +5,12 @@ import MenuHeader from "./component/MenuHeader";
 import MenuItemList from "./component/MenuItemList";
 // import SidebarLoader from "./SidebarLoader";
 
-function SidebarComponent({ roleMenu = [], activeItem: propActiveItem, isOpen = true }) {
+function SidebarComponent({ roleMenu = [], activeItem: propActiveItem, isOpen = true, isMobile = false, onClose }) {
     const location = useLocation();
     const navigate = useNavigate();
     const activeItem = propActiveItem || location.pathname.split("/").pop() || "";
 
-    // Hover state for peek expansion
+    // Hover state for peek expansion (disabled on mobile)
     const [isHovered, setIsHovered] = useState(false);
 
     // Memoize initial menus to avoid unnecessary re-renders
@@ -21,12 +21,10 @@ function SidebarComponent({ roleMenu = [], activeItem: propActiveItem, isOpen = 
 
     const [menus, setMenus] = useState(initialMenus);
 
-    const isCollapsed = !isOpen;
-    const effectiveIsCollapsed = isCollapsed && !isHovered;
+    // On mobile, always show expanded when open
+    const isCollapsed = isMobile ? false : !isOpen;
+    const effectiveIsCollapsed = isMobile ? false : (isCollapsed && !isHovered);
 
-    // Log for debugging (remove in production)
-    console.log("🚀 ~ SidebarComponent ~ isCollapsed:", isCollapsed);
-    console.log("🚀 ~ SidebarComponent ~ effectiveIsCollapsed:", effectiveIsCollapsed);
 
     // Reset all submenus when actually collapsing (via toggle)
     useEffect(() => {
@@ -81,6 +79,10 @@ function SidebarComponent({ roleMenu = [], activeItem: propActiveItem, isOpen = 
             handleToggle(menu.key);
         } else if (menu.to) {
             navigate(menu.to);
+            // Close sidebar on mobile after navigation
+            if (isMobile && onClose) {
+                onClose();
+            }
         }
     };
 
@@ -104,8 +106,12 @@ function SidebarComponent({ roleMenu = [], activeItem: propActiveItem, isOpen = 
                 // color: "var(--color-text-side-bar)",
 
             }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseEnter={() => !isMobile && setIsHovered(true)}
+            onMouseLeave={() => !isMobile && setIsHovered(false)}
+            onClick={(e) => {
+                // Prevent backdrop click from closing sidebar when clicking inside
+                e.stopPropagation();
+            }}
         >
             <Scrollbars
                 autoHide
@@ -183,6 +189,7 @@ function SidebarComponent({ roleMenu = [], activeItem: propActiveItem, isOpen = 
                                                 activeItem={activeItem}
                                                 isOpen={menu.open}
                                                 className="text-decoration-none"
+                                                onNavigate={isMobile && onClose ? onClose : undefined}
                                             />
                                         </div>
                                     )}

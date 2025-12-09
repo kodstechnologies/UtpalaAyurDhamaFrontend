@@ -57,7 +57,7 @@
 // }
 
 
-import React from "react";
+import PropTypes from "prop-types";
 import { Card, CardContent, Typography, Box } from "@mui/material";
 import Breadcrumb from "../breadcrumb/Breadcrumb"; // ⭐ import breadcrumb here
 
@@ -125,3 +125,11 @@ export default function GreetingBanner({
         </Card>
     );
 }
+
+GreetingBanner.propTypes = {
+    title: PropTypes.string,
+    name: PropTypes.string,
+    subtitle: PropTypes.string,
+    image: PropTypes.string,
+    breadcrumbItems: PropTypes.array,
+};

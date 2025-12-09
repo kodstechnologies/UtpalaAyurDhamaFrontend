@@ -1378,10 +1378,18 @@ export default function Login() {
                     navigate("/receptionist/dashboard");
                 } else if (userRole === "pharmacist") {
                     navigate("/pharmacist/dashboard");
+                } else if (userRole === "therapist") {
+                    navigate("/therapist/dashboard");
                 } else if (userRole === "patient") {
                     navigate("/patient/dashboard");
                 } else {
-                    navigate("/dashboard");
+                    // Fallback: try to get role from localStorage or redirect to login
+                    const storedRole = localStorage.getItem("role")?.toLowerCase();
+                    if (storedRole) {
+                        navigate(`/${storedRole}/dashboard`);
+                    } else {
+                        navigate("/login");
+                    }
                 }
             } catch (err) {
                 setError(err.message || "Invalid OTP or an error occurred.");

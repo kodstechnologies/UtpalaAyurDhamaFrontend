@@ -137,9 +137,10 @@ export const sidebarMenus = {
         {
             key: "dischargePreparation",
             label: "Discharge Preparation",
-            icon: <AssignmentTurnedInIcon style={{ color: "var(--color-icons)" }} />, // updated icon
-            to: "/nurse/patients",
-        },
+            icon: <AssignmentTurnedInIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/nurse/discharge-preparation",
+        }
+        ,
     ],
     receptionist: [
         {
