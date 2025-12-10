@@ -1,161 +1,9 @@
-// import React, { useState } from 'react';
-// import {
-//     TextField,
-//     Button,
-//     Box,
-//     Typography,
-//     FormControl,
-//     InputLabel,
-//     Select,
-//     MenuItem,
-//     FormHelperText,
-//     Alert,
-//     DialogActions,
-// } from '@mui/material';
-// // Simple toast notification (assuming react-toastify is installed; otherwise, use alert or custom)
-// import { toast } from 'react-toastify'; // Import if using react-toastify; else, replace with console/alert
-
-// function CreateEditCard({
-//     fields = [], // Array of { name: string, label: string, type: 'text' | 'email' | 'number' | 'date' | 'select', required: boolean, options?: array for select }
-//     onSave,
-//     onCancel,
-//     payload = {}, // Initial payload values if any
-//     title = "Create New Item", // Dynamic title prop
-//     showToast = true, // Whether to show toast notifications
-//     isEdit = false // Flag to distinguish create vs edit for messages
-// }) {
-//     const [formData, setFormData] = useState(payload || {});
-//     const [errors, setErrors] = useState({});
-//     const [loading, setLoading] = useState(false);
-
-//     const handleInputChange = (e) => {
-//         const { name, value } = e.target;
-//         setFormData(prev => ({ ...prev, [name]: value }));
-//         if (errors[name]) {
-//             setErrors(prev => ({ ...prev, [name]: '' })); // Clear error on change
-//         }
-//     };
-
-//     const handleSelectChange = (e) => {
-//         const { name, value } = e.target;
-//         setFormData(prev => ({ ...prev, [name]: value }));
-//         if (errors[name]) {
-//             setErrors(prev => ({ ...prev, [name]: '' }));
-//         }
-//     };
-
-//     const validateForm = () => {
-//         const newErrors = {};
-//         fields.forEach(field => {
-//             if (field.required && !formData[field.name]) {
-//                 newErrors[field.name] = `${field.label} is required`;
-//             }
-//             // Add more validation as needed (e.g., email format, age > 0)
-//             if (field.type === 'email' && formData[field.name] && !/\S+@\S+\.\S+/.test(formData[field.name])) {
-//                 newErrors[field.name] = 'Invalid email format';
-//             }
-//             if (field.name === 'age' && formData[field.name] && (isNaN(formData[field.name]) || formData[field.name] < 0)) {
-//                 newErrors[field.name] = 'Age must be a positive number';
-//             }
-//         });
-//         setErrors(newErrors);
-//         return Object.keys(newErrors).length === 0;
-//     };
-
-//     const handleSubmit = async (e) => {
-//         e.preventDefault();
-//         if (!validateForm()) return;
-
-//         setLoading(true);
-//         try {
-//             // Call onSave with formData (API call handled in parent)
-//             await onSave(formData);
-//             if (showToast) {
-//                 const action = isEdit ? 'updated' : 'created';
-//                 toast.success(`Patient ${action} successfully!`);
-//             }
-//             onCancel(); // Close modal or navigate back
-//         } catch (error) {
-//             console.error('Save error:', error);
-//             if (showToast) {
-//                 toast.error(`Failed to ${isEdit ? 'update' : 'create'} patient. Please try again.`);
-//             }
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-
-//     return (
-//         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-//             <Typography variant="h6" gutterBottom>
-//                 {title}
-//             </Typography>
-
-//             {/* Dynamic Fields - display based on fields array */}
-//             {fields.map((field) => (
-//                 <Box key={field.name} sx={{ mb: 2 }}>
-//                     {field.type === 'select' ? (
-//                         <FormControl fullWidth error={!!errors[field.name]} required={field.required}>
-//                             <InputLabel>{field.label}</InputLabel>
-//                             <Select
-//                                 name={field.name}
-//                                 value={formData[field.name] || ''}
-//                                 onChange={handleSelectChange}
-//                                 label={field.label}
-//                                 required={field.required}
-//                             >
-//                                 {field.options?.map((option) => (
-//                                     <MenuItem key={option.value} value={option.value}>
-//                                         {option.label}
-//                                     </MenuItem>
-//                                 ))}
-//                             </Select>
-//                             {errors[field.name] && <FormHelperText>{errors[field.name]}</FormHelperText>}
-//                         </FormControl>
-//                     ) : (
-//                         <TextField
-//                             fullWidth
-//                             label={field.label}
-//                             name={field.name}
-//                             type={field.type}
-//                             value={formData[field.name] || ''}
-//                             onChange={handleInputChange}
-//                             required={field.required}
-//                             error={!!errors[field.name]}
-//                             helperText={errors[field.name]}
-//                             sx={{ mb: 2 }}
-//                             InputLabelProps={field.type === 'date' ? { shrink: true } : {}}
-//                         />
-//                     )}
-//                 </Box>
-//             ))}
-
-//             {/* Error Alert if any */}
-//             {Object.keys(errors).length > 0 && (
-//                 <Alert severity="error" sx={{ mb: 2 }}>
-//                     Please fix the errors above.
-//                 </Alert>
-//             )}
-
-//             <DialogActions>
-//                 <Button onClick={onCancel} disabled={loading}>
-//                     Cancel
-//                 </Button>
-//                 <Button type="submit" variant="contained" disabled={loading}>
-//                     {loading ? 'Saving...' : (isEdit ? 'Update' : 'Create')}
-//                 </Button>
-//             </DialogActions>
-//         </Box>
-//     );
-// }
-
-// export default CreateEditCard;
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
-    TextField,
-    Button,
     Box,
     Typography,
+    TextField,
+    Button,
     FormControl,
     InputLabel,
     Select,
@@ -163,168 +11,197 @@ import {
     FormHelperText,
     Alert,
     DialogActions,
-} from '@mui/material';
-import { toast } from 'react-toastify';
+} from "@mui/material";
 
-function CreateEditCard({
+function FormCard({
     fields = [],
     onSave,
     onCancel,
     payload = {},
-    title = "Create New Item",
-    showToast = true,
-    isEdit = false
+    title = "Create Item",
+    isEdit = false,
 }) {
     const [formData, setFormData] = useState({});
     const [errors, setErrors] = useState({});
-    const [loading, setLoading] = useState(false);
 
-    // Load payload for edit mode
     useEffect(() => {
         setFormData(payload || {});
     }, [payload]);
 
-    // Detect status field among fields
-    const statusFieldName = fields.find(
-        f => f.name.toLowerCase() === "status" || f.name.toLowerCase() === "isactive"
-    )?.name;
-
-    // If status exists but no options provided → add default values
-    const enhancedFields = fields.map(field => {
-        if (field.name === statusFieldName && !field.options) {
-            return {
-                ...field,
-                type: "select",
-                options: [
-                    { value: "Active", label: "Active" },
-                    { value: "Inactive", label: "Inactive" }
-                ]
-            };
-        }
-        return field;
-    });
-
-    // Handle input changes
     const handleChange = (e) => {
         const { name, value } = e.target;
-
-        setFormData(prev => ({ ...prev, [name]: value }));
-
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
-        }
+        setFormData((prev) => ({ ...prev, [name]: value }));
+        if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
     };
 
-    // Validation
     const validate = () => {
         const newErrors = {};
-
-        enhancedFields.forEach(field => {
-            const value = formData[field.name];
-
-            if (field.required && !value) {
-                newErrors[field.name] = `${field.label} is required`;
-            }
-
-            if (field.type === "email" && value && !/\S+@\S+\.\S+/.test(value)) {
-                newErrors[field.name] = "Invalid email format";
-            }
-
-            if (field.type === "number" && value && isNaN(value)) {
-                newErrors[field.name] = "Must be a number";
-            }
+        fields.forEach((field) => {
+            const val = formData[field.name];
+            if (field.required && !val) newErrors[field.name] = `${field.label} is required`;
         });
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Submit handler
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
         if (!validate()) return;
 
-        setLoading(true);
-
-        try {
-            await onSave(formData);
-
-            if (showToast) {
-                toast.success(`${isEdit ? "Updated" : "Created"} successfully!`);
-            }
-
-            onCancel();
-        } catch (err) {
-            console.error(err);
-            toast.error("Something went wrong.");
-        } finally {
-            setLoading(false);
-        }
+        onSave(formData);     // Save data
+        if (onCancel) onCancel();  // Auto-close form
     };
 
+
+
     return (
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
+        <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{
+                maxWidth: 800,
+                mx: "auto",
+                p: 4,
+                // borderRadius: 4,
+                background: "var(--color-bg-card)",
+                boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
+                border: "1px solid var(--color-border)",
+                backdropFilter: "blur(8px)",
+            }}
+        >
+            {/* Title */}
+            <Typography
+                variant="h5"
+                sx={{
+                    fontWeight: 700,
+                    mb: 3,
+                    textAlign: "center",
+                    color: "var(--color-text-dark)",
+                }}
+            >
                 {title}
             </Typography>
 
-            {/* Dynamic fields */}
-            {enhancedFields.map(field => (
-                <Box key={field.name} sx={{ mb: 2 }}>
-                    {field.type === "select" ? (
-                        <FormControl fullWidth error={!!errors[field.name]} required={field.required}>
-                            <InputLabel>{field.label}</InputLabel>
-                            <Select
-                                name={field.name}
-                                value={formData[field.name] || ""}
+            {/* GRID FORM */}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                    gap: 3,
+                }}
+            >
+                {fields.map((field) => (
+                    <Box key={field.name}>
+                        {field.type === "select" ? (
+                            <FormControl fullWidth error={!!errors[field.name]}>
+                                <InputLabel>{field.label}</InputLabel>
+                                <Select
+                                    name={field.name}
+                                    label={field.label}
+                                    value={
+                                        formData[field.name] !== undefined && formData[field.name] !== null
+                                            ? formData[field.name]
+                                            : ""
+                                    }
+
+                                    onChange={handleChange}
+                                    sx={{
+                                        borderRadius: 2,
+                                        "& .MuiOutlinedInput-notchedOutline": {
+                                            borderColor: "var(--color-border)",
+                                        },
+                                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                                            borderColor: "var(--color-primary)",
+                                        },
+                                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                                            borderColor: "var(--color-primary)",
+                                            borderWidth: 2,
+                                        },
+                                    }}
+                                >
+                                    {field?.options?.map((opt) => (
+                                        <MenuItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                                {errors[field.name] && (
+                                    <FormHelperText sx={{ color: "var(--color-error)" }}>
+                                        {errors[field.name]}
+                                    </FormHelperText>
+                                )}
+                            </FormControl>
+                        ) : (
+                            <TextField
+                                fullWidth
                                 label={field.label}
+                                name={field.name}
+                                type={field.type || "text"}
+                                value={formData[field.name] !== undefined ? formData[field.name] : ""}
                                 onChange={handleChange}
-                            >
-                                {field.options?.map(opt => (
-                                    <MenuItem key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                            {errors[field.name] && (
-                                <FormHelperText>{errors[field.name]}</FormHelperText>
-                            )}
-                        </FormControl>
-                    ) : (
-                        <TextField
-                            fullWidth
-                            label={field.label}
-                            name={field.name}
-                            type={field.type}
-                            value={formData[field.name] || ""}
-                            onChange={handleChange}
-                            required={field.required}
-                            error={!!errors[field.name]}
-                            helperText={errors[field.name]}
-                            InputLabelProps={
-                                field.type === "date" ? { shrink: true } : {}
-                            }
-                        />
-                    )}
-                </Box>
-            ))}
+                                error={!!errors[field.name]}
+                                helperText={errors[field.name]}
+                                InputLabelProps={field.type === "date" ? { shrink: true } : {}}
+                                sx={{
+                                    "& .MuiOutlinedInput-root": {
+                                        borderRadius: 2,
+                                        backgroundColor: "var(--color-white)",
+                                        "& .MuiOutlinedInput-notchedOutline": {
+                                            borderColor: "var(--color-border)",
+                                        },
+                                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                                            borderColor: "var(--color-primary)",
+                                        },
+                                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                                            borderColor: "var(--color-primary)",
+                                            borderWidth: 2,
+                                        },
+                                    },
+                                }}
+                            />
+
+                        )}
+                    </Box>
+                ))}
+            </Box>
 
             {/* Error Alert */}
             {Object.keys(errors).length > 0 && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    Fix the errors above.
+                <Alert severity="error" sx={{ mt: 3 }}>
+                    Fix the highlighted errors.
                 </Alert>
             )}
 
-            {/* Action Buttons */}
-            <DialogActions>
-                <Button onClick={onCancel} disabled={loading}>Cancel</Button>
-                <Button type="submit" variant="contained" disabled={loading}>
-                    {loading ? "Saving..." : isEdit ? "Update" : "Create"}
+            {/* Buttons */}
+            <DialogActions sx={{ mt: 3, justifyContent: "flex-end", gap: 2 }}>
+                <Button
+                    onClick={onCancel}
+                    sx={{
+                        textTransform: "none",
+                        color: "var(--color-text-muted)",
+                    }}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    variant="contained"
+                    sx={{
+                        px: 4,
+                        py: 1,
+                        borderRadius: 2,
+                        fontWeight: 600,
+                        backgroundColor: "var(--color-primary)",
+                        "&:hover": {
+                            backgroundColor: "var(--color-primary-dark)",
+                        },
+                    }}
+                >
+                    {isEdit ? "Update" : "Create"}
                 </Button>
             </DialogActions>
         </Box>
     );
 }
 
-export default CreateEditCard;
+export default FormCard;

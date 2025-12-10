@@ -242,42 +242,41 @@ function Consultation_View() {
             />
 
             {/* Stats Cards */}
-            <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={3}
-                my={4}
-                justifyContent="flex-start"
-                flexWrap="wrap"
-            >
-                {/* Active Fees */}
-                <DashboardCard
-                    title="Active Fees"
-                    count={stats.active}
-                    icon={CheckCircleIcon}
-                />
+          <Stack
+    direction={{ xs: "column", sm: "row" }}
+    spacing={3}
+    my={4}
+    justifyContent="flex-start"
+    sx={{
+        flexWrap: { xs: "wrap", sm: "nowrap" }, // ⬅️ wrap only on mobile
+    }}
+>
+    <DashboardCard
+        title="Active Fees"
+        count={stats.active}
+        icon={CheckCircleIcon}
+    />
 
-                {/* Inactive Fees */}
-                <DashboardCard
-                    title="Inactive Fees"
-                    count={stats.inactive}
-                    icon={CancelIcon}
-                />
+    <DashboardCard
+        title="Inactive Fees"
+        count={stats.inactive}
+        icon={CancelIcon}
+    />
 
-                {/* Highest Rate */}
-                <DashboardCard
-                    title="Highest Rate"
-                    count={stats.highest}
-                    icon={CurrencyRupeeIcon}
-                    // Custom render for currency
-                    overrideContent={
-                        <Box sx={{ mt: 1 }}>
-                            <Typography variant="h4" fontWeight="bold" color="var(--color-text-dark)">
-                                ₹{stats.highest.toLocaleString('en-IN')}
-                            </Typography>
-                        </Box>
-                    }
-                />
-            </Stack>
+    <DashboardCard
+        title="Highest Rate"
+        count={stats.highest}
+        icon={CurrencyRupeeIcon}
+        overrideContent={
+            <Box sx={{ mt: 1 }}>
+                <Typography variant="h4" fontWeight="bold" color="var(--color-text-dark)">
+                    ₹{stats.highest.toLocaleString("en-IN")}
+                </Typography>
+            </Box>
+        }
+    />
+</Stack>
+
 
             {/* Table */}
             <TableComponent

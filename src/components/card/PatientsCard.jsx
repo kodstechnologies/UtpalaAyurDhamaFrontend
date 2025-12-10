@@ -126,7 +126,7 @@ function PatientsCard({
                 fullWidth
                 PaperProps={{ sx: { borderRadius: 3 } }}
             >
-                <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pr: 1 }}>
+                {/* <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pr: 1 }}>
                     <Typography variant="h6" fontWeight={700}>
                         Examination Records — {name}
                     </Typography>
@@ -134,12 +134,12 @@ function PatientsCard({
                     <IconButton onClick={() => setOpenExamDialog(false)}>
                         <Close />
                     </IconButton>
-                </DialogTitle>
+                </DialogTitle> */}
 
                 <DialogContent dividers sx={{ p: 0 }}>
                     {/* render the ExaminationRecordsView component here */}
                     {/* pass patientId or any props if needed */}
-                    <ExaminationRecordsView patientId={patientId} />
+                    <ExaminationRecordsView patientId={patientId} name={name} />
                 </DialogContent>
             </Dialog>
         </>
