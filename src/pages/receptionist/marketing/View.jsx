@@ -453,7 +453,7 @@ function Marketing_View() {
                                 ))}
                             </select>
                             <small className="form-text text-muted d-block mt-2">
-                                Use <code className="bg-light px-2 py-1 rounded" style={{ color: "#D4A574", fontWeight: 600, fontSize: "0.875rem" }}>{'{{patientName}}'}</code> to personalize messages
+                                Use <code className="bg-light px-2 py-1 rounded" style={{ color: "#D4A574", fontWeight: 600, fontSize: "0.875rem" }}>{'patientName'}</code> to personalize messages
                             </small>
                         </div>
 
@@ -473,8 +473,8 @@ function Marketing_View() {
                             <div className="col-lg-4">
                                 <div className="card bg-primary bg-opacity-10 border-primary mb-3">
                                     <div className="card-body text-center">
-                                        <div className="display-4 fw-bold text-primary mb-2">{stats.selected}</div>
-                                        <div className="text-muted small">
+                                        <div className="display-4 fw-bold text-white mb-2">{stats.selected}</div>
+                                        <div className=" small text-white">
                                             Patient{stats.selected !== 1 ? "s" : ""} Selected
                                         </div>
                                     </div>
@@ -498,7 +498,11 @@ function Marketing_View() {
                                 </div>
                                 <button
                                     type="button"
-                                    className="btn btn-primary w-100"
+                                    className="btn w-100"
+                                    style={{
+                                        backgroundColor: "var(--color-btn-bg)",
+                                        color: "white"
+                                    }}
                                     onClick={handleSendMessage}
                                     disabled={selectedPatientIds.length === 0 || !message.trim()}
                                 >

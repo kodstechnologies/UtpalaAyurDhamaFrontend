@@ -1,6 +1,7 @@
 // src/router/subRouter/doctorRoutes.jsx
 
 import React, { lazy } from "react";
+import PatientDetails from "../../pages/doctor/PatientManagement/PatientDetails";
 
 const Doctor_Dashboard = lazy(() =>
     import("../../pages/doctor/Dashboard")
@@ -34,4 +35,5 @@ export const doctorRoutes = [
     { path: "/doctor/my-patients", element: <All_Patients_View /> },
     { path: "/doctor/family-members/:userId", element: <FamilyMembers /> },
     { path: "/doctor/in-patients", element: <Patient_Management_View /> },
+    { path: "/doctor/in-patients/:patientId", element: <PatientDetails /> },
 ];

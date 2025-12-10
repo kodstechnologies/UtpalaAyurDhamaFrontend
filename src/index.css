@@ -5,6 +5,7 @@
    --color-primary: #556B2F;
    /* Deep Olive Green */
    --color-primary-light: #9CAF88;
+   --color-primary-light-v: #9caf885d;
    /* Sage Green */
    --color-primary-dark: #3F4F23;
    /* Dark Olive */
@@ -26,6 +27,8 @@
    --color-bg-hover: #F4F0E5;
    /* Soft Hover Beige */
 
+   /* ===================== */
+   --color-btn-bg: #8E714F;
    /* table ========================= */
    --color-bg-table: #FFFFFF;
    /* Table Background */
@@ -70,6 +73,8 @@
    --color-info: #4E7BA8;
    /* Calm Blue */
 
+
+   
    /* ===========================
       BORDERS & SHADOWS
   ============================ */

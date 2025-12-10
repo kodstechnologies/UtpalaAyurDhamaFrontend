@@ -253,6 +253,7 @@ function Payments_View() {
                         style={{
                             whiteSpace: "nowrap",
                             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            backgroundColor: "var(--color-bg-table-button)"
                         }}
                     >
                         <AddIcon className="me-2" />
@@ -291,12 +292,12 @@ function Payments_View() {
                     prefix="₹"
                     icon={TrendingDownIcon}
                 />
-                    <DashboardCard
+                <DashboardCard
                     title="Net Balance"
                     count={stats.balance}
                     prefix="₹"
                     icon={AccountBalanceWalletIcon}
-                    />
+                />
             </Box>
 
             {/* ⭐ Filters Section */}

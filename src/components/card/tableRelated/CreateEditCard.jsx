@@ -30,6 +30,7 @@ function FormCard({
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        console.log("🚀 ~ handleChange ~ name, value:", name, value)
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
     };

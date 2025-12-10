@@ -13,7 +13,8 @@ import ClockIcon from "@mui/icons-material/AccessTime";
 import ArrowUpRightIcon from "@mui/icons-material/ArrowUpward";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
-
+import GreetingBanner from "../../components/card/GreetingCard";
+import GreetingsImg from "../../assets/greeting/therapist.png"
 function Therapist_Dashboard() {
     // Mock data - will be replaced with API calls later
     const [summary] = useState({
@@ -26,17 +27,17 @@ function Therapist_Dashboard() {
         // Get today's date
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // Create dates for today and next few days
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        
+
         const dayAfter = new Date(today);
         dayAfter.setDate(dayAfter.getDate() + 2);
-        
+
         const dayAfter2 = new Date(today);
         dayAfter2.setDate(dayAfter2.getDate() + 3);
-        
+
         return [
             {
                 id: "1",
@@ -78,7 +79,7 @@ function Therapist_Dashboard() {
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
-        { label: "Therapist", url: "/therapist" },
+        // { label: "Therapist", url: "/therapist" },
         { label: "Dashboard" },
     ];
 
@@ -148,10 +149,10 @@ function Therapist_Dashboard() {
     return (
         <Box sx={{ padding: "20px" }}>
             {/* Breadcrumb */}
-            <Breadcrumb items={breadcrumbItems} />
+            {/* <Breadcrumb items={breadcrumbItems} /> */}
 
             {/* Greeting Banner */}
-            <Box
+            {/* <Box
                 sx={{
                     background: "var(--color-bg-table)",
                     borderRadius: 4,
@@ -277,8 +278,14 @@ function Therapist_Dashboard() {
                         </Link>
                     </Box>
                 </Box>
-            </Box>
-
+            </Box> */}
+            <GreetingBanner
+                // title="Good Morning"
+                name="Pharmacist"
+                subtitle="Review prescriptions, manage verification, and dispense medicines efficiently."
+                image={GreetingsImg}
+                breadcrumbItems={breadcrumbItems}
+            />
             {/* Dashboard Cards */}
             <Box
                 sx={{
@@ -289,7 +296,7 @@ function Therapist_Dashboard() {
                         xl: "repeat(3, 1fr)",
                     },
                     gap: 3,
-                    mb: 4,
+                    my: 4,
                 }}
             >
                 <DashboardCard

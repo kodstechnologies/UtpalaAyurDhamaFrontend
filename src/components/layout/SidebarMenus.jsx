@@ -210,7 +210,7 @@ export const sidebarMenus = {
 
         {
             key: "inventory",
-            label: "Discharge Preparation",
+            label: "Inventory",
             icon: <AssignmentTurnedInIcon style={{ color: "var(--color-icons)" }} />,
             to: "/pharmacist/inventory",
         },

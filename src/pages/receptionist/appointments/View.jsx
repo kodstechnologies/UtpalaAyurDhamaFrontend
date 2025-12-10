@@ -17,31 +17,31 @@ import MessageIcon from "@mui/icons-material/Message";
 
 // Mock data - will be replaced with API calls later
 const mockPatients = [
-        {
+    {
         id: "1",
-            name: "Amit Kumar",
+        name: "Amit Kumar",
         registeredDate: "2025-01-12",
         contact: "9876543210",
-            gender: "Male",
-            age: 32,
+        gender: "Male",
+        age: 32,
         address: "Bangalore",
-            email: "amit@example.com",
+        email: "amit@example.com",
         disease: "Hypertension",
         patientProfileId: "prof-1",
         lastConsultedBy: "Dr. Sharma",
         lastTreatment: "Consultation",
         preferredDate: "2025-01-20",
         preferredTime: "10:00",
-        },
-        {
+    },
+    {
         id: "2",
-            name: "Sita Verma",
+        name: "Sita Verma",
         registeredDate: "2025-01-10",
         contact: "9123456780",
-            gender: "Female",
-            age: 28,
+        gender: "Female",
+        age: 28,
         address: "Delhi",
-            email: "sita@example.com",
+        email: "sita@example.com",
         disease: "Migraine",
         patientProfileId: "prof-2",
         lastConsultedBy: "Dr. Patel",
@@ -103,8 +103,8 @@ const mockAppointments = [
         patientProfileId: "prof-3",
         invoiceId: "inv-2",
         invoiceNumber: "INV-2024-002",
-        },
-    ];
+    },
+];
 
 const mockTherapySessions = [
     {
@@ -389,12 +389,33 @@ function Appointments_View() {
                         onClick={() => setIsAddPatientModalOpen(true)}
                         style={{
                             whiteSpace: "nowrap",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            padding: "10px 18px",
+                            borderRadius: "10px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            backgroundColor: "var(--color-bg-table-button)",
+                            color: "white",
+                            fontWeight: "600",
+                            fontSize: "15px",
+                            border: "none",
+                            cursor: "pointer",
+                            transition: "all 0.3s ease",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "scale(1.05)";
+                            e.currentTarget.style.boxShadow = "0 4px 10px rgba(0,0,0,0.25)";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "scale(1)";
+                            e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.15)";
                         }}
                     >
-                        <AddIcon className="me-2" />
+                        <AddIcon />
                         Register New Patient
                     </button>
+
                 }
             />
 

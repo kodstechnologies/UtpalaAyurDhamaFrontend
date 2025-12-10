@@ -711,13 +711,13 @@ function ReportCard({
                             width: 55,
                             height: 55,
                             borderRadius: 2,
-                            bgcolor: "#EEF3FF",
+                            bgcolor: "var(--color-primary-light-v)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                         }}
                     >
-                        <DescriptionOutlinedIcon sx={{ fontSize: 32, color: "var(--color-info)" }} />
+                        <DescriptionOutlinedIcon sx={{ fontSize: 32, color: "var(--color-primary)" }} />
                     </Box>
 
                     <Box>
@@ -732,8 +732,8 @@ function ReportCard({
                                     py: 0.3,
                                     borderRadius: "12px",
                                     fontSize: "0.7rem",
-                                    bgcolor: "rgba(78, 123, 168, 0.15)",
-                                    color: "var(--color-info)",
+                                    bgcolor: "var(--color-primary-light-v)",
+                                    color: "var(--color-primary)",
                                     fontWeight: 600,
                                 }}
                             >

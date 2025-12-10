@@ -225,17 +225,7 @@ function ReportDetailsCard({
                     </Typography>
                 </Box>
 
-                {/* FOOTER */}
-                <Typography
-                    sx={{
-                        textAlign: "center",
-                        mt: 3,
-                        fontSize: "0.8rem",
-                        color: "var(--color-text-muted)",
-                    }}
-                >
-                    Invoice Templates © Utpalaayurdhama.com
-                </Typography>
+
             </CardContent>
         </Card>
     );

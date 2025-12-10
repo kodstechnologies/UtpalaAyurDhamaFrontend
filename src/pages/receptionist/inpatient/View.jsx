@@ -308,6 +308,7 @@ function Inpatient_View() {
                         style={{
                             whiteSpace: "nowrap",
                             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            backgroundColor: "var(--color-bg-table-button)"
                         }}
                     >
                         <AddIcon className="me-2" />
@@ -433,7 +434,7 @@ function Inpatient_View() {
                                             </td>
                                             <td style={{ fontSize: "0.875rem" }}>{patient.allocatedNurse || <span className="text-muted">N/A</span>}</td>
                                             <td style={{ fontSize: "0.875rem" }}>
-                                                <span 
+                                                <span
                                                     className={getStatusBadgeClass(patient.admitStatus)}
                                                     style={{ fontSize: "0.75rem", padding: "4px 8px" }}
                                                 >

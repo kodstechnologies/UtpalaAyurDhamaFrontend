@@ -24,12 +24,12 @@ import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 const generateMockTransactions = () => {
     const transactions = [];
     const baseDate = new Date("2025-12-01");
-    
+
     // Add transactions for December 2025
     for (let i = 0; i < 20; i++) {
         const date = new Date(baseDate);
         date.setDate(baseDate.getDate() + i);
-        
+
         const types = ["Credit", "Debit"];
         const paymentMethods = ["Cash", "Online", "Card"];
         const descriptions = [
@@ -44,7 +44,7 @@ const generateMockTransactions = () => {
             "Ward Charges",
             "Doctor Consultation",
         ];
-        
+
         transactions.push({
             id: `txn-dec-${i + 1}`,
             date: date.toISOString().split("T")[0],
@@ -54,7 +54,7 @@ const generateMockTransactions = () => {
             paymentMethod: paymentMethods[i % 3],
         });
     }
-    
+
     // Add some transactions from January 2025 as well
     const janTransactions = [
         {
@@ -82,7 +82,7 @@ const generateMockTransactions = () => {
             paymentMethod: "Card",
         },
     ];
-    
+
     return [...transactions, ...janTransactions];
 };
 
@@ -304,7 +304,11 @@ function Reports_View() {
                                 <div className="col-md-4">
                                     <button
                                         type="button"
-                                        className="btn btn-primary w-100"
+                                        className="btn w-100"
+                                        style={{
+                                            backgroundColor: "var(--color-btn-bg)",
+                                            color: "white"
+                                        }}
                                         onClick={handleGenerateReport}
                                         disabled={loading || !startDate || !endDate}
                                     >

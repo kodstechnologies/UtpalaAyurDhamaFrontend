@@ -20,6 +20,9 @@ import {
     Card,
 } from "@mui/material";
 import { CheckCircle, Cancel, Circle } from "@mui/icons-material";
+import HeadingCard from "../../../components/card/HeadingCard";
+import DashboardCard from "../../../components/card/DashboardCard";
+import Calendar from "../../../components/calendar/Calendar";
 
 const Therapies_View = () => {
     const [selectedMember, setSelectedMember] = useState("Self");
@@ -119,13 +122,57 @@ const Therapies_View = () => {
 
     return (
         <Box sx={{ minHeight: "100vh", bgcolor: "#EFE7DA", p: { xs: 2, md: 4 } }}>
+
+            <HeadingCard
+                title="My Therapies"
+                subtitle="Access and review your diagnostic test results, clinical summaries, and past medical documents all in one place. Stay informed and track your health history effortlessly."
+                breadcrumbItems={[
+                    { label: "Patient", url: "/patient/dashboard" },
+                    { label: "therapies" }
+                ]}
+            />
+
+            <Box
+                sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 2,
+                    justifyContent: "space-between",
+
+                    // responsive width for each card
+                    "& > div": {
+                        flex: "1 1 calc(25% - 16px)",   // 4 cards in desktop
+                    },
+
+                    "@media (max-width: 1200px)": {
+                        "& > div": {
+                            flex: "1 1 calc(33.33% - 16px)", // 3 per row
+                        },
+                    },
+
+                    "@media (max-width: 900px)": {
+                        "& > div": {
+                            flex: "1 1 calc(50% - 16px)", // 2 per row
+                        },
+                    },
+
+                    "@media (max-width: 600px)": {
+                        "& > div": {
+                            flex: "1 1 100%", // 1 per row
+                        },
+                    },
+                }}
+            >
+                <DashboardCard title="Total Therapies" count="3" />
+                <DashboardCard title="Completed" count="1" />
+                <DashboardCard title="In Progress" count="0" />
+                <DashboardCard title="Upcoming" count="0" />
+            </Box>
+
             {/* Header */}
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" mb={6} gap={3}>
-                <Typography variant="h4" sx={{ fontWeight: 800, color: "#5C3D2E" }}>
-                    My Therapies
-                </Typography>
 
-                <FormControl sx={{ minWidth: 240 }}>
+                {/* <FormControl sx={{ minWidth: 240 }}>
                     <InputLabel sx={{ color: "#5C3D2E", fontWeight: 600 }}>Showing therapies for:</InputLabel>
                     <Select
                         value={selectedMember}
@@ -144,29 +191,16 @@ const Therapies_View = () => {
                             </MenuItem>
                         ))}
                     </Select>
-                </FormControl>
+                </FormControl> */}
             </Stack>
 
-            {/* Summary Cards */}
-            <Grid container spacing={4} mb={6}>
-                {[
-                    { label: "Total Therapies", value: total, color: "#5C3D2E" },
-                    { label: "Completed", value: completed, color: "#6A8E3F" },
-                    { label: "In Progress", value: inProgress, color: "#5C3D2E" },
-                    { label: "Upcoming", value: upcoming, color: "#E8A84E" },
-                ].map((item, i) => (
-                    <Grid item xs={6} sm={3} key={i}>
-                        <Card sx={{ p: 4, textAlign: "center", borderRadius: 4, border: "2px solid #D6D2C4", bgcolor: "#FFFFFF", boxShadow: "0 8px 25px rgba(92, 61, 46, 0.1)" }}>
-                            <Typography variant="h3" sx={{ fontWeight: 900, color: item.color, mb: 1 }}>
-                                {item.value}
-                            </Typography>
-                            <Typography variant="h6" color="#857466" fontWeight={600}>
-                                {item.label}
-                            </Typography>
-                        </Card>
-                    </Grid>
-                ))}
-            </Grid>
+            {/* <Calendar
+                month={1}     // 0 = Jan, 1 = Feb, 2 = Mar ...
+                year={2025}
+                completedDays={[3, 6, 10]}
+                absentDays={[25]}
+                upcomingDays={[28, 29, 30]}
+            /> */}
 
             {/* Therapy Cards */}
             <Grid container spacing={5}>
@@ -235,10 +269,6 @@ const Therapies_View = () => {
                 ))}
             </Grid>
 
-            {/* Footer */}
-            <Typography variant="body2" align="center" color="#857466" sx={{ mt: 10, pb: 6, fontSize: "1.1rem" }}>
-                © 2025 Utpala Ayurveda – All rights reserved.
-            </Typography>
         </Box>
     );
 };

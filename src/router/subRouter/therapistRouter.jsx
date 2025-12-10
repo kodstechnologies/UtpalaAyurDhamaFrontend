@@ -5,6 +5,9 @@ import { Suspense } from "react";
 const Therapist_Dashboard = lazy(() =>
     import("../../pages/therapist/Dashboard")
 );
+const TherapistProfile = lazy(() =>
+    import("../../pages/therapist/Profile")
+);
 const Patient_List_View = lazy(() =>
     import("../../pages/therapist/patientDetails/View")
 );
@@ -25,6 +28,14 @@ export const therapistRoutes = [
         element: (
             <Suspense fallback={<div>Loading...</div>}>
                 <Therapist_Dashboard />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/profile",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <TherapistProfile />
             </Suspense>
         ),
     },
