@@ -1,276 +1,191 @@
-// import React from 'react'
-// import HeadingCard from '../../../components/card/HeadingCard'
-// import TableComponent from '../../../components/table/TableComponent'
-// import DashboardCard from '../../../components/card/DashboardCard'
-
-// function BatchLogView() {
-//     return (
-//         <div>
-//             <HeadingCard />
-//             <DashboardCard />
-//             <TableComponent />
-//         </div>
-//     )
-// }
-
-// export default BatchLogView
-
-// import React, { useState } from "react";
-
-// import HeadingCard from "../../../components/card/HeadingCard";
-// import DashboardCard from "../../../components/card/DashboardCard";
-// import TableComponent from "../../../components/table/TableComponent";
-
-// import Inventory2Icon from "@mui/icons-material/Inventory2";
-// import WarningIcon from "@mui/icons-material/Warning";
-
-// function BatchLogView() {
-
-//     // ⭐ Dashboard Cards Data
-//     const cards = [
-//         { title: "Current Total Stock", count: "20000 g", icon: Inventory2Icon, iconColor: "#2e7d32" },
-//         { title: "Expired Stock", count: "0 g", icon: WarningIcon, iconColor: "#d32f2f" }
-//     ];
-
-//     // ⭐ Table Columns
-//     const columns = [
-//         { field: "date", header: "Date" },
-//         { field: "batchId", header: "Batch ID" },
-//         { field: "quantity", header: "Quantity" },
-//         { field: "expiryDate", header: "Batch Expiry Date" },
-//         { field: "costPrice", header: "Cost Price" },
-//         { field: "sellPrice", header: "Sell Price" },
-//     ];
-
-//     // ⭐ Table Example Rows
-//     const [rows, setRows] = useState([
-//         {
-//             _id: "1",
-//             date: "2025-01-10",
-//             batchId: "BATCH-001",
-//             quantity: "5000 g",
-//             expiryDate: "2026-01-10",
-//             costPrice: "₹3000",
-//             sellPrice: "₹4500",
-//         },
-//         {
-//             _id: "2",
-//             date: "2025-01-12",
-//             batchId: "BATCH-002",
-//             quantity: "15000 g",
-//             expiryDate: "2027-03-22",
-//             costPrice: "₹9000",
-//             sellPrice: "₹12500",
-//         },
-//     ]);
-
-//     // ⭐ CRUD Handlers
-//     const handleCreateSubmit = async (data) => {
-//         const newRow = { _id: Date.now().toString(), ...data };
-//         setRows((prev) => [...prev, newRow]);
-//     };
-
-//     const handleEditSubmit = async (data, row) => {
-//         setRows((prev) => prev.map((r) => (r._id === row._id ? { ...row, ...data } : r)));
-//     };
-
-//     const handleDelete = (id) => {
-//         if (window.confirm("Are you sure you want to delete this batch log?")) {
-//             setRows((prev) => prev.filter((r) => r._id !== id));
-//         }
-//     };
-
-//     // ⭐ Form Fields for Create & Edit
-//     const formFields = [
-//         { name: "date", label: "Date", type: "date", required: true },
-//         { name: "batchId", label: "Batch ID", type: "text", required: true },
-//         { name: "quantity", label: "Quantity", type: "text", required: true },
-//         { name: "expiryDate", label: "Batch Expiry Date", type: "date", required: true },
-//         { name: "costPrice", label: "Cost Price", type: "text", required: true },
-//         { name: "sellPrice", label: "Sell Price", type: "text", required: true },
-//     ];
-
-//     return (
-//         <div style={{ padding: "20px" }}>
-
-//             {/* ⭐ PAGE HEADING */}
-//             <HeadingCard
-//                 category="INVENTORY"
-//                 title="Batch Log Details"
-//                 subtitle="Track inventory batch logs, prices, expiry dates and stock movement."
-//             />
-
-//             {/* ⭐ DASHBOARD CARDS */}
-//             <div
-//                 style={{
-//                     display: "grid",
-//                     gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-//                     gap: "20px",
-//                     marginTop: "20px",
-//                     marginBottom: "25px",
-//                 }}
-//             >
-//                 {cards.map((card, i) => (
-//                     <DashboardCard
-//                         key={i}
-//                         title={card.title}
-//                         count={card.count}
-//                         icon={card.icon}
-//                         iconColor={card.iconColor}
-//                     />
-//                 ))}
-//             </div>
-
-//             {/* ⭐ FULLY FEATURED TABLE */}
-//             <TableComponent
-//                 title="Batch Log List"
-//                 columns={columns}
-//                 rows={rows}
-//                 showView={true}
-//                 showEdit={true}
-//                 showDelete={true}
-//                 showAddButton={true}
-//                 formFields={formFields}
-//                 onCreateSubmit={handleCreateSubmit}
-//                 onEditSubmit={handleEditSubmit}
-//                 onDelete={handleDelete}
-//             />
-
-//         </div>
-//     );
-// }
-
-// export default BatchLogView;
-
-
 import React, { useState } from "react";
-
-import HeadingCard from "../../../components/card/HeadingCard";
+import { Box, Grid, Dialog, DialogContent, Chip, Typography } from "@mui/material";
+import { CheckCircle as CheckCircleIcon } from "@mui/icons-material";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import PeopleIcon from "@mui/icons-material/People";
+import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
+import ExitToAppIcon from "@mui/icons-material/ExitToApp";
+// import HeadingCard from "../../../../components/card/HeadingCard";
+// import TableComponent from "../../../../components/table/TableComponent";
 import DashboardCard from "../../../components/card/DashboardCard";
+// import CardBorder from "../../../ components/card/CardBorder";
+// import Search from "../../../../components/search/Search";
+// import ExportDataButton from "../../../../components/buttons/ExportDataButton";
+import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
-
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import WarningIcon from "@mui/icons-material/Warning";
+import ExportDataButton from "../../../components/buttons/ExportDataButton";
+import CardBorder from "../../../components/card/CardBorder";
+import Search from "../../../components/search/Search";
 
 function BatchLogView() {
-
-    // ⭐ Dashboard Stats (Dynamic Counts)
-    const currentTotalStock = "20000";
-    const expiredStock = "0";
-
-    // ⭐ Columns for Table
-    const columns = [
-        { field: "date", header: "Date" },
-        { field: "batchId", header: "Batch ID" },
-        { field: "quantity", header: "Quantity" },
-        { field: "expiryDate", header: "Batch Expiry Date" },
-        { field: "costPrice", header: "Cost Price" },
-        { field: "sellPrice", header: "Sell Price" },
+    const breadcrumbItems = [
+        { label: "Home", url: "/" },
+        { label: "Pharmacist", url: "/pharmacist/dashboard" },
+        { label: "Inventory", url: "/pharmacist/inventory" },
+        { label: "Batch Log" },
     ];
 
-    // ⭐ Example Rows
-    const [rows, setRows] = useState([
+    const [searchText, setSearchText] = useState("");
+    const [open, setOpen] = useState(false);
+    const [selectedRow, setSelectedRow] = useState(null);
+
+    const columns = [
+        { field: "batchId", header: "Batch ID" },
+        { field: "medicineName", header: "Medicine Name" },
+        { field: "expiryDate", header: "Expiry Date" },
+        { field: "quantity", header: "Quantity" },
+        { field: "status", header: "Status" },
+        {
+            field: "dispensed",
+            header: "Dispensed",
+            renderCell: (params) => {
+                const count = params.row.dispensed || 0;
+                return (
+                    <Chip
+                        icon={<CheckCircleIcon sx={{ color: "var(--color-light)", fontSize: "16px" }} />}
+                        label={count}
+                        size="small"
+                        sx={{
+                            backgroundColor: "var(--color-success)",
+                            color: "var(--color-light)",
+                            fontWeight: 600,
+                            "& .MuiChip-icon": {
+                                color: "var(--color-light)",
+                            },
+                        }}
+                    />
+                );
+            },
+        },
+    ];
+
+    const rows = [
         {
             _id: "1",
-            date: "2025-01-10",
-            batchId: "BATCH-001",
-            quantity: "5000 g",
-            expiryDate: "2026-01-10",
-            costPrice: "₹3000",
-            sellPrice: "₹4500",
+            batchId: "BATCH001",
+            medicineName: "Paracetamol 500mg",
+            expiryDate: "2026-06-15",
+            quantity: 100,
+            status: "Active",
+            dispensed: 25,
         },
         {
             _id: "2",
-            date: "2025-02-15",
-            batchId: "BATCH-002",
-            quantity: "15000 g",
-            expiryDate: "2027-03-20",
-            costPrice: "₹9000",
-            sellPrice: "₹13000",
+            batchId: "BATCH002",
+            medicineName: "Ibuprofen 400mg",
+            expiryDate: "2025-12-20",
+            quantity: 50,
+            status: "Low Stock",
+            dispensed: 40,
         },
-    ]);
-
-    // ⭐ Create
-    const handleCreateSubmit = (data) => {
-        const newRow = { _id: Date.now().toString(), ...data };
-        setRows(prev => [...prev, newRow]);
-    };
-
-    // ⭐ Edit
-    const handleEditSubmit = (data, row) => {
-        setRows(prev =>
-            prev.map(r => (r._id === row._id ? { ...row, ...data } : r))
-        );
-    };
-
-    // ⭐ Delete
-    const handleDelete = (id) => {
-        if (window.confirm("Are you sure you want to delete this batch?")) {
-            setRows(prev => prev.filter(r => r._id !== id));
-        }
-    };
-
-    // ⭐ Form Fields (For Create + Edit Modal)
-    const formFields = [
-        { name: "date", label: "Date", type: "date", required: true },
-        { name: "batchId", label: "Batch ID", type: "text", required: true },
-        { name: "quantity", label: "Quantity", type: "text", required: true },
-        { name: "expiryDate", label: "Batch Expiry Date", type: "date", required: true },
-        { name: "costPrice", label: "Cost Price", type: "text", required: true },
-        { name: "sellPrice", label: "Sell Price", type: "text", required: true },
     ];
 
+    const filteredRows = rows.filter((row) =>
+        row.batchId.toLowerCase().includes(searchText.toLowerCase()) ||
+        row.medicineName.toLowerCase().includes(searchText.toLowerCase()) ||
+        row.status.toLowerCase().includes(searchText.toLowerCase())
+    );
+
+    const handleViewDetails = (row) => {
+        setSelectedRow(row);
+        setOpen(true);
+    };
+
+    const actions = [
+        {
+            label: "View Details",
+            icon: <VisibilityIcon fontSize="small" />,
+            color: "var(--color-primary)",
+            onClick: handleViewDetails,
+        },
+    ];
+
+    // Summary data with numbers
+    const summary = {
+        totalBatches: 12,
+        activeBatches: 8,
+        lowStock: 4,
+    };
+
     return (
-        <div style={{ padding: 20 }}>
-
-            {/* ⭐ Heading */}
+        <Box sx={{ p: 3 }}>
+            {/* Header */}
             <HeadingCard
-                category="INVENTORY"
-                title="Batch Log Details"
-                subtitle="Track inventory batch logs, expiry, stock and pricing."
+                title="Batch Log"
+                subtitle="Monitor batch details, expiry dates, and inventory status for all medicines."
+                breadcrumbItems={breadcrumbItems}
             />
 
-            {/* ⭐ Dashboard Cards */}
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                    gap: "20px",
-                    marginTop: "20px",
-                    marginBottom: "25px",
-                }}
-            >
-                <DashboardCard
-                    title="Current Total Stock"
-                    count={currentTotalStock}
-                    icon={Inventory2Icon}
-                    iconColor="#2e7d32"
-                />
+            {/* Summary Cards */}
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+                <Grid item xs={12} sm={6} md={4}>
+                    <DashboardCard
+                        title="Total Batches"
+                        count={summary.totalBatches}
+                        icon={PeopleIcon}
+                    />
+                </Grid>
 
-                <DashboardCard
-                    title="Expired Stock"
-                    count={expiredStock}
-                    icon={WarningIcon}
-                    iconColor="#d32f2f"
-                />
-            </div>
+                <Grid item xs={12} sm={6} md={4}>
+                    <DashboardCard
+                        title="Active Batches"
+                        count={summary.activeBatches}
+                        icon={PersonAddAlt1Icon}
+                    />
+                </Grid>
 
-            {/* ⭐ Full Featured Table */}
+                <Grid item xs={12} sm={6} md={4}>
+                    <DashboardCard
+                        title="Low Stock"
+                        count={summary.lowStock}
+                        icon={ExitToAppIcon}
+                    />
+                </Grid>
+            </Grid>
+
+            {/* Search and Export */}
+            <CardBorder justify="between" align="center" wrap={true} padding="2rem" className="my-[2rem]">
+                <Box sx={{ flex: 1, mr: 1 }}>
+                    <Search
+                        value={searchText}
+                        onChange={(val) => setSearchText(val)}
+                        sx={{ flex: 1 }}
+                    />
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                    <ExportDataButton
+                        rows={rows}
+                        columns={columns}
+                        fileName="batch-log.xlsx"
+                    />
+                </Box>
+            </CardBorder>
+
+            {/* Table */}
             <TableComponent
-                title="Batch Log List"
                 columns={columns}
-                rows={rows}
-                showView={true}
-                showEdit={true}
-                showDelete={true}
-                showAddButton={true}
-                formFields={formFields}
-                onCreateSubmit={handleCreateSubmit}
-                onEditSubmit={handleEditSubmit}
-                onDelete={handleDelete}
+                rows={filteredRows}
+                actions={actions}
+                showStatusBadge={true}
             />
 
-        </div>
+            {/* Details Dialog */}
+            <Dialog
+                open={open}
+                onClose={() => setOpen(false)}
+                fullWidth
+                maxWidth="md"
+            >
+                <DialogContent sx={{ p: 0 }}>
+                    {selectedRow && (
+                        <Box>
+                            <Typography variant="h6">Batch Details</Typography>
+                            {/* Add more details here as needed */}
+                        </Box>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </Box>
     );
 }
 

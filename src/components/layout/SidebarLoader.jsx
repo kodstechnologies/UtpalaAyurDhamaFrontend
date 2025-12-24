@@ -2,43 +2,44 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import Scrollbars from "react-custom-scrollbars-2";
 import { useSelector } from "react-redux";
+
 import {
-    KeyboardArrowDown as ArrowDownIcon,
-    KeyboardArrowRight as ArrowRightIcon
-} from "@mui/icons-material";
-import {
-    Dashboard as DashboardIcon,
-    MedicalServices as MedicalServicesIcon,
-    ReceiptLong as ReceiptLongIcon,
-    Inventory2 as Inventory2Icon,
-    RestaurantMenu as RestaurantMenuIcon,
-    Analytics as AnalyticsIcon,
+    ChevronDown as ArrowDownIcon,
+    ChevronRight as ArrowRightIcon,
+    LayoutDashboard as DashboardIcon,
+    Stethoscope as MedicalServicesIcon,
+    Receipt as ReceiptLongIcon,
+    Package as Inventory2Icon,
+    UtensilsCrossed as RestaurantMenuIcon,
+    BarChart3 as AnalyticsIcon,
 
     // doctor 
-    People as PeopleIcon,
-    LocalHospital as LocalHospitalIcon,
+    Users as PeopleIcon,
+    Hospital as LocalHospitalIcon,
+    HeartPulse as HealingIcon,
+    Pill as MedicationIcon,
 
     // nurse 
-    MonitorHeart as MonitorHeartIcon,
-    AssignmentTurnedIn as AssignmentTurnedInIcon,
+    HeartPulse as MonitorHeartIcon,
+    ClipboardCheck as AssignmentTurnedInIcon,
 
     // receptionist 
-    EventNote as EventNoteIcon,
-    Hotel as HotelIcon,
-    Payments as PaymentsIcon,
-    Campaign as CampaignIcon,
-    Assessment as AssessmentIcon,
+    Calendar as EventNoteIcon,
+    Bed as HotelIcon,
+    CreditCard as PaymentsIcon,
+    Megaphone as CampaignIcon,
+    ClipboardList as AssessmentIcon,
 
     // therapist 
-    HealthAndSafety as HealthAndSafetyIcon,
-    Psychology as PsychologyIcon,
+    Shield as HealthAndSafetyIcon,
+    Brain as PsychologyIcon,
 
     // patient 
-    Group as GroupIcon,
-    Spa as SpaIcon,
-    Medication as MedicationIcon
+    Users as GroupIcon,
+    Heart as SpaIcon,
+    RotateCw as ReplayIcon
 
-} from "@mui/icons-material";
+} from "lucide-react";
 
 // Sidebar menus configuration
 export const sidebarMenus = {
@@ -109,19 +110,48 @@ export const sidebarMenus = {
             icon: <DashboardIcon style={{ color: "var(--color-icons)" }} />,
             to: "/doctor/dashboard",
         },
+
+        /* ================= OP ================= */
         {
-            key: "myPatients",
-            label: "My Patients",
-            icon: <PeopleIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/doctor/my-patients",
+            key: "outPatients",
+            label: "OP Consultation",
+            icon: <LocalHospitalIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/doctor/op-consultation",
         },
+
+        /* ================= IP ================= */
         {
             key: "inPatients",
-            label: "In-Patients",
-            icon: <LocalHospitalIcon style={{ color: "var(--color-icons)" }} />,
+            label: "In Patients",
+            icon: <PeopleIcon style={{ color: "var(--color-icons)" }} />,
             to: "/doctor/in-patients",
         },
+
+        /* ================= TREATMENT ================= */
+        {
+            key: "assignTherapy",
+            label: "Assign Therapy",
+            icon: <HealingIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/doctor/assign-therapy",
+        },
+
+        /* ================= PRESCRIPTION ================= */
+        {
+            key: "prescriptions",
+            label: "Prescriptions",
+            icon: <MedicationIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/doctor/prescriptions",
+        },
+
+        /* ================= FOLLOW UP ================= */
+        {
+            key: "followUp",
+            label: "Follow-ups",
+            icon: <ReplayIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/doctor/follow-ups",
+        },
     ],
+
     nurse: [
         {
             key: "dashboard",
