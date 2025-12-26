@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Box, TextField, Select, MenuItem, FormControl, InputLabel, Button, Grid, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -37,7 +37,7 @@ function Inventory_Add() {
 
         console.log("SUBMITTED PAYLOAD 👉", formData);
         alert("Inventory item added successfully");
-        navigate("/admin/inventory");
+        navigate("/admin/inventory/view");
     };
 
     return (
@@ -48,7 +48,7 @@ function Inventory_Add() {
                 subtitle="Add a new inventory item to the system."
                 breadcrumbItems={[
                     { label: "Admin", path: "/admin/dashboard" },
-                    { label: "Inventory", path: "/admin/inventory" },
+                    { label: "Inventory", path: "/admin/inventory/view" },
                     { label: "Add" },
                 ]}
             />
@@ -238,7 +238,7 @@ function Inventory_Add() {
                 <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
                     <Button
                         variant="outlined"
-                        onClick={() => navigate("/admin/inventory")}
+                        onClick={() => navigate("/admin/inventory/view")}
                         sx={{ mr: 2 }}
                     >
                         Cancel

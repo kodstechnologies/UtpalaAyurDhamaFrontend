@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     Activity,
@@ -80,7 +80,7 @@ function Edit_TherapyAssignment() {
 
         setTimeout(() => {
             setShowSuccess(false);
-            navigate("/admin/therapists-assignment");
+            navigate("/admin/treatment-assignments");
         }, 2000);
     };
 
@@ -245,7 +245,7 @@ function Edit_TherapyAssignment() {
                 {/* Form Footer */}
                 <div className="p-6 border-t-2 border-[var(--color-text)] mt-4">
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <CancelButton onClick={() => navigate("/admin/therapists-assignment")}>
+                        <CancelButton onClick={() => navigate("/admin/treatment-assignments")}>
                             <X size={16} className="mr-2" />
                             Cancel
                         </CancelButton>

@@ -101,6 +101,9 @@ const Batch_Log_Edit = lazy(() =>
 const Batch_Log_Add = lazy(() =>
     import("../../pages/admin/inventory/Batch_Log_Add")
 );
+const BatchLogViewPage = lazy(() =>
+    import("../../pages/admin/inventory/BatchLogView")
+);
 
 // ================= FOOD CHARGES =================
 const Food_Charges_View = lazy(() =>
@@ -581,6 +584,18 @@ export const adminRoutes = [
                 <meta name="description" content="Batch log overview." />
             </Helmet>
                 <Batch_Log_View /></>
+    },
+    {
+        path: "/admin/inventory/batch-log",
+        element: (
+            <>
+                <Helmet>
+                    <title>Batch Log View | UTPALA</title>
+                    <meta name="description" content="View batch log details for inventory items." />
+                </Helmet>
+                <BatchLogViewPage />
+            </>
+        ),
     },
     {
         path: "/admin/inventory/batch-log/add", element:

@@ -1,17 +1,15 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
 import TableComponent from "../../../components/table/TableComponent";
-import { Dialog, DialogContent } from "@mui/material";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
-import PrepareDischarge from "../../../components/card/nurseCard/PrepareDischarge";
 
 function Discharge() {
+    const navigate = useNavigate();
     const [searchText, setSearchText] = useState("");
-    const [open, setOpen] = useState(false);
-    const [selectedPatient, setSelectedPatient] = useState(null);
 
     const columns = [
         { field: "patientId", header: "Patient ID" },
@@ -41,13 +39,11 @@ function Discharge() {
     ];
 
     const handleOpen = (row) => {
-        setSelectedPatient(row);
-        setOpen(true);
-    };
-
-    const handleClose = () => {
-        setOpen(false);
-        setSelectedPatient(null);
+        const params = new URLSearchParams({
+            patientId: row._id || row.patientId || "",
+            patientName: row.patientName || "",
+        });
+        navigate(`/nurse/discharge-preparation/prepare?${params.toString()}`);
     };
 
     const actions = [
@@ -99,45 +95,6 @@ function Discharge() {
                 rows={rows}
                 actions={actions}
             />
-
-            {/* Popup Dialog */}
-            <Dialog
-                open={open}
-                onClose={handleClose}
-                maxWidth="md"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: "18px",
-                        overflow: "hidden",
-                        backgroundColor: "transparent",
-                        boxShadow: "none",
-                        maxWidth: "600px",
-                    },
-                }}
-                BackdropProps={{
-                    sx: {
-                        backgroundColor: "rgba(0, 0, 0, 0.4)",
-                        backdropFilter: "blur(2px)",
-                    },
-                }}
-            >
-                <DialogContent sx={{ p: 0 }}>
-                    {selectedPatient && (
-                        <PrepareDischarge
-                            patient={selectedPatient}
-                            onCancel={handleClose}          // ✅ FIX
-                            onConfirm={(checklist) => {    // ✅ FIX
-                                console.log("Discharge confirmed:", {
-                                    patient: selectedPatient,
-                                    checklist,
-                                });
-                                handleClose();
-                            }}
-                        />
-                    )}
-                </DialogContent>
-            </Dialog>
         </>
     );
 }

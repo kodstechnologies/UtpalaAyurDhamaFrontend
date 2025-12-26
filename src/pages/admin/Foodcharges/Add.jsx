@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     BookOpen,
@@ -65,7 +65,7 @@ function Food_Charges_Add() {
 
         setTimeout(() => {
             setShowSuccess(false);
-            navigate("/admin/food-charges");
+            navigate("/admin/foodcharges/view");
         }, 2000);
     };
 
@@ -261,8 +261,8 @@ function Food_Charges_Add() {
                 {/* Form Footer */}
                 <div className="p-6 border-t-2 border-[var(--color-text)] mt-4">
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <CancelButton onClick={() => navigate("/admin/food-charges")}>
-                            <X size={16} className="mr-2" />
+                        <CancelButton onClick={() => navigate("/admin/foodcharges/view")}>
+                            <X size={16} style={{ marginRight: "8px" }} />
                             Cancel
                         </CancelButton>
 

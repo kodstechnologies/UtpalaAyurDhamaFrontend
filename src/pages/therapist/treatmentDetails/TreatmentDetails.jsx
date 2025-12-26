@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -51,10 +52,7 @@ function Treatment_Details() {
         },
     ]);
 
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [editingRecord, setEditingRecord] = useState(null);
-    const [recordToDelete, setRecordToDelete] = useState(null);
+    const navigate = useNavigate();
     const [hoveredButton, setHoveredButton] = useState(null);
 
     const breadcrumbItems = [
@@ -82,13 +80,21 @@ function Treatment_Details() {
     }, [records, search]);
 
     const handleEdit = (record) => {
-        setEditingRecord(record);
-        setIsEditModalOpen(true);
+        const params = new URLSearchParams({
+            patientName: record.patientName || "",
+            therapyName: record.therapyName || "",
+            duration: record.duration || "",
+        });
+        navigate(`/therapist/treatment-details/edit-duration?${params.toString()}`);
     };
 
     const handleDelete = (record) => {
-        setRecordToDelete(record);
-        setIsDeleteModalOpen(true);
+        const params = new URLSearchParams({
+            patientName: record.patientName || "",
+            therapyName: record.therapyName || "",
+            recordId: record.id || "",
+        });
+        navigate(`/therapist/treatment-details/delete?${params.toString()}`);
     };
 
     const handleConfirmDelete = () => {
@@ -325,157 +331,6 @@ function Treatment_Details() {
                 </div>
             </Box>
 
-            {/* Edit Duration Modal */}
-            {isEditModalOpen && editingRecord && (
-                <div
-                    className="modal show d-block"
-                    tabIndex="-1"
-                    style={{
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 9999,
-                        overflowY: "auto",
-                    }}
-                >
-                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "500px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <h5 className="modal-title">
-                                    Duration for {editingRecord.patientName}
-                                </h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => {
-                                        setIsEditModalOpen(false);
-                                        setEditingRecord(null);
-                                    }}
-                                ></button>
-                            </div>
-                            <div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-                                <div className="mb-3">
-                                    <label className="form-label">Patient</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        value={editingRecord.patientName}
-                                        disabled
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">Therapy Type</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        value={editingRecord.therapyName}
-                                        disabled
-                                    />
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label">Duration/Time</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        defaultValue={editingRecord.duration}
-                                        placeholder="e.g., 45 mins"
-                                    />
-                                </div>
-                            </div>
-                            <div className="modal-footer" style={{ flexShrink: 0, borderTop: "1px solid #dee2e6" }}>
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setIsEditModalOpen(false);
-                                        setEditingRecord(null);
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => {
-                                        const durationInput = document.querySelector('.modal-body input[type="text"]:not([disabled])');
-                                        handleSaveEdit({ duration: durationInput?.value || editingRecord.duration });
-                                    }}
-                                    style={{
-                                        backgroundColor: "#059669",
-                                        borderColor: "#059669",
-                                    }}
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {isDeleteModalOpen && (
-                <div
-                    className="modal show d-block"
-                    tabIndex="-1"
-                    style={{
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 9999,
-                    }}
-                >
-                    <div className="modal-dialog modal-dialog-centered" style={{ margin: "auto", maxWidth: "500px" }}>
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Confirm Delete</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => {
-                                        setIsDeleteModalOpen(false);
-                                        setRecordToDelete(null);
-                                    }}
-                                ></button>
-                            </div>
-                            <div className="modal-body">
-                                <p>Are you sure you want to delete this treatment detail?</p>
-                                {recordToDelete && (
-                                    <p className="text-muted">
-                                        <strong>Patient:</strong> {recordToDelete.patientName}<br />
-                                        <strong>Therapy:</strong> {recordToDelete.therapyName}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setIsDeleteModalOpen(false);
-                                        setRecordToDelete(null);
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-danger"
-                                    onClick={handleConfirmDelete}
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </Box>
     );
 }

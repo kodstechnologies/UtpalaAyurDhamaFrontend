@@ -761,12 +761,14 @@
 
 // export default Slot_Add;
 
-import React, { useState } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box, Button, IconButton, Typography, Chip, Grid, Paper, TextField } from "@mui/material";
-import { Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon } from "@mui/icons-material";
+import { Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon, X } from "@mui/icons-material";
 import HeadingCard from "../../../../components/card/HeadingCard";
 import SubmitButton from "../../../../components/buttons/SubmitButton";
 import DashboardCard from "../../../../components/card/DashboardCard";
+import CancelButton from "../../../../components/buttons/CancelButton";
 
 const doctorsList = [
     { id: "1", name: "Dr. Anil Kumar" },
@@ -786,6 +788,7 @@ const weekDays = [
 ];
 
 function Slot_Add() {
+    const navigate = useNavigate();
     const [search, setSearch] = useState("");
     const [selectedDoctor, setSelectedDoctor] = useState(null);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -1143,7 +1146,11 @@ function Slot_Add() {
                 )}
 
                 {/* ACTION */}
-                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <CancelButton onClick={() => navigate("/admin/consultation/slot/view")}>
+                        <X size={16} style={{ marginRight: "8px" }} />
+                        Cancel
+                    </CancelButton>
                     <SubmitButton
                         text="Save Availability"
                         onClick={handleSubmit}

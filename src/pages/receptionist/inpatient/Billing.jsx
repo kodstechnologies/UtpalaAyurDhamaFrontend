@@ -283,8 +283,6 @@ function InpatientBilling() {
     const [taxRate, setTaxRate] = useState(5);
     const [isDischarging, setIsDischarging] = useState(false);
     const [downloadingReport, setDownloadingReport] = useState(false);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [selectedCharge, setSelectedCharge] = useState(null);
 
     // Calculate totals
     const chargeTotals = useMemo(() => {
@@ -333,8 +331,12 @@ function InpatientBilling() {
     };
 
     const handleEditCharge = (charge) => {
-        setSelectedCharge(charge);
-        setIsEditModalOpen(true);
+        const params = new URLSearchParams({
+            chargeId: charge.id || "",
+            chargeName: charge.name || charge.chargeName || "",
+            amount: (charge.amount || "").toString(),
+        });
+        navigate(`/receptionist/inpatient-billing/edit-charge?${params.toString()}`);
     };
 
     const handleSaveCharge = (formData) => {
@@ -697,76 +699,6 @@ function InpatientBilling() {
                 )}
             </div>
 
-            {/* ⭐ Edit Charge Modal */}
-            {isEditModalOpen && selectedCharge && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Edit Charge</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => {
-                                        setIsEditModalOpen(false);
-                                        setSelectedCharge(null);
-                                    }}
-                                ></button>
-                            </div>
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const formData = new FormData(e.target);
-                                    handleSaveCharge({
-                                        description: formData.get("description"),
-                                        amount: formData.get("amount"),
-                                    });
-                                }}
-                            >
-                                <div className="modal-body">
-                                    <div className="mb-3">
-                                        <label className="form-label">Description *</label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            name="description"
-                                            defaultValue={selectedCharge.description}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">Amount (INR) *</label>
-                                        <input
-                                            type="number"
-                                            className="form-control"
-                                            name="amount"
-                                            step="0.01"
-                                            min="0"
-                                            defaultValue={selectedCharge.amount}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => {
-                                            setIsEditModalOpen(false);
-                                            setSelectedCharge(null);
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary">
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
         </Box>
     );
 }

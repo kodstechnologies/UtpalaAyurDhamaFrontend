@@ -13,6 +13,7 @@ import PharmacistProfile from "../../pages/pharmacist/Profile";
 // Inventory
 import Inventory_View_Details from "../../pages/pharmacist/inventory/View";
 import BatchLogView from "../../pages/pharmacist/inventory/BatchLogView";
+import BatchLogDetails from "../../pages/pharmacist/inventory/BatchLogDetails";
 
 // Prescriptions – Outpatient
 import Outpatient_View_Details from "../../pages/pharmacist/prescriptions/outpatient/View";
@@ -71,9 +72,17 @@ export const pharmacistRoutes = [
     {
         path: "/pharmacist/batch-log/:id",
         element: withHelmet(
-            "Batch Log Details",
+            "Batch Log",
             "View batch-wise stock logs, expiry dates, and movement history.",
             BatchLogView
+        ),
+    },
+    {
+        path: "/pharmacist/inventory/batch-log-details",
+        element: withHelmet(
+            "Batch Log Details",
+            "View detailed batch log information including expiry dates and supplier details.",
+            BatchLogDetails
         ),
     },
 

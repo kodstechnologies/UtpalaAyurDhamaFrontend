@@ -10,7 +10,7 @@ const PatientProfile = lazy(() =>
 );
 
 const Family_Members_View = lazy(() =>
-    import("../../pages/patient/FamilyMembers/View")
+    import("../../pages/patient/familyMembers/View")
 );
 
 const Consultations_View = lazy(() =>
@@ -28,13 +28,23 @@ const Reports_View = lazy(() =>
     import("../../pages/patient/reports/View")
 );
 
+const AddMemberPage = lazy(() =>
+    import("../../pages/patient/familyMembers/AddMember")
+);
+
+const InvoicePage = lazy(() =>
+    import("../../pages/patient/reports/Invoice")
+);
+
 
 export const patientRoutes = [
     { path: "/patient/profile", element: <PatientProfile /> },
     { path: "/patient/dashboard", element: <Patient_Dashboard /> },
     { path: "/patient/family", element: < Family_Members_View /> },
+    { path: "/patient/family/add", element: <AddMemberPage /> },
     { path: "/patient/consultations", element: <Consultations_View /> },
     { path: "/patient/prescriptions", element: <Prescriptions_View /> },
     { path: "/patient/therapies", element: <Therapies_View /> },
     { path: "/patient/reports", element: <Reports_View /> },
+    { path: "/patient/reports/invoice", element: <InvoicePage /> },
 ];

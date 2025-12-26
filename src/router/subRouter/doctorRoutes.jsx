@@ -1,6 +1,6 @@
 // src/router/subRouter/doctorRoutes.jsx
 
-import React, { lazy } from "react";
+import { lazy } from "react";
 import { Helmet } from "react-helmet";
 
 const Doctor_Dashboard = lazy(() =>
@@ -25,6 +25,36 @@ const Patient_Management_View = lazy(() =>
 );
 const PatientDetails = lazy(() =>
     import("../../pages/doctor/PatientManagement/PatientDetails")
+);
+const AddPrescriptionPage = lazy(() =>
+    import("../../pages/doctor/PatientManagement/AddPrescription")
+);
+const AddDailyCheckupPage = lazy(() =>
+    import("../../pages/doctor/PatientManagement/AddDailyCheckup")
+);
+const AddTherapyPlanPage = lazy(() =>
+    import("../../pages/doctor/PatientManagement/AddTherapyPlan")
+);
+const OPConsultation_View = lazy(() =>
+    import("../../pages/doctor/OPConsultation/View")
+);
+const AssignTherapy_View = lazy(() =>
+    import("../../pages/doctor/AssignTherapy/View")
+);
+const AssignTherapy_Add = lazy(() =>
+    import("../../pages/doctor/AssignTherapy/Add")
+);
+const Prescriptions_View = lazy(() =>
+    import("../../pages/doctor/Prescriptions/View")
+);
+const Prescriptions_Add = lazy(() =>
+    import("../../pages/doctor/Prescriptions/Add")
+);
+const Prescriptions_Details = lazy(() =>
+    import("../../pages/doctor/Prescriptions/Details")
+);
+const FollowUps_View = lazy(() =>
+    import("../../pages/doctor/FollowUps/View")
 );
 
 export {
@@ -154,6 +184,156 @@ export const doctorRoutes = [
                     />
                 </Helmet>
                 <PatientDetails />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/in-patients/add-prescription",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Prescription | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Add prescription for patient."
+                    />
+                </Helmet>
+                <AddPrescriptionPage />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/in-patients/add-daily-checkup",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Daily Checkup | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Add daily checkup for patient."
+                    />
+                </Helmet>
+                <AddDailyCheckupPage />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/in-patients/add-therapy-plan",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Therapy Plan | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Add therapy plan for patient."
+                    />
+                </Helmet>
+                <AddTherapyPlanPage />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/op-consultation",
+        element: (
+            <>
+                <Helmet>
+                    <title>OP Consultation | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Manage outpatient consultations and appointments."
+                    />
+                </Helmet>
+                <OPConsultation_View />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/assign-therapy",
+        element: (
+            <>
+                <Helmet>
+                    <title>Assign Therapy | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Manage therapy assignments for patients."
+                    />
+                </Helmet>
+                <AssignTherapy_View />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/assign-therapy/new",
+        element: (
+            <>
+                <Helmet>
+                    <title>Assign New Therapy | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Assign a new therapy to a patient."
+                    />
+                </Helmet>
+                <AssignTherapy_Add />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/prescriptions",
+        element: (
+            <>
+                <Helmet>
+                    <title>Prescriptions | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Manage and view patient prescriptions."
+                    />
+                </Helmet>
+                <Prescriptions_View />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/prescriptions/new",
+        element: (
+            <>
+                <Helmet>
+                    <title>Create Prescription | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Create a new prescription for a patient."
+                    />
+                </Helmet>
+                <Prescriptions_Add />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/prescriptions/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Prescription Details | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="View detailed prescription information."
+                    />
+                </Helmet>
+                <Prescriptions_Details />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/follow-ups",
+        element: (
+            <>
+                <Helmet>
+                    <title>Follow-ups | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Manage and track patient follow-up appointments."
+                    />
+                </Helmet>
+                <FollowUps_View />
             </>
         ),
     },

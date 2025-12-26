@@ -227,7 +227,7 @@
 
 // export default Batch_Log_Add;
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Box, TextField, Button, Grid, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -260,7 +260,7 @@ function Batch_Log_Add() {
 
         console.log("SUBMITTED PAYLOAD 👉", formData);
         alert("Batch added successfully");
-        navigate("/admin/batch-log");
+        navigate("/admin/inventory/view");
     };
 
     return (
@@ -271,8 +271,8 @@ function Batch_Log_Add() {
                 subtitle="Add a new batch to the inventory system."
                 breadcrumbItems={[
                     { label: "Admin", path: "/admin/dashboard" },
-                    { label: "Batch Log", path: "/admin/batch-log" },
-                    { label: "Add" },
+                    { label: "Inventory", path: "/admin/inventory/view" },
+                    { label: "Add Batch" },
                 ]}
             />
 
@@ -409,7 +409,7 @@ function Batch_Log_Add() {
                 <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
                     <Button
                         variant="outlined"
-                        onClick={() => navigate("/admin/batch-log")}
+                        onClick={() => navigate("/admin/inventory/view")}
                         sx={{ mr: 2 }}
                     >
                         Cancel

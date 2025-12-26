@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -71,10 +72,7 @@ function Payments_View() {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterType, setFilterType] = useState("All");
     const [filterPaymentMethod, setFilterPaymentMethod] = useState("All");
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [editingTransaction, setEditingTransaction] = useState(null);
-    const [transactionToDelete, setTransactionToDelete] = useState(null);
+    const navigate = useNavigate();
     const [hoveredButton, setHoveredButton] = useState(null);
 
     const [newTransaction, setNewTransaction] = useState({
@@ -145,34 +143,31 @@ function Payments_View() {
 
     // Handle add transaction
     const handleAddClick = () => {
-        setEditingTransaction(null);
-        setNewTransaction({
-            date: new Date().toISOString().split("T")[0],
-            description: "",
-            type: "Credit",
-            amount: "",
-            paymentMethod: "Cash",
-        });
-        setIsModalOpen(true);
+        navigate("/receptionist/payments/add");
     };
 
     // Handle edit transaction
     const handleEditClick = (transaction) => {
-        setEditingTransaction(transaction);
-        setNewTransaction({
-            date: transaction.date,
-            description: transaction.description,
-            type: transaction.type,
-            amount: String(transaction.amount),
-            paymentMethod: transaction.paymentMethod,
+        const params = new URLSearchParams({
+            edit: "true",
+            transactionId: transaction._id || "",
+            date: transaction.date || "",
+            type: transaction.type || "",
+            description: transaction.description || "",
+            amount: (transaction.amount || "").toString(),
+            paymentMethod: transaction.paymentMethod || "",
         });
-        setIsModalOpen(true);
+        navigate(`/receptionist/payments/edit?${params.toString()}`);
     };
 
     // Handle delete transaction
     const handleDeleteClick = (transaction) => {
-        setTransactionToDelete(transaction);
-        setIsDeleteModalOpen(true);
+        const params = new URLSearchParams({
+            transactionId: transaction._id || "",
+            description: transaction.description || "",
+            amount: (transaction.amount || "").toString(),
+        });
+        navigate(`/receptionist/payments/delete?${params.toString()}`);
     };
 
     // Handle confirm delete
@@ -557,213 +552,6 @@ function Payments_View() {
                 </div>
             </Box>
 
-            {/* ⭐ Add/Edit Transaction Modal */}
-            {isModalOpen && (
-                <div
-                    className="modal show d-block"
-                    tabIndex="-1"
-                    style={{
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 9999,
-                        overflowY: "auto",
-                        padding: "20px 0",
-                    }}
-                >
-                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "700px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <div className="d-flex align-items-center gap-3">
-                                    <div
-                                        style={{
-                                            padding: "8px",
-                                            backgroundColor: "#0d6efd20",
-                                            borderRadius: "8px",
-                                        }}
-                                    >
-                                        <WalletIcon sx={{ color: "#0d6efd", fontSize: 24 }} />
-                                    </div>
-                                    <h5 className="modal-title mb-0">
-                                        {editingTransaction ? "Edit Transaction" : "Record New Transaction"}
-                                    </h5>
-                                </div>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsModalOpen(false)}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleSaveTransaction}>
-                                <div className="modal-body" style={{ flex: "1 1 auto", overflowY: "auto" }}>
-                                    <div className="row g-3 mb-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label">
-                                                Date <span className="text-danger">*</span>
-                                            </label>
-                                            <div className="input-group">
-                                                <span className="input-group-text">
-                                                    <CalendarTodayIcon />
-                                                </span>
-                                                <input
-                                                    type="date"
-                                                    className="form-control"
-                                                    name="date"
-                                                    value={newTransaction.date}
-                                                    onChange={handleInputChange}
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">
-                                                Transaction Type <span className="text-danger">*</span>
-                                            </label>
-                                            <select
-                                                className="form-select"
-                                                name="type"
-                                                value={newTransaction.type}
-                                                onChange={handleInputChange}
-                                                required
-                                            >
-                                                <option value="Credit">Credit (Income)</option>
-                                                <option value="Debit">Debit (Expense)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">
-                                            Description / Reason <span className="text-danger">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            name="description"
-                                            value={newTransaction.description}
-                                            onChange={handleInputChange}
-                                            placeholder="e.g., Consultation Fee for John Doe"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="row g-3 mb-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label">
-                                                Amount (INR) <span className="text-danger">*</span>
-                                            </label>
-                                            <div className="input-group">
-                                                <span className="input-group-text">
-                                                    <AttachMoneyIcon />
-                                                </span>
-                                                <input
-                                                    type="number"
-                                                    className="form-control"
-                                                    name="amount"
-                                                    value={newTransaction.amount}
-                                                    onChange={handleInputChange}
-                                                    placeholder="e.g., 500"
-                                                    step="0.01"
-                                                    min="0"
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">
-                                                Payment Method <span className="text-danger">*</span>
-                                            </label>
-                                            <select
-                                                className="form-select"
-                                                name="paymentMethod"
-                                                value={newTransaction.paymentMethod}
-                                                onChange={handleInputChange}
-                                                required
-                                            >
-                                                {paymentMethods.map((method) => (
-                                                    <option key={method} value={method}>
-                                                        {method}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer" style={{ flexShrink: 0 }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => setIsModalOpen(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary">
-                                        {editingTransaction ? "Update Transaction" : "Save Transaction"}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ⭐ Delete Confirmation Modal */}
-            {isDeleteModalOpen && transactionToDelete && (
-                <div
-                    className="modal show d-block"
-                    tabIndex="-1"
-                    style={{
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 9999,
-                    }}
-                >
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Confirm Delete</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsDeleteModalOpen(false)}
-                                ></button>
-                            </div>
-                            <div className="modal-body">
-                                <p>
-                                    Are you sure you want to delete this transaction?
-                                    <br />
-                                    <strong>{transactionToDelete.description}</strong>
-                                    <br />
-                                    <span className="text-muted">
-                                        Amount: {formatCurrency(transactionToDelete.amount)}
-                                    </span>
-                                </p>
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => setIsDeleteModalOpen(false)}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-danger"
-                                    onClick={handleConfirmDelete}
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </Box>
     );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     BookOpen,
@@ -88,7 +88,7 @@ function Food_Charges_Edit() {
 
         setTimeout(() => {
             setShowSuccess(false);
-            navigate("/admin/food-charges");
+            navigate("/admin/foodcharges/view");
         }, 2000);
     };
 
@@ -283,8 +283,8 @@ function Food_Charges_Edit() {
                 {/* Form Footer */}
                 <div className="p-6 border-t-2 border-[var(--color-text)] mt-4">
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <CancelButton onClick={() => navigate("/admin/food-charges")}>
-                            <X size={16} className="mr-2" />
+                        <CancelButton onClick={() => navigate("/admin/foodcharges/view")}>
+                            <X size={16} style={{ marginRight: "8px" }} />
                             Cancel
                         </CancelButton>
 

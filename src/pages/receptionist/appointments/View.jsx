@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -133,12 +134,6 @@ const mockDoctors = [
     { _id: "doc-3", user: { name: "Dr. Kumar" } },
 ];
 
-const mockTherapists = [
-    { _id: "th-1", user: { name: "Mr. Anand" } },
-    { _id: "th-2", user: { name: "Ms. Geeta" } },
-    { _id: "th-3", user: { name: "Dr. Suresh" } },
-];
-
 function Appointments_View() {
     const [activeTab, setActiveTab] = useState("allPatients");
     const [filters, setFilters] = useState({
@@ -150,43 +145,8 @@ function Appointments_View() {
     const [appointments] = useState(mockAppointments);
     const [therapySessions] = useState(mockTherapySessions);
     const [doctors] = useState(mockDoctors);
-    const [therapists] = useState(mockTherapists);
 
-    // Modal states
-    const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false);
-    const [isScheduleAppointmentModalOpen, setIsScheduleAppointmentModalOpen] = useState(false);
-    const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
-    const [isViewPatientModalOpen, setIsViewPatientModalOpen] = useState(false);
-    const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
-    const [isScheduleTherapyModalOpen, setIsScheduleTherapyModalOpen] = useState(false);
-
-    // Form states
-    const [selectedPatient, setSelectedPatient] = useState(null);
-    const [patientToSchedule, setPatientToSchedule] = useState(null);
-    const [appointmentToReschedule, setAppointmentToReschedule] = useState(null);
-    const [patientToView, setPatientToView] = useState(null);
-    const [editingPatient, setEditingPatient] = useState(null);
-    const [newAppointment, setNewAppointment] = useState({ doctor: "", date: "", time: "" });
-    const [rescheduleData, setRescheduleData] = useState({ doctor: "", date: "", time: "" });
-    const [newTherapySession, setNewTherapySession] = useState({
-        patientId: "",
-        therapistName: "",
-        treatment: "",
-        date: "",
-        time: "",
-    });
-    const [newPatient, setNewPatient] = useState({
-        patientName: "",
-        contactNumber: "",
-        email: "",
-        dateOfBirth: "",
-        gender: "",
-        age: "",
-        address: "",
-        preferredDate: "",
-        preferredTime: "",
-        complaints: "",
-    });
+    const navigate = useNavigate();
 
     // Breadcrumb Data
     const breadcrumbItems = [
@@ -257,106 +217,48 @@ function Appointments_View() {
     };
 
     const handleScheduleAppointmentClick = (patient) => {
-        setPatientToSchedule(patient);
-        setIsScheduleAppointmentModalOpen(true);
+        const params = new URLSearchParams({
+            patientId: patient.id || "",
+            patientName: patient.name || "",
+        });
+        navigate(`/receptionist/appointments/schedule?${params.toString()}`);
     };
 
     const handleRescheduleClick = (appointment) => {
-        setAppointmentToReschedule(appointment);
         const [date, time] = appointment.appointmentDateTime.split(" ");
         const currentDoctor = doctors.find((d) => d.user.name === appointment.doctor);
-        setRescheduleData({ doctor: currentDoctor?._id || "", date, time });
-        setIsRescheduleModalOpen(true);
+        const params = new URLSearchParams({
+            appointmentId: appointment.id || "",
+            patientName: appointment.patientName || appointment.name || "",
+            doctorId: currentDoctor?._id || "",
+            date: date || "",
+            time: time || "",
+        });
+        navigate(`/receptionist/appointments/reschedule?${params.toString()}`);
     };
 
     const handleViewPatientClick = (patient) => {
-        setPatientToView(patient);
-        setEditingPatient({ ...patient });
-        setIsViewPatientModalOpen(true);
-    };
-
-    const handleUpdatePatient = (e) => {
-        e.preventDefault();
-        if (!editingPatient) return;
-        toast.success(`Patient ${editingPatient.name} details updated successfully!`);
-        // In real implementation, this would update the patient via API call
-        // const updatedPatients = allPatients.map((p) =>
-        //     p.id === editingPatient.id ? editingPatient : p
-        // );
-        setIsViewPatientModalOpen(false);
-        setEditingPatient(null);
+        const params = new URLSearchParams({
+            patientId: patient.id || "",
+            patientName: patient.name || "",
+            contact: patient.contact || "",
+            email: patient.email || "",
+            gender: patient.gender || "",
+            age: (patient.age || "").toString(),
+            address: patient.address || "",
+            registeredDate: patient.registeredDate || "",
+            disease: patient.disease || "",
+        });
+        navigate(`/receptionist/appointments/view-patient?${params.toString()}`);
     };
 
     const handleSendMessageClick = (patient) => {
-        setSelectedPatient(patient);
-        setIsWhatsAppModalOpen(true);
-    };
-
-    const handleSendWhatsApp = (type) => {
-        if (!selectedPatient) return;
-        const phoneNumber = selectedPatient.contact.replace(/\D/g, "");
-        let message = "";
-        if (type === "form") {
-            const formUrl = `${window.location.origin}/patient-registration-form`;
-            message = `Hello ${selectedPatient.name}, please fill out your registration form here: ${formUrl}`;
-        } else {
-            message = `Hello ${selectedPatient.name}, this is a reminder for your upcoming appointment.`;
-        }
-        const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, "_blank");
-        setIsWhatsAppModalOpen(false);
-    };
-
-    const handleScheduleAppointmentSubmit = (e) => {
-        e.preventDefault();
-        if (!patientToSchedule || !newAppointment.doctor || !newAppointment.date || !newAppointment.time) {
-            toast.error("Please fill all fields.");
-            return;
-        }
-        toast.success(`Appointment scheduled for ${patientToSchedule.name}.`);
-        setIsScheduleAppointmentModalOpen(false);
-        setNewAppointment({ doctor: "", date: "", time: "" });
-    };
-
-    const handleRescheduleSubmit = (e) => {
-        e.preventDefault();
-        if (!appointmentToReschedule || !rescheduleData.date || !rescheduleData.time) {
-            toast.error("Please select a new date and time.");
-            return;
-        }
-        toast.success(`Appointment for ${appointmentToReschedule.name} has been rescheduled.`);
-        setIsRescheduleModalOpen(false);
-        setRescheduleData({ doctor: "", date: "", time: "" });
-    };
-
-    const handleSaveNewPatient = (e) => {
-        e.preventDefault();
-        toast.success(`Patient ${newPatient.patientName} has been registered successfully!`);
-        setIsAddPatientModalOpen(false);
-        setNewPatient({
-            patientName: "",
-            contactNumber: "",
-            email: "",
-            dateOfBirth: "",
-            gender: "",
-            age: "",
-            address: "",
-            preferredDate: "",
-            preferredTime: "",
-            complaints: "",
+        const params = new URLSearchParams({
+            patientId: patient.id || "",
+            patientName: patient.name || "",
+            contact: patient.contact || "",
         });
-    };
-
-    const handleScheduleTherapySubmit = (e) => {
-        e.preventDefault();
-        const patient = allPatients.find((p) => p.id === newTherapySession.patientId);
-        if (!patient) {
-            toast.error("Patient not found");
-            return;
-        }
-        toast.success(`Therapy session scheduled for ${patient.name}.`);
-        setIsScheduleTherapyModalOpen(false);
-        setNewTherapySession({ patientId: "", therapistName: "", treatment: "", date: "", time: "" });
+        navigate(`/receptionist/appointments/whatsapp?${params.toString()}`);
     };
 
     const getStatusBadgeClass = (status) => {
@@ -386,7 +288,7 @@ function Appointments_View() {
                     <button
                         type="button"
                         className="btn btn-primary"
-                        onClick={() => setIsAddPatientModalOpen(true)}
+                        onClick={() => navigate("/receptionist/appointments/add-patient")}
                         style={{
                             whiteSpace: "nowrap",
                             padding: "10px 18px",
@@ -704,7 +606,7 @@ function Appointments_View() {
                                     <button
                                         type="button"
                                         className="btn btn-primary"
-                                        onClick={() => setIsScheduleTherapyModalOpen(true)}
+                                        onClick={() => navigate("/receptionist/appointments/schedule-therapy")}
                                     >
                                         <AddIcon className="me-2" />
                                         Schedule Therapy
@@ -765,586 +667,6 @@ function Appointments_View() {
                     </div>
                 </div>
             </Box>
-
-            {/* Add Patient Modal */}
-            {isAddPatientModalOpen && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto", padding: "20px 0" }}>
-                    <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "800px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <h5 className="modal-title">Add Patient</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsAddPatientModalOpen(false)}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleSaveNewPatient} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                                <div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-                                    <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label">Patient Name *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.patientName}
-                                                onChange={(e) => setNewPatient({ ...newPatient, patientName: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Contact Number *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.contactNumber}
-                                                onChange={(e) => setNewPatient({ ...newPatient, contactNumber: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Email *</label>
-                                            <input
-                                                type="email"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.email}
-                                                onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Date of Birth *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.dateOfBirth}
-                                                onChange={(e) => setNewPatient({ ...newPatient, dateOfBirth: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Gender *</label>
-                                            <select
-                                                className="form-select"
-                                                required
-                                                value={newPatient.gender}
-                                                onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
-                                            >
-                                                <option value="">Select Gender</option>
-                                                <option value="Male">Male</option>
-                                                <option value="Female">Female</option>
-                                                <option value="Other">Other</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Age *</label>
-                                            <input
-                                                type="number"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.age}
-                                                onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label">Address *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.address}
-                                                onChange={(e) => setNewPatient({ ...newPatient, address: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Preferred Date *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.preferredDate}
-                                                onChange={(e) => setNewPatient({ ...newPatient, preferredDate: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Preferred Time *</label>
-                                            <input
-                                                type="time"
-                                                className="form-control"
-                                                required
-                                                value={newPatient.preferredTime}
-                                                onChange={(e) => setNewPatient({ ...newPatient, preferredTime: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label">Complaints</label>
-                                            <textarea
-                                                className="form-control"
-                                                rows="3"
-                                                value={newPatient.complaints}
-                                                onChange={(e) => setNewPatient({ ...newPatient, complaints: e.target.value })}
-                                            ></textarea>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer" style={{ flexShrink: 0, borderTop: "1px solid #dee2e6", padding: "15px" }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => setIsAddPatientModalOpen(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: "#8B4513", borderColor: "#8B4513" }}>
-                                        Register New Patient
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Schedule Appointment Modal */}
-            {isScheduleAppointmentModalOpen && patientToSchedule && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto" }}>
-                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Schedule Appointment for {patientToSchedule.name}</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsScheduleAppointmentModalOpen(false)}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleScheduleAppointmentSubmit}>
-                                <div className="modal-body">
-                                    <div className="mb-3">
-                                        <label className="form-label">Doctor *</label>
-                                        <select
-                                            className="form-select"
-                                            required
-                                            value={newAppointment.doctor}
-                                            onChange={(e) => setNewAppointment({ ...newAppointment, doctor: e.target.value })}
-                                        >
-                                            <option value="">Select Doctor</option>
-                                            {doctors.map((d) => (
-                                                <option key={d._id} value={d._id}>
-                                                    {d.user.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label">Date *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={newAppointment.date}
-                                                onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Time *</label>
-                                            <input
-                                                type="time"
-                                                className="form-control"
-                                                required
-                                                value={newAppointment.time}
-                                                onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => setIsScheduleAppointmentModalOpen(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary">
-                                        Schedule
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Reschedule Modal */}
-            {isRescheduleModalOpen && appointmentToReschedule && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto" }}>
-                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Reschedule Appointment for {appointmentToReschedule.name}</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsRescheduleModalOpen(false)}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleRescheduleSubmit}>
-                                <div className="modal-body">
-                                    <div className="mb-3">
-                                        <label className="form-label">Doctor</label>
-                                        <select
-                                            className="form-select"
-                                            value={rescheduleData.doctor}
-                                            onChange={(e) => setRescheduleData({ ...rescheduleData, doctor: e.target.value })}
-                                        >
-                                            <option value="">Select Doctor (or keep current)</option>
-                                            {doctors.map((d) => (
-                                                <option key={d._id} value={d._id}>
-                                                    {d.user.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label">New Date *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={rescheduleData.date}
-                                                onChange={(e) => setRescheduleData({ ...rescheduleData, date: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">New Time *</label>
-                                            <input
-                                                type="time"
-                                                className="form-control"
-                                                required
-                                                value={rescheduleData.time}
-                                                onChange={(e) => setRescheduleData({ ...rescheduleData, time: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => setIsRescheduleModalOpen(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary">
-                                        Reschedule
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* View Patient Modal */}
-            {isViewPatientModalOpen && patientToView && editingPatient && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto", padding: "20px 0" }}>
-                    <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "800px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <h5 className="modal-title">View Patient Details</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => {
-                                        setIsViewPatientModalOpen(false);
-                                        setEditingPatient(null);
-                                    }}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleUpdatePatient} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                                <div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-                                    <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label">Patient Name *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.name || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, name: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Contact Number *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.contact || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, contact: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Email *</label>
-                                            <input
-                                                type="email"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.email || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, email: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Date of Birth *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.dateOfBirth || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, dateOfBirth: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Gender *</label>
-                                            <select
-                                                className="form-select"
-                                                required
-                                                value={editingPatient.gender || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, gender: e.target.value })}
-                                            >
-                                                <option value="">Select Gender</option>
-                                                <option value="Male">Male</option>
-                                                <option value="Female">Female</option>
-                                                <option value="Other">Other</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Age *</label>
-                                            <input
-                                                type="number"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.age || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, age: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label">Address *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.address || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, address: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Preferred Date *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.preferredDate || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, preferredDate: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Preferred Time *</label>
-                                            <input
-                                                type="time"
-                                                className="form-control"
-                                                required
-                                                value={editingPatient.preferredTime || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, preferredTime: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label">Complaints</label>
-                                            <textarea
-                                                className="form-control"
-                                                rows="3"
-                                                value={editingPatient.disease || editingPatient.complaints || ""}
-                                                onChange={(e) => setEditingPatient({ ...editingPatient, disease: e.target.value, complaints: e.target.value })}
-                                            ></textarea>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer" style={{ flexShrink: 0, borderTop: "1px solid #dee2e6", padding: "15px" }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => {
-                                            setIsViewPatientModalOpen(false);
-                                            setEditingPatient(null);
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: "#28a745", borderColor: "#28a745" }}>
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* WhatsApp Modal */}
-            {isWhatsAppModalOpen && selectedPatient && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto" }}>
-                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Send Message via WhatsApp</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsWhatsAppModalOpen(false)}
-                                ></button>
-                            </div>
-                            <div className="modal-body">
-                                <p>
-                                    Send a message to <strong>{selectedPatient.name}</strong>. You can send a data collection form link or an appointment reminder.
-                                </p>
-                                <div className="mb-3">
-                                    <label className="form-label">WhatsApp Number</label>
-                                    <input type="text" className="form-control" value={selectedPatient.contact || ""} readOnly />
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => setIsWhatsAppModalOpen(false)}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-success"
-                                    onClick={() => handleSendWhatsApp("form")}
-                                >
-                                    Send Form Link
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-info"
-                                    onClick={() => handleSendWhatsApp("reminder")}
-                                >
-                                    Send Reminder
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Schedule Therapy Modal */}
-            {isScheduleTherapyModalOpen && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto" }}>
-                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Schedule Therapy Session</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsScheduleTherapyModalOpen(false)}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleScheduleTherapySubmit}>
-                                <div className="modal-body">
-                                    <div className="mb-3">
-                                        <label className="form-label">Patient *</label>
-                                        <select
-                                            className="form-select"
-                                            required
-                                            value={newTherapySession.patientId}
-                                            onChange={(e) => setNewTherapySession({ ...newTherapySession, patientId: e.target.value })}
-                                        >
-                                            <option value="">Select Patient</option>
-                                            {allPatients.map((p) => (
-                                                <option key={p.id} value={p.id}>
-                                                    {p.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">Therapist *</label>
-                                        <select
-                                            className="form-select"
-                                            required
-                                            value={newTherapySession.therapistName}
-                                            onChange={(e) => setNewTherapySession({ ...newTherapySession, therapistName: e.target.value })}
-                                        >
-                                            <option value="">Select Therapist</option>
-                                            {therapists.map((t) => (
-                                                <option key={t._id} value={t.user.name}>
-                                                    {t.user.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">Treatment *</label>
-                                        <select
-                                            className="form-select"
-                                            required
-                                            value={newTherapySession.treatment}
-                                            onChange={(e) => setNewTherapySession({ ...newTherapySession, treatment: e.target.value })}
-                                        >
-                                            <option value="">Select Treatment</option>
-                                            <option value="Physiotherapy">Physiotherapy</option>
-                                            <option value="Panchakarma">Panchakarma</option>
-                                            <option value="Ayurvedic Consultation">Ayurvedic Consultation</option>
-                                            <option value="Yoga Therapy">Yoga Therapy</option>
-                                        </select>
-                                    </div>
-                                    <div className="row g-3">
-                                        <div className="col-md-6">
-                                            <label className="form-label">Date *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={newTherapySession.date}
-                                                onChange={(e) => setNewTherapySession({ ...newTherapySession, date: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Time *</label>
-                                            <input
-                                                type="time"
-                                                className="form-control"
-                                                required
-                                                value={newTherapySession.time}
-                                                onChange={(e) => setNewTherapySession({ ...newTherapySession, time: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer">
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => setIsScheduleTherapyModalOpen(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary">
-                                        Schedule
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
         </Box>
     );
 }

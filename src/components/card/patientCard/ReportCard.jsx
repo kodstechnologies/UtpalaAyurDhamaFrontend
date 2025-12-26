@@ -667,11 +667,11 @@
 // export default ReportCard;
 
 
-import React, { useState } from "react";
-import { Box, Typography, Button, Dialog } from "@mui/material";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, Typography, Button } from "@mui/material";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import ReportDetailsCard from "./ReportDetailsCard";
 
 function ReportCard({
     id,
@@ -682,103 +682,98 @@ function ReportCard({
     uploadedDate = "Nov 25, 2025",
     details = "Full report details will appear here...",
 }) {
-
-    const [open, setOpen] = useState(false);
+    const navigate = useNavigate();
 
     const handleView = () => {
-        setOpen(true);
+        // Navigate to invoice page with report data as URL params
+        const params = new URLSearchParams({
+            invoiceNumber: "INVOICE-20251125-0001",
+            invoiceDate: "12/09/2025",
+            patientName: "Sharavni",
+            dob: "11/18/2025",
+            patientId: "P-0001",
+            service: "Ashwagandha Tablet",
+            serviceDate: "12/09/2025",
+            cost: "₹120.00",
+            totalDue: "₹123.60",
+            instructions: "Please make payment by 12/24/2025 via online portal, check, or credit card. For inquiries, contact us at 5465647658. Thank you!",
+        });
+        navigate(`/patient/reports/invoice?${params.toString()}`);
     };
 
     return (
-        <>
-            {/* CARD */}
-            <Box
-                sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    p: 2.5,
-                    borderRadius: 3,
-                    bgcolor: "var(--color-bg-card)",
-                    boxShadow: "var(--shadow-soft)",
-                    border: "1px solid var(--color-border)",
-                    mb: 2,
-                }}
-            >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <Box
-                        sx={{
-                            width: 55,
-                            height: 55,
-                            borderRadius: 2,
-                            bgcolor: "var(--color-primary-light-v)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}
-                    >
-                        <DescriptionOutlinedIcon sx={{ fontSize: 32, color: "var(--color-primary)" }} />
-                    </Box>
-
-                    <Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
-                                {title}
-                            </Typography>
-
-                            <Box
-                                sx={{
-                                    px: 1,
-                                    py: 0.3,
-                                    borderRadius: "12px",
-                                    fontSize: "0.7rem",
-                                    bgcolor: "var(--color-primary-light-v)",
-                                    color: "var(--color-primary)",
-                                    fontWeight: 600,
-                                }}
-                            >
-                                {badge}
-                            </Box>
-                        </Box>
-
-                        <Typography sx={{ color: "var(--color-text-muted)", fontSize: "0.9rem", mt: 0.5 }}>
-                            {doctor} • Consultation: {consultationDate} • Uploaded: {uploadedDate}
-                        </Typography>
-                    </Box>
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                p: 2.5,
+                borderRadius: 3,
+                bgcolor: "var(--color-bg-card)",
+                boxShadow: "var(--shadow-soft)",
+                border: "1px solid var(--color-border)",
+                mb: 2,
+            }}
+        >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box
+                    sx={{
+                        width: 55,
+                        height: 55,
+                        borderRadius: 2,
+                        bgcolor: "var(--color-primary-light-v)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                >
+                    <DescriptionOutlinedIcon sx={{ fontSize: 32, color: "var(--color-primary)" }} />
                 </Box>
 
-                {/* VIEW BUTTON */}
-                <Button
-                    onClick={handleView}
-                    variant="outlined"
-                    sx={{
-                        borderColor: "var(--color-success)",
-                        color: "var(--color-success)",
-                        textTransform: "none",
-                        fontWeight: 600,
-                        borderRadius: "10px",
-                        px: 3,
-                    }}
-                    startIcon={<VisibilityOutlinedIcon sx={{ color: "var(--color-success)" }} />}
-                >
-                    View
-                </Button>
+                <Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
+                            {title}
+                        </Typography>
+
+                        <Box
+                            sx={{
+                                px: 1,
+                                py: 0.3,
+                                borderRadius: "12px",
+                                fontSize: "0.7rem",
+                                bgcolor: "var(--color-primary-light-v)",
+                                color: "var(--color-primary)",
+                                fontWeight: 600,
+                            }}
+                        >
+                            {badge}
+                        </Box>
+                    </Box>
+
+                    <Typography sx={{ color: "var(--color-text-muted)", fontSize: "0.9rem", mt: 0.5 }}>
+                        {doctor} • Consultation: {consultationDate} • Uploaded: {uploadedDate}
+                    </Typography>
+                </Box>
             </Box>
 
-            {/* MODAL WITH FULL REPORT DETAILS */}
-            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-                <ReportDetailsCard
-                    id={id}
-                    title={title}
-                    badge={badge}
-                    doctor={doctor}
-                    consultationDate={consultationDate}
-                    uploadedDate={uploadedDate}
-                    details={details}
-                    onClose={() => setOpen(false)}
-                />
-            </Dialog>
-        </>
+            {/* VIEW BUTTON */}
+            <Button
+                onClick={handleView}
+                variant="outlined"
+                sx={{
+                    borderColor: "var(--color-success)",
+                    color: "var(--color-success)",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    borderRadius: "10px",
+                    px: 3,
+                }}
+                startIcon={<VisibilityOutlinedIcon sx={{ color: "var(--color-success)" }} />}
+            >
+                View
+            </Button>
+        </Box>
     );
 }
 

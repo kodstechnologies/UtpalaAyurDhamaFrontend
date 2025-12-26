@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Box, Grid, Dialog, DialogContent, Chip, Typography } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { Box, Grid, Chip, Typography } from "@mui/material";
 import { CheckCircle as CheckCircleIcon } from "@mui/icons-material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import PeopleIcon from "@mui/icons-material/People";
@@ -25,9 +26,8 @@ function BatchLogView() {
         { label: "Batch Log" },
     ];
 
+    const navigate = useNavigate();
     const [searchText, setSearchText] = useState("");
-    const [open, setOpen] = useState(false);
-    const [selectedRow, setSelectedRow] = useState(null);
 
     const columns = [
         { field: "batchId", header: "Batch ID" },
@@ -87,8 +87,21 @@ function BatchLogView() {
     );
 
     const handleViewDetails = (row) => {
-        setSelectedRow(row);
-        setOpen(true);
+        const params = new URLSearchParams({
+            batchId: row.batchId || row.id || row._id || "",
+            _id: row._id || row.id || "",
+            itemName: row.medicineName || row.itemName || row.name || "",
+            medicineName: row.medicineName || "",
+            batchNo: row.batchId || row.batchNo || "",
+            expiryDate: row.expiryDate || "",
+            quantity: (row.quantity || "").toString(),
+            dispensed: (row.dispensed || "0").toString(),
+            supplier: row.supplier || "MedLife Pharmaceuticals",
+            receivedOn: row.receivedOn || new Date().toISOString().split("T")[0],
+            purchaseOrder: row.purchaseOrder || "PO-2025-001",
+            unitPrice: row.unitPrice || "25.00",
+        });
+        navigate(`/pharmacist/inventory/batch-log-details?${params.toString()}`);
     };
 
     const actions = [
@@ -169,22 +182,6 @@ function BatchLogView() {
                 showStatusBadge={true}
             />
 
-            {/* Details Dialog */}
-            <Dialog
-                open={open}
-                onClose={() => setOpen(false)}
-                fullWidth
-                maxWidth="md"
-            >
-                <DialogContent sx={{ p: 0 }}>
-                    {selectedRow && (
-                        <Box>
-                            <Typography variant="h6">Batch Details</Typography>
-                            {/* Add more details here as needed */}
-                        </Box>
-                    )}
-                </DialogContent>
-            </Dialog>
         </Box>
     );
 }

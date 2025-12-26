@@ -146,37 +146,30 @@
 // export default Monitoring;
 
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import RestaurantIcon from "@mui/icons-material/Restaurant";
-import { Dialog, DialogContent, IconButton } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
 import { Eye } from "lucide-react";
-import LogFoodCard from "../../../components/card/nurseCard/LogFoodCard";
-import UpdateVitalsCard from "../../../components/card/nurseCard/UpdateVitalsCard";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
-import RedirectButton from "../../../components/buttons/RedirectButton";
 
 function Monitoring() {
-    const [open, setOpen] = useState(false);
-    const [popupType, setPopupType] = useState(null);
-    const [selectedPatient, setSelectedPatient] = useState(null);
+    const navigate = useNavigate();
     const [searchText, setSearchText] = useState("");
 
     const handleOpen = (type, row) => {
-        setPopupType(type);
-        setSelectedPatient(row);
-        setOpen(true);
-    };
-
-    const handleClose = () => {
-        setOpen(false);
-        setPopupType(null);
-        setSelectedPatient(null);
+        const params = new URLSearchParams({
+            patientId: row._id || row.patientId || "",
+            patientName: row.patientName || "",
+        });
+        if (type === "food") {
+            navigate(`/nurse/monitoring/log-food?${params.toString()}`);
+        } else if (type === "vitals") {
+            navigate(`/nurse/monitoring/update-vitals?${params.toString()}`);
+        }
     };
 
     const columns = [
@@ -247,45 +240,6 @@ function Monitoring() {
                 actions={actions}
                 showStatusBadge={false}
             />
-
-            {/* 🔹 Popup Dialog */}
-            <Dialog
-                open={open}
-                onClose={handleClose}
-                maxWidth="md"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: "18px",
-                        overflow: "hidden",
-                        backgroundColor: "transparent",
-                        boxShadow: "none",
-                        maxWidth: "600px",
-                    }
-                }}
-                BackdropProps={{
-                    sx: {
-                        backgroundColor: "rgba(0, 0, 0, 0.4)",
-                        backdropFilter: "blur(2px)",
-                    }
-                }}
-            >
-                <DialogContent sx={{ p: 0, m: 0 }}>
-                    {popupType === "food" && (
-                        <LogFoodCard
-                            patient={selectedPatient}
-                            onClose={handleClose}
-                        />
-                    )}
-
-                    {popupType === "vitals" && (
-                        <UpdateVitalsCard
-                            patient={selectedPatient}
-                            onClose={handleClose}
-                        />
-                    )}
-                </DialogContent>
-            </Dialog>
         </>
     );
 }

@@ -1,21 +1,250 @@
 // src/router/subRouter/receptionRoutes.jsx
 
-import Appointments_View from "../../pages/receptionist/appointments/View";
-import Receptionist_dashboard from "../../pages/receptionist/dashboard";
-import Inpatient_View from "../../pages/receptionist/inpatient/View";
-import InpatientBilling from "../../pages/receptionist/inpatient/Billing";
-import Marketing_View from "../../pages/receptionist/marketing/View";
-import Payments_View from "../../pages/receptionist/payments/View";
-import Reports_View from "../../pages/receptionist/reports/View";
-import ReceptionistProfile from "../../pages/receptionist/Profile";
+import { lazy } from "react";
+import { Helmet } from "react-helmet";
+
+const Appointments_View = lazy(() => import("../../pages/receptionist/appointments/View"));
+const Receptionist_dashboard = lazy(() => import("../../pages/receptionist/dashboard"));
+const Inpatient_View = lazy(() => import("../../pages/receptionist/inpatient/View"));
+const InpatientBilling = lazy(() => import("../../pages/receptionist/inpatient/Billing"));
+const Marketing_View = lazy(() => import("../../pages/receptionist/marketing/View"));
+const Payments_View = lazy(() => import("../../pages/receptionist/payments/View"));
+const Reports_View = lazy(() => import("../../pages/receptionist/reports/View"));
+const ReceptionistProfile = lazy(() => import("../../pages/receptionist/Profile"));
+
+// Modal pages
+const AddEditTransactionPage = lazy(() => import("../../pages/receptionist/payments/AddEditTransaction"));
+const DeleteTransactionPage = lazy(() => import("../../pages/receptionist/payments/DeleteTransaction"));
+const AdmitPatientPage = lazy(() => import("../../pages/receptionist/inpatient/AdmitPatient"));
+const AllocateResourcesPage = lazy(() => import("../../pages/receptionist/inpatient/AllocateResources"));
+const AddPatientPage = lazy(() => import("../../pages/receptionist/appointments/AddPatient"));
+const ScheduleAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/ScheduleAppointment"));
+const RescheduleAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/RescheduleAppointment"));
+const ViewPatientPage = lazy(() => import("../../pages/receptionist/appointments/ViewPatient"));
+const WhatsAppPage = lazy(() => import("../../pages/receptionist/appointments/WhatsApp"));
+const ScheduleTherapyPage = lazy(() => import("../../pages/receptionist/appointments/ScheduleTherapy"));
+const EditChargePage = lazy(() => import("../../pages/receptionist/inpatient/EditCharge"));
 
 export const receptionRoutes = [
-    { path: "/receptionist/profile", element: <ReceptionistProfile /> },
-    { path: "/receptionist/dashboard", element: <Receptionist_dashboard /> },
-    { path: "/receptionist/appointments", element: <Appointments_View /> },
-    { path: "/receptionist/inpatient", element: <Inpatient_View /> },
-    { path: "/receptionist/inpatient-billing/:id", element: <InpatientBilling /> },
-    { path: "/receptionist/payments", element: <Payments_View /> },
-    { path: "/receptionist/marketing", element: <Marketing_View /> },
-    { path: "/receptionist/reports", element: <Reports_View /> },
+    {
+        path: "/receptionist/profile",
+        element: (
+            <>
+                <Helmet>
+                    <title>Receptionist Profile | UTPALA</title>
+                </Helmet>
+                <ReceptionistProfile />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/dashboard",
+        element: (
+            <>
+                <Helmet>
+                    <title>Receptionist Dashboard | UTPALA</title>
+                </Helmet>
+                <Receptionist_dashboard />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments",
+        element: (
+            <>
+                <Helmet>
+                    <title>Appointments | UTPALA</title>
+                </Helmet>
+                <Appointments_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/inpatient",
+        element: (
+            <>
+                <Helmet>
+                    <title>Inpatients | UTPALA</title>
+                </Helmet>
+                <Inpatient_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/inpatient-billing/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Inpatient Billing | UTPALA</title>
+                </Helmet>
+                <InpatientBilling />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/payments",
+        element: (
+            <>
+                <Helmet>
+                    <title>Payments | UTPALA</title>
+                </Helmet>
+                <Payments_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/marketing",
+        element: (
+            <>
+                <Helmet>
+                    <title>Marketing | UTPALA</title>
+                </Helmet>
+                <Marketing_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/reports",
+        element: (
+            <>
+                <Helmet>
+                    <title>Reports | UTPALA</title>
+                </Helmet>
+                <Reports_View />
+            </>
+        ),
+    },
+    // Modal pages
+    {
+        path: "/receptionist/payments/add",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Transaction | UTPALA</title>
+                </Helmet>
+                <AddEditTransactionPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/payments/edit",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Transaction | UTPALA</title>
+                </Helmet>
+                <AddEditTransactionPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/payments/delete",
+        element: (
+            <>
+                <Helmet>
+                    <title>Delete Transaction | UTPALA</title>
+                </Helmet>
+                <DeleteTransactionPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/inpatient/admit",
+        element: (
+            <>
+                <Helmet>
+                    <title>Admit Patient | UTPALA</title>
+                </Helmet>
+                <AdmitPatientPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/inpatient/allocate",
+        element: (
+            <>
+                <Helmet>
+                    <title>Allocate Resources | UTPALA</title>
+                </Helmet>
+                <AllocateResourcesPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/add-patient",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Patient | UTPALA</title>
+                </Helmet>
+                <AddPatientPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/schedule",
+        element: (
+            <>
+                <Helmet>
+                    <title>Schedule Appointment | UTPALA</title>
+                </Helmet>
+                <ScheduleAppointmentPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/reschedule",
+        element: (
+            <>
+                <Helmet>
+                    <title>Reschedule Appointment | UTPALA</title>
+                </Helmet>
+                <RescheduleAppointmentPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/view-patient",
+        element: (
+            <>
+                <Helmet>
+                    <title>View Patient | UTPALA</title>
+                </Helmet>
+                <ViewPatientPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/whatsapp",
+        element: (
+            <>
+                <Helmet>
+                    <title>WhatsApp Message | UTPALA</title>
+                </Helmet>
+                <WhatsAppPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/schedule-therapy",
+        element: (
+            <>
+                <Helmet>
+                    <title>Schedule Therapy | UTPALA</title>
+                </Helmet>
+                <ScheduleTherapyPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/inpatient-billing/edit-charge",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Charge | UTPALA</title>
+                </Helmet>
+                <EditChargePage />
+            </>
+        ),
+    },
 ];

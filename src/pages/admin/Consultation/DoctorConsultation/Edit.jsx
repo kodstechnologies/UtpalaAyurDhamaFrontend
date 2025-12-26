@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Box, Divider } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import HeadingCard from "../../../../components/card/HeadingCard";
@@ -78,7 +78,7 @@ function Consultation_Edit() {
                 });
             } else {
                 alert("Consultation fee not found");
-                navigate("/admin/consultation/fees");
+                navigate("/admin/consultation/view");
             }
             setIsLoading(false);
         };
@@ -113,7 +113,7 @@ function Consultation_Edit() {
             };
             await updateConsultationFeeAPI(payload, id);
             alert("Consultation fee updated successfully");
-            navigate("/admin/consultation/fees");
+            navigate("/admin/consultation/view");
         } catch (error) {
             console.error("Error updating consultation fee:", error);
             alert("Failed to update consultation fee. Please try again.");
@@ -135,7 +135,7 @@ function Consultation_Edit() {
                 subtitle="Update the consultation fee details"
                 breadcrumbItems={[
                     { label: "Admin", path: "/admin/dashboard" },
-                    { label: "Consultation Fees", path: "/admin/consultation/fees" },
+                    { label: "Consultation Fees", path: "/admin/consultation/view" },
                     { label: "Edit" },
                 ]}
             />
@@ -239,7 +239,7 @@ function Consultation_Edit() {
                 {/* ACTIONS */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <button
-                        onClick={() => navigate("/admin/consultation/fees")}
+                        onClick={() => navigate("/admin/consultation/view")}
                         className="px-6 py-2 border rounded-lg font-semibold flex items-center gap-2"
                         disabled={submitLoading}
                     >

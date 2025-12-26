@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import { Link } from "react-router-dom";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
-import { toast } from "react-toastify";
 
 // Icons
 import PeopleIcon from "@mui/icons-material/People";
@@ -79,75 +79,11 @@ const mockInpatients = [
     },
 ];
 
-const mockPatients = [
-    {
-        _id: "pat-1",
-        patientId: "PAT001",
-        name: "John Doe",
-        email: "john@example.com",
-        phone: "9876543210",
-        inpatient: false,
-    },
-    {
-        _id: "pat-2",
-        patientId: "PAT002",
-        name: "Jane Smith",
-        email: "jane@example.com",
-        phone: "9123456780",
-        inpatient: false,
-    },
-    {
-        _id: "pat-3",
-        patientId: "PAT003",
-        name: "Robert Johnson",
-        email: "robert@example.com",
-        phone: "9988776655",
-        inpatient: true,
-    },
-];
-
-const mockDoctors = [
-    { _id: "doc-1", user: { name: "Dr. Sharma" } },
-    { _id: "doc-2", user: { name: "Dr. Patel" } },
-    { _id: "doc-3", user: { name: "Dr. Kumar" } },
-    { _id: "doc-4", user: { name: "Dr. Mehta" } },
-];
-
-const mockNurses = [
-    { _id: "nurse-1", user: { name: "Nurse Priya" }, nurseId: "N001" },
-    { _id: "nurse-2", user: { name: "Nurse Geeta" }, nurseId: "N002" },
-    { _id: "nurse-3", user: { name: "Nurse Anjali" }, nurseId: "N003" },
-];
-
 function Inpatient_View() {
     const [inpatients] = useState(mockInpatients);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
-    const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
-    const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
-    const [selectedInpatient, setSelectedInpatient] = useState(null);
-    const [patientSearchTerm, setPatientSearchTerm] = useState("");
-    const [patientSearchResults, setPatientSearchResults] = useState([]);
-    const [selectedPatientForAdmission, setSelectedPatientForAdmission] = useState(null);
-
-    // Form states
-    const [admitForm, setAdmitForm] = useState({
-        patientId: "",
-        doctorId: "",
-        allocatedNurse: "",
-        wardCategory: "",
-        roomNumber: "",
-        bedNumber: "",
-        admissionDate: new Date().toISOString().split("T")[0],
-        reason: "",
-    });
-
-    const [allocationForm, setAllocationForm] = useState({
-        allocatedNurse: "",
-        wardCategory: "",
-        roomNo: "",
-        bedNumber: "",
-    });
+    const navigate = useNavigate();
 
     // Tooltip states
     const [hoveredButton, setHoveredButton] = useState(null);
@@ -183,101 +119,17 @@ function Inpatient_View() {
         });
     }, [inpatients, search, statusFilter]);
 
-    // Patient search handler
-    const handlePatientSearch = (term) => {
-        setPatientSearchTerm(term);
-        if (term.trim().length < 2) {
-            setPatientSearchResults([]);
-            return;
-        }
-        // Mock search - filter patients
-        const results = mockPatients.filter(
-            (p) =>
-                p.name.toLowerCase().includes(term.toLowerCase()) ||
-                p.email.toLowerCase().includes(term.toLowerCase()) ||
-                p.phone.includes(term)
-        );
-        setPatientSearchResults(results);
-    };
-
-    const handleSelectPatientForAdmission = (patient) => {
-        if (patient.inpatient) {
-            toast.error("Patient is already admitted");
-            return;
-        }
-        setSelectedPatientForAdmission(patient);
-        setAdmitForm({ ...admitForm, patientId: patient.patientId });
-        setPatientSearchTerm(patient.name);
-        setPatientSearchResults([]);
-    };
-
-    const handleAdmitPatient = (e) => {
-        e.preventDefault();
-        if (!selectedPatientForAdmission) {
-            toast.error("Please select a patient to admit.");
-            return;
-        }
-        if (!admitForm.doctorId) {
-            toast.error("Please select a doctor to assign.");
-            return;
-        }
-        if (!admitForm.allocatedNurse) {
-            toast.error("Please select a nurse to allocate.");
-            return;
-        }
-        if (!admitForm.wardCategory) {
-            toast.error("Please choose a ward category.");
-            return;
-        }
-        if (!admitForm.roomNumber) {
-            toast.error("Please provide a room number.");
-            return;
-        }
-        toast.success("Patient admitted and resources assigned successfully!");
-        setIsAdmitModalOpen(false);
-        setAdmitForm({
-            patientId: "",
-            doctorId: "",
-            allocatedNurse: "",
-            wardCategory: "",
-            roomNumber: "",
-            bedNumber: "",
-            admissionDate: new Date().toISOString().split("T")[0],
-            reason: "",
-        });
-        setSelectedPatientForAdmission(null);
-        setPatientSearchTerm("");
-    };
-
     const handleOpenAllocationModal = (patient) => {
-        setSelectedInpatient(patient);
-        setAllocationForm({
+        const params = new URLSearchParams({
+            inpatientId: patient.id || "",
+            patientName: patient.name || "",
             allocatedNurse: patient.allocatedNurseId || "",
             wardCategory: patient.wardCategory || "",
             roomNo: patient.roomNo || "",
-            bedNumber: "",
+            bedNumber: patient.bedNumber || "",
+            reallocate: patient.admitStatus !== "Pending Allocation" ? "true" : "false",
         });
-        setIsAllocationModalOpen(true);
-    };
-
-    const handleSaveAllocation = (e) => {
-        e.preventDefault();
-        if (!selectedInpatient) return;
-        if (!allocationForm.allocatedNurse) {
-            toast.error("Please select a nurse to allocate.");
-            return;
-        }
-        if (!allocationForm.wardCategory) {
-            toast.error("Please choose a ward category.");
-            return;
-        }
-        if (!allocationForm.roomNo) {
-            toast.error("Please provide a room number.");
-            return;
-        }
-        toast.success("Resources allocated successfully!");
-        setIsAllocationModalOpen(false);
-        setSelectedInpatient(null);
+        navigate(`/receptionist/inpatient/allocate?${params.toString()}`);
     };
 
     const getStatusBadgeClass = (status) => {
@@ -304,7 +156,7 @@ function Inpatient_View() {
                     <button
                         type="button"
                         className="btn btn-primary"
-                        onClick={() => setIsAdmitModalOpen(true)}
+                        onClick={() => navigate("/receptionist/inpatient/admit")}
                         style={{
                             whiteSpace: "nowrap",
                             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
@@ -571,287 +423,6 @@ function Inpatient_View() {
                     </div>
                 </div>
             </Box>
-
-            {/* Admit Patient Modal */}
-            {isAdmitModalOpen && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto", padding: "20px 0" }}>
-                    <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "800px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <h5 className="modal-title">Admit Patient</h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => {
-                                        setIsAdmitModalOpen(false);
-                                        setPatientSearchTerm("");
-                                        setPatientSearchResults([]);
-                                        setSelectedPatientForAdmission(null);
-                                    }}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleAdmitPatient} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                                <div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-                                    <div className="row g-3">
-                                        <div className="col-md-12">
-                                            <label className="form-label">Search Patient *</label>
-                                            <div className="position-relative">
-                                                <input
-                                                    type="text"
-                                                    className="form-control"
-                                                    placeholder="Type patient name to search..."
-                                                    value={patientSearchTerm}
-                                                    onChange={(e) => handlePatientSearch(e.target.value)}
-                                                />
-                                                {patientSearchResults.length > 0 && (
-                                                    <div
-                                                        className="position-absolute w-100 bg-white border rounded shadow-lg"
-                                                        style={{ zIndex: 10000, maxHeight: "200px", overflowY: "auto", top: "100%", marginTop: "4px" }}
-                                                    >
-                                                        {patientSearchResults.map((patient) => (
-                                                            <button
-                                                                key={patient._id}
-                                                                type="button"
-                                                                className={`w-100 text-start p-3 border-bottom ${patient.inpatient ? "opacity-50" : ""}`}
-                                                                onClick={() => handleSelectPatientForAdmission(patient)}
-                                                                disabled={patient.inpatient}
-                                                                style={{ backgroundColor: patient.inpatient ? "#f8f9fa" : "white" }}
-                                                            >
-                                                                <div className="fw-semibold">{patient.name}</div>
-                                                                <div className="text-muted small">
-                                                                    {patient.email} • {patient.phone}
-                                                                </div>
-                                                                {patient.inpatient && (
-                                                                    <div className="text-danger small">Already admitted</div>
-                                                                )}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label">Selected Patient</label>
-                                            <input
-                                                type="text"
-                                                className="form-control bg-light"
-                                                value={
-                                                    selectedPatientForAdmission
-                                                        ? `${selectedPatientForAdmission.name} (${selectedPatientForAdmission.patientId})`
-                                                        : ""
-                                                }
-                                                placeholder="Select a patient from search results"
-                                                readOnly
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Assign Doctor *</label>
-                                            <select
-                                                className="form-select"
-                                                required
-                                                value={admitForm.doctorId}
-                                                onChange={(e) => setAdmitForm({ ...admitForm, doctorId: e.target.value })}
-                                            >
-                                                <option value="">Select Doctor</option>
-                                                {mockDoctors.map((d) => (
-                                                    <option key={d._id} value={d._id}>
-                                                        {d.user.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Allocate Nurse *</label>
-                                            <select
-                                                className="form-select"
-                                                required
-                                                value={admitForm.allocatedNurse}
-                                                onChange={(e) => setAdmitForm({ ...admitForm, allocatedNurse: e.target.value })}
-                                            >
-                                                <option value="">Select Nurse</option>
-                                                {mockNurses.map((n) => (
-                                                    <option key={n._id} value={n._id}>
-                                                        {n.user.name} {n.nurseId ? `(${n.nurseId})` : ""}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Ward Category *</label>
-                                            <select
-                                                className="form-select"
-                                                required
-                                                value={admitForm.wardCategory}
-                                                onChange={(e) => setAdmitForm({ ...admitForm, wardCategory: e.target.value })}
-                                            >
-                                                <option value="">Select Ward Category</option>
-                                                <option value="General">General</option>
-                                                <option value="Duplex">Duplex</option>
-                                                <option value="Special">Special</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Room No. *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={admitForm.roomNumber}
-                                                onChange={(e) => setAdmitForm({ ...admitForm, roomNumber: e.target.value })}
-                                                placeholder="Enter room number"
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Bed No.</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                value={admitForm.bedNumber}
-                                                onChange={(e) => setAdmitForm({ ...admitForm, bedNumber: e.target.value })}
-                                                placeholder="Optional"
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Admission Date *</label>
-                                            <input
-                                                type="date"
-                                                className="form-control"
-                                                required
-                                                value={admitForm.admissionDate}
-                                                onChange={(e) => setAdmitForm({ ...admitForm, admissionDate: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label">Reason for Admission</label>
-                                            <textarea
-                                                className="form-control"
-                                                rows="3"
-                                                value={admitForm.reason}
-                                                onChange={(e) => setAdmitForm({ ...admitForm, reason: e.target.value })}
-                                                placeholder="Enter reason for admission"
-                                            ></textarea>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer" style={{ flexShrink: 0, borderTop: "1px solid #dee2e6", padding: "15px" }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => {
-                                            setIsAdmitModalOpen(false);
-                                            setPatientSearchTerm("");
-                                            setPatientSearchResults([]);
-                                            setSelectedPatientForAdmission(null);
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: "#8B4513", borderColor: "#8B4513" }}>
-                                        Admit Patient
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Allocate Resources Modal */}
-            {isAllocationModalOpen && selectedInpatient && (
-                <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, overflowY: "auto", padding: "20px 0" }}>
-                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "600px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <h5 className="modal-title">
-                                    {selectedInpatient.admitStatus === "Pending Allocation"
-                                        ? "Allocate Resources"
-                                        : "Re-allocate Resources"} for {selectedInpatient.name}
-                                </h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => {
-                                        setIsAllocationModalOpen(false);
-                                        setSelectedInpatient(null);
-                                    }}
-                                ></button>
-                            </div>
-                            <form onSubmit={handleSaveAllocation} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                                <div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-                                    <div className="row g-3">
-                                        <div className="col-md-12">
-                                            <label className="form-label">Allocate Nurse *</label>
-                                            <select
-                                                className="form-select"
-                                                required
-                                                value={allocationForm.allocatedNurse}
-                                                onChange={(e) => setAllocationForm({ ...allocationForm, allocatedNurse: e.target.value })}
-                                            >
-                                                <option value="">Select Nurse</option>
-                                                {mockNurses.map((n) => (
-                                                    <option key={n._id} value={n._id}>
-                                                        {n.user.name} {n.nurseId ? `(${n.nurseId})` : ""}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label">Ward Category *</label>
-                                            <select
-                                                className="form-select"
-                                                required
-                                                value={allocationForm.wardCategory}
-                                                onChange={(e) => setAllocationForm({ ...allocationForm, wardCategory: e.target.value })}
-                                            >
-                                                <option value="">Select Ward Category</option>
-                                                <option value="General">General</option>
-                                                <option value="Duplex">Duplex</option>
-                                                <option value="Special">Special</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Room No. *</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                required
-                                                value={allocationForm.roomNo}
-                                                onChange={(e) => setAllocationForm({ ...allocationForm, roomNo: e.target.value })}
-                                                placeholder="Enter room number"
-                                            />
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label">Bed No.</label>
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                value={allocationForm.bedNumber}
-                                                onChange={(e) => setAllocationForm({ ...allocationForm, bedNumber: e.target.value })}
-                                                placeholder="Optional"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="modal-footer" style={{ flexShrink: 0, borderTop: "1px solid #dee2e6", padding: "15px" }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => {
-                                            setIsAllocationModalOpen(false);
-                                            setSelectedInpatient(null);
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary" style={{ backgroundColor: "#28a745", borderColor: "#28a745" }}>
-                                        Save Allocation
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
         </Box>
     );
 }

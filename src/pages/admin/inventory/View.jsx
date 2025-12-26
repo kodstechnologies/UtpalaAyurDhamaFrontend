@@ -1,22 +1,14 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
     Box,
     Stack,
     Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    Typography,
-    IconButton,
 } from "@mui/material";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 import DescriptionIcon from "@mui/icons-material/Description";
-import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import LocalPharmacyIcon from "@mui/icons-material/LocalPharmacy";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import BlockIcon from "@mui/icons-material/Block";
-import { X } from "lucide-react";
 import { ListChecks } from 'lucide-react';
 
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -57,7 +49,7 @@ const fields = [
 ];
 
 function Inventory_View() {
-    const [rows, setRows] = useState([
+    const [rows] = useState([
         {
             _id: "1",
             stockId: "STK-101",
@@ -89,8 +81,6 @@ function Inventory_View() {
 
     const [searchText, setSearchText] = useState("");
     const [filter, setFilter] = useState("All Items");
-    const [openBatchLog, setOpenBatchLog] = useState(false);
-    const [selectedItem, setSelectedItem] = useState(null);
     const navigate = useNavigate();
 
     // Combined filtering: search + type filter
@@ -152,8 +142,16 @@ function Inventory_View() {
             icon: <DescriptionIcon fontSize="small" />,
             color: "#27AE60",
             onClick: (row) => {
-                setSelectedItem(row);
-                setOpenBatchLog(true);
+                const params = new URLSearchParams({
+                    itemId: row._id || "",
+                    itemName: row.itemName || "",
+                    batchNo: row.batchNo || "BCH-2025-001",
+                    expiryDate: row.expiryDate || "31 Dec 2026",
+                    supplier: row.supplier || "MedLife Pharmaceuticals",
+                    receivedOn: row.receivedOn || "05 Jan 2025",
+                    quantityReceived: (row.quantityReceived || "500").toString(),
+                });
+                navigate(`/admin/inventory/batch-log?${params.toString()}`);
             },
             tooltip: "View Batch Log",
         },
@@ -270,30 +268,6 @@ function Inventory_View() {
                 statusField="status"
             />
 
-            {/* Batch Log Modal */}
-            <Dialog open={openBatchLog} onClose={() => setOpenBatchLog(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 600, pr: 6 }}>
-                    Batch Log - {selectedItem?.itemName || ""}
-                    <IconButton
-                        onClick={() => setOpenBatchLog(false)}
-                        sx={{ position: 'absolute', right: 8, top: 8 }}
-                    >
-                        <X />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent>
-                    <Typography color="text.secondary" mb={2}>
-                        Batch information for this item:
-                    </Typography>
-                    <Box sx={{ bgcolor: '#f5f5f5', p: 3, borderRadius: 2 }}>
-                        <Typography><strong>Batch No:</strong> BCH-2025-001</Typography>
-                        <Typography><strong>Expiry Date:</strong> 31 Dec 2026</Typography>
-                        <Typography><strong>Supplier:</strong> MedLife Pharmaceuticals</Typography>
-                        <Typography><strong>Received On:</strong> 05 Jan 2025</Typography>
-                        <Typography><strong>Quantity Received:</strong> 500 units</Typography>
-                    </Box>
-                </DialogContent>
-            </Dialog>
         </Box>
     );
 }

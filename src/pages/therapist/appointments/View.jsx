@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -8,9 +9,6 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import PersonIcon from "@mui/icons-material/Person";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -24,8 +22,7 @@ function Therapy_Progress() {
     const [viewMode, setViewMode] = useState("table"); // "table" or "calendar"
     const [calendarView, setCalendarView] = useState("dayGridMonth"); // "dayGridMonth", "timeGridWeek", "timeGridDay", "listWeek"
     const calendarRef = useRef(null);
-    const [isPatientDetailsModalOpen, setIsPatientDetailsModalOpen] = useState(false);
-    const [selectedPatientDate, setSelectedPatientDate] = useState(null); // { patientName, date }
+    const navigate = useNavigate();
 
     // Mock therapy sessions data - spread across multiple dates
     const getTodayDate = () => {
@@ -209,8 +206,14 @@ function Therapy_Progress() {
     };
 
     const handleViewDetails = (sessionId) => {
-        // TODO: Navigate to patient details or show modal
-        console.log("View details:", sessionId);
+        const session = sessions.find((s) => s.id === sessionId);
+        if (session) {
+            const params = new URLSearchParams({
+                patientName: session.patientName || "",
+                date: session.date || "",
+            });
+            navigate(`/therapist/therapy-progress/details?${params.toString()}`);
+        }
     };
 
     // Convert sessions to FullCalendar events
@@ -277,22 +280,13 @@ function Therapy_Progress() {
         const eventDate = new Date(event.start);
         const dateString = eventDate.toISOString().split("T")[0];
         
-        setSelectedPatientDate({
-            patientName: extendedProps.patientName,
-            date: dateString,
+        const params = new URLSearchParams({
+            patientName: extendedProps.patientName || "",
+            date: dateString || "",
         });
-        setIsPatientDetailsModalOpen(true);
+        navigate(`/therapist/therapy-progress/details?${params.toString()}`);
     };
 
-    // Get all therapy sessions for the selected patient on the selected date
-    const patientDaySessions = useMemo(() => {
-        if (!selectedPatientDate) return [];
-        return sessions.filter(
-            (session) =>
-                session.patientName === selectedPatientDate.patientName &&
-                session.date === selectedPatientDate.date
-        );
-    }, [selectedPatientDate, sessions]);
 
     const handleDatesSet = (dateInfo) => {
         // Handle date navigation
@@ -914,124 +908,6 @@ function Therapy_Progress() {
                 </div>
             </Box>
 
-            {/* Patient Therapy Details Modal */}
-            {isPatientDetailsModalOpen && selectedPatientDate && (
-                <div
-                    className="modal show d-block"
-                    tabIndex="-1"
-                    style={{
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 9999,
-                        overflowY: "auto",
-                    }}
-                >
-                    <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "800px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <h5 className="modal-title d-flex align-items-center gap-2">
-                                    <PersonIcon sx={{ color: "#6B4423" }} />
-                                    Therapy Details: {selectedPatientDate.patientName}
-                                </h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsPatientDetailsModalOpen(false)}
-                                ></button>
-                            </div>
-                            <div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-                                <div className="mb-3">
-                                    <h6 className="text-muted mb-2">
-                                        <CalendarMonthIcon fontSize="small" className="me-1" />
-                                        Date: {formatDate(selectedPatientDate.date)}
-                                    </h6>
-                                </div>
-
-                                {patientDaySessions.length > 0 ? (
-                                    <div className="d-flex flex-column gap-3">
-                                        {patientDaySessions.map((session) => (
-                                            <div
-                                                key={session.id}
-                                                className="card shadow-sm"
-                                                style={{
-                                                    borderRadius: "12px",
-                                                    borderLeft: `4px solid ${
-                                                        session.status === "Completed"
-                                                            ? "#28a745"
-                                                            : session.status === "In Progress"
-                                                            ? "#0dcaf0"
-                                                            : session.status === "Scheduled"
-                                                            ? "#8B5CF6"
-                                                            : session.status === "Pending"
-                                                            ? "#ffc107"
-                                                            : session.status === "Cancelled"
-                                                            ? "#dc3545"
-                                                            : "#DC2626"
-                                                    }`,
-                                                }}
-                                            >
-                                                <div className="card-body p-3">
-                                                    <div className="d-flex justify-content-between align-items-start mb-2">
-                                                        <div>
-                                                            <h6 className="mb-1" style={{ fontWeight: 600, fontSize: "1rem" }}>
-                                                                {session.treatmentName}
-                                                            </h6>
-                                                            <div className="d-flex align-items-center gap-3 mt-2" style={{ fontSize: "0.875rem" }}>
-                                                                <span className="text-muted d-flex align-items-center gap-1">
-                                                                    <AccessTimeIcon fontSize="small" />
-                                                                    {session.startTime} - {session.endTime}
-                                                                </span>
-                                                                <span className="text-muted d-flex align-items-center gap-1">
-                                                                    <LocalHospitalIcon fontSize="small" />
-                                                                    {session.flowType}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <span
-                                                            className={`badge ${getStatusBadgeClass(session.status)}`}
-                                                            style={{
-                                                                borderRadius: "50px",
-                                                                padding: "4px 10px",
-                                                                fontSize: "0.75rem",
-                                                            }}
-                                                        >
-                                                            {session.status}
-                                                        </span>
-                                                    </div>
-                                                    {session.notes && (
-                                                        <div className="mt-2 pt-2 border-top">
-                                                            <p className="mb-0" style={{ fontSize: "0.875rem", color: "#495057" }}>
-                                                                <strong>Notes:</strong> {session.notes}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-5">
-                                        <p className="text-muted">No therapy sessions found for this patient on this date.</p>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="modal-footer" style={{ flexShrink: 0, borderTop: "1px solid #dee2e6" }}>
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => setIsPatientDetailsModalOpen(false)}
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </Box>
     );
 }

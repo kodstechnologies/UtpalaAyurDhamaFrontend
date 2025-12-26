@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Box, Divider } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import HeadingCard from "../../../../components/card/HeadingCard";
@@ -47,7 +47,7 @@ function Consultation_Add() {
                 notes,
             };
             await createConsultationFeeAPI(payload);
-            navigate("/admin/consultation/fees");
+            navigate("/admin/consultation/view");
         } finally {
             setIsLoading(false);
         }
@@ -62,7 +62,7 @@ function Consultation_Add() {
                 subtitle="Add a new consultation fee to the system"
                 breadcrumbItems={[
                     { label: "Admin", path: "/admin/dashboard" },
-                    { label: "Consultation Fees", path: "/admin/consultation/fees" },
+                    { label: "Consultation Fees", path: "/admin/consultation/view" },
                     { label: "Add" },
                 ]}
             />
@@ -162,7 +162,7 @@ function Consultation_Add() {
                 {/* ACTIONS */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <button
-                        onClick={() => navigate("/admin/consultation/fees")}
+                        onClick={() => navigate("/admin/consultation/view")}
                         className="px-6 py-2 border rounded-lg font-semibold flex items-center gap-2"
                         disabled={isLoading}
                     >

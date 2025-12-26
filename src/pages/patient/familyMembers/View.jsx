@@ -1,14 +1,11 @@
-import React, { useState } from "react";
+import React from "react";
 import HeadingCard from "../../../components/card/HeadingCard";
 import FamilyMemberCard from "../../../components/card/patientCard/FamilyMammberCard";
 import RedirectButton from "../../../components/buttons/RedirectButton";
-import AddMember from "../../../components/card/patientCard/AddMember";
 
-import { Box, Typography, Modal } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 
 function Family_Members_View() {
-    // Add Member Modal State
-    const [openAdd, setOpenAdd] = useState(false);
 
     // Example Family Member Data (replace with API later)
     const familyMembers = [
@@ -74,7 +71,7 @@ function Family_Members_View() {
 
                 <RedirectButton
                     text="Add Member"
-                    onClick={() => setOpenAdd(true)}
+                    link="/patient/family/add"
                     sx={{
                         background: "var(--color-primary)",
                         padding: "7px 18px",
@@ -102,30 +99,6 @@ function Family_Members_View() {
                     />
                 ))}
             </Box>
-
-            {/* Add Member Popup Modal */}
-            <Modal
-                open={openAdd}
-                onClose={() => setOpenAdd(false)}
-            >
-                <Box
-                    sx={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        height: "100vh",
-                        p: 2,
-                    }}
-                >
-                    <AddMember
-                        onCancel={() => setOpenAdd(false)}
-                        onSubmit={(data) => {
-                            console.log("New Member Added:", data);
-                            setOpenAdd(false);
-                        }}
-                    />
-                </Box>
-            </Modal>
         </div>
     );
 }

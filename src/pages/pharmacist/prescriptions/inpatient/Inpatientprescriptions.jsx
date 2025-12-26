@@ -34,7 +34,9 @@ import {
     Person,
     CalendarToday,
     Female,
-    Male
+    Male,
+    LocalHotel,
+    LocalHospital
 } from "@mui/icons-material";
 
 import Breadcrumb from "../../../../components/breadcrumb/Breadcrumb";
@@ -46,49 +48,52 @@ function Inpatientprescriptions() {
     const theme = useTheme();
     const [status, setStatus] = useState("pending"); // pending, dispensed
 
-    /* 🔹 Mock Data (replace with API by id later) */
+    /* 🔹 Mock Data for Inpatient (replace with API by id later) */
     const patient = {
         id,
-        name: "Amit Kumar",
-        age: 32,
+        name: "Rohit Verma",
+        age: 45,
         gender: "Male",
-        doctor: "Dr. Priya Sharma",
-        diagnosis: "Acute Fever with Headache",
+        doctor: "Dr. Mehta",
+        diagnosis: "Diabetes Management",
         contact: "+91 98765 43210",
-        lastVisit: "2024-03-15",
-        prescriptionDate: "2024-03-15",
-        allergies: ["Penicillin", "Sulfa Drugs"]
+        admissionDate: "2025-01-10",
+        prescriptionDate: "2025-01-20",
+        roomNo: "102",
+        wardCategory: "General",
+        uhid: "UHID-2025-001",
+        allergies: ["Penicillin"]
     };
 
     const prescriptions = [
         {
             id: 1,
-            medicine: "Paracetamol 500mg",
+            medicine: "Metformin 500mg",
             dosage: "1 tablet",
             frequency: "2 times/day",
-            duration: "5 days",
-            quantity: 10,
+            duration: "Ongoing",
+            quantity: 30,
             notes: "After meals",
             status: "available"
         },
         {
             id: 2,
-            medicine: "Ibuprofen 400mg",
+            medicine: "Glipizide 5mg",
             dosage: "1 tablet",
-            frequency: "1 time/day",
-            duration: "3 days",
-            quantity: 3,
-            notes: "With food",
+            frequency: "1 time/day (morning)",
+            duration: "Ongoing",
+            quantity: 15,
+            notes: "Before breakfast",
             status: "available"
         },
         {
             id: 3,
-            medicine: "Cetirizine 10mg",
-            dosage: "1 tablet",
+            medicine: "Insulin Glargine",
+            dosage: "20 units",
             frequency: "1 time/day (night)",
-            duration: "5 days",
-            quantity: 5,
-            notes: "Before bedtime",
+            duration: "Ongoing",
+            quantity: 1,
+            notes: "Subcutaneous injection",
             status: "available"
         },
     ];
@@ -97,7 +102,7 @@ function Inpatientprescriptions() {
     const breadcrumbItems = [
         { label: "Home", url: "/" },
         { label: "Pharmacist", url: "/pharmacist/dashboard" },
-        { label: "Outpatient Prescriptions", url: "/pharmacist/prescriptions/outpatient" },
+        { label: "Inpatient Prescriptions", url: "/pharmacist/prescriptions/inpatient" },
         { label: patient.name },
     ];
 
@@ -118,8 +123,6 @@ function Inpatientprescriptions() {
         <Container maxWidth="lg" sx={{ py: 3 }}>
             {/* Header with Back Button */}
             <Box sx={{ mb: 3 }}>
-
-
                 <Breadcrumb items={breadcrumbItems} />
             </Box>
 
@@ -128,8 +131,8 @@ function Inpatientprescriptions() {
                 <HeadingCard
                     title={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <LocalPharmacy sx={{ color: theme.palette.primary.main }} />
-                            <span>Prescription #{id}</span>
+                            <LocalHospital sx={{ color: theme.palette.primary.main }} />
+                            <span>Inpatient Prescription #{id}</span>
                             <Chip
                                 label={status === "dispensed" ? "Dispensed" : "Pending"}
                                 color={status === "dispensed" ? "success" : "warning"}
@@ -139,7 +142,7 @@ function Inpatientprescriptions() {
                             />
                         </Box>
                     }
-                    subtitle="Review patient details and dispense prescribed medicines with care."
+                    subtitle="Review inpatient details and dispense prescribed medicines. Patient is currently admitted."
                     action={
                         <Stack direction="row" spacing={1}>
                             <Button
@@ -201,7 +204,7 @@ function Inpatientprescriptions() {
                                 gap: 1
                             }}>
                                 <Person fontSize="small" />
-                                Patient Information
+                                Inpatient Information
                             </Typography>
 
                             <Stack spacing={2.5}>
@@ -227,8 +230,42 @@ function Inpatientprescriptions() {
                                 </Box>
 
                                 <DetailCard
+                                    label="UHID"
+                                    value={patient.uhid}
+                                    sx={{
+                                        backgroundColor: alpha(theme.palette.info.main, 0.05),
+                                        borderLeft: `3px solid ${theme.palette.info.main}`
+                                    }}
+                                />
+
+                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                    <DetailCard
+                                        label="Room No"
+                                        value={patient.roomNo}
+                                        icon={<LocalHotel fontSize="small" />}
+                                        fullWidth
+                                    />
+                                    <DetailCard
+                                        label="Ward"
+                                        value={patient.wardCategory}
+                                        icon={<LocalHospital fontSize="small" />}
+                                        fullWidth
+                                    />
+                                </Box>
+
+                                <DetailCard
                                     label="Contact"
                                     value={patient.contact}
+                                />
+
+                                <DetailCard
+                                    label="Admission Date"
+                                    value={new Date(patient.admissionDate).toLocaleDateString("en-GB", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                    })}
+                                    icon={<CalendarToday fontSize="small" />}
                                 />
 
                                 <DetailCard
@@ -341,7 +378,14 @@ function Inpatientprescriptions() {
                                                 />
                                             </TableCell>
                                             <TableCell>{item.frequency}</TableCell>
-                                            <TableCell>{item.duration}</TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={item.duration}
+                                                    size="small"
+                                                    color="info"
+                                                    variant="outlined"
+                                                />
+                                            </TableCell>
                                             <TableCell>
                                                 <Typography fontWeight={500} color="primary">
                                                     {item.quantity}
@@ -380,7 +424,7 @@ function Inpatientprescriptions() {
                                     border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
                                 }}>
                                     <Typography variant="body2" color="text.secondary" mb={1}>
-                                        Ready to dispense? Please verify all medicines before proceeding.
+                                        Ready to dispense? Please verify all medicines before proceeding. This is for an admitted patient.
                                     </Typography>
                                     <Button
                                         variant="contained"
@@ -415,7 +459,7 @@ function Inpatientprescriptions() {
                                         </Typography>
                                     </Box>
                                     <Typography variant="body2" color="text.secondary">
-                                        All medicines have been dispensed to the patient on {new Date().toLocaleDateString()}.
+                                        All medicines have been dispensed to the inpatient on {new Date().toLocaleDateString()}.
                                     </Typography>
                                 </Box>
                             )}

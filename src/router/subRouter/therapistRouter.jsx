@@ -20,6 +20,21 @@ const Entry_Exit = lazy(() =>
 const Treatment_Details = lazy(() =>
     import("../../pages/therapist/treatmentDetails/TreatmentDetails")
 );
+const EditDurationPage = lazy(() =>
+    import("../../pages/therapist/treatmentDetails/EditDuration")
+);
+const DeleteConfirmationPage = lazy(() =>
+    import("../../pages/therapist/treatmentDetails/DeleteConfirmation")
+);
+const ViewPatientDetailsPage = lazy(() =>
+    import("../../pages/therapist/patientDetails/ViewPatientDetails")
+);
+const AddEditEntryPage = lazy(() =>
+    import("../../pages/therapist/entryExit/AddEditEntry")
+);
+const PatientTherapyDetailsPage = lazy(() =>
+    import("../../pages/therapist/appointments/PatientTherapyDetails")
+);
 
 // 🛣 Routes with Lazy Components
 export const therapistRoutes = [
@@ -68,6 +83,54 @@ export const therapistRoutes = [
         element: (
             <Suspense fallback={<div>Loading...</div>}>
                 <Treatment_Details />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/treatment-details/edit-duration",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <EditDurationPage />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/treatment-details/delete",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <DeleteConfirmationPage />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/patient-monitoring/view",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <ViewPatientDetailsPage />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/entry-exit/add",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <AddEditEntryPage />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/entry-exit/edit",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <AddEditEntryPage />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/therapy-progress/details",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <PatientTherapyDetailsPage />
             </Suspense>
         ),
     },

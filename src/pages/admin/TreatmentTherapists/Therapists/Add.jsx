@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     BookOpen,
@@ -52,7 +52,7 @@ function Add_TherapyManagement() {
 
         setTimeout(() => {
             setShowSuccess(false);
-            navigate("/admin/therapies");
+            navigate("/admin/treatment-therapy");
         }, 2000);
     };
 
@@ -194,7 +194,7 @@ function Add_TherapyManagement() {
                 {/* Form Footer */}
                 <div className="p-6 border-t-2 border-[var(--color-text)] mt-4">
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <CancelButton onClick={() => navigate("/admin/therapies")}>
+                        <CancelButton onClick={() => navigate("/admin/treatment-therapy")}>
                             <X size={16} className="mr-2" />
                             Cancel
                         </CancelButton>

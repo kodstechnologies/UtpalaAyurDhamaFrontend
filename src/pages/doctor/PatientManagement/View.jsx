@@ -3,10 +3,6 @@ import { useNavigate } from "react-router-dom"; // ⭐ ADDED for navigation
 import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import TableComponent from "../../../components/table/TableComponent"; // Use standard TableComponent
-// Modals
-import AddPrescription from "../../../components/card/tableRelated/AddPrescription"; // Adjust path as needed
-import AddDailyCheckup from "../../../components/card/tableRelated/AddDailyCheckup"; // Adjust path as needed
-import AddTherapyPlan from "../../../components/card/tableRelated/AddTherapyPlan"; // Adjust path as needed
 // ICONS
 import PeopleIcon from "@mui/icons-material/People";
 import LocalHospital from "@mui/icons-material/LocalHospital";
@@ -69,11 +65,6 @@ const handleTherapyPlanSubmit = (data) => {
 };
 function Patient_Management_View() {
     const navigate = useNavigate(); // ⭐ ADDED for redirect
-    // Modal states
-    const [prescriptionOpen, setPrescriptionOpen] = useState(false);
-    const [dailyCheckupOpen, setDailyCheckupOpen] = useState(false);
-    const [therapyPlanOpen, setTherapyPlanOpen] = useState(false);
-    const [selectedPatientName, setSelectedPatientName] = useState('');
     const [rows, setRows] = useState([
         {
             _id: "1",
@@ -174,18 +165,15 @@ function Patient_Management_View() {
         navigate(`/doctor/in-patients/${row._id}`); // ⭐ REDIRECT TO VIEW PAGE (e.g., /patient/1/view)
         console.log("Redirecting to view page for patient:", row); // For debugging
     };
-    // Custom action handlers (updated to open modals)
+    // Custom action handlers (updated to navigate to pages)
     const handleAssignDoctor = (row) => {
-        setSelectedPatientName(row.patientName);
-        setTherapyPlanOpen(true); // Open AddTherapyPlan modal for Assign Doctor
+        navigate(`/doctor/in-patients/add-therapy-plan?patientName=${encodeURIComponent(row.patientName)}`);
     };
     const handlePrescribeMedication = (row) => {
-        setSelectedPatientName(row.patientName);
-        setPrescriptionOpen(true); // Open AddPrescription modal
+        navigate(`/doctor/in-patients/add-prescription?patientName=${encodeURIComponent(row.patientName)}`);
     };
     const handleViewRecords = (row) => {
-        setSelectedPatientName(row.patientName);
-        setDailyCheckupOpen(true); // Open AddDailyCheckup modal for View Records / Daily Checkup
+        navigate(`/doctor/in-patients/add-daily-checkup?patientName=${encodeURIComponent(row.patientName)}`);
     };
     // Custom Actions Array (4 dynamic actions)
     const customActions = [
@@ -320,24 +308,6 @@ function Patient_Management_View() {
                 showStatusBadge={true}
                 statusField="status"
                 actions={customActions}
-            />
-            {/* Modals */}
-            <AddPrescription
-                open={prescriptionOpen}
-                onClose={() => setPrescriptionOpen(false)}
-                patientName={selectedPatientName}
-                onAdd={handlePrescriptionSubmit}
-            />
-            <AddDailyCheckup
-                open={dailyCheckupOpen}
-                onClose={() => setDailyCheckupOpen(false)}
-                onAdd={handleDailyCheckupSubmit}
-            />
-            <AddTherapyPlan
-                open={therapyPlanOpen}
-                onClose={() => setTherapyPlanOpen(false)}
-                patientName={selectedPatientName}
-                onAdd={handleTherapyPlanSubmit}
             />
         </div>
     );

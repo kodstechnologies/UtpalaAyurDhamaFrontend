@@ -17,6 +17,15 @@ const PatientMonitoring = lazy(() =>
 const DischargePreparation = lazy(() =>
     import("../../pages/nurse/discharge/Discharge")
 );
+const LogFoodPage = lazy(() =>
+    import("../../pages/nurse/monitoring/LogFood")
+);
+const UpdateVitalsPage = lazy(() =>
+    import("../../pages/nurse/monitoring/UpdateVitals")
+);
+const PrepareDischargePage = lazy(() =>
+    import("../../pages/nurse/discharge/PrepareDischargePage")
+);
 
 // Reusable SEO Wrapper
 const withHelmet = (title, description, Component) => (
@@ -61,6 +70,30 @@ export const nurseRoutes = [
             "Discharge Preparation",
             "Prepare patient discharge summaries, instructions, and follow-up details.",
             DischargePreparation
+        ),
+    },
+    {
+        path: "/nurse/monitoring/log-food",
+        element: withHelmet(
+            "Log Food Intake",
+            "Log food intake for patient.",
+            LogFoodPage
+        ),
+    },
+    {
+        path: "/nurse/monitoring/update-vitals",
+        element: withHelmet(
+            "Update Vitals",
+            "Update patient vitals.",
+            UpdateVitalsPage
+        ),
+    },
+    {
+        path: "/nurse/discharge-preparation/prepare",
+        element: withHelmet(
+            "Prepare Discharge",
+            "Prepare patient discharge.",
+            PrepareDischargePage
         ),
     },
 ];

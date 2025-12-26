@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -16,7 +17,7 @@ function Patient_List_View() {
     const [search, setSearch] = useState("");
     const [hoveredButton, setHoveredButton] = useState(null);
     const [selectedPatient, setSelectedPatient] = useState(null);
-    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const navigate = useNavigate();
 
     // Mock patients data with sessions
     const [patients] = useState([
@@ -330,8 +331,19 @@ function Patient_List_View() {
     }, [patients, search]);
 
     const handleViewDetails = (patient) => {
-        setSelectedPatient(patient);
-        setIsViewModalOpen(true);
+        const params = new URLSearchParams({
+            patientId: patient.patientId || "",
+            patientName: patient.patientName || "",
+            age: (patient.age || "").toString(),
+            gender: patient.gender || "",
+            diagnosis: patient.diagnosis || "",
+            doctor: patient.doctor || "",
+            status: patient.status || "",
+            totalSessions: (patient.totalSessions || 0).toString(),
+            completedSessions: (patient.completedSessions || 0).toString(),
+            lastSessionDate: patient.lastSessionDate || "",
+        });
+        navigate(`/therapist/patient-monitoring/view?${params.toString()}`);
     };
 
     const calculateProgress = (completed, total) => {
@@ -516,215 +528,6 @@ function Patient_List_View() {
                 </div>
             </Box>
 
-            {/* View Patient Details Modal */}
-            {isViewModalOpen && selectedPatient && (
-                <div
-                    className="modal show d-block"
-                    tabIndex="-1"
-                    style={{
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 9999,
-                        overflowY: "auto",
-                    }}
-                >
-                    <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style={{ margin: "auto", maxWidth: "800px" }}>
-                        <div className="modal-content" style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-                            <div className="modal-header" style={{ flexShrink: 0 }}>
-                                <h5 className="modal-title d-flex align-items-center gap-2">
-                                    <PersonIcon sx={{ color: "#D4A574" }} />
-                                    Patient Details: {selectedPatient.patientName}
-                                </h5>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={() => setIsViewModalOpen(false)}
-                                ></button>
-                            </div>
-                            <div className="modal-body" style={{ overflowY: "auto", flex: 1 }}>
-                                {/* Patient Information Card */}
-                                <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
-                                    <div className="card-body p-4">
-                                        <div className="row g-3">
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Patient Name</h6>
-                                                <p className="mb-0 fw-bold">{selectedPatient.patientName}</p>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Patient ID</h6>
-                                                <p className="mb-0">{selectedPatient.patientId}</p>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Age / Gender</h6>
-                                                <p className="mb-0">{selectedPatient.age} / {selectedPatient.gender}</p>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Diagnosis</h6>
-                                                <p className="mb-0">
-                                                    <span className="badge bg-info" style={{ borderRadius: "50px", padding: "4px 10px", fontSize: "0.75rem" }}>
-                                                        {selectedPatient.diagnosis}
-                                                    </span>
-                                                </p>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Consulting Doctor</h6>
-                                                <p className="mb-0">
-                                                    <LocalHospitalIcon fontSize="small" className="me-1" />
-                                                    {selectedPatient.doctor}
-                                                </p>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Status</h6>
-                                                <p className="mb-0">
-                                                    <span className={`badge ${getStatusBadgeClass(selectedPatient.status)}`} style={{ borderRadius: "50px", padding: "4px 10px", fontSize: "0.75rem" }}>
-                                                        {selectedPatient.status}
-                                                    </span>
-                                                </p>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Total Sessions</h6>
-                                                <p className="mb-0 fw-bold">{selectedPatient.totalSessions}</p>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Completed Sessions</h6>
-                                                <p className="mb-0 fw-bold">{selectedPatient.completedSessions}</p>
-                                            </div>
-                                            <div className="col-md-12">
-                                                <h6 className="text-muted mb-2">Progress</h6>
-                                                <div className="d-flex align-items-center gap-2">
-                                                    <div className="progress" style={{ width: "100%", height: "12px", flex: 1 }}>
-                                                        <div
-                                                            className="progress-bar"
-                                                            role="progressbar"
-                                                            style={{ width: `${calculateProgress(selectedPatient.completedSessions, selectedPatient.totalSessions)}%` }}
-                                                            aria-valuenow={calculateProgress(selectedPatient.completedSessions, selectedPatient.totalSessions)}
-                                                            aria-valuemin="0"
-                                                            aria-valuemax="100"
-                                                        ></div>
-                                                    </div>
-                                                    <span style={{ fontSize: "0.875rem", fontWeight: 600, minWidth: "50px" }}>
-                                                        {calculateProgress(selectedPatient.completedSessions, selectedPatient.totalSessions)}%
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="col-md-6">
-                                                <h6 className="text-muted mb-1">Last Session</h6>
-                                                <p className="mb-0">{formatDate(selectedPatient.lastSessionDate)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Sessions List */}
-                                {selectedPatient.sessions && selectedPatient.sessions.length > 0 && (
-                                    <div className="card shadow-sm" style={{ borderRadius: "12px", overflow: "hidden" }}>
-                                        <div className="card-body p-4">
-                                            <h5 className="card-title mb-4" style={{ fontWeight: 600, fontSize: "1.125rem" }}>
-                                                Therapy Sessions
-                                            </h5>
-                                            <div className="d-flex flex-column gap-3">
-                                                {selectedPatient.sessions.map((session, index) => (
-                                                    <div
-                                                        key={index}
-                                                        className="border rounded-3 p-3"
-                                                        style={{
-                                                            borderColor: session.status === "Completed" ? "#28a745" : session.status === "Scheduled" ? "#0dcaf0" : "#ffc107",
-                                                            backgroundColor: session.status === "Completed" ? "#f8fff9" : session.status === "Scheduled" ? "#f0f9ff" : "#fffbf0",
-                                                            transition: "all 0.2s ease",
-                                                        }}
-                                                    >
-                                                        <div className="d-flex justify-content-between align-items-start mb-2">
-                                                            <div className="d-flex align-items-center gap-2">
-                                                                <div
-                                                                    style={{
-                                                                        width: "32px",
-                                                                        height: "32px",
-                                                                        borderRadius: "50%",
-                                                                        backgroundColor: session.status === "Completed" ? "#28a745" : session.status === "Scheduled" ? "#0dcaf0" : "#ffc107",
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                        color: "white",
-                                                                        fontWeight: 600,
-                                                                        fontSize: "0.875rem",
-                                                                    }}
-                                                                >
-                                                                    {session.sessionNumber}
-                                                                </div>
-                                                                <div>
-                                                                    <h6 className="mb-0" style={{ fontWeight: 600, fontSize: "1rem" }}>
-                                                                        Session {session.sessionNumber}: {session.therapyType}
-                                                                    </h6>
-                                                                    <div className="d-flex align-items-center gap-3 mt-1" style={{ fontSize: "0.875rem" }}>
-                                                                        <span className="text-muted d-flex align-items-center gap-1">
-                                                                            <CalendarTodayIcon fontSize="small" />
-                                                                            {formatDate(session.date)}
-                                                                        </span>
-                                                                        <span className="text-muted d-flex align-items-center gap-1">
-                                                                            <AccessTimeIcon fontSize="small" />
-                                                                            {session.time}
-                                                                        </span>
-                                                                        <span className="text-muted">
-                                                                            Duration: {session.duration}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <span
-                                                                className={`badge ${session.status === "Completed"
-                                                                        ? "bg-success"
-                                                                        : session.status === "Scheduled"
-                                                                            ? "bg-info"
-                                                                            : "bg-warning"
-                                                                    }`}
-                                                                style={{
-                                                                    borderRadius: "50px",
-                                                                    padding: "4px 10px",
-                                                                    fontSize: "0.75rem",
-                                                                }}
-                                                            >
-                                                                {session.status === "Completed" && <CheckCircleIcon fontSize="small" className="me-1" />}
-                                                                {session.status === "Scheduled" && <RadioButtonUncheckedIcon fontSize="small" className="me-1" />}
-                                                                {session.status === "Pending" && <PendingIcon fontSize="small" className="me-1" />}
-                                                                {session.status}
-                                                            </span>
-                                                        </div>
-                                                        {session.notes && (
-                                                            <div
-                                                                className="mt-2 p-2 rounded"
-                                                                style={{
-                                                                    backgroundColor: "rgba(255,255,255,0.7)",
-                                                                    fontSize: "0.875rem",
-                                                                    color: "#495057",
-                                                                }}
-                                                            >
-                                                                <strong>Notes:</strong> {session.notes}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="modal-footer" style={{ flexShrink: 0, borderTop: "1px solid #dee2e6" }}>
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => setIsViewModalOpen(false)}
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </Box>
     );
 }
