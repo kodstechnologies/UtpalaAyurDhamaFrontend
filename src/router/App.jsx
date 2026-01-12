@@ -9,7 +9,7 @@ import { doctorRoutes } from "./subRouter/doctorRoutes";
 import { nurseRoutes } from "./subRouter/nurseRoutes";
 import { receptionRoutes } from "./subRouter/receptionRoutes";
 import { pharmacistRoutes } from "./subRouter/pharmacistRoutes";
-import { therapistRoutes } from "./subRouter/TherapistRouter";
+import { therapistRoutes } from "./subRouter/therapistRouter";
 import { patientRoutes } from "./subRouter/patientRouter";
 import ScrollToTop from "./ScrollToTop";
 
