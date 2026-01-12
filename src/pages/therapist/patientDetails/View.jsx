@@ -1,294 +1,60 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import SearchIcon from "@mui/icons-material/Search";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import PersonIcon from "@mui/icons-material/Person";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
-import PendingIcon from "@mui/icons-material/Pending";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 function Patient_List_View() {
     const [search, setSearch] = useState("");
     const [hoveredButton, setHoveredButton] = useState(null);
-    const [selectedPatient, setSelectedPatient] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [sessions, setSessions] = useState([]);
     const navigate = useNavigate();
 
-    // Mock patients data with sessions
-    const [patients] = useState([
-        {
-            id: "1",
-            patientId: "PAT-101",
-            patientName: "Sumitra Devi",
-            age: 56,
-            gender: "Female",
-            diagnosis: "Stress/Insomnia",
-            doctor: "Dr. Sharma",
-            totalSessions: 5,
-            completedSessions: 3,
-            status: "In Progress",
-            lastSessionDate: "2024-05-20",
-            sessions: [
-                {
-                    sessionNumber: 1,
-                    date: "2024-05-15",
-                    time: "10:00 AM",
-                    therapyType: "Shirodhara",
-                    duration: "45 mins",
-                    status: "Completed",
-                    notes: "Patient felt relaxed post-session. Blood pressure normal.",
-                },
-                {
-                    sessionNumber: 2,
-                    date: "2024-05-17",
-                    time: "10:00 AM",
-                    therapyType: "Shirodhara",
-                    duration: "45 mins",
-                    status: "Completed",
-                    notes: "Good response. Sleep quality improved.",
-                },
-                {
-                    sessionNumber: 3,
-                    date: "2024-05-20",
-                    time: "10:00 AM",
-                    therapyType: "Shirodhara",
-                    duration: "45 mins",
-                    status: "Completed",
-                    notes: "Patient reported better sleep patterns.",
-                },
-                {
-                    sessionNumber: 4,
-                    date: "2024-05-22",
-                    time: "10:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Scheduled",
-                    notes: "",
-                },
-                {
-                    sessionNumber: 5,
-                    date: "2024-05-24",
-                    time: "10:00 AM",
-                    therapyType: "Shirodhara",
-                    duration: "45 mins",
-                    status: "Pending",
-                    notes: "",
-                },
-            ],
-        },
-        {
-            id: "2",
-            patientId: "PAT-102",
-            patientName: "Rajesh Kumar",
-            age: 48,
-            gender: "Male",
-            diagnosis: "Hypertension",
-            doctor: "Dr. Khan",
-            totalSessions: 8,
-            completedSessions: 5,
-            status: "In Progress",
-            lastSessionDate: "2024-05-21",
-            sessions: [
-                {
-                    sessionNumber: 1,
-                    date: "2024-05-10",
-                    time: "11:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Completed",
-                    notes: "Initial assessment completed.",
-                },
-                {
-                    sessionNumber: 2,
-                    date: "2024-05-12",
-                    time: "11:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Completed",
-                    notes: "Blood pressure slightly lower after therapy.",
-                },
-                {
-                    sessionNumber: 3,
-                    date: "2024-05-15",
-                    time: "11:00 AM",
-                    therapyType: "Pizhichil",
-                    duration: "50 mins",
-                    status: "Completed",
-                    notes: "Good progress observed.",
-                },
-                {
-                    sessionNumber: 4,
-                    date: "2024-05-18",
-                    time: "11:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Completed",
-                    notes: "Patient responding well to treatment.",
-                },
-                {
-                    sessionNumber: 5,
-                    date: "2024-05-21",
-                    time: "11:00 AM",
-                    therapyType: "Pizhichil",
-                    duration: "50 mins",
-                    status: "Completed",
-                    notes: "Blood pressure stable.",
-                },
-                {
-                    sessionNumber: 6,
-                    date: "2024-05-23",
-                    time: "11:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Scheduled",
-                    notes: "",
-                },
-                {
-                    sessionNumber: 7,
-                    date: "2024-05-25",
-                    time: "11:00 AM",
-                    therapyType: "Pizhichil",
-                    duration: "50 mins",
-                    status: "Pending",
-                    notes: "",
-                },
-                {
-                    sessionNumber: 8,
-                    date: "2024-05-28",
-                    time: "11:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Pending",
-                    notes: "",
-                },
-            ],
-        },
-        {
-            id: "3",
-            patientId: "PAT-103",
-            patientName: "Anil Gupta",
-            age: 62,
-            gender: "Male",
-            diagnosis: "Digestive Issues",
-            doctor: "Dr. Patel",
-            totalSessions: 6,
-            completedSessions: 6,
-            status: "Completed",
-            lastSessionDate: "2024-05-18",
-            sessions: [
-                {
-                    sessionNumber: 1,
-                    date: "2024-05-05",
-                    time: "02:00 PM",
-                    therapyType: "Pizhichil",
-                    duration: "50 mins",
-                    status: "Completed",
-                    notes: "Initial therapy session.",
-                },
-                {
-                    sessionNumber: 2,
-                    date: "2024-05-08",
-                    time: "02:00 PM",
-                    therapyType: "Pizhichil",
-                    duration: "50 mins",
-                    status: "Completed",
-                    notes: "Digestive symptoms improving.",
-                },
-                {
-                    sessionNumber: 3,
-                    date: "2024-05-11",
-                    time: "02:00 PM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Completed",
-                    notes: "Good response to treatment.",
-                },
-                {
-                    sessionNumber: 4,
-                    date: "2024-05-14",
-                    time: "02:00 PM",
-                    therapyType: "Pizhichil",
-                    duration: "50 mins",
-                    status: "Completed",
-                    notes: "Patient feeling better.",
-                },
-                {
-                    sessionNumber: 5,
-                    date: "2024-05-16",
-                    time: "02:00 PM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Completed",
-                    notes: "Significant improvement noted.",
-                },
-                {
-                    sessionNumber: 6,
-                    date: "2024-05-18",
-                    time: "02:00 PM",
-                    therapyType: "Pizhichil",
-                    duration: "50 mins",
-                    status: "Completed",
-                    notes: "Final session completed successfully.",
-                },
-            ],
-        },
-        {
-            id: "4",
-            patientId: "PAT-104",
-            patientName: "Meera Desai",
-            age: 45,
-            gender: "Female",
-            diagnosis: "Arthritis",
-            doctor: "Dr. Verma",
-            totalSessions: 4,
-            completedSessions: 2,
-            status: "In Progress",
-            lastSessionDate: "2024-05-19",
-            sessions: [
-                {
-                    sessionNumber: 1,
-                    date: "2024-05-12",
-                    time: "09:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Completed",
-                    notes: "First session. Patient comfortable.",
-                },
-                {
-                    sessionNumber: 2,
-                    date: "2024-05-19",
-                    time: "09:00 AM",
-                    therapyType: "Shirodhara",
-                    duration: "45 mins",
-                    status: "Completed",
-                    notes: "Joint mobility improved slightly.",
-                },
-                {
-                    sessionNumber: 3,
-                    date: "2024-05-22",
-                    time: "09:00 AM",
-                    therapyType: "Abhyangam",
-                    duration: "60 mins",
-                    status: "Scheduled",
-                    notes: "",
-                },
-                {
-                    sessionNumber: 4,
-                    date: "2024-05-26",
-                    time: "09:00 AM",
-                    therapyType: "Shirodhara",
-                    duration: "45 mins",
-                    status: "Pending",
-                    notes: "",
-                },
-            ],
-        },
-    ]);
+    // Fetch therapist's sessions
+    const fetchSessions = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("therapist-sessions/my-sessions"),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                setSessions(response.data.data || []);
+            } else {
+                toast.error(response.data.message || "Failed to fetch sessions");
+            }
+        } catch (error) {
+            console.error("Error fetching sessions:", error);
+            toast.error(error.response?.data?.message || "Failed to load sessions");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchSessions();
+    }, [fetchSessions]);
+
+    // Helper functions
+    const calculateAge = (dob) => {
+        if (!dob) return "N/A";
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    };
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -312,6 +78,8 @@ function Patient_List_View() {
                 return "bg-success";
             case "In Progress":
                 return "bg-primary";
+            case "Scheduled":
+                return "bg-info";
             case "Pending":
                 return "bg-warning";
             default:
@@ -319,37 +87,53 @@ function Patient_List_View() {
         }
     };
 
-    const filteredPatients = useMemo(() => {
-        if (!search) return patients;
+    const filteredSessions = useMemo(() => {
+        if (!search) return sessions;
         const searchLower = search.toLowerCase();
-        return patients.filter(
-            (patient) =>
-                patient.patientName.toLowerCase().includes(searchLower) ||
-                patient.patientId.toLowerCase().includes(searchLower) ||
-                patient.diagnosis.toLowerCase().includes(searchLower)
-        );
-    }, [patients, search]);
-
-    const handleViewDetails = (patient) => {
-        const params = new URLSearchParams({
-            patientId: patient.patientId || "",
-            patientName: patient.patientName || "",
-            age: (patient.age || "").toString(),
-            gender: patient.gender || "",
-            diagnosis: patient.diagnosis || "",
-            doctor: patient.doctor || "",
-            status: patient.status || "",
-            totalSessions: (patient.totalSessions || 0).toString(),
-            completedSessions: (patient.completedSessions || 0).toString(),
-            lastSessionDate: patient.lastSessionDate || "",
+        return sessions.filter((session) => {
+            const patientName = session.patient?.user?.name || "";
+            const uhid = session.patient?.user?.uhid || "";
+            const treatmentName = session.treatmentName || "";
+            return (
+                patientName.toLowerCase().includes(searchLower) ||
+                uhid.toLowerCase().includes(searchLower) ||
+                treatmentName.toLowerCase().includes(searchLower)
+            );
         });
-        navigate(`/therapist/patient-monitoring/view?${params.toString()}`);
+    }, [sessions, search]);
+
+    const handleViewDetails = (session) => {
+        const completedSessions = session.days?.filter(d => d.completed).length || 0;
+        const lastSession = session.days?.filter(d => d.completed).sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+        const params = new URLSearchParams({
+            sessionId: session._id,
+            patientName: session.patient?.user?.name || "Unknown",
+            patientId: session.patient?.patientId || "N/A",
+            age: calculateAge(session.patient?.user?.dob).toString(),
+            gender: session.patient?.user?.gender || "N/A",
+            diagnosis: session.treatmentName || "N/A",
+            doctor: session.examination?.doctor?.user?.name || "N/A",
+            status: session.status || "Pending",
+            totalSessions: (session.daysOfTreatment || 0).toString(),
+            completedSessions: completedSessions.toString(),
+            lastSessionDate: lastSession ? lastSession.date : (session.sessionDate || ""),
+        });
+        navigate(`/therapist/patient-monitoring/view?${params.toString()}`, { state: { session } });
     };
 
     const calculateProgress = (completed, total) => {
-        if (total === 0) return 0;
+        if (!total || total === 0) return 0;
         return Math.round((completed / total) * 100);
     };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ padding: "20px" }}>
@@ -389,16 +173,15 @@ function Patient_List_View() {
                             </div>
                         </div>
 
-                        {filteredPatients.length > 0 ? (
+                        {filteredSessions.length > 0 ? (
                             <div className="table-responsive">
                                 <table className="table table-hover">
                                     <thead>
                                         <tr>
                                             <th style={{ fontSize: "0.875rem" }}>Sl. No.</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Patient ID</th>
+                                            <th style={{ fontSize: "0.875rem" }}>UHID</th>
                                             <th style={{ fontSize: "0.875rem" }}>Patient Name</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Age/Gender</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Diagnosis</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                                             <th style={{ fontSize: "0.875rem" }}>Consulting Doctor</th>
                                             <th style={{ fontSize: "0.875rem" }}>Progress</th>
                                             <th style={{ fontSize: "0.875rem" }}>Status</th>
@@ -407,17 +190,17 @@ function Patient_List_View() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredPatients.map((patient, index) => {
-                                            const progress = calculateProgress(patient.completedSessions, patient.totalSessions);
+                                        {filteredSessions.map((session, index) => {
+                                            const completedCount = session.days?.filter(d => d.completed).length || 0;
+                                            const progress = calculateProgress(completedCount, session.daysOfTreatment);
+                                            const lastSession = session.days?.filter(d => d.completed).sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
                                             return (
-                                                <tr key={patient.id}>
+                                                <tr key={session._id}>
                                                     <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
-                                                    <td style={{ fontSize: "0.875rem" }}>{patient.patientId}</td>
+                                                    <td style={{ fontSize: "0.875rem" }}>{session.patient?.user?.uhid || "N/A"}</td>
                                                     <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                        {patient.patientName}
-                                                    </td>
-                                                    <td style={{ fontSize: "0.875rem" }}>
-                                                        {patient.age} / {patient.gender}
+                                                        {session.patient?.user?.name || "Unknown"}
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <span
@@ -428,12 +211,12 @@ function Patient_List_View() {
                                                                 fontSize: "0.75rem",
                                                             }}
                                                         >
-                                                            {patient.diagnosis}
+                                                            {session.treatmentName}
                                                         </span>
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <LocalHospitalIcon fontSize="small" className="me-1" />
-                                                        {patient.doctor}
+                                                        {session.examination?.doctor?.user?.name || "N/A"}
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <div className="d-flex align-items-center gap-2">
@@ -448,31 +231,31 @@ function Patient_List_View() {
                                                                 ></div>
                                                             </div>
                                                             <span style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
-                                                                {patient.completedSessions}/{patient.totalSessions}
+                                                                {completedCount}/{session.daysOfTreatment}
                                                             </span>
                                                         </div>
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <span
-                                                            className={`badge ${getStatusBadgeClass(patient.status)}`}
+                                                            className={`badge ${getStatusBadgeClass(session.status)}`}
                                                             style={{
                                                                 borderRadius: "50px",
                                                                 padding: "4px 10px",
                                                                 fontSize: "0.75rem",
                                                             }}
                                                         >
-                                                            {patient.status}
+                                                            {session.status}
                                                         </span>
                                                     </td>
-                                                    <td style={{ fontSize: "0.875rem" }}>{formatDate(patient.lastSessionDate)}</td>
+                                                    <td style={{ fontSize: "0.875rem" }}>{formatDate(lastSession ? lastSession.date : session.sessionDate)}</td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <div className="d-flex gap-2 justify-content-center">
                                                             <div style={{ position: "relative", display: "inline-block" }}>
                                                                 <button
                                                                     type="button"
                                                                     className="btn btn-sm"
-                                                                    onClick={() => handleViewDetails(patient)}
-                                                                    onMouseEnter={() => setHoveredButton(`view-${patient.id}`)}
+                                                                    onClick={() => handleViewDetails(session)}
+                                                                    onMouseEnter={() => setHoveredButton(`view-${session._id}`)}
                                                                     onMouseLeave={() => setHoveredButton(null)}
                                                                     style={{
                                                                         backgroundColor: "#D4A574",
@@ -491,7 +274,7 @@ function Patient_List_View() {
                                                                 >
                                                                     <VisibilityIcon fontSize="small" />
                                                                 </button>
-                                                                {hoveredButton === `view-${patient.id}` && (
+                                                                {hoveredButton === `view-${session._id}` && (
                                                                     <div
                                                                         style={{
                                                                             position: "absolute",
@@ -527,7 +310,6 @@ function Patient_List_View() {
                     </div>
                 </div>
             </Box>
-
         </Box>
     );
 }

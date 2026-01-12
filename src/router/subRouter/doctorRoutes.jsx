@@ -12,6 +12,12 @@ const Doctor_Profile = lazy(() =>
 const PatientExamination = lazy(() =>
     import("../../pages/doctor/Patients/PatientExamination")
 );
+const ExaminationDetails = lazy(() =>
+    import("../../pages/doctor/Patients/ExaminationDetails")
+);
+const EditExamination = lazy(() =>
+    import("../../pages/doctor/Patients/EditExamination")
+);
 const PatientFollowUpsCalendar = lazy(() =>
     import("../../pages/doctor/FollowUps/PatientFollowUpsCalendar")
 );
@@ -47,6 +53,9 @@ const AssignTherapy_View = lazy(() =>
 const AssignTherapy_Add = lazy(() =>
     import("../../pages/doctor/AssignTherapy/Add")
 );
+const AssignTherapy_Details = lazy(() =>
+    import("../../pages/doctor/AssignTherapy/Details")
+);
 const Prescriptions_View = lazy(() =>
     import("../../pages/doctor/Prescriptions/View")
 );
@@ -56,8 +65,29 @@ const Prescriptions_Add = lazy(() =>
 const Prescriptions_Details = lazy(() =>
     import("../../pages/doctor/Prescriptions/Details")
 );
+const OPDTherapies_View = lazy(() =>
+    import("../../pages/doctor/OPDTherapies/View")
+);
+const OPDTherapies_Add = lazy(() =>
+    import("../../pages/doctor/OPDTherapies/Add")
+);
+const OPDTherapies_Details = lazy(() =>
+    import("../../pages/doctor/OPDTherapies/Details")
+);
+const IPDPrescriptions_View = lazy(() =>
+    import("../../pages/doctor/IPDPrescriptions/View")
+);
+const IPDPrescriptions_Add = lazy(() =>
+    import("../../pages/doctor/IPDPrescriptions/Add")
+);
+const IPDPrescriptions_Details = lazy(() =>
+    import("../../pages/doctor/IPDPrescriptions/Details")
+);
 const FollowUps_View = lazy(() =>
     import("../../pages/doctor/FollowUps/View")
+);
+const ProgressTracker = lazy(() =>
+    import("../../pages/doctor/TherapyProgress/ProgressTracker")
 );
 
 export {
@@ -156,6 +186,36 @@ export const doctorRoutes = [
                     />
                 </Helmet>
                 <PatientExamination />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/examination-details/:userId",
+        element: (
+            <>
+                <Helmet>
+                    <title>Examination Details | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="View detailed examination record for the patient."
+                    />
+                </Helmet>
+                <ExaminationDetails />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/edit-examination/:userId",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Examination | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Edit examination record for the patient."
+                    />
+                </Helmet>
+                <EditExamination />
             </>
         ),
     },
@@ -270,10 +330,10 @@ export const doctorRoutes = [
         element: (
             <>
                 <Helmet>
-                    <title>Assign Therapy | UTPALA</title>
+                    <title>IPD Therapies | UTPALA</title>
                     <meta
                         name="description"
-                        content="Manage therapy assignments for patients."
+                        content="Manage IPD therapy assignments for inpatients."
                     />
                 </Helmet>
                 <AssignTherapy_View />
@@ -285,10 +345,40 @@ export const doctorRoutes = [
         element: (
             <>
                 <Helmet>
-                    <title>Assign New Therapy | UTPALA</title>
+                    <title>Assign New IPD Therapy | UTPALA</title>
                     <meta
                         name="description"
-                        content="Assign a new therapy to a patient."
+                        content="Assign a new IPD therapy to an inpatient."
+                    />
+                </Helmet>
+                <AssignTherapy_Add />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/assign-therapy/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>IPD Therapy Plan Details | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="View detailed IPD therapy plan information."
+                    />
+                </Helmet>
+                <AssignTherapy_Details />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/assign-therapy/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit IPD Therapy Plan | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Edit IPD therapy plan for an inpatient."
                     />
                 </Helmet>
                 <AssignTherapy_Add />
@@ -341,6 +431,141 @@ export const doctorRoutes = [
         ),
     },
     {
+        path: "/doctor/prescriptions/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Prescription | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Edit prescription information."
+                    />
+                </Helmet>
+                <Prescriptions_Add />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/opd-therapies",
+        element: (
+            <>
+                <Helmet>
+                    <title>OPD Therapies | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Manage and view OPD patient therapy plans."
+                    />
+                </Helmet>
+                <OPDTherapies_View />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/opd-therapies/new",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add OPD Therapy Plan | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Create a new OPD therapy plan for a patient."
+                    />
+                </Helmet>
+                <OPDTherapies_Add />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/opd-therapies/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit OPD Therapy Plan | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Edit OPD therapy plan for a patient."
+                    />
+                </Helmet>
+                <OPDTherapies_Add />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/opd-therapies/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>OPD Therapy Plan Details | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="View detailed OPD therapy plan information."
+                    />
+                </Helmet>
+                <OPDTherapies_Details />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/ipd-prescriptions",
+        element: (
+            <>
+                <Helmet>
+                    <title>IPD Prescriptions | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Manage and view IPD patient prescriptions."
+                    />
+                </Helmet>
+                <IPDPrescriptions_View />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/ipd-prescriptions/new",
+        element: (
+            <>
+                <Helmet>
+                    <title>Create IPD Prescription | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Create a new IPD prescription for an inpatient."
+                    />
+                </Helmet>
+                <IPDPrescriptions_Add />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/ipd-prescriptions/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>IPD Prescription Details | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="View detailed IPD prescription information."
+                    />
+                </Helmet>
+                <IPDPrescriptions_Details />
+            </>
+        ),
+    },
+    {
+        path: "/doctor/ipd-prescriptions/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit IPD Prescription | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Edit IPD prescription information."
+                    />
+                </Helmet>
+                <IPDPrescriptions_Add />
+            </>
+        ),
+    },
+    {
         path: "/doctor/follow-ups",
         element: (
             <>
@@ -355,5 +580,19 @@ export const doctorRoutes = [
             </>
         ),
     },
-
+    {
+        path: "/doctor/therapy-execution/:sessionId",
+        element: (
+            <>
+                <Helmet>
+                    <title>Therapy Progress | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Track therapy progress and execution."
+                    />
+                </Helmet>
+                <ProgressTracker />
+            </>
+        ),
+    },
 ];

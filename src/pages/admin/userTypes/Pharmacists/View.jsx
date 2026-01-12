@@ -1,45 +1,104 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import adminUserService from '../../../../services/adminUserService';
 import {
     Mail, Phone, Calendar, User, Home,
     ReceiptText, MapPin, BookOpen, FileBadge,
     Award, BriefcaseMedical, Clock, FileText,
-    ArrowLeft, Edit2, Printer, Download,
+    ArrowLeft,
     ShieldCheck, GraduationCap
 } from 'lucide-react';
 import DetailsCard from '../../../../components/card/details/DetailsCard';
 import Breadcrumb from '../../../../components/breadcrumb/Breadcrumb';
 
 function View_Pharmacists() {
-    const { id } = useParams();
+    const { pharmacistId } = useParams();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
+    const [pharmacist, setPharmacist] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Enhanced pharmacist data
-    const pharmacist = {
-        personalInfo: {
-            name: "Dr. Alex Kim, PharmD",
-            initials: "AK",
-            email: "alex.kim@hospital.com",
-            phone: "+1 (555) 345-6789",
-            dob: "10 March, 1985",
-            gender: "Male",
-            address: "101 Pharmacy Ln, Medical Center, Los Angeles 90001",
-            emergencyContact: "+1 (555) 765-4321",
-            languages: ["English", "Korean"]
-        },
-        professionalInfo: {
-            specialization: "Clinical Pharmacy",
-            department: "Inpatient Pharmacy",
-            licenseNumber: "PHARM-CA-98765",
-            joiningDate: "15 July, 2012",
-            experience: "12 Years",
-            qualifications: "PharmD, Board Certified Pharmacotherapy Specialist",
-            status: "Active",
-            salary: "6,500",
-            workingHours: "Mon-Fri: 8AM-5PM",
-            certifications: ["BPS Certified", "Immunization Certified"]
-        },
-        notes: "Dr. Alex Kim, PharmD (License: PHARM-CA-98765) is a seasoned clinical pharmacist with 12 years of experience in hospital settings. Specializing in pharmacotherapy, he ensures optimal medication management for patients, contributing significantly to the Inpatient Pharmacy since joining on 15/07/2012."
+    const fetchPharmacistDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Pharmacist", pharmacistId);
+            if (response.success) {
+                setPharmacist(response.data);
+            } else {
+                toast.error(response.message || "Failed to fetch pharmacist details");
+                navigate('/admin/pharmacists');
+            }
+        } catch (error) {
+            console.error("Error fetching pharmacist:", error);
+            toast.error(error.message || "Error fetching pharmacist details");
+            navigate('/admin/pharmacists');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [pharmacistId, navigate]);
+
+    useEffect(() => {
+        fetchPharmacistDetails();
+    }, [fetchPharmacistDetails]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
+
+    if (!pharmacist) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--color-text-dark)" }}>Pharmacist Not Found</h2>
+                <button
+                    onClick={() => navigate('/admin/pharmacists')}
+                    className="flex items-center gap-2 px-6 py-2 rounded-xl text-white font-medium transition-all"
+                    style={{ backgroundColor: "var(--color-btn-b)" }}
+                >
+                    <ArrowLeft size={20} />
+                    Back to Pharmacists
+                </button>
+            </div>
+        );
+    }
+
+    // Format dates for display
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "N/A";
+        try {
+            return new Date(dateStr).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount) return "0";
+        try {
+            return new Intl.NumberFormat('en-IN').format(amount);
+        } catch {
+            return amount;
+        }
+    };
+
+    // Get Initials
+    const getInitials = (name) => {
+        if (!name) return "??";
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .substring(0, 2);
     };
 
     return (
@@ -48,7 +107,7 @@ function View_Pharmacists() {
                 items={[
                     { label: "Dashboard", url: "/admin/dashboard" },
                     { label: "Pharmacists", url: "/admin/pharmacists" },
-                    { label: "Dr. Alex Kim" }
+                    { label: pharmacist.name }
                 ]}
             />
             <div className="min-h-screen p-4 md:p-6 space-y-6" style={{ backgroundColor: "var(--color-bg-primary)" }}>
@@ -69,15 +128,24 @@ function View_Pharmacists() {
                                 className="w-32 h-32 rounded-full flex items-center justify-center mb-4 relative"
                                 style={{
                                     backgroundColor: "var(--color-bg-card-b)",
-                                    border: "4px solid var(--color-btn-b)"
+                                    border: "4px solid var(--color-btn-b)",
+                                    overflow: "hidden"
                                 }}
                             >
-                                <span
-                                    className="text-5xl font-bold"
-                                    style={{ color: "var(--color-btn-dark-b)" }}
-                                >
-                                    {pharmacist.personalInfo.initials}
-                                </span>
+                                {pharmacist.profilePicture ? (
+                                    <img
+                                        src={pharmacist.profilePicture}
+                                        alt={pharmacist.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span
+                                        className="text-5xl font-bold"
+                                        style={{ color: "var(--color-btn-dark-b)" }}
+                                    >
+                                        {getInitials(pharmacist.name)}
+                                    </span>
+                                )}
                                 <div
                                     className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full flex items-center justify-center"
                                     style={{ backgroundColor: "var(--color-btn-b)" }}
@@ -90,7 +158,7 @@ function View_Pharmacists() {
                                 className="text-2xl font-bold text-center mb-2"
                                 style={{ color: "var(--color-text-dark)" }}
                             >
-                                {pharmacist.personalInfo.name}
+                                {pharmacist.name}
                             </h1>
 
                             <div
@@ -100,7 +168,7 @@ function View_Pharmacists() {
                                     color: "var(--color-btn-dark-b)"
                                 }}
                             >
-                                {pharmacist.professionalInfo.status}
+                                {pharmacist.status || "Active"}
                             </div>
 
                             <div className="flex flex-wrap gap-2 justify-center">
@@ -112,7 +180,7 @@ function View_Pharmacists() {
                                     }}
                                 >
                                     <BookOpen size={12} className="inline mr-1" />
-                                    {pharmacist.professionalInfo.specialization}
+                                    {pharmacist.specialization}
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded-full text-xs font-medium"
@@ -122,7 +190,7 @@ function View_Pharmacists() {
                                     }}
                                 >
                                     <Clock size={12} className="inline mr-1" />
-                                    {pharmacist.professionalInfo.experience}
+                                    {pharmacist.experience} {pharmacist.experience && "Years"}
                                 </span>
                             </div>
                         </div>
@@ -134,7 +202,7 @@ function View_Pharmacists() {
                                     Monthly Salary
                                 </span>
                                 <span className="text-lg font-bold" style={{ color: "var(--color-text-dark)" }}>
-                                    {pharmacist.professionalInfo.salary}
+                                    ₹{formatCurrency(pharmacist.salary)}
                                 </span>
                             </div>
 
@@ -143,7 +211,7 @@ function View_Pharmacists() {
                                     Working Hours
                                 </span>
                                 <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                    {pharmacist.professionalInfo.workingHours}
+                                    {pharmacist.workingHours || "Not Specified"}
                                 </span>
                             </div>
                         </div>
@@ -204,37 +272,37 @@ function View_Pharmacists() {
                                         <DetailsCard
                                             icon={Mail}
                                             label="Email Address"
-                                            value={pharmacist.personalInfo.email}
+                                            value={pharmacist.email}
                                             iconColor="#3B82F6"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Phone Number"
-                                            value={pharmacist.personalInfo.phone}
+                                            value={pharmacist.phone}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Date of Birth"
-                                            value={pharmacist.personalInfo.dob}
+                                            value={formatDate(pharmacist.dob)}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={User}
                                             label="Gender"
-                                            value={pharmacist.personalInfo.gender}
+                                            value={pharmacist.gender}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={MapPin}
                                             label="Address"
-                                            value={pharmacist.personalInfo.address}
+                                            value={pharmacist.address}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Emergency Contact"
-                                            value={pharmacist.personalInfo.emergencyContact}
+                                            value={pharmacist.emergencyContact}
                                             iconColor="#EF4444"
                                         />
                                     </div>
@@ -248,7 +316,7 @@ function View_Pharmacists() {
                                             Languages Spoken
                                         </h3>
                                         <div className="flex flex-wrap gap-2">
-                                            {pharmacist.personalInfo.languages.map((lang, index) => (
+                                            {(Array.isArray(pharmacist.languages) ? pharmacist.languages : []).map((lang, index) => (
                                                 <span
                                                     key={index}
                                                     className="px-4 py-2 rounded-lg font-medium"
@@ -278,38 +346,38 @@ function View_Pharmacists() {
                                         <DetailsCard
                                             icon={BookOpen}
                                             label="Pharmacy Specialization"
-                                            value={pharmacist.professionalInfo.specialization}
+                                            value={pharmacist.specialization}
                                             iconColor="#3B82F6"
                                             highlight
                                         />
                                         <DetailsCard
                                             icon={BriefcaseMedical}
                                             label="Department"
-                                            value={pharmacist.professionalInfo.department}
+                                            value={pharmacist.department}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={FileBadge}
                                             label="Pharmacy License Number"
-                                            value={pharmacist.professionalInfo.licenseNumber}
+                                            value={pharmacist.licenseNumber}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Joining Date"
-                                            value={pharmacist.professionalInfo.joiningDate}
+                                            value={formatDate(pharmacist.joiningDate)}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Award}
                                             label="Experience"
-                                            value={pharmacist.professionalInfo.experience}
+                                            value={pharmacist.experience ? `${pharmacist.experience} Years` : "N/A"}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={GraduationCap}
                                             label="Qualifications"
-                                            value={pharmacist.professionalInfo.qualifications}
+                                            value={pharmacist.qualifications}
                                             iconColor="#6366F1"
                                         />
                                     </div>
@@ -323,7 +391,7 @@ function View_Pharmacists() {
                                             Certifications
                                         </h3>
                                         <div className="space-y-2">
-                                            {pharmacist.professionalInfo.certifications.map((cert, index) => (
+                                            {(Array.isArray(pharmacist.certifications) ? pharmacist.certifications : []).map((cert, index) => (
                                                 <div
                                                     key={index}
                                                     className="flex items-center gap-3 p-3 rounded-lg"
@@ -374,7 +442,7 @@ function View_Pharmacists() {
                             className="leading-relaxed"
                             style={{ color: "var(--color-text-dark-b)" }}
                         >
-                            {pharmacist.notes}
+                            {pharmacist.bio || "No additional notes available."}
                         </p>
                     </div>
                 </div>

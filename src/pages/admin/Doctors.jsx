@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import adminUserService from "../../services/adminUserService";
 
 import HeadingCard from "../../components/card/HeadingCard";
 import TableComponent from "../../components/table/TableComponent";
@@ -8,44 +9,81 @@ import CardBorder from "../../components/card/CardBorder";
 import RedirectButton from "../../components/buttons/RedirectButton";
 import Search from "../../components/search/Search";
 import ExportDataButton from "../../components/buttons/ExportDataButton";
+import DeleteConfirmationModal from "../../components/modal/DeleteConfirmationModal";
 
 import { Eye, Edit, Trash2 } from "lucide-react";
 
 function Doctors() {
     const navigate = useNavigate();
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [deleteModal, setDeleteModal] = useState({
+        isOpen: false,
+        doctorId: null,
+        doctorName: "",
+        isDeleting: false
+    });
 
-    const [rows, setRows] = useState([
-        {
-            _id: "10",
-            firstName: "Amit",
-            lastName: "Sharma",
-            name: "Amit Sharma",
-            department: "Gynecology",
-            specialization: "Gynecology",
-            phone: "+91 9876543210",
-            email: "amit.sharma@email.com",
-            status: "Active",
-        },
-        {
-            _id: "2",
-            firstName: "Neha",
-            lastName: "Gupta",
-            name: "Neha Gupta",
-            department: "Gynecology",
-            specialization: "Obstetrics",
-            phone: "+91 8765432109",
-            email: "neha.gupta@email.com",
-            status: "Inactive",
+    const fetchDoctors = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getAllUsers("Doctor");
+            if (response.success) {
+                setRows(response.data || []);
+            } else {
+                toast.error(response.message || "Failed to fetch doctors");
+            }
+        } catch (error) {
+            console.error("Error fetching doctors:", error);
+            toast.error(error.message || "Failed to fetch doctors");
+        } finally {
+            setIsLoading(false);
         }
-    ]);
+    }, []);
+
+    useEffect(() => {
+        fetchDoctors();
+    }, [fetchDoctors]);
 
     // DELETE FUNCTION
-    const handleDelete = useCallback((id) => {
-        if (!window.confirm("Are you sure you want to delete this doctor?")) return;
-
-        setRows(prev => prev.filter(row => row._id !== id));
-        toast.success("Doctor deleted successfully!");
+    const handleDeleteClick = useCallback((row) => {
+        setDeleteModal({
+            isOpen: true,
+            doctorId: row._id,
+            doctorName: row.name || "this doctor",
+            isDeleting: false
+        });
     }, []);
+
+    const handleDeleteConfirm = useCallback(async () => {
+        if (!deleteModal.doctorId) return;
+
+        setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+
+        try {
+            const response = await adminUserService.deleteUser("Doctor", deleteModal.doctorId);
+            
+            if (response.success) {
+                setRows(prev => prev.filter(row => row._id !== deleteModal.doctorId));
+                toast.success("Doctor deleted successfully!");
+                setDeleteModal({ isOpen: false, doctorId: null, doctorName: "", isDeleting: false });
+            } else {
+                toast.error(response.message || "Failed to delete doctor");
+                setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+            }
+        } catch (error) {
+            console.error("Error deleting doctor:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error deleting doctor";
+            toast.error(errorMessage);
+            setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+        }
+    }, [deleteModal.doctorId]);
+
+    const handleDeleteClose = useCallback(() => {
+        if (!deleteModal.isDeleting) {
+            setDeleteModal({ isOpen: false, doctorId: null, doctorName: "", isDeleting: false });
+        }
+    }, [deleteModal.isDeleting]);
 
     // TABLE COLUMNS
     const columns = [
@@ -73,7 +111,7 @@ function Doctors() {
             label: "Delete",
             icon: <Trash2 />,
             color: "var(--color-icon-1)",
-            onClick: (row) => handleDelete(row._id)
+            onClick: (row) => handleDeleteClick(row)
         }
     ];
 
@@ -121,12 +159,29 @@ function Doctors() {
             </CardBorder>
 
             {/* DOCTORS TABLE */}
-            <TableComponent
-                columns={columns}
-                rows={rows}
-                actions={actions}
-                showStatusBadge={true}
-                statusField="status"
+            {isLoading ? (
+                <div className="flex justify-center items-center p-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
+                        style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+                </div>
+            ) : (
+                <TableComponent
+                    columns={columns}
+                    rows={rows}
+                    actions={actions}
+                    showStatusBadge={true}
+                    statusField="status"
+                />
+            )}
+
+            {/* Delete Confirmation Modal */}
+            <DeleteConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                title={deleteModal.doctorName}
+                itemType="doctor"
+                isLoading={deleteModal.isDeleting}
             />
         </div>
     );

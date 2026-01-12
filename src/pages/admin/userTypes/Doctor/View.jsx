@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import adminUserService from '../../../../services/adminUserService';
 import {
     Mail, Phone, Calendar, User, Home,
     ReceiptText, MapPin, Stethoscope, FileBadge,
@@ -11,35 +13,93 @@ import DetailsCard from '../../../../components/card/details/DetailsCard';
 import Breadcrumb from '../../../../components/breadcrumb/Breadcrumb';
 
 function View_Doctors() {
-    const { id } = useParams();
+    const { doctorId } = useParams();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
+    const [doctor, setDoctor] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Enhanced doctor data
-    const doctor = {
-        personalInfo: {
-            name: "Dr. Anajali D",
-            initials: "AD",
-            email: "anajali.d@hospital.com",
-            phone: "+1 (234) 567-8888",
-            dob: "17 November, 1997",
-            gender: "Female",
-            address: "123 Medical Plaza, Health District, Bangalore 560001",
-            emergencyContact: "+1 (234) 567-9999",
-            languages: ["English", "Hindi", "Kannada"]
-        },
-        professionalInfo: {
-            specialization: "Cardiology",
-            department: "Cardiology",
-            licenseNumber: "DOC-KA-122222",
-            joiningDate: "05 November, 2010",
-            experience: "13 Years",
-            qualifications: "MD, DM Cardiology",
-            status: "Active",
-            consultationFee: "1,50,000",
-            availability: "Mon-Fri: 9AM-5PM",
-            certifications: ["Cardiology Board Certified", "Advanced Cardiac Life Support"]
-        },
-        notes: "Dr. Anajali D (License: DOC-KA-122222) is a highly respected Cardiology specialist with over 13 years of experience. Known for her commitment to patient well-being, she emphasizes holistic care and preventive wellness. She has contributed significantly to the Cardiology department since joining on 05/11/2010."
+    const fetchDoctorDetails = useCallback(async () => {
+        setIsLoading(true);
+        console.log("Fetching doctor details for ID:", doctorId);
+        try {
+            const response = await adminUserService.getUserById("Doctor", doctorId);
+            console.log("Doctor API Response:", response);
+            if (response.success) {
+                setDoctor(response.data);
+            } else {
+                console.error("API success false:", response.message);
+                toast.error(response.message || "Failed to fetch doctor details");
+            }
+        } catch (error) {
+            console.error("Error fetching doctor catch block:", error);
+            toast.error(error.message || "Error fetching doctor details");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [doctorId]);
+
+    useEffect(() => {
+        fetchDoctorDetails();
+    }, [fetchDoctorDetails]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
+
+    if (!doctor) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--color-text-dark)" }}>Doctor Not Found</h2>
+                <button
+                    onClick={() => navigate('/admin/doctors')}
+                    className="flex items-center gap-2 px-6 py-2 rounded-xl text-white font-medium transition-all"
+                    style={{ backgroundColor: "var(--color-btn-b)" }}
+                >
+                    <ArrowLeft size={20} />
+                    Back to Doctors
+                </button>
+            </div>
+        );
+    }
+
+    // Format dates for display
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "N/A";
+        try {
+            return new Date(dateStr).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount) return "0";
+        try {
+            return new Intl.NumberFormat('en-IN').format(amount);
+        } catch (e) {
+            return amount;
+        }
+    };
+
+    // Get Initials
+    const getInitials = (name) => {
+        if (!name) return "??";
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .substring(0, 2);
     };
 
     return (
@@ -48,7 +108,7 @@ function View_Doctors() {
                 items={[
                     { label: "Dashboard", url: "/admin/dashboard" },
                     { label: "Doctors", url: "/admin/doctors" },
-                    { label: "Dr. Anajali D" }
+                    { label: doctor.name }
                 ]}
             />
             <div className="min-h-screen p-4 md:p-6 space-y-6" style={{ backgroundColor: "var(--color-bg-primary)" }}>
@@ -69,15 +129,24 @@ function View_Doctors() {
                                 className="w-32 h-32 rounded-full flex items-center justify-center mb-4 relative"
                                 style={{
                                     backgroundColor: "var(--color-bg-card-b)",
-                                    border: "4px solid var(--color-btn-b)"
+                                    border: "4px solid var(--color-btn-b)",
+                                    overflow: "hidden"
                                 }}
                             >
-                                <span
-                                    className="text-5xl font-bold"
-                                    style={{ color: "var(--color-btn-dark-b)" }}
-                                >
-                                    {doctor.personalInfo.initials}
-                                </span>
+                                {doctor.profilePicture ? (
+                                    <img
+                                        src={doctor.profilePicture}
+                                        alt={doctor.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span
+                                        className="text-5xl font-bold"
+                                        style={{ color: "var(--color-btn-dark-b)" }}
+                                    >
+                                        {getInitials(doctor.name)}
+                                    </span>
+                                )}
                                 <div
                                     className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full flex items-center justify-center"
                                     style={{ backgroundColor: "var(--color-btn-b)" }}
@@ -90,7 +159,7 @@ function View_Doctors() {
                                 className="text-2xl font-bold text-center mb-2"
                                 style={{ color: "var(--color-text-dark)" }}
                             >
-                                {doctor.personalInfo.name}
+                                {doctor.name}
                             </h1>
 
                             <div
@@ -100,7 +169,7 @@ function View_Doctors() {
                                     color: "var(--color-btn-dark-b)"
                                 }}
                             >
-                                {doctor.professionalInfo.status}
+                                {doctor.status || "Active"}
                             </div>
 
                             <div className="flex flex-wrap gap-2 justify-center">
@@ -112,7 +181,7 @@ function View_Doctors() {
                                     }}
                                 >
                                     <Stethoscope size={12} className="inline mr-1" />
-                                    {doctor.professionalInfo.specialization}
+                                    {doctor.specialization}
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded-full text-xs font-medium"
@@ -122,7 +191,7 @@ function View_Doctors() {
                                     }}
                                 >
                                     <Clock size={12} className="inline mr-1" />
-                                    {doctor.professionalInfo.experience}
+                                    {doctor.experience} {doctor.experience && "Years"}
                                 </span>
                             </div>
                         </div>
@@ -134,7 +203,7 @@ function View_Doctors() {
                                     Consultation Fee
                                 </span>
                                 <span className="text-lg font-bold" style={{ color: "var(--color-text-dark)" }}>
-                                    {doctor.professionalInfo.consultationFee}
+                                    {formatCurrency(doctor.consultationFee)}
                                 </span>
                             </div>
 
@@ -143,7 +212,7 @@ function View_Doctors() {
                                     Availability
                                 </span>
                                 <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                    {doctor.professionalInfo.availability}
+                                    {doctor.availability || "Not Specified"}
                                 </span>
                             </div>
                         </div>
@@ -204,64 +273,66 @@ function View_Doctors() {
                                         <DetailsCard
                                             icon={Mail}
                                             label="Email Address"
-                                            value={doctor.personalInfo.email}
+                                            value={doctor.email}
                                             iconColor="#3B82F6"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Phone Number"
-                                            value={doctor.personalInfo.phone}
+                                            value={doctor.phone}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Date of Birth"
-                                            value={doctor.personalInfo.dob}
+                                            value={formatDate(doctor.dob)}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={User}
                                             label="Gender"
-                                            value={doctor.personalInfo.gender}
+                                            value={doctor.gender}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={MapPin}
                                             label="Address"
-                                            value={doctor.personalInfo.address}
+                                            value={doctor.address}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Emergency Contact"
-                                            value={doctor.personalInfo.emergencyContact}
+                                            value={doctor.emergencyContact}
                                             iconColor="#EF4444"
                                         />
                                     </div>
 
                                     {/* Languages */}
-                                    <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
-                                        <h3
-                                            className="text-lg font-semibold mb-3"
-                                            style={{ color: "var(--color-text-dark)" }}
-                                        >
-                                            Languages Spoken
-                                        </h3>
-                                        <div className="flex flex-wrap gap-2">
-                                            {doctor.personalInfo.languages.map((lang, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="px-4 py-2 rounded-lg font-medium"
-                                                    style={{
-                                                        backgroundColor: "var(--color-bg-card-b)",
-                                                        color: "var(--color-text-dark)"
-                                                    }}
-                                                >
-                                                    {lang}
-                                                </span>
-                                            ))}
+                                    {doctor.languages && doctor.languages.length > 0 && (
+                                        <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
+                                            <h3
+                                                className="text-lg font-semibold mb-3"
+                                                style={{ color: "var(--color-text-dark)" }}
+                                            >
+                                                Languages Spoken
+                                            </h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {doctor.languages.map((lang, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className="px-4 py-2 rounded-lg font-medium"
+                                                        style={{
+                                                            backgroundColor: "var(--color-bg-card-b)",
+                                                            color: "var(--color-text-dark)"
+                                                        }}
+                                                    >
+                                                        {lang}
+                                                    </span>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             )}
 
@@ -278,63 +349,65 @@ function View_Doctors() {
                                         <DetailsCard
                                             icon={Stethoscope}
                                             label="Specialization"
-                                            value={doctor.professionalInfo.specialization}
+                                            value={doctor.specialization}
                                             iconColor="#3B82F6"
                                             highlight
                                         />
                                         <DetailsCard
                                             icon={BriefcaseMedical}
                                             label="Department"
-                                            value={doctor.professionalInfo.department}
+                                            value={doctor.department}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={FileBadge}
                                             label="License Number"
-                                            value={doctor.professionalInfo.licenseNumber}
+                                            value={doctor.licenseNumber}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Joining Date"
-                                            value={doctor.professionalInfo.joiningDate}
+                                            value={formatDate(doctor.joiningDate)}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Award}
                                             label="Experience"
-                                            value={doctor.professionalInfo.experience}
+                                            value={`${doctor.experience} Years`}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={GraduationCap}
                                             label="Qualifications"
-                                            value={doctor.professionalInfo.qualifications}
+                                            value={doctor.qualifications}
                                             iconColor="#6366F1"
                                         />
                                     </div>
 
                                     {/* Certifications */}
-                                    <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
-                                        <h3
-                                            className="text-lg font-semibold mb-3"
-                                            style={{ color: "var(--color-text-dark)" }}
-                                        >
-                                            Certifications
-                                        </h3>
-                                        <div className="space-y-2">
-                                            {doctor.professionalInfo.certifications.map((cert, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex items-center gap-3 p-3 rounded-lg"
-                                                    style={{ backgroundColor: "var(--color-bg-card-b)" }}
-                                                >
-                                                    <Award size={16} style={{ color: "var(--color-btn-b)" }} />
-                                                    <span style={{ color: "var(--color-text-dark)" }}>{cert}</span>
-                                                </div>
-                                            ))}
+                                    {doctor.certifications && doctor.certifications.length > 0 && (
+                                        <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
+                                            <h3
+                                                className="text-lg font-semibold mb-3"
+                                                style={{ color: "var(--color-text-dark)" }}
+                                            >
+                                                Certifications
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {doctor.certifications.map((cert, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="flex items-center gap-3 p-3 rounded-lg"
+                                                        style={{ backgroundColor: "var(--color-bg-card-b)" }}
+                                                    >
+                                                        <Award size={16} style={{ color: "var(--color-btn-b)" }} />
+                                                        <span style={{ color: "var(--color-text-dark)" }}>{cert}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
 
                                 </div>
@@ -345,39 +418,41 @@ function View_Doctors() {
                 </div>
 
                 {/* Notes & Expertise */}
-                <div className="pt-6" style={{ borderColor: "var(--color-border)" }}>
-                    <div className="flex items-center gap-3 mb-4">
+                {doctor.bio && (
+                    <div className="pt-6" style={{ borderColor: "var(--color-border)" }}>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div
+                                className="w-10 h-10 flex items-center justify-center rounded-lg"
+                                style={{
+                                    backgroundColor: "rgba(74, 124, 89, 0.15)",
+                                }}
+                            >
+                                <FileText size={20} style={{ color: "var(--color-btn-b)" }} />
+                            </div>
+                            <h3
+                                className="text-xl font-semibold"
+                                style={{ color: "var(--color-text-dark)" }}
+                            >
+                                Notes & Expertise
+                            </h3>
+                        </div>
+
                         <div
-                            className="w-10 h-10 flex items-center justify-center rounded-lg"
+                            className="p-5 rounded-xl"
                             style={{
-                                backgroundColor: "rgba(74, 124, 89, 0.15)",
+                                backgroundColor: "var(--color-bg-card-b)",
+                                borderLeft: "4px solid var(--color-btn-b)"
                             }}
                         >
-                            <FileText size={20} style={{ color: "var(--color-btn-b)" }} />
+                            <p
+                                className="leading-relaxed"
+                                style={{ color: "var(--color-text-dark-b)" }}
+                            >
+                                {doctor.bio}
+                            </p>
                         </div>
-                        <h3
-                            className="text-xl font-semibold"
-                            style={{ color: "var(--color-text-dark)" }}
-                        >
-                            Notes & Expertise
-                        </h3>
                     </div>
-
-                    <div
-                        className="p-5 rounded-xl"
-                        style={{
-                            backgroundColor: "var(--color-bg-card-b)",
-                            borderLeft: "4px solid var(--color-btn-b)"
-                        }}
-                    >
-                        <p
-                            className="leading-relaxed"
-                            style={{ color: "var(--color-text-dark-b)" }}
-                        >
-                            {doctor.notes}
-                        </p>
-                    </div>
-                </div>
+                )}
             </div>
         </>
     );

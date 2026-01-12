@@ -11,17 +11,20 @@ import PatientDashboardCard from "../../components/card/patientCard/Patient_Dash
 
 import GreetingsImg from "../../assets/greeting/patient.png";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 function Patient_Dashboard() {
     const navigate = useNavigate();
+    const { user } = useSelector((state) => state.auth);
+    const patientName = user?.name || "User";
     return (
         <div style={{ paddingBottom: 50 }}>
 
             {/* ⭐ Greeting + Breadcrumb Inside */}
             <GreetingBanner
-                title="Good Morning"
-                name="User"
-                subtitle="Here’s a quick overview of your health updates and upcoming activities."
+                title="Namaste"
+                name={patientName}
+                subtitle="Here's a quick overview of your health updates and upcoming activities."
                 image={GreetingsImg}
                 breadcrumbItems={[
                     { label: "Patient", url: "/patient/dashboard" },

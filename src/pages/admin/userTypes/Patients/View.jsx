@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import {
     Mail, Phone, Calendar, User, Home,
     ReceiptText, MapPin, Stethoscope, FileBadge,
@@ -9,52 +10,154 @@ import {
 } from 'lucide-react';
 import DetailsCard from '../../../../components/card/details/DetailsCard';
 import Breadcrumb from '../../../../components/breadcrumb/Breadcrumb';
+import { getApiUrl, getAuthHeaders } from '../../../../config/api';
+
+// Helper function to calculate age from date of birth
+const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return "N/A";
+    const dob = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
+    return age;
+};
+
+// Helper function to format date
+const formatDate = (date) => {
+    if (!date) return "N/A";
+    const d = new Date(date);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+// Helper function to get initials from name
+const getInitials = (name) => {
+    if (!name) return "NA";
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+};
 
 function View_Patients() {
-    const { id } = useParams();
+    const { patientId } = useParams();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
+    const [isLoading, setIsLoading] = useState(true);
+    const [patient, setPatient] = useState(null);
+    const [familyMembers, setFamilyMembers] = useState([]);
 
-    // Enhanced patient data
-    const patient = {
+    useEffect(() => {
+        fetchPatientData();
+    }, [patientId]);
+
+    const fetchPatientData = async () => {
+        setIsLoading(true);
+        try {
+            // Fetch patient details
+            const patientResponse = await fetch(getApiUrl(`patients/${patientId}`), {
+                method: "GET",
+                headers: getAuthHeaders()
+            });
+
+            if (!patientResponse.ok) {
+                throw new Error("Failed to fetch patient details");
+            }
+
+            const patientData = await patientResponse.json();
+            if (patientData.success && patientData.data) {
+                setPatient(patientData.data);
+                
+                // Fetch family members
+                try {
+                    const familyResponse = await fetch(getApiUrl(`family-members?patient=${patientId}`), {
+                        method: "GET",
+                        headers: getAuthHeaders()
+                    });
+                    if (familyResponse.ok) {
+                        const familyData = await familyResponse.json();
+                        if (familyData.success && familyData.data) {
+                            setFamilyMembers(Array.isArray(familyData.data) ? familyData.data : []);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error fetching family members:", error);
+                    // Don't show error for family members, just set empty array
+                    setFamilyMembers([]);
+                }
+            } else {
+                toast.error(patientData.message || "Failed to fetch patient details");
+                navigate('/admin/patients');
+            }
+        } catch (error) {
+            console.error("Error fetching patient data:", error);
+            toast.error(error.message || "Failed to fetch patient data");
+            navigate('/admin/patients');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen p-4 md:p-6 flex justify-center items-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
+                    style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
+
+    if (!patient) {
+        return (
+            <div className="min-h-screen p-4 md:p-6 flex justify-center items-center">
+                <div className="text-center">
+                    <p className="text-lg" style={{ color: "var(--color-text-dark)" }}>Patient not found</p>
+                    <button
+                        onClick={() => navigate('/admin/patients')}
+                        className="mt-4 px-4 py-2 rounded-lg"
+                        style={{ backgroundColor: "var(--color-btn-b)", color: "white" }}
+                    >
+                        Back to Patients
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const user = patient.user || {};
+    const age = calculateAge(patient.dateOfBirth);
+    const initials = getInitials(user.name);
+
+    // Transform patient data for display
+    const patientData = {
         personalInfo: {
-            name: "John Doe",
-            initials: "JD",
-            email: "john.doe@email.com",
-            phone: "+1 (555) 123-4567",
-            dob: "01 January, 1980",
-            gender: "Male",
-            address: "123 Elm Street, Downtown, New York 10001",
-            emergencyContact: "+1 (555) 987-6543",
-            languages: ["English", "Spanish"]
+            name: user.name || "N/A",
+            initials: initials,
+            email: user.email || "N/A",
+            phone: user.phone || "N/A",
+            dob: formatDate(patient.dateOfBirth),
+            gender: user.gender || "N/A",
+            address: user.address || "N/A",
+            emergencyContact: user.emergencyContact || "N/A",
+            uhid: user.uhid || "N/A",
         },
         medicalInfo: {
-            patientId: "PAT-001234",
-            admissionDate: "12 December, 2025",
-            diagnosis: "Hypertension and Type 2 Diabetes",
-            status: "Active",
-            allergies: "Penicillin, Nuts",
-            currentMedications: "Metformin 500mg BID, Lisinopril 20mg QD",
-            treatmentPlan: "Ongoing monitoring, dietary counseling, and medication management",
-            nextAppointment: "January 15, 2026",
-            bloodGroup: "O+"
+            patientId: patient.patientId || patient._id || "N/A",
+            admissionDate: formatDate(patient.admissionDate),
+            admissionStatus: patient.admissionStatus || "Not Admitted",
+            treatmentStatus: patient.treatmentStatus || "Not Started",
+            status: patient.admissionStatus === "Not Admitted" ? "Active" : patient.admissionStatus,
+            bodytype: patient.bodytype || "N/A",
+            inpatient: patient.inpatient ? "Yes" : "No",
         },
         familyInfo: {
-            familyMembers: [
-                {
-                    name: "Jane Doe",
-                    relation: "Wife",
-                    phone: "+1 (555) 111-2222",
-                    email: "jane.doe@email.com"
-                },
-                {
-                    name: "Mike Doe",
-                    relation: "Son",
-                    phone: "+1 (555) 333-4444",
-                    email: "mike.doe@email.com"
-                }
-            ]
+            familyMembers: familyMembers.map(member => ({
+                name: member.name || "N/A",
+                relation: member.relation || "N/A",
+                phone: member.phone || "N/A",
+                email: member.email || "N/A",
+            }))
         },
-        notes: "John Doe (Patient ID: PAT-001234) is a 45-year-old male admitted on December 12, 2025, for management of chronic hypertension and diabetes. He has a history of non-compliance with medications. Current focus is on education and lifestyle modifications. Last visit: November 28, 2025. Blood Group: O+ (Required for transfusion compatibility). Family members listed for emergency notifications."
+        notes: `Patient ${user.name || ""} (Patient ID: ${patient.patientId || patient._id || "N/A"}) ${age !== "N/A" ? `is a ${age}-year-old` : ""} ${user.gender || ""} patient. Admission Status: ${patient.admissionStatus || "Not Admitted"}. Treatment Status: ${patient.treatmentStatus || "Not Started"}.${patient.bodytype ? ` Body Type: ${patient.bodytype}.` : ""}`
     };
 
     return (
@@ -63,7 +166,7 @@ function View_Patients() {
                 items={[
                     { label: "Dashboard", url: "/admin/dashboard" },
                     { label: "Patients", url: "/admin/patients" },
-                    { label: "John Doe" }
+                    { label: patientData.personalInfo.name }
                 ]}
             />
             <div className="min-h-screen p-4 md:p-6 space-y-6" style={{ backgroundColor: "var(--color-bg-primary)" }}>
@@ -91,7 +194,7 @@ function View_Patients() {
                                     className="text-5xl font-bold"
                                     style={{ color: "var(--color-btn-dark-b)" }}
                                 >
-                                    {patient.personalInfo.initials}
+                                    {patientData.personalInfo.initials}
                                 </span>
                                 <div
                                     className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full flex items-center justify-center"
@@ -105,7 +208,7 @@ function View_Patients() {
                                 className="text-2xl font-bold text-center mb-2"
                                 style={{ color: "var(--color-text-dark)" }}
                             >
-                                {patient.personalInfo.name}
+                                {patientData.personalInfo.name}
                             </h1>
 
                             <div
@@ -115,7 +218,7 @@ function View_Patients() {
                                     color: "var(--color-btn-dark-b)"
                                 }}
                             >
-                                {patient.medicalInfo.status}
+                                {patientData.medicalInfo.status}
                             </div>
 
                             <div className="flex flex-wrap gap-2 justify-center">
@@ -127,7 +230,7 @@ function View_Patients() {
                                     }}
                                 >
                                     <Stethoscope size={12} className="inline mr-1" />
-                                    {patient.medicalInfo.diagnosis}
+                                    {patientData.medicalInfo.admissionStatus}
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded-full text-xs font-medium"
@@ -137,7 +240,7 @@ function View_Patients() {
                                     }}
                                 >
                                     <Clock size={12} className="inline mr-1" />
-                                    {patient.medicalInfo.nextAppointment}
+                                    {patientData.medicalInfo.treatmentStatus}
                                 </span>
                             </div>
                         </div>
@@ -149,18 +252,31 @@ function View_Patients() {
                                     Patient ID
                                 </span>
                                 <span className="text-lg font-bold" style={{ color: "var(--color-text-dark)" }}>
-                                    {patient.medicalInfo.patientId}
+                                    {patientData.medicalInfo.patientId}
                                 </span>
                             </div>
 
-                            <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: "var(--color-bg-card-b)" }}>
-                                <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
-                                    Blood Group
-                                </span>
-                                <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                    {patient.medicalInfo.bloodGroup}
-                                </span>
-                            </div>
+                            {patientData.personalInfo.uhid !== "N/A" && (
+                                <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: "var(--color-bg-card-b)" }}>
+                                    <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+                                        UHID
+                                    </span>
+                                    <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
+                                        {patientData.personalInfo.uhid}
+                                    </span>
+                                </div>
+                            )}
+
+                            {patientData.medicalInfo.bodytype !== "N/A" && (
+                                <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: "var(--color-bg-card-b)" }}>
+                                    <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+                                        Body Type
+                                    </span>
+                                    <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
+                                        {patientData.medicalInfo.bodytype}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -233,63 +349,41 @@ function View_Patients() {
                                         <DetailsCard
                                             icon={Mail}
                                             label="Email Address"
-                                            value={patient.personalInfo.email}
+                                            value={patientData.personalInfo.email}
                                             iconColor="#3B82F6"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Phone Number"
-                                            value={patient.personalInfo.phone}
+                                            value={patientData.personalInfo.phone}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Date of Birth"
-                                            value={patient.personalInfo.dob}
+                                            value={patientData.personalInfo.dob}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={User}
                                             label="Gender"
-                                            value={patient.personalInfo.gender}
+                                            value={patientData.personalInfo.gender}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={MapPin}
                                             label="Address"
-                                            value={patient.personalInfo.address}
+                                            value={patientData.personalInfo.address}
                                             iconColor="#F59E0B"
                                         />
-                                        <DetailsCard
-                                            icon={Phone}
-                                            label="Emergency Contact"
-                                            value={patient.personalInfo.emergencyContact}
-                                            iconColor="#EF4444"
-                                        />
-                                    </div>
-
-                                    {/* Languages */}
-                                    <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
-                                        <h3
-                                            className="text-lg font-semibold mb-3"
-                                            style={{ color: "var(--color-text-dark)" }}
-                                        >
-                                            Languages Spoken
-                                        </h3>
-                                        <div className="flex flex-wrap gap-2">
-                                            {patient.personalInfo.languages.map((lang, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="px-4 py-2 rounded-lg font-medium"
-                                                    style={{
-                                                        backgroundColor: "var(--color-bg-card-b)",
-                                                        color: "var(--color-text-dark)"
-                                                    }}
-                                                >
-                                                    {lang}
-                                                </span>
-                                            ))}
-                                        </div>
+                                        {patientData.personalInfo.uhid !== "N/A" && (
+                                            <DetailsCard
+                                                icon={FileBadge}
+                                                label="UHID"
+                                                value={patientData.personalInfo.uhid}
+                                                iconColor="#6366F1"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -305,68 +399,44 @@ function View_Patients() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <DetailsCard
-                                            icon={Stethoscope}
-                                            label="Diagnosis"
-                                            value={patient.medicalInfo.diagnosis}
-                                            iconColor="#3B82F6"
-                                            highlight
-                                        />
-                                        <DetailsCard
-                                            icon={BriefcaseMedical}
-                                            label="Treatment Plan"
-                                            value={patient.medicalInfo.treatmentPlan}
-                                            iconColor="#10B981"
-                                        />
-                                        <DetailsCard
                                             icon={FileBadge}
                                             label="Patient ID"
-                                            value={patient.medicalInfo.patientId}
+                                            value={patientData.medicalInfo.patientId}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Admission Date"
-                                            value={patient.medicalInfo.admissionDate}
+                                            value={patientData.medicalInfo.admissionDate}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
-                                            icon={Award}
-                                            label="Next Appointment"
-                                            value={patient.medicalInfo.nextAppointment}
+                                            icon={Stethoscope}
+                                            label="Admission Status"
+                                            value={patientData.medicalInfo.admissionStatus}
+                                            iconColor="#3B82F6"
+                                            highlight
+                                        />
+                                        <DetailsCard
+                                            icon={BriefcaseMedical}
+                                            label="Treatment Status"
+                                            value={patientData.medicalInfo.treatmentStatus}
+                                            iconColor="#10B981"
+                                        />
+                                        <DetailsCard
+                                            icon={User}
+                                            label="Inpatient"
+                                            value={patientData.medicalInfo.inpatient}
                                             iconColor="#EC4899"
                                         />
-                                        <DetailsCard
-                                            icon={GraduationCap}
-                                            label="Current Medications"
-                                            value={patient.medicalInfo.currentMedications}
-                                            iconColor="#6366F1"
-                                        />
-                                        <DetailsCard
-                                            icon={FileText}
-                                            label="Blood Group"
-                                            value={patient.medicalInfo.bloodGroup}
-                                            iconColor="#EF4444"
-                                            required
-                                        />
-                                    </div>
-
-                                    {/* Allergies */}
-                                    <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
-                                        <h3
-                                            className="text-lg font-semibold mb-3"
-                                            style={{ color: "var(--color-text-dark)" }}
-                                        >
-                                            Allergies
-                                        </h3>
-                                        <div className="space-y-2">
-                                            <div
-                                                className="flex items-center gap-3 p-3 rounded-lg"
-                                                style={{ backgroundColor: "var(--color-bg-card-b)" }}
-                                            >
-                                                <Award size={16} style={{ color: "var(--color-btn-b)" }} />
-                                                <span style={{ color: "var(--color-text-dark)" }}>{patient.medicalInfo.allergies}</span>
-                                            </div>
-                                        </div>
+                                        {patientData.medicalInfo.bodytype !== "N/A" && (
+                                            <DetailsCard
+                                                icon={GraduationCap}
+                                                label="Body Type"
+                                                value={patientData.medicalInfo.bodytype}
+                                                iconColor="#6366F1"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -380,24 +450,32 @@ function View_Patients() {
                                         Family Members
                                     </h2>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {patient.familyInfo.familyMembers.map((member, index) => (
-                                            <div key={index} className="space-y-2 p-3 rounded-lg border" style={{ borderColor: "var(--color-border)" }}>
-                                                <h4 className="font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                                    {member.name}
-                                                </h4>
-                                                <p className="text-sm" style={{ color: "var(--color-text)" }}>
-                                                    <strong>Relation:</strong> {member.relation}
-                                                </p>
-                                                <p className="text-sm" style={{ color: "var(--color-text)" }}>
-                                                    <strong>Phone:</strong> {member.phone}
-                                                </p>
-                                                <p className="text-sm" style={{ color: "var(--color-text)" }}>
-                                                    <strong>Email:</strong> {member.email}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    {familyMembers.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {patientData.familyInfo.familyMembers.map((member, index) => (
+                                                <div key={index} className="space-y-2 p-4 rounded-lg border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-bg-card-b)" }}>
+                                                    <h4 className="font-semibold text-lg" style={{ color: "var(--color-text-dark)" }}>
+                                                        {member.name}
+                                                    </h4>
+                                                    <p className="text-sm" style={{ color: "var(--color-text)" }}>
+                                                        <strong>Relation:</strong> {member.relation}
+                                                    </p>
+                                                    <p className="text-sm" style={{ color: "var(--color-text)" }}>
+                                                        <strong>Phone:</strong> {member.phone}
+                                                    </p>
+                                                    {member.email !== "N/A" && (
+                                                        <p className="text-sm" style={{ color: "var(--color-text)" }}>
+                                                            <strong>Email:</strong> {member.email}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <p style={{ color: "var(--color-text)" }}>No family members registered</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -420,7 +498,7 @@ function View_Patients() {
                             className="text-xl font-semibold"
                             style={{ color: "var(--color-text-dark)" }}
                         >
-                            Notes & Medical History
+                            Patient Summary
                         </h3>
                     </div>
 
@@ -435,7 +513,7 @@ function View_Patients() {
                             className="leading-relaxed"
                             style={{ color: "var(--color-text-dark-b)" }}
                         >
-                            {patient.notes}
+                            {patientData.notes}
                         </p>
                     </div>
                 </div>

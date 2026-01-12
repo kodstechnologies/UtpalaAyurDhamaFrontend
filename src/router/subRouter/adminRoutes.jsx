@@ -1,4 +1,4 @@
-import React, { lazy } from "react";
+import React, { lazy, Suspense } from "react";
 import { Helmet } from "react-helmet";
 import Add_Doctors from "../../pages/admin/userTypes/Doctor/Add";
 import Edit_Doctors from "../../pages/admin/userTypes/Doctor/Edit";
@@ -28,7 +28,7 @@ const AdminProfile = lazy(() => import("../../pages/admin/Profile"));
 // ================= ADMIN MAIN PAGES =================
 const Dashboard = lazy(() => import("../../pages/admin/dashboard"));
 const Doctors = lazy(() => import("../../pages/admin/Doctors"));
-const Nursing = lazy(() => import("../../pages/admin/Nursing"));
+import Nursing from "../../pages/admin/Nursing";
 const Receptionists = lazy(() => import("../../pages/admin/Receptionists"));
 const Pharmacists = lazy(() => import("../../pages/admin/Pharmacists"));
 const Therapists = lazy(() => import("../../pages/admin/Therapists"));
@@ -69,9 +69,6 @@ const TherapyManagement_Edit = lazy(() =>
     import("../../pages/admin/TreatmentTherapists/Therapists/Edit")
 );
 // ======
-const Therapists_Assignment = lazy(() =>
-    import("../../pages/admin/TreatmentTherapists/TherapistsAssignment/Details")
-);
 const Therapists_Assignment_View = lazy(() =>
     import("../../pages/admin/TreatmentTherapists/TherapistsAssignment/View")
 );
@@ -85,6 +82,9 @@ const Therapists_Assignment_Edit = lazy(() =>
 // ================= INVENTORY =================
 const Inventory_View = lazy(() =>
     import("../../pages/admin/inventory/View")
+);
+const Inventory_Details = lazy(() =>
+    import("../../pages/admin/inventory/Details")
 );
 const Inventory_Add = lazy(() =>
     import("../../pages/admin/inventory/Add")
@@ -104,10 +104,24 @@ const Batch_Log_Add = lazy(() =>
 const BatchLogViewPage = lazy(() =>
     import("../../pages/admin/inventory/BatchLogView")
 );
+const BatchLogDetailsPage = lazy(() =>
+    import("../../pages/admin/inventory/BatchLogDetails")
+);
 
 // ================= FOOD CHARGES =================
 const Food_Charges_View = lazy(() =>
     import("../../pages/admin/Foodcharges/View")
+);
+
+// ================= WARD CHARGES =================
+const Ward_Charges_View = lazy(() =>
+    import("../../pages/admin/Wardcharges/View")
+);
+const Ward_Charges_Add = lazy(() =>
+    import("../../pages/admin/Wardcharges/Add")
+);
+const Ward_Charges_Edit = lazy(() =>
+    import("../../pages/admin/Wardcharges/Edit")
 );
 
 // ================= ANALYTICS =================
@@ -121,6 +135,17 @@ const Discharges = lazy(() =>
 
 const PatientRecords = lazy(() =>
     import("../../pages/admin/analytics/PatientRecords")
+);
+
+// ================= SWARNA BINDU EVENTS =================
+const SwarnaBinduEvents_View = lazy(() =>
+    import("../../pages/admin/SwarnaBinduEvents/View")
+);
+const SwarnaBinduEvents_Add = lazy(() =>
+    import("../../pages/admin/SwarnaBinduEvents/Add")
+);
+const SwarnaBinduEvents_Edit = lazy(() =>
+    import("../../pages/admin/SwarnaBinduEvents/Edit")
 );
 
 // Stock List======================================
@@ -420,7 +445,7 @@ export const adminRoutes = [
                 <title>Therapist Assignments | UTPALA</title>
                 <meta name="description" content="Therapist assignments overview." />
             </Helmet>
-                <Therapists_Assignment />
+                <Therapists_Assignment_View />
             </>
     },
     {
@@ -553,6 +578,18 @@ export const adminRoutes = [
                 <Inventory_View /></>
     },
     {
+        path: "/admin/inventory/view/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Inventory Details | UTPALA</title>
+                    <meta name="description" content="View detailed inventory information for a medicine." />
+                </Helmet>
+                <Inventory_Details />
+            </>
+        ),
+    },
+    {
         path: "/admin/inventory/add",
         element: (
             <>
@@ -594,6 +631,18 @@ export const adminRoutes = [
                     <meta name="description" content="View batch log details for inventory items." />
                 </Helmet>
                 <BatchLogViewPage />
+            </>
+        ),
+    },
+    {
+        path: "/admin/inventory/batch-log-details",
+        element: (
+            <>
+                <Helmet>
+                    <title>Batch Log Details | UTPALA</title>
+                    <meta name="description" content="View detailed batch log information." />
+                </Helmet>
+                <BatchLogDetailsPage />
             </>
         ),
     },
@@ -659,7 +708,7 @@ export const adminRoutes = [
     },
 
     {
-        path: "/admin/food-charges/edit/:nurseId",
+        path: "/admin/food-charges/edit/:id",
         element: (
             <>
                 <Helmet>
@@ -674,6 +723,45 @@ export const adminRoutes = [
         ),
     },
 
+    // Ward Charges ===================  ==========================
+    {
+        path: "/admin/ward-charges/view", element:
+            <><Helmet>
+                <title>Ward Charges | UTPALA</title>
+                <meta name="description" content="Ward charges overview." />
+            </Helmet>
+                <Ward_Charges_View /></>
+    },
+    {
+        path: "/admin/ward-charges/add",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Ward Charges | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Add new ward charges details in the UTPALA system."
+                    />
+                </Helmet>
+                <Ward_Charges_Add />
+            </>
+        ),
+    },
+    {
+        path: "/admin/ward-charges/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Ward Charges | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Edit existing ward charges information in the UTPALA admin panel."
+                    />
+                </Helmet>
+                <Ward_Charges_Edit />
+            </>
+        ),
+    },
 
     // analytics =============================
     {
@@ -700,6 +788,32 @@ export const adminRoutes = [
                 <meta name="description" content="Patient records overview." />
             </Helmet>
                 <PatientRecords /></>
+    },
+
+    // ================= SWARNA BINDU EVENTS =================
+    {
+        path: "/admin/swarna-bindu-events/view", element:
+            <><Helmet>
+                <title>Swarna Bindu Events | UTPALA</title>
+                <meta name="description" content="Manage Swarna Bindu events." />
+            </Helmet>
+                <SwarnaBinduEvents_View /></>
+    },
+    {
+        path: "/admin/swarna-bindu-events/add", element:
+            <><Helmet>
+                <title>Add Swarna Bindu Event | UTPALA</title>
+                <meta name="description" content="Create a new Swarna Bindu event." />
+            </Helmet>
+                <SwarnaBinduEvents_Add /></>
+    },
+    {
+        path: "/admin/swarna-bindu-events/edit/:id", element:
+            <><Helmet>
+                <title>Edit Swarna Bindu Event | UTPALA</title>
+                <meta name="description" content="Edit Swarna Bindu event details." />
+            </Helmet>
+                <SwarnaBinduEvents_Edit /></>
     },
 
 ];

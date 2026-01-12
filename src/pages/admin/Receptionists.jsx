@@ -1,59 +1,99 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../services/adminUserService";
+
 import HeadingCard from "../../components/card/HeadingCard";
 import TableComponent from "../../components/table/TableComponent";
 import CardBorder from "../../components/card/CardBorder";
 import Search from "../../components/search/Search";
 import RedirectButton from "../../components/buttons/RedirectButton";
-import { useNavigate } from "react-router-dom";
+import ExportDataButton from "../../components/buttons/ExportDataButton";
+import DeleteConfirmationModal from "../../components/modal/DeleteConfirmationModal";
 
 import { Eye, Edit, Trash2 } from "lucide-react";
-import ExportDataButton from "../../components/buttons/ExportDataButton";
-
-// ===== Placeholder API =====
-const deleteReceptionistAPI = async (id) => {
-    console.log("Deleted:", id);
-};
 
 function Receptionists() {
     const navigate = useNavigate();
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [deleteModal, setDeleteModal] = useState({
+        isOpen: false,
+        receptionistId: null,
+        receptionistName: "",
+        isDeleting: false
+    });
 
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            name: "Riya Patel",
-            department: "Front Office",
-            designation: "Receptionist",
-            mobile: "+91 9801234567",
-            email: "riya.patel@email.com",
-            status: "Active",
-        },
-        {
-            _id: "2",
-            name: "Simran Kaur",
-            department: "Front Office",
-            designation: "Receptionist",
-            mobile: "+91 9876543210",
-            email: "simran.kaur@email.com",
-            status: "Inactive",
-        },
-    ]);
+    const fetchReceptionists = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getAllUsers("Receptionist");
+            if (response.success) {
+                setRows(response.data || []);
+            } else {
+                toast.error(response.message || "Failed to fetch receptionists");
+            }
+        } catch (error) {
+            console.error("Error fetching receptionists:", error);
+            toast.error(error.message || "Failed to fetch receptionists");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchReceptionists();
+    }, [fetchReceptionists]);
+
+    // DELETE FUNCTION
+    const handleDeleteClick = useCallback((row) => {
+        setDeleteModal({
+            isOpen: true,
+            receptionistId: row._id,
+            receptionistName: row.name || "this receptionist",
+            isDeleting: false
+        });
+    }, []);
+
+    const handleDeleteConfirm = useCallback(async () => {
+        if (!deleteModal.receptionistId) return;
+
+        setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+
+        try {
+            const response = await adminUserService.deleteUser("Receptionist", deleteModal.receptionistId);
+            
+            if (response.success) {
+                setRows(prev => prev.filter(row => row._id !== deleteModal.receptionistId));
+                toast.success("Receptionist deleted successfully!");
+                setDeleteModal({ isOpen: false, receptionistId: null, receptionistName: "", isDeleting: false });
+            } else {
+                toast.error(response.message || "Failed to delete receptionist");
+                setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+            }
+        } catch (error) {
+            console.error("Error deleting receptionist:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error deleting receptionist";
+            toast.error(errorMessage);
+            setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+        }
+    }, [deleteModal.receptionistId]);
+
+    const handleDeleteClose = useCallback(() => {
+        if (!deleteModal.isDeleting) {
+            setDeleteModal({ isOpen: false, receptionistId: null, receptionistName: "", isDeleting: false });
+        }
+    }, [deleteModal.isDeleting]);
 
     // ===== TABLE COLUMNS =====
     const columns = [
         { field: "name", header: "Name" },
+        { field: "position", header: "Position" },
         { field: "department", header: "Department" },
-        { field: "designation", header: "Designation" },
-        { field: "mobile", header: "Mobile" },
+        { field: "phone", header: "Phone" },
         { field: "email", header: "Email" },
         { field: "status", header: "Status" },
     ];
-
-    const handleDelete = (id) => {
-        if (window.confirm(`Are you sure you want to delete this receptionist?`)) {
-            deleteReceptionistAPI(id);
-            setRows(prev => prev.filter(r => r._id !== id));
-        }
-    };
 
     // ACTION BUTTONS
     const actions = [
@@ -73,7 +113,7 @@ function Receptionists() {
             label: "Delete",
             icon: <Trash2 />,
             color: "var(--color-icon-1)",
-            onClick: (row) => handleDelete(row._id)
+            onClick: (row) => handleDeleteClick(row)
         }
     ];
 
@@ -114,6 +154,16 @@ function Receptionists() {
                 actions={actions}
                 showStatusBadge={true}
                 statusField="status"
+                isLoading={isLoading}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Receptionist"
+                message={`Are you sure you want to delete ${deleteModal.receptionistName}? This action cannot be undone.`}
+                isDeleting={deleteModal.isDeleting}
             />
         </div>
     );

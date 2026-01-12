@@ -26,6 +26,7 @@ import {
     // receptionist 
     Calendar as EventNoteIcon,
     Bed as HotelIcon,
+    Building as WardBuildingIcon,
     CreditCard as PaymentsIcon,
     Megaphone as CampaignIcon,
     ClipboardList as AssessmentIcon,
@@ -37,7 +38,10 @@ import {
     // patient 
     Users as GroupIcon,
     Heart as SpaIcon,
-    RotateCw as ReplayIcon
+    RotateCw as ReplayIcon,
+
+    // events
+    Sparkles as SparklesIcon
 
 } from "lucide-react";
 
@@ -93,6 +97,14 @@ export const sidebarMenus = {
             ],
         },
         {
+            key: "ward",
+            label: "Ward Charges",
+            icon: <WardBuildingIcon style={{ color: "var(--color-icons)" }} />,
+            children: [
+                { key: "ward_view", label: "Ward Charges", to: "/admin/ward-charges/view" },
+            ],
+        },
+        {
             key: "Report",
             label: "Reports",
             icon: <AnalyticsIcon style={{ color: "var(--color-icons)" }} />,
@@ -101,6 +113,12 @@ export const sidebarMenus = {
                 { key: "discharge", label: "Discharge Report", to: "/admin/analytics/discharges" },
                 { key: "records", label: "Patient Records", to: "/admin/analytics/patient-records" },
             ],
+        },
+        {
+            key: "swarna_bindu_events",
+            label: "Swarna Bindu Events",
+            icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/admin/swarna-bindu-events/view",
         },
     ],
     doctor: [
@@ -116,7 +134,23 @@ export const sidebarMenus = {
             key: "outPatients",
             label: "OP Consultation",
             icon: <LocalHospitalIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/doctor/op-consultation",
+            children: [
+                {
+                    key: "opConsultation",
+                    label: "OP Consultation",
+                    to: "/doctor/op-consultation",
+                },
+                {
+                    key: "opdPrescription",
+                    label: "OPD Prescription",
+                    to: "/doctor/prescriptions",
+                },
+                {
+                    key: "opdTherapies",
+                    label: "OPD Therapies",
+                    to: "/doctor/opd-therapies",
+                },
+            ],
         },
 
         /* ================= IP ================= */
@@ -124,23 +158,23 @@ export const sidebarMenus = {
             key: "inPatients",
             label: "In Patients",
             icon: <PeopleIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/doctor/in-patients",
-        },
-
-        /* ================= TREATMENT ================= */
-        {
-            key: "assignTherapy",
-            label: "Assign Therapy",
-            icon: <HealingIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/doctor/assign-therapy",
-        },
-
-        /* ================= PRESCRIPTION ================= */
-        {
-            key: "prescriptions",
-            label: "Prescriptions",
-            icon: <MedicationIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/doctor/prescriptions",
+            children: [
+                {
+                    key: "inPatientsList",
+                    label: "In Patients",
+                    to: "/doctor/in-patients",
+                },
+                {
+                    key: "ipdTherapies",
+                    label: "IPD Therapies",
+                    to: "/doctor/assign-therapy",
+                },
+                {
+                    key: "ipdPrescriptions",
+                    label: "IPD Prescriptions",
+                    to: "/doctor/ipd-prescriptions",
+                },
+            ],
         },
 
         /* ================= FOLLOW UP ================= */
@@ -192,6 +226,18 @@ export const sidebarMenus = {
             to: "/receptionist/inpatient",
         },
         {
+            key: "outpatients",
+            label: "Outpatients",
+            icon: <LocalHospitalIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/receptionist/outpatient",
+        },
+        {
+            key: "treatments",
+            label: "Treatments",
+            icon: <LocalHospitalIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/receptionist/treatments",
+        },
+        {
             key: "payments",
             label: "Payments",
             icon: <PaymentsIcon style={{ color: "var(--color-icons)" }} />,
@@ -208,6 +254,12 @@ export const sidebarMenus = {
             label: "Reports",
             icon: <AssessmentIcon style={{ color: "var(--color-icons)" }} />,
             to: "/receptionist/reports",
+        },
+        {
+            key: "swarna_bindu_events",
+            label: "Swarna Bindu Events",
+            icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/receptionist/swarna-bindu-events",
         },
     ],
     pharmacist: [
@@ -235,6 +287,12 @@ export const sidebarMenus = {
             ],
         },
         {
+            key: "medicines",
+            label: "Medicines",
+            icon: <MedicationIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/pharmacist/medicines",
+        },
+        {
             key: "inventory",
             label: "Inventory",
             icon: <AssignmentTurnedInIcon style={{ color: "var(--color-icons)" }} />,
@@ -249,16 +307,16 @@ export const sidebarMenus = {
             to: "/therapist/dashboard",
         },
         {
-            key: "patientMonitoring",
-            label: "Patient Monitoring",
-            icon: <HealthAndSafetyIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/therapist/patient-monitoring",
-        },
-        {
             key: "therapyProgress",
             label: "Therapy Progress",
             icon: <PsychologyIcon style={{ color: "var(--color-icons)" }} />,
             to: "/therapist/therapy-progress",
+        },
+        {
+            key: "patientMonitoring",
+            label: "Patient Monitoring",
+            icon: <HealthAndSafetyIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/therapist/patient-monitoring",
         },
     ],
     patient: [

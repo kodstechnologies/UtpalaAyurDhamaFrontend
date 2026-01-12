@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
 import {
     TextField,
@@ -11,16 +11,32 @@ import {
     Typography,
     Grid,
     Button,
+    CircularProgress,
+    Autocomplete,
 } from "@mui/material";
 import SubmitButton from "../../../components/buttons/SubmitButton";
 import CancelButton from "../../../components/buttons/CancelButton";
 import { X } from "lucide-react";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import medicineService from "../../../services/medicineService";
 
 function PrescriptionsAddPage() {
     const navigate = useNavigate();
+    const { id: prescriptionId } = useParams();
     const [searchParams] = useSearchParams();
     const patientId = searchParams.get("patientId") || "";
     const patientName = searchParams.get("patientName") || "";
+    const isEditMode = !!prescriptionId;
+
+    const [opdPatients, setOpdPatients] = useState([]);
+    const [isLoadingPatients, setIsLoadingPatients] = useState(false);
+    const [isLoadingPrescription, setIsLoadingPrescription] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedPatient, setSelectedPatient] = useState(null);
+    const [medicines, setMedicines] = useState([]);
+    const [isLoadingMedicines, setIsLoadingMedicines] = useState(false);
 
     const [formData, setFormData] = useState({
         patientId: patientId,
@@ -37,6 +53,170 @@ function PrescriptionsAddPage() {
         diagnosis: "",
         notes: "",
     });
+
+    // Fetch OPD patients
+    useEffect(() => {
+        const fetchOPDPatients = async () => {
+            setIsLoadingPatients(true);
+            try {
+                const response = await axios.get(
+                    getApiUrl("patients/opd"),
+                    { headers: getAuthHeaders() }
+                );
+
+                if (response.data.success) {
+                    const patients = response.data.data || [];
+                    // Double filter: Remove any patients marked as inpatients or with inpatient flag
+                    const opdOnlyPatients = patients.filter(
+                        p => {
+                            // Check if patient has inpatient flag set to true
+                            const isNotInpatient = !p.inpatient || p.inpatient === false;
+                            return isNotInpatient;
+                        }
+                    );
+                    setOpdPatients(opdOnlyPatients);
+
+                    // If patientId or patientName is provided in URL, find and select that patient
+                    if (patientId || patientName) {
+                        const foundPatient = patients.find(
+                            (p) => p._id === patientId || p.user?.name === patientName
+                        );
+                        if (foundPatient) {
+                            setSelectedPatient(foundPatient);
+                            setFormData((prev) => ({
+                                ...prev,
+                                patientId: foundPatient.user?.uhid || foundPatient.patientId || foundPatient._id,
+                                patientName: foundPatient.user?.name || patientName,
+                            }));
+                        }
+                    }
+                } else {
+                    toast.error("Failed to fetch patients");
+                }
+            } catch (error) {
+                console.error("Error fetching OPD patients:", error);
+                toast.error(error.response?.data?.message || "Error fetching patients");
+            } finally {
+                setIsLoadingPatients(false);
+            }
+        };
+
+        fetchOPDPatients();
+    }, [patientId, patientName]);
+
+    // Fetch available medicines
+    useEffect(() => {
+        const fetchMedicines = async () => {
+            setIsLoadingMedicines(true);
+            try {
+                const response = await medicineService.getAllMedicines({ page: 1, limit: 1000 });
+                console.log("Medicines API Response:", response);
+                if (response && response.success && response.data) {
+                    const medicinesList = Array.isArray(response.data.medicines || response.data.data || response.data)
+                        ? (response.data.medicines || response.data.data || response.data)
+                        : [];
+                    console.log("Medicines List:", medicinesList);
+                    // Filter only active medicines (remove stockStatus filter to show all active medicines)
+                    const activeMedicines = medicinesList.filter(m => m.status === "Active");
+                    console.log("Active Medicines:", activeMedicines);
+                    setMedicines(activeMedicines);
+                } else {
+                    console.error("Invalid response structure:", response);
+                }
+            } catch (error) {
+                console.error("Error fetching medicines:", error);
+                console.error("Error details:", error.response?.data || error.message);
+                toast.error(error.response?.data?.message || "Failed to fetch medicines");
+            } finally {
+                setIsLoadingMedicines(false);
+            }
+        };
+
+        fetchMedicines();
+    }, []);
+
+    // Fetch prescription data when in edit mode
+    useEffect(() => {
+        const fetchPrescription = async () => {
+            if (!prescriptionId) return;
+
+            setIsLoadingPrescription(true);
+            try {
+                const response = await axios.get(
+                    getApiUrl(`examinations/prescriptions/detail/${prescriptionId}`),
+                    { headers: getAuthHeaders() }
+                );
+
+                if (response.data.success) {
+                    const data = response.data.data;
+
+                    // Set patient information
+                    const patient = data.patient || data.examination?.patient;
+                    if (patient) {
+                        const foundPatient = {
+                            _id: patient._id,
+                            patientId: patient.user?.uhid || patient.patientId || patient._id,
+                            user: patient.user,
+                        };
+                        setSelectedPatient(foundPatient);
+                        setFormData((prev) => ({
+                            ...prev,
+                            patientId: foundPatient.patientId || foundPatient._id,
+                            patientName: foundPatient.user?.name || "",
+                        }));
+                    }
+
+                    // Set prescription data
+                    const prescriptionMedicine = data.medication ? {
+                        name: data.medication,
+                        dosage: data.dosage || "",
+                        frequency: data.frequency || "",
+                        duration: data.duration || "",
+                        instructions: data.notes || "",
+                    } : null;
+
+                    setFormData((prev) => ({
+                        ...prev,
+                        prescriptionDate: data.createdAt
+                            ? new Date(data.createdAt).toISOString().split("T")[0]
+                            : new Date().toISOString().split("T")[0],
+                        diagnosis: data.examination?.complaints || "",
+                        notes: data.notes || "",
+                        medicines: prescriptionMedicine ? [prescriptionMedicine] : [],
+                        currentMedicine: prescriptionMedicine || prev.currentMedicine,
+                    }));
+                } else {
+                    toast.error(response.data.message || "Failed to fetch prescription");
+                }
+            } catch (error) {
+                console.error("Error fetching prescription:", error);
+                toast.error(error.response?.data?.message || "Error fetching prescription");
+            } finally {
+                setIsLoadingPrescription(false);
+            }
+        };
+
+        fetchPrescription();
+    }, [prescriptionId]);
+
+    // Handle patient selection
+    const handlePatientSelect = (event, newValue) => {
+        setSelectedPatient(newValue);
+        if (newValue) {
+            setFormData((prev) => ({
+                ...prev,
+                patientId: newValue.user?.uhid || newValue.patientId || newValue._id,
+                patientName: newValue.user?.name || "",
+            }));
+        } else {
+            setSelectedPatient(null);
+            setFormData((prev) => ({
+                ...prev,
+                patientId: "",
+                patientName: "",
+            }));
+        }
+    };
 
     const frequencyOptions = ["Once daily", "Twice daily", "Thrice daily", "Four times daily", "As needed"];
     const durationOptions = ["3 days", "5 days", "7 days", "10 days", "14 days", "1 month", "Ongoing"];
@@ -55,7 +235,7 @@ function PrescriptionsAddPage() {
 
     const handleAddMedicine = () => {
         if (!formData.currentMedicine.name || !formData.currentMedicine.dosage) {
-            alert("Please enter medicine name and dosage");
+            toast.error("Please enter medicine name and dosage");
             return;
         }
         setFormData((prev) => ({
@@ -78,33 +258,146 @@ function PrescriptionsAddPage() {
         }));
     };
 
-    const handleSubmit = (e) => {
+    // Get or create examination for the patient
+    const getOrCreateExamination = async (patientProfileId) => {
+        try {
+            // Always create a new examination for each prescription to ensure correct patient association
+            // This prevents issues with reusing old examinations
+            const createExamResponse = await axios.post(
+                getApiUrl("examinations"),
+                {
+                    patient: patientProfileId,
+                    complaints: formData.diagnosis || "Prescription consultation",
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            if (createExamResponse.data.success) {
+                return createExamResponse.data.data._id;
+            }
+
+            return null;
+        } catch (error) {
+            console.error("Error creating examination:", error);
+            throw error;
+        }
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
         if (!formData.patientId || !formData.patientName || formData.medicines.length === 0) {
-            alert("Please fill all required fields and add at least one medicine");
+            toast.error("Please fill all required fields and add at least one medicine");
             return;
         }
 
-        const prescriptionData = {
-            ...formData,
-            medicines: formData.medicines,
-        };
+        setIsSubmitting(true);
 
-        console.log("Prescription created:", prescriptionData);
-        // Implement API call here
-        alert("Prescription created successfully");
-        navigate("/doctor/prescriptions");
+        try {
+            if (isEditMode && prescriptionId) {
+                // Update existing prescription
+                // If currentMedicine has a name, use it (it might be newly typed)
+                // Otherwise use the first item in medicines list
+                const medicine = formData.currentMedicine.name
+                    ? formData.currentMedicine
+                    : formData.medicines[0];
+
+                if (!medicine || !medicine.name) {
+                    toast.error("Medicine name is required");
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                const prescriptionData = {
+                    medication: medicine.name,
+                    dosage: medicine.dosage,
+                    frequency: medicine.frequency || "As needed",
+                    duration: medicine.duration || undefined,
+                    notes: medicine.instructions || formData.notes || undefined,
+                    diagnosis: formData.diagnosis, // Include diagnosis for backend to update examination
+                    quantity: 1,
+                };
+
+                await axios.patch(
+                    getApiUrl(`examinations/prescriptions/${prescriptionId}`),
+                    prescriptionData,
+                    { headers: getAuthHeaders() }
+                );
+
+                toast.success("Prescription updated successfully!");
+                setTimeout(() => {
+                    navigate("/doctor/prescriptions", { state: { refresh: true } });
+                }, 1500);
+            } else {
+                // Create new prescription
+                // Get patient profile ID - use selectedPatient from state, not formData
+                const patientProfileId = selectedPatient?._id;
+                
+                if (!patientProfileId || !selectedPatient) {
+                    toast.error("Please select a patient");
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                // Get or create examination
+                let examinationId;
+                try {
+                    examinationId = await getOrCreateExamination(patientProfileId);
+                    if (!examinationId) {
+                        toast.error("Failed to create examination for this patient");
+                        setIsSubmitting(false);
+                        return;
+                    }
+                } catch (examError) {
+                    console.error("Error creating examination:", examError);
+                    toast.error("Failed to create examination. Please try again.");
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                // Create prescriptions for each medicine
+                const prescriptionPromises = formData.medicines.map((medicine) => {
+                    const prescriptionData = {
+                        medication: medicine.name,
+                        dosage: medicine.dosage,
+                        frequency: medicine.frequency || "As needed",
+                        duration: medicine.duration || undefined,
+                        notes: medicine.instructions || formData.notes || undefined,
+                        quantity: 1, // Default quantity
+                    };
+
+                    return axios.post(
+                        getApiUrl(`examinations/${examinationId}/prescriptions`),
+                        prescriptionData,
+                        { headers: getAuthHeaders() }
+                    );
+                });
+
+                await Promise.all(prescriptionPromises);
+
+                toast.success("Prescription created successfully!");
+                setTimeout(() => {
+                    navigate("/doctor/prescriptions", { state: { refresh: true } });
+                }, 1500);
+            }
+        } catch (error) {
+            console.error(`Error ${isEditMode ? 'updating' : 'creating'} prescription:`, error);
+            toast.error(error.response?.data?.message || `Error ${isEditMode ? 'updating' : 'creating'} prescription`);
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <Box sx={{ p: 3 }}>
             <HeadingCard
-                title="Create Prescription"
-                subtitle={patientName ? `Create prescription for ${patientName}` : "Create a new prescription"}
+                title={isEditMode ? "Edit Prescription" : "Create Prescription"}
+                subtitle={isEditMode
+                    ? "Update prescription information"
+                    : patientName ? `Create prescription for ${patientName}` : "Create a new prescription"}
                 breadcrumbItems={[
                     { label: "Doctor", url: "/doctor/dashboard" },
-                    { label: "Prescriptions", url: "/doctor/prescriptions" },
-                    { label: "New Prescription" },
+                    { label: "OPD Prescriptions", url: "/doctor/prescriptions" },
+                    { label: isEditMode ? "Edit Prescription" : "New Prescription" },
                 ]}
             />
 
@@ -121,33 +414,82 @@ function PrescriptionsAddPage() {
                 }}
             >
                 <Grid container spacing={3}>
-                    {/* Patient Name */}
+                    {/* Patient Name - Dropdown */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
                             Patient Name <span style={{ color: "red" }}>*</span>
                         </Typography>
-                        <TextField
-                            fullWidth
-                            name="patientName"
-                            value={formData.patientName}
-                            onChange={handleChange}
-                            placeholder="Enter or select patient name"
-                            required
+                        <Autocomplete
+                            options={opdPatients}
+                            getOptionLabel={(option) => option.user?.name || ""}
+                            value={selectedPatient}
+                            onChange={handlePatientSelect}
+                            loading={isLoadingPatients}
+                            disabled={isLoadingPatients}
+                            isOptionEqualToValue={(option, value) => 
+                                option._id?.toString() === value?._id?.toString()
+                            }
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    placeholder="Select patient name"
+                                    required
+                                    InputProps={{
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {isLoadingPatients ? <CircularProgress size={20} /> : null}
+                                                {params.InputProps.endAdornment}
+                                            </>
+                                        ),
+                                    }}
+                                />
+                            )}
+                            renderOption={(props, option) => (
+                                <li {...props} key={option._id}>
+                                    <Box>
+                                        <Typography variant="body1">
+                                            {option.user?.name || "Unknown"}
+                                        </Typography>
+                                        {option.user?.uhid && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                UHID: {option.user.uhid}
+                                            </Typography>
+                                        )}
+                                        {option.user?.phone && (
+                                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                                Phone: {option.user.phone}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </li>
+                            )}
+                            sx={{
+                                "& .MuiOutlinedInput-root": {
+                                    backgroundColor: "var(--color-bg-input)",
+                                },
+                            }}
                         />
                     </Grid>
 
-                    {/* Patient ID */}
+                    {/* UHID - Auto-filled */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Patient ID <span style={{ color: "red" }}>*</span>
+                            UHID <span style={{ color: "red" }}>*</span>
                         </Typography>
                         <TextField
                             fullWidth
                             name="patientId"
                             value={formData.patientId}
-                            onChange={handleChange}
-                            placeholder="Enter patient ID"
+                            placeholder="UHID will be auto-filled"
+                            disabled
                             required
+                            sx={{
+                                "& .MuiInputBase-input.Mui-disabled": {
+                                    backgroundColor: "var(--color-bg-input)",
+                                    WebkitTextFillColor: "var(--color-text-dark)",
+                                },
+                            }}
                         />
                     </Grid>
 
@@ -197,13 +539,23 @@ function PrescriptionsAddPage() {
                         >
                             <Grid container spacing={2}>
                                 <Grid item xs={12} md={4}>
-                                    <TextField
-                                        fullWidth
-                                        label="Medicine Name"
-                                        value={formData.currentMedicine.name}
-                                        onChange={(e) => handleMedicineFieldChange("name", e.target.value)}
-                                        placeholder="Enter medicine name"
+                                    <Autocomplete
+                                        options={medicines}
+                                        getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
+                                        value={medicines.find(m => m.medicineName === formData.currentMedicine.name) || null}
+                                        onChange={(event, newValue) => {
+                                            handleMedicineFieldChange("name", newValue ? newValue.medicineName : "");
+                                        }}
+                                        loading={isLoadingMedicines}
                                         size="small"
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Medicine Name"
+                                                placeholder="Select medicine"
+                                            />
+                                        )}
+                                        isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={2}>
@@ -336,11 +688,37 @@ function PrescriptionsAddPage() {
 
                 {/* Action Buttons */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
-                    <CancelButton onClick={() => navigate("/doctor/prescriptions")}>
+                    <CancelButton onClick={() => navigate("/doctor/prescriptions")} disabled={isSubmitting}>
                         <X size={16} style={{ marginRight: "8px" }} />
                         Cancel
                     </CancelButton>
-                    <SubmitButton text="Create Prescription" type="submit" />
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={isSubmitting}
+                        sx={{
+                            backgroundColor: "var(--color-primary)",
+                            color: "white",
+                            px: 3,
+                            py: 1,
+                            "&:hover": {
+                                backgroundColor: "var(--color-primary-dark)",
+                            },
+                            "&:disabled": {
+                                backgroundColor: "var(--color-primary)",
+                                opacity: 0.6,
+                            },
+                        }}
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <CircularProgress size={20} sx={{ mr: 1 }} />
+                                {isEditMode ? "Updating..." : "Creating..."}
+                            </>
+                        ) : (
+                            isEditMode ? "Update Prescription" : "Create Prescription"
+                        )}
+                    </Button>
                 </Box>
             </Box>
         </Box>
@@ -348,4 +726,3 @@ function PrescriptionsAddPage() {
 }
 
 export default PrescriptionsAddPage;
-

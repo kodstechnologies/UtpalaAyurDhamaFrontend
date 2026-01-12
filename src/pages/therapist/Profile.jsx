@@ -198,6 +198,7 @@ function TherapistProfile() {
                                                 size="small"
                                                 value={editData[field]}
                                                 onChange={handleInputChange(field)}
+                                                inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                             />
                                         ) : (
                                             <>
@@ -247,6 +248,7 @@ function TherapistProfile() {
                                                 size="small"
                                                 value={editData[field]}
                                                 onChange={handleInputChange(field)}
+                                                inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                             />
                                         ) : (
                                             <>

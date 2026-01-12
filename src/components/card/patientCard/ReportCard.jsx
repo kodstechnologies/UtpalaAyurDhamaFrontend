@@ -681,24 +681,30 @@ function ReportCard({
     consultationDate = "Nov 25, 2025",
     uploadedDate = "Nov 25, 2025",
     details = "Full report details will appear here...",
+    onView = null,
 }) {
     const navigate = useNavigate();
 
     const handleView = () => {
-        // Navigate to invoice page with report data as URL params
-        const params = new URLSearchParams({
-            invoiceNumber: "INVOICE-20251125-0001",
-            invoiceDate: "12/09/2025",
-            patientName: "Sharavni",
-            dob: "11/18/2025",
-            patientId: "P-0001",
-            service: "Ashwagandha Tablet",
-            serviceDate: "12/09/2025",
-            cost: "₹120.00",
-            totalDue: "₹123.60",
-            instructions: "Please make payment by 12/24/2025 via online portal, check, or credit card. For inquiries, contact us at 5465647658. Thank you!",
-        });
-        navigate(`/patient/reports/invoice?${params.toString()}`);
+        if (onView) {
+            // Use provided onView handler if available
+            onView();
+        } else {
+            // Fallback: Navigate to invoice page with default params (for backward compatibility)
+            const params = new URLSearchParams({
+                invoiceNumber: "INVOICE-20251125-0001",
+                invoiceDate: "12/09/2025",
+                patientName: "Sharavni",
+                dob: "11/18/2025",
+                patientId: "P-0001",
+                service: "Ashwagandha Tablet",
+                serviceDate: "12/09/2025",
+                cost: "₹120.00",
+                totalDue: "₹123.60",
+                instructions: "Please make payment by 12/24/2025 via online portal, check, or credit card. For inquiries, contact us at 5465647658. Thank you!",
+            });
+            navigate(`/patient/reports/invoice?${params.toString()}`);
+        }
     };
 
     return (

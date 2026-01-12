@@ -10,69 +10,106 @@ import {
     Grid,
     Divider,
     Button,
+    alpha,
+    useTheme,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MedicationIcon from "@mui/icons-material/Medication";
 import PersonIcon from "@mui/icons-material/Person";
 import EventIcon from "@mui/icons-material/Event";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { toast } from "react-toastify";
 
 function PrescriptionsDetailsPage() {
     const navigate = useNavigate();
     const { id } = useParams();
+    const theme = useTheme();
 
-    // Mock data - replace with API call
     const [prescription, setPrescription] = useState(null);
+    const [allPrescriptions, setAllPrescriptions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Simulate API call to fetch prescription details
         const fetchPrescription = async () => {
-            // Mock prescription data
-            const mockPrescription = {
-                _id: id,
-                patientName: "Amit Kumar",
-                patientId: "PAT-001",
-                prescriptionDate: "2025-01-18",
-                diagnosis: "Fever and Upper Respiratory Infection",
-                status: "Active",
-                doctorName: "Dr. Sharma",
-                medicines: [
-                    {
-                        name: "Paracetamol",
-                        dosage: "500mg",
-                        frequency: "Twice daily",
-                        duration: "5 days",
-                        instructions: "Take after meals",
-                    },
-                    {
-                        name: "Amoxicillin",
-                        dosage: "250mg",
-                        frequency: "Thrice daily",
-                        duration: "7 days",
-                        instructions: "Take with food",
-                    },
-                ],
-                notes: "Patient should rest and drink plenty of fluids. Follow up if symptoms persist.",
-                createdAt: "2025-01-18T10:30:00",
-            };
+            if (!id) return;
+            
+            setIsLoading(true);
+            try {
+                const response = await axios.get(
+                    getApiUrl(`examinations/prescriptions/detail/${id}`),
+                    { headers: getAuthHeaders() }
+                );
 
-            setPrescription(mockPrescription);
+                if (response.data.success) {
+                    const data = response.data.data;
+                    
+                    // Transform the prescription data to match the component structure
+                    const transformedPrescription = {
+                        _id: data._id,
+                        patientName: data.patient?.user?.name || data.examination?.patient?.user?.name || "Unknown",
+                        patientId: data.patient?.patientId || data.patient?.user?.uhid || data.examination?.patient?.patientId || data.examination?.patient?.user?.uhid || "N/A",
+                        prescriptionDate: data.createdAt 
+                            ? new Date(data.createdAt).toISOString().split("T")[0]
+                            : new Date().toISOString().split("T")[0],
+                        diagnosis: data.examination?.complaints || data.diagnosis || "",
+                        status: data.status === "Pending" ? "Active" : data.status === "Dispensed" ? "Completed" : data.status || "Active",
+                        doctorName: data.doctor?.user?.name || data.examination?.doctor?.user?.name || "Unknown",
+                        medicines: data.medication ? [{
+                            name: data.medication,
+                            dosage: data.dosage || "",
+                            frequency: data.frequency || "",
+                            duration: data.duration || "",
+                            instructions: data.notes || "",
+                        }] : [],
+                        notes: data.notes || "",
+                        createdAt: data.createdAt,
+                    };
+
+                    setPrescription(transformedPrescription);
+                    
+                    // Get patient ID to fetch all prescriptions for this patient
+                    const patientId = data.patient?._id || data.patient || data.examination?.patient?._id || data.examination?.patient;
+                    
+                    // Fetch all OPD prescriptions for this doctor
+                    const allPrescriptionsResponse = await axios.get(
+                        getApiUrl("examinations/prescriptions/opd/by-doctor"),
+                        { headers: getAuthHeaders() }
+                    );
+                    
+                    if (allPrescriptionsResponse.data.success) {
+                        // Filter prescriptions by the same patient
+                        const allPresc = allPrescriptionsResponse.data.data || [];
+                        const patientPrescriptions = allPresc.filter(p => {
+                            const prescPatientId = p.patient?._id?.toString() || p.patient?.toString();
+                            return prescPatientId === patientId?.toString();
+                        });
+                        setAllPrescriptions(patientPrescriptions);
+                    }
+                } else {
+                    toast.error(response.data.message || "Failed to fetch prescription details");
+                }
+            } catch (error) {
+                console.error("Error fetching prescription:", error);
+                toast.error(error.response?.data?.message || "Error fetching prescription details");
+            } finally {
+                setIsLoading(false);
+            }
         };
 
-        if (id) {
-            fetchPrescription();
-        }
+        fetchPrescription();
     }, [id]);
 
-    if (!prescription) {
+    if (isLoading || !prescription) {
         return (
             <Box sx={{ p: 3 }}>
                 <HeadingCard
                     title="Prescription Details"
-                    subtitle="Loading prescription information..."
+                    subtitle={isLoading ? "Loading prescription information..." : "Prescription not found"}
                     breadcrumbItems={[
                         { label: "Doctor", url: "/doctor/dashboard" },
-                        { label: "Prescriptions", url: "/doctor/prescriptions" },
+                        { label: "OPD Prescriptions", url: "/doctor/prescriptions" },
                         { label: "Details" },
                     ]}
                 />
@@ -96,7 +133,7 @@ function PrescriptionsDetailsPage() {
                 subtitle={`Prescription #${prescription._id}`}
                 breadcrumbItems={[
                     { label: "Doctor", url: "/doctor/dashboard" },
-                    { label: "Prescriptions", url: "/doctor/prescriptions" },
+                    { label: "OPD Prescriptions", url: "/doctor/prescriptions" },
                     { label: "Details" },
                 ]}
             />
@@ -227,6 +264,99 @@ function PrescriptionsDetailsPage() {
                     </Grid>
                 )}
 
+                {/* All Prescriptions for Patient */}
+                {allPrescriptions.length > 1 && (
+                    <Grid item xs={12}>
+                        <Card
+                            sx={{
+                                backgroundColor: "var(--color-bg-card)",
+                                borderRadius: 2,
+                                boxShadow: "var(--shadow-medium)",
+                            }}
+                        >
+                            <CardContent>
+                                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                                    <MedicationIcon sx={{ mr: 1.5, color: "var(--color-primary)", fontSize: 28 }} />
+                                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                        All Prescriptions for {prescription.patientName}
+                                    </Typography>
+                                    <Chip 
+                                        label={`${allPrescriptions.length} prescriptions`} 
+                                        size="small" 
+                                        sx={{ ml: 2, backgroundColor: "var(--color-primary)", color: "white" }}
+                                    />
+                                </Box>
+                                <Divider sx={{ mb: 2 }} />
+                                <Grid container spacing={2}>
+                                    {allPrescriptions.map((presc, idx) => (
+                                        <Grid item xs={12} md={6} key={presc._id || idx}>
+                                            <Box
+                                                sx={{
+                                                    p: 2.5,
+                                                    borderRadius: 2,
+                                                    border: `2px solid ${presc._id === id ? theme.palette.primary.main : alpha(theme.palette.divider, 0.2)}`,
+                                                    backgroundColor: presc._id === id 
+                                                        ? alpha(theme.palette.primary.main, 0.05) 
+                                                        : alpha(theme.palette.background.paper, 0.5),
+                                                }}
+                                            >
+                                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                                                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                                        {presc.medication || "N/A"}
+                                                    </Typography>
+                                                    {presc._id === id && (
+                                                        <Chip label="Current" size="small" color="primary" />
+                                                    )}
+                                                </Box>
+                                                <Grid container spacing={1}>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary" display="block">
+                                                            Dosage
+                                                        </Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                            {presc.dosage || "N/A"}
+                                                        </Typography>
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary" display="block">
+                                                            Frequency
+                                                        </Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                            {presc.frequency || "N/A"}
+                                                        </Typography>
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary" display="block">
+                                                            Duration
+                                                        </Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                            {presc.duration || "N/A"}
+                                                        </Typography>
+                                                    </Grid>
+                                                    <Grid item xs={6}>
+                                                        <Typography variant="caption" color="text.secondary" display="block">
+                                                            Date
+                                                        </Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                            {presc.createdAt 
+                                                                ? new Date(presc.createdAt).toLocaleDateString("en-GB", {
+                                                                      day: "2-digit",
+                                                                      month: "short",
+                                                                      year: "numeric",
+                                                                  })
+                                                                : "N/A"}
+                                                        </Typography>
+                                                    </Grid>
+                                                </Grid>
+                                            </Box>
+                                        </Grid>
+                                    ))}
+                                </Grid>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                )}
+
                 {/* Medicines Card */}
                 <Grid item xs={12}>
                     <Card
@@ -238,7 +368,7 @@ function PrescriptionsDetailsPage() {
                     >
                         <CardContent>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                                Prescribed Medicines
+                                Current Prescription Details
                             </Typography>
                             <Grid container spacing={2}>
                                 {prescription.medicines && prescription.medicines.length > 0 ? (

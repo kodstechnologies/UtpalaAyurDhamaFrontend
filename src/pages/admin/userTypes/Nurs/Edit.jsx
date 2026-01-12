@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../../../services/adminUserService";
 import {
     Mail, Phone, Calendar, User, Home, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
@@ -7,40 +9,132 @@ import {
     X, Save, AlertCircle, CheckCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
+import InputDialogModal from "../../../../components/modal/InputDialogModal";
 
 function Edit_Nurs() {
+    const { nurseId } = useParams();
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
 
-    // Fake nurse data
+    // Nurse data
     const [nurse, setNurse] = useState({
         // Personal Info
-        name: "Sarah Johnson, RN",
-        email: "sarah.j@hospital.com",
-        phone: "+1 (555) 123-4567",
-        dob: "1990-05-15",
-        gender: "Female",
-        address: "456 Health Ave, Medical City, New York 10001",
-        emergencyContact: "+1 (555) 987-6543",
-        languages: ["English", "Spanish"],
+        name: "",
+        email: "",
+        phone: "",
+        dob: "",
+        gender: "",
+        address: "",
+        emergencyContact: "",
+        languages: [],
+        profilePicture: "",
 
         // Professional Info
-        specialty: "Emergency Nursing",
-        unit: "Emergency Department",
-        licenseNumber: "RN-NY-45678",
-        joiningDate: "2015-03-10",
-        experience: "8",
-        qualifications: "BSN, RN License",
+        specialty: "",
+        unit: "",
+        licenseNumber: "",
+        joiningDate: "",
+        experience: "",
+        qualifications: "",
         status: "Active",
-        hourlyRate: "35",
-        shiftAvailability: "Rotating shifts, including nights",
+        hourlyRate: "",
+        shiftAvailability: "",
 
         // Additional Info
-        bio: "Sarah Johnson is an experienced Emergency Nurse with 8 years in high-pressure environments. She excels in triage and patient stabilization.",
-        certifications: ["BLS Certified", "ACLS Certified", "PALS Certified"]
+        bio: "",
+        certifications: []
     });
+
+    // Format date to YYYY-MM-DD for date inputs
+    const formatDateForInput = (dateStr) => {
+        if (!dateStr) return "";
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return "";
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return "";
+        }
+    };
+
+    // Handle Image Upload
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            toast.error("File size should be less than 2MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await adminUserService.uploadImage(file);
+            if (response.success) {
+                setNurse(prev => ({ ...prev, profilePicture: response.data.url }));
+                toast.success("Image uploaded successfully!");
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            const errorMessage = error?.message || error?.response?.data?.message || "Failed to upload image";
+            toast.error(errorMessage);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Fetch nurse data
+    const fetchNurseDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Nurse", nurseId);
+            if (response.success && response.data) {
+                const data = response.data;
+                setNurse({
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    dob: formatDateForInput(data.dob),
+                    gender: data.gender || "",
+                    address: data.address || "",
+                    emergencyContact: data.emergencyContact || "",
+                    languages: Array.isArray(data.languages) ? data.languages : [],
+                    profilePicture: data.profilePicture || "",
+                    specialty: data.specialty || "",
+                    unit: data.unit || "",
+                    licenseNumber: data.licenseNumber || "",
+                    joiningDate: formatDateForInput(data.joiningDate),
+                    experience: data.experience ? String(data.experience) : "",
+                    qualifications: data.qualifications || "",
+                    status: data.status || "Active",
+                    hourlyRate: data.hourlyRate ? String(data.hourlyRate) : "",
+                    shiftAvailability: data.shiftAvailability || "",
+                    bio: data.bio || "",
+                    certifications: Array.isArray(data.certifications) ? data.certifications : []
+                });
+            } else {
+                toast.error(response.message || "Failed to fetch nurse details");
+                navigate('/admin/nursing');
+            }
+        } catch (error) {
+            console.error("Error fetching nurse:", error);
+            toast.error(error.message || "Error fetching nurse details");
+            navigate('/admin/nursing');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [nurseId, navigate]);
+
+    useEffect(() => {
+        if (nurseId) {
+            fetchNurseDetails();
+        }
+    }, [nurseId, fetchNurseDetails]);
 
     // Handle Input Change
     const updateField = (field, value) => {
@@ -48,12 +142,18 @@ function Edit_Nurs() {
     };
 
     const handleAddLanguage = () => {
-        const newLang = prompt("Enter a new language:");
-        if (newLang && !nurse.languages.includes(newLang)) {
+        setLanguageModal(true);
+    };
+
+    const handleLanguageConfirm = (language) => {
+        if (language && !nurse.languages.includes(language)) {
             setNurse(prev => ({
                 ...prev,
-                languages: [...prev.languages, newLang]
+                languages: [...prev.languages, language]
             }));
+            toast.success("Language added successfully!");
+        } else if (nurse.languages.includes(language)) {
+            toast.error("This language is already added");
         }
     };
 
@@ -65,12 +165,18 @@ function Edit_Nurs() {
     };
 
     const handleAddCertification = () => {
-        const newCert = prompt("Enter new certification:");
-        if (newCert && !nurse.certifications.includes(newCert)) {
+        setCertificationModal(true);
+    };
+
+    const handleCertificationConfirm = (certification) => {
+        if (certification && !nurse.certifications.includes(certification)) {
             setNurse(prev => ({
                 ...prev,
-                certifications: [...prev.certifications, newCert]
+                certifications: [...prev.certifications, certification]
             }));
+            toast.success("Certification added successfully!");
+        } else if (nurse.certifications.includes(certification)) {
+            toast.error("This certification is already added");
         }
     };
 
@@ -82,19 +188,41 @@ function Edit_Nurs() {
     };
 
     const handleSave = async () => {
+        // Basic validation
+        if (!nurse.name || !nurse.email || !nurse.specialty || !nurse.licenseNumber) {
+            toast.error("Please fill in the required fields (Name, Email, Specialty, License Number).");
+            return;
+        }
+
         setIsSaving(true);
+        try {
+            // Prepare update data - convert strings to numbers where needed
+            const updateData = {
+                ...nurse,
+                experience: nurse.experience ? Number(nurse.experience) : undefined,
+                hourlyRate: nurse.hourlyRate ? Number(nurse.hourlyRate) : undefined,
+                // Convert date strings back to ISO format for backend
+                dob: nurse.dob ? new Date(nurse.dob).toISOString() : undefined,
+                joiningDate: nurse.joiningDate ? new Date(nurse.joiningDate).toISOString() : undefined
+            };
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        console.log("Updated Nurse Data:", nurse);
-        setIsSaving(false);
-        setShowSuccess(true);
-
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate(-1);
-        }, 2000);
+            const response = await adminUserService.updateUser("Nurse", nurseId, updateData);
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Nurse updated successfully!");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate(`/admin/nursing/view/${nurseId}`);
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to update nurse");
+            }
+        } catch (error) {
+            console.error("Error updating nurse:", error);
+            toast.error(error.message || "Error updating nurse");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const sections = [
@@ -105,9 +233,17 @@ function Edit_Nurs() {
 
     const breadcrumbItems = [
         { label: "Dashboard", url: "/admin/dashboard" },
-        { label: "Nurses", url: "/admin/nurses" },
-        { label: "Sarah Johnson" }
-    ]
+        { label: "Nurses", url: "/admin/nursing" },
+        { label: nurse.name || "Edit Nurse" }
+    ];
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-a)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: "var(--color-bg-a)" }}>
@@ -259,6 +395,7 @@ function Edit_Nurs() {
                                                 type="tel"
                                                 value={nurse.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Emergency Contact"
@@ -266,6 +403,7 @@ function Edit_Nurs() {
                                                 type="tel"
                                                 value={nurse.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Date of Birth"
@@ -494,26 +632,48 @@ function Edit_Nurs() {
                                                 borderColor: "var(--color-text)"
                                             }}>
                                                 <div
-                                                    className="w-20 h-20 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-200"
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform duration-200"
                                                     style={{
                                                         backgroundColor: "var(--color-icon-5-light)",
                                                         border: "2px dashed var(--color-icon-5)",
                                                         color: "var(--color-icon-5)"
                                                     }}
                                                 >
-                                                    <User size={32} />
+                                                    {nurse.profilePicture ? (
+                                                        <img
+                                                            src={nurse.profilePicture}
+                                                            alt="Profile"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <User size={32} />
+                                                    )}
+                                                    {isUploading && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
+                                                    <input
+                                                        type="file"
+                                                        id="profile-upload-nurse"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                    />
                                                     <button
                                                         type="button"
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm"
+                                                        onClick={() => document.getElementById('profile-upload-nurse').click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm disabled:opacity-50"
                                                         style={{
                                                             backgroundColor: "var(--color-btn-b)",
                                                             color: "var(--color-light)"
                                                         }}
                                                     >
                                                         <Upload size={16} />
-                                                        Upload New Photo
+                                                        {isUploading ? "Uploading..." : "Upload New Photo"}
                                                     </button>
                                                     <p className="text-sm mt-2" style={{ color: "var(--color-text)" }}>
                                                         JPG, PNG or GIF, max 2MB
@@ -575,6 +735,40 @@ function Edit_Nurs() {
                     </div>
                 </div>
             </div>
+
+            {/* Language Input Modal */}
+            <InputDialogModal
+                isOpen={languageModal}
+                onClose={() => setLanguageModal(false)}
+                onConfirm={handleLanguageConfirm}
+                title="Add Language"
+                label="Language"
+                placeholder="e.g., English, Spanish, French"
+                confirmText="Add Language"
+                validate={(value) => {
+                    if (nurse.languages.includes(value)) {
+                        return "This language is already added";
+                    }
+                    return null;
+                }}
+            />
+
+            {/* Certification Input Modal */}
+            <InputDialogModal
+                isOpen={certificationModal}
+                onClose={() => setCertificationModal(false)}
+                onConfirm={handleCertificationConfirm}
+                title="Add Certification"
+                label="Certification"
+                placeholder="e.g., BLS Certified, ACLS Certified"
+                confirmText="Add Certification"
+                validate={(value) => {
+                    if (nurse.certifications.includes(value)) {
+                        return "This certification is already added";
+                    }
+                    return null;
+                }}
+            />
         </div>
     );
 }

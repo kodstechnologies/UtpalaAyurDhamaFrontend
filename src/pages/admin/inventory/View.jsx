@@ -1,273 +1,268 @@
-import { useState, useMemo } from "react";
-import {
-    Box,
-    Stack,
-    Button,
-} from "@mui/material";
-import DescriptionIcon from "@mui/icons-material/Description";
-import DeleteIcon from "@mui/icons-material/Delete";
-import LocalPharmacyIcon from "@mui/icons-material/LocalPharmacy";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import BlockIcon from "@mui/icons-material/Block";
-import { ListChecks } from 'lucide-react';
-
-import HeadingCard from "../../../components/card/HeadingCard";
-import TableComponent from "../../../components/table/TableComponent";
-import DashboardCard from "../../../components/card/DashboardCard";
-import CardBorder from "../../../components/card/CardBorder";
-import Search from "../../../components/search/Search";
-import ExportDataButton from "../../../components/buttons/ExportDataButton";
-import RedirectButton from "../../../components/buttons/RedirectButton";
+import React, { useState, useEffect, useMemo } from "react";
+import { Box, Chip, alpha, useTheme, Typography, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
-const fields = [
-    { name: 'stockId', label: 'Stock ID', type: 'text', required: true },
-    { name: 'itemName', label: 'Item Name', type: 'text', required: true },
-    {
-        name: 'type',
-        label: 'Type',
-        type: 'select',
-        required: true,
-        options: [
-            { value: 'Internal Medicine', label: 'Internal Medicine' },
-            { value: 'External Medicine', label: 'External Medicine' },
-        ],
-    },
-    { name: 'category', label: 'Category', type: 'text', required: true },
-    { name: 'quantity', label: 'Quantity', type: 'number', required: true },
-    {
-        name: 'status',
-        label: 'Status',
-        type: 'select',
-        required: true,
-        options: [
-            { value: 'Available', label: 'Available' },
-            { value: 'Low Stock', label: 'Low Stock' },
-            { value: 'Out of Stock', label: 'Out of Stock' },
-        ],
-    },
-];
+import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
+import HeadingCard from "../../../components/card/HeadingCard";
+import DashboardCard from "../../../components/card/DashboardCard";
+import TableComponent from "../../../components/table/TableComponent";
+import Search from "../../../components/search/Search";
+import CardBorder from "../../../components/card/CardBorder";
+import ExportDataButton from "../../../components/buttons/ExportDataButton";
+
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import WarningIcon from "@mui/icons-material/Warning";
+import ChecklistIcon from "@mui/icons-material/Checklist";
+import LocalPharmacyIcon from "@mui/icons-material/LocalPharmacy";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+
+import medicineService from "../../../services/medicineService";
 
 function Inventory_View() {
-    const [rows] = useState([
-        {
-            _id: "1",
-            stockId: "STK-101",
-            itemName: "Paracetamol",
-            type: "Internal Medicine",
-            category: "Pain Relief",
-            quantity: 120,
-            status: "Available",
-        },
-        {
-            _id: "2",
-            stockId: "STK-202",
-            itemName: "Bandage Roll",
-            type: "External Medicine",
-            category: "First Aid",
-            quantity: 50,
-            status: "Low Stock",
-        },
-        {
-            _id: "3",
-            stockId: "STK-303",
-            itemName: "Amoxicillin",
-            type: "Internal Medicine",
-            category: "Antibiotic",
-            quantity: 200,
-            status: "Available",
-        },
-    ]);
-
-    const [searchText, setSearchText] = useState("");
-    const [filter, setFilter] = useState("All Items");
     const navigate = useNavigate();
+    const theme = useTheme();
+    const [isLoading, setIsLoading] = useState(true);
+    const [medicines, setMedicines] = useState([]);
+    const [searchText, setSearchText] = useState("");
 
-    // Combined filtering: search + type filter
-    const filteredRows = useMemo(() => {
-        return rows.filter((row) => {
-            const searchMatch = searchText === '' ||
-                row.itemName.toLowerCase().includes(searchText.toLowerCase()) ||
-                row.stockId.toLowerCase().includes(searchText.toLowerCase()) ||
-                row.category.toLowerCase().includes(searchText.toLowerCase()) ||
-                row.type.toLowerCase().includes(searchText.toLowerCase()) ||
-                row.status.toLowerCase().includes(searchText.toLowerCase()) ||
-                row.quantity.toString().includes(searchText);
-
-            const typeMatch = filter === "All Items" || row.type === filter;
-
-            return searchMatch && typeMatch;
-        });
-    }, [rows, searchText, filter]);
-
-    // Live Stats
-    const stats = useMemo(() => {
-        const total = rows.length;
-        const lowStock = rows.filter(r => r.quantity < 100).length; // Assuming <100 is low stock
-        const outOfStock = rows.filter(r => r.quantity === 0).length;
-
-        return { total, lowStock, outOfStock };
-    }, [rows]);
-
-    const columns = [
-        { field: "stockId", header: "Stock ID" },
-        { field: "itemName", header: "Item Name" },
-        { field: "type", header: "Type" },
-        { field: "category", header: "Category" },
-        { field: "quantity", header: "Quantity" },
-        { field: "status", header: "Status" },
+    /* Breadcrumb */
+    const breadcrumbItems = [
+        { label: "Home", url: "/" },
+        { label: "Admin", url: "/admin/dashboard" },
+        { label: "Inventory" },
     ];
 
+    useEffect(() => {
+        fetchMedicines();
+    }, []);
+
+    const fetchMedicines = async () => {
+        setIsLoading(true);
+        try {
+            const response = await medicineService.getAllMedicines({ page: 1, limit: 1000 });
+            if (response && response.success && response.data) {
+                const medicinesList = Array.isArray(response.data.medicines || response.data.data || response.data)
+                    ? (response.data.medicines || response.data.data || response.data)
+                    : [];
+                setMedicines(medicinesList);
+            }
+        } catch (error) {
+            console.error("Error fetching medicines:", error);
+            toast.error("Failed to fetch inventory data");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Calculate statistics
+    const statistics = useMemo(() => {
+        const totalItems = medicines.length;
+        const lowStock = medicines.filter((m) => m.stockStatus === "Low Stock").length;
+        const outOfStock = medicines.filter((m) => m.stockStatus === "Out of Stock").length;
+        const inStock = medicines.filter((m) => m.stockStatus === "In Stock").length;
+        const totalQuantity = medicines.reduce((sum, m) => sum + (m.quantity || 0), 0);
+        const totalValue = medicines.reduce((sum, m) => sum + (m.quantity || 0) * (m.costPrice || 0), 0);
+
+        return {
+            totalItems,
+            lowStock,
+            outOfStock,
+            inStock,
+            totalQuantity,
+            totalValue,
+        };
+    }, [medicines]);
+
+    /* Dashboard Cards */
+    const dashboardData = [
+        {
+            title: "Total Medicines",
+            count: statistics.totalItems,
+            icon: Inventory2Icon,
+        },
+        {
+            title: "In Stock",
+            count: statistics.inStock,
+            icon: CheckCircleIcon,
+        },
+        {
+            title: "Low Stock",
+            count: statistics.lowStock,
+            icon: WarningIcon,
+        },
+        {
+            title: "Out of Stock",
+            count: statistics.outOfStock,
+            icon: TrendingDownIcon,
+        },
+    ];
+
+    /* Table Columns */
+    const columns = [
+        { field: "medicineCode", header: "Medicine Code" },
+        { field: "medicineName", header: "Medicine Name" },
+        {
+            field: "type",
+            header: "Type",
+            render: (row) => (
+                <Chip
+                    label={row.type || "N/A"}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                        borderWidth: 2,
+                        fontWeight: 500,
+                    }}
+                />
+            ),
+        },
+        {
+            field: "quantity",
+            header: "Quantity",
+            render: (row) => (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Box sx={{ fontWeight: 600 }}>{row.quantity || 0}</Box>
+                    <Box sx={{ color: "text.secondary", fontSize: "0.875rem" }}>{row.unit || ""}</Box>
+                </Box>
+            ),
+        },
+        {
+            field: "stockStatus",
+            header: "Stock Status",
+            render: (row) => {
+                const getStatusColor = (status) => {
+                    switch (status) {
+                        case "In Stock":
+                            return "success";
+                        case "Low Stock":
+                            return "warning";
+                        case "Out of Stock":
+                            return "error";
+                        default:
+                            return "default";
+                    }
+                };
+                return (
+                    <Chip
+                        label={row.stockStatus || "N/A"}
+                        size="small"
+                        color={getStatusColor(row.stockStatus)}
+                        sx={{ fontWeight: 600 }}
+                    />
+                );
+            },
+        },
+        {
+            field: "costPrice",
+            header: "Cost Price",
+            render: (row) => `₹${Number(row.costPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+        },
+        {
+            field: "sellPrice",
+            header: "Sell Price",
+            render: (row) => `₹${Number(row.sellPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+        },
+        {
+            field: "totalValue",
+            header: "Stock Value",
+            render: (row) => {
+                const value = (row.quantity || 0) * (row.costPrice || 0);
+                return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+            },
+        },
+    ];
+
+    // Filter medicines based on search
+    const filteredMedicines = useMemo(() => {
+        if (!searchText) return medicines;
+        const searchLower = searchText.toLowerCase();
+        return medicines.filter(
+            (m) =>
+                m.medicineName?.toLowerCase().includes(searchLower) ||
+                m.medicineCode?.toLowerCase().includes(searchLower) ||
+                m.type?.toLowerCase().includes(searchLower) ||
+                m.manufacturer?.toLowerCase().includes(searchLower)
+        );
+    }, [medicines, searchText]);
+
+    /* Actions */
     const actions = [
         {
-            icon: <ListChecks fontSize="small" />,
+            label: "View Details",
+            icon: <ChecklistIcon fontSize="small" />,
             color: "var(--color-primary)",
-            label: "View",
-            onClick: (row) => {
-                navigate(`/admin/inventory/batch-log/${row._id}`);
-            },
+            onClick: (row) => navigate(`/admin/inventory/view/${row._id}`),
+            tooltip: "View Inventory Details",
         },
         {
-            icon: <DeleteIcon fontSize="small" />,
-            color: "#f44336",
-            label: "Delete",
-            onClick: (row) => {
-                navigate(`/admin/inventory/delete/${row._id}`);
-            },
-        },
-    ];
-
-    const customActions = [
-        {
-            icon: <DescriptionIcon fontSize="small" />,
-            color: "#27AE60",
-            onClick: (row) => {
-                const params = new URLSearchParams({
-                    itemId: row._id || "",
-                    itemName: row.itemName || "",
-                    batchNo: row.batchNo || "BCH-2025-001",
-                    expiryDate: row.expiryDate || "31 Dec 2026",
-                    supplier: row.supplier || "MedLife Pharmaceuticals",
-                    receivedOn: row.receivedOn || "05 Jan 2025",
-                    quantityReceived: (row.quantityReceived || "500").toString(),
-                });
-                navigate(`/admin/inventory/batch-log?${params.toString()}`);
-            },
+            label: "Batch Log",
+            icon: <LocalPharmacyIcon fontSize="small" />,
+            color: "var(--color-primary)",
+            onClick: (row) => navigate(`/admin/inventory/batch-log`),
             tooltip: "View Batch Log",
         },
     ];
 
     return (
-        <Box>
+        <Box sx={{ p: 3 }}>
+            {/* Breadcrumb */}
+            <Breadcrumb items={breadcrumbItems} />
+
+            {/* Heading */}
             <HeadingCard
-                title="Inventory Management"
-                subtitle="Monitor and manage the stock of medicines and essential supplies."
-                breadcrumbItems={[
-                    { label: "Admin", url: "/admin/dashboard" },
-                    { label: "Inventory" }
-                ]}
+                category="INVENTORY MANAGEMENT"
+                title="Stock Overview"
+                subtitle="Track stock levels, identify low quantities, and ensure timely replenishment. Monitor medicine inventory in real-time."
             />
 
-            {/* Stats Cards */}
-            <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={3}
-                my={4}
-                justifyContent="flex-start"
+            {/* Dashboard Cards */}
+            <Box
                 sx={{
-                    flexWrap: { xs: "wrap", sm: "nowrap" },
+                    display: "flex",
+                    gap: 2,
+                    mt: 3,
+                    overflowX: "auto",
+                    pb: 1,
                 }}
             >
-                <DashboardCard
-                    title="Total Items"
-                    count={stats.total}
-                    icon={LocalPharmacyIcon}
-                />
-                <DashboardCard
-                    title="Low Stock"
-                    count={stats.lowStock}
-                    icon={WarningAmberIcon}
-                />
-                <DashboardCard
-                    title="Out of Stock"
-                    count={stats.outOfStock}
-                    icon={BlockIcon}
-                />
-            </Stack>
+                {dashboardData.map((item, i) => (
+                    <DashboardCard key={i} title={item.title} count={item.count} icon={item.icon} />
+                ))}
+            </Box>
 
-            {/* SEARCH + EXPORT + CREATE */}
-            <CardBorder
-                justify="between"
-                align="center"
-                wrap={true}
-                padding="2rem"
-                style={{
-                    width: "100%",
-                    marginBottom: "2rem",
-                }}
-            >
-                {/* LEFT SIDE — Search */}
-                <div style={{ flex: 1, marginRight: "1rem" }}>
-                    <Search
-                        value={searchText}
-                        onChange={(val) => setSearchText(val)}
-                        style={{ width: "100%" }}
-                    />
-                </div>
-
-                {/* RIGHT SIDE — Export + Create Buttons */}
-                <div style={{ display: "flex", gap: "1rem" }}>
+            {/* Search and Export */}
+            <CardBorder justify="between" align="center" wrap={true} padding="2rem" className="my-[2rem]">
+                <Box sx={{ flex: 1, mr: 1 }}>
+                    <Search value={searchText} onChange={(val) => setSearchText(val)} sx={{ flex: 1 }} />
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
                     <ExportDataButton
-                        rows={filteredRows}
+                        rows={filteredMedicines}
                         columns={columns}
-                        fileName="inventory.xlsx"
+                        fileName="stock-overview.xlsx"
                     />
-                    <RedirectButton text="Add Item" link="/admin/inventory/add" />
-                </div>
+                </Box>
             </CardBorder>
 
-            {/* Filter Buttons */}
-            <Stack direction="row" spacing={2} mb={3}>
-                {["All Items", "Internal Medicine", "External Medicine"].map((btn) => (
-                    <Button
-                        key={btn}
-                        onClick={() => setFilter(btn)}
-                        variant={filter === btn ? "contained" : "outlined"}
-                        sx={{
-                            px: 3,
-                            py: 1,
-                            borderRadius: 2,
-                            bgcolor: filter === btn ? "var(--color-primary)" : "transparent",
-                            color: filter === btn ? "white" : "var(--color-text-dark)",
-                            borderColor: "var(--color-border)",
-                            fontWeight: 600,
-                            textTransform: "none",
-                            "&:hover": {
-                                bgcolor: filter === btn ? "var(--color-primary-dark)" : "var(--color-bg-hover)",
-                            },
-                        }}
-                    >
-                        {btn}
-                    </Button>
-                ))}
-            </Stack>
-
-            <TableComponent
-                title="Inventory List"
-                columns={columns}
-                rows={filteredRows}
-                actions={actions}
-                formFields={fields}
-                showView={false}
-                showEdit={false}
-                showDelete={false}
-                showAddButton={false}
-                showExportButton={false}
-                customActions={customActions}
-                showStatusBadge={true}
-                statusField="status"
-            />
-
+            {/* Inventory Table */}
+            <Box sx={{ mt: 3 }}>
+                <TableComponent
+                    title="Inventory List"
+                    subtitle={`${filteredMedicines.length} medicines found`}
+                    columns={columns}
+                    rows={filteredMedicines}
+                    actions={actions}
+                    showStatusBadge={true}
+                    statusField="stockStatus"
+                    isLoading={isLoading}
+                    showView={false}
+                    showEdit={false}
+                    showDelete={false}
+                    showAddButton={false}
+                />
+            </Box>
         </Box>
     );
 }

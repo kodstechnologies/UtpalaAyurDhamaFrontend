@@ -1,45 +1,104 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import adminUserService from '../../../../services/adminUserService';
 import {
-    Mail, Phone, Calendar, User, Home,
+    Mail, Phone, Calendar, User,
     ReceiptText, MapPin, Stethoscope, FileBadge,
     Award, BriefcaseMedical, Clock, FileText,
-    ArrowLeft, Edit2, Printer, Download,
+    ArrowLeft,
     ShieldCheck, GraduationCap
 } from 'lucide-react';
 import DetailsCard from '../../../../components/card/details/DetailsCard';
 import Breadcrumb from '../../../../components/breadcrumb/Breadcrumb';
 
 function View_Therapists() {
-    const { id } = useParams();
+    const { therapistsId } = useParams();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
+    const [therapist, setTherapist] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Enhanced therapist data
-    const therapist = {
-        personalInfo: {
-            name: "Dr. Jordan Lee, PT",
-            initials: "JL",
-            email: "jordan.lee@hospital.com",
-            phone: "+1 (555) 456-7890",
-            dob: "15 September, 1980",
-            gender: "Non-binary",
-            address: "321 Rehab Blvd, Therapy Wing, Seattle 98101",
-            emergencyContact: "+1 (555) 567-8901",
-            languages: ["English", "Spanish"]
-        },
-        professionalInfo: {
-            specialization: "Physical Therapy",
-            department: "Rehabilitation Services",
-            licenseNumber: "PT-WA-12345",
-            joiningDate: "05 January, 2015",
-            experience: "10 Years",
-            qualifications: "Doctor of Physical Therapy (DPT), Certified Orthopedic Manual Therapist",
-            status: "Active",
-            salary: "5,800",
-            workingHours: "Mon-Fri: 9AM-6PM",
-            certifications: ["Manual Therapy", "Sports Rehabilitation", "Pediatric Therapy"]
-        },
-        notes: "Dr. Jordan Lee, PT (License: PT-WA-12345) is a highly skilled physical therapist with 10 years of experience in rehabilitation services. Specializing in orthopedic and sports therapy, they focus on personalized recovery plans, contributing significantly to the Rehabilitation Services department since joining on 05/01/2015."
+    const fetchTherapistDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Therapist", therapistsId);
+            if (response.success) {
+                setTherapist(response.data);
+            } else {
+                toast.error(response.message || "Failed to fetch therapist details");
+                navigate('/admin/therapists');
+            }
+        } catch (error) {
+            console.error("Error fetching therapist:", error);
+            toast.error(error.message || "Error fetching therapist details");
+            navigate('/admin/therapists');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [therapistsId, navigate]);
+
+    useEffect(() => {
+        fetchTherapistDetails();
+    }, [fetchTherapistDetails]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
+
+    if (!therapist) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--color-text-dark)" }}>Therapist Not Found</h2>
+                <button
+                    onClick={() => navigate('/admin/therapists')}
+                    className="flex items-center gap-2 px-6 py-2 rounded-xl text-white font-medium transition-all"
+                    style={{ backgroundColor: "var(--color-btn-b)" }}
+                >
+                    <ArrowLeft size={20} />
+                    Back to Therapists
+                </button>
+            </div>
+        );
+    }
+
+    // Format dates for display
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "N/A";
+        try {
+            return new Date(dateStr).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount) return "0";
+        try {
+            return new Intl.NumberFormat('en-IN').format(amount);
+        } catch {
+            return amount;
+        }
+    };
+
+    // Get Initials
+    const getInitials = (name) => {
+        if (!name) return "??";
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .substring(0, 2);
     };
 
     return (
@@ -48,7 +107,7 @@ function View_Therapists() {
                 items={[
                     { label: "Dashboard", url: "/admin/dashboard" },
                     { label: "Therapists", url: "/admin/therapists" },
-                    { label: "Dr. Jordan Lee" }
+                    { label: therapist.name }
                 ]}
             />
             <div className="min-h-screen p-4 md:p-6 space-y-6" style={{ backgroundColor: "var(--color-bg-primary)" }}>
@@ -69,15 +128,24 @@ function View_Therapists() {
                                 className="w-32 h-32 rounded-full flex items-center justify-center mb-4 relative"
                                 style={{
                                     backgroundColor: "var(--color-bg-card-b)",
-                                    border: "4px solid var(--color-btn-b)"
+                                    border: "4px solid var(--color-btn-b)",
+                                    overflow: "hidden"
                                 }}
                             >
-                                <span
-                                    className="text-5xl font-bold"
-                                    style={{ color: "var(--color-btn-dark-b)" }}
-                                >
-                                    {therapist.personalInfo.initials}
-                                </span>
+                                {therapist.profilePicture ? (
+                                    <img
+                                        src={therapist.profilePicture}
+                                        alt={therapist.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span
+                                        className="text-5xl font-bold"
+                                        style={{ color: "var(--color-btn-dark-b)" }}
+                                    >
+                                        {getInitials(therapist.name)}
+                                    </span>
+                                )}
                                 <div
                                     className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full flex items-center justify-center"
                                     style={{ backgroundColor: "var(--color-btn-b)" }}
@@ -90,7 +158,7 @@ function View_Therapists() {
                                 className="text-2xl font-bold text-center mb-2"
                                 style={{ color: "var(--color-text-dark)" }}
                             >
-                                {therapist.personalInfo.name}
+                                {therapist.name}
                             </h1>
 
                             <div
@@ -100,7 +168,7 @@ function View_Therapists() {
                                     color: "var(--color-btn-dark-b)"
                                 }}
                             >
-                                {therapist.professionalInfo.status}
+                                {therapist.status || "Active"}
                             </div>
 
                             <div className="flex flex-wrap gap-2 justify-center">
@@ -112,7 +180,7 @@ function View_Therapists() {
                                     }}
                                 >
                                     <Stethoscope size={12} className="inline mr-1" />
-                                    {therapist.professionalInfo.specialization}
+                                    {therapist.specialization || "N/A"}
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded-full text-xs font-medium"
@@ -122,7 +190,7 @@ function View_Therapists() {
                                     }}
                                 >
                                     <Clock size={12} className="inline mr-1" />
-                                    {therapist.professionalInfo.experience}
+                                    {therapist.experience ? `${therapist.experience} Years` : "N/A"}
                                 </span>
                             </div>
                         </div>
@@ -134,7 +202,7 @@ function View_Therapists() {
                                     Monthly Salary
                                 </span>
                                 <span className="text-lg font-bold" style={{ color: "var(--color-text-dark)" }}>
-                                    {therapist.professionalInfo.salary}
+                                    ₹{formatCurrency(therapist.salary)}
                                 </span>
                             </div>
 
@@ -143,7 +211,7 @@ function View_Therapists() {
                                     Working Hours
                                 </span>
                                 <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                    {therapist.professionalInfo.workingHours}
+                                    {therapist.workingHours || "N/A"}
                                 </span>
                             </div>
                         </div>
@@ -170,7 +238,7 @@ function View_Therapists() {
                                 }}
                                 onClick={() => setActiveTab("general")}
                             >
-                                <Home size={20} />
+                                <ReceiptText size={20} />
                                 General Info
                             </button>
                             <button
@@ -204,37 +272,37 @@ function View_Therapists() {
                                         <DetailsCard
                                             icon={Mail}
                                             label="Email Address"
-                                            value={therapist.personalInfo.email}
+                                            value={therapist.email || "N/A"}
                                             iconColor="#3B82F6"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Phone Number"
-                                            value={therapist.personalInfo.phone}
+                                            value={therapist.phone || "N/A"}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Date of Birth"
-                                            value={therapist.personalInfo.dob}
+                                            value={formatDate(therapist.dob)}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={User}
                                             label="Gender"
-                                            value={therapist.personalInfo.gender}
+                                            value={therapist.gender || "N/A"}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={MapPin}
                                             label="Address"
-                                            value={therapist.personalInfo.address}
+                                            value={therapist.address || "N/A"}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Emergency Contact"
-                                            value={therapist.personalInfo.emergencyContact}
+                                            value={therapist.emergencyContact || "N/A"}
                                             iconColor="#EF4444"
                                         />
                                     </div>
@@ -248,18 +316,22 @@ function View_Therapists() {
                                             Languages Spoken
                                         </h3>
                                         <div className="flex flex-wrap gap-2">
-                                            {therapist.personalInfo.languages.map((lang, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="px-4 py-2 rounded-lg font-medium"
-                                                    style={{
-                                                        backgroundColor: "var(--color-bg-card-b)",
-                                                        color: "var(--color-text-dark)"
-                                                    }}
-                                                >
-                                                    {lang}
-                                                </span>
-                                            ))}
+                                            {Array.isArray(therapist.languages) && therapist.languages.length > 0 ? (
+                                                therapist.languages.map((lang, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className="px-4 py-2 rounded-lg font-medium"
+                                                        style={{
+                                                            backgroundColor: "var(--color-bg-card-b)",
+                                                            color: "var(--color-text-dark)"
+                                                        }}
+                                                    >
+                                                        {lang}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span style={{ color: "var(--color-text)" }}>No languages specified</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -278,38 +350,38 @@ function View_Therapists() {
                                         <DetailsCard
                                             icon={Stethoscope}
                                             label="Therapy Specialization"
-                                            value={therapist.professionalInfo.specialization}
+                                            value={therapist.specialization || "N/A"}
                                             iconColor="#3B82F6"
                                             highlight
                                         />
                                         <DetailsCard
                                             icon={BriefcaseMedical}
                                             label="Department"
-                                            value={therapist.professionalInfo.department}
+                                            value={therapist.department || "N/A"}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={FileBadge}
                                             label="License Number"
-                                            value={therapist.professionalInfo.licenseNumber}
+                                            value={therapist.licenseNumber || "N/A"}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Joining Date"
-                                            value={therapist.professionalInfo.joiningDate}
+                                            value={formatDate(therapist.joiningDate)}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Award}
                                             label="Experience"
-                                            value={therapist.professionalInfo.experience}
+                                            value={therapist.experience ? `${therapist.experience} Years` : "N/A"}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={GraduationCap}
                                             label="Qualifications"
-                                            value={therapist.professionalInfo.qualifications}
+                                            value={therapist.qualifications || "N/A"}
                                             iconColor="#6366F1"
                                         />
                                     </div>
@@ -323,16 +395,20 @@ function View_Therapists() {
                                             Certifications
                                         </h3>
                                         <div className="space-y-2">
-                                            {therapist.professionalInfo.certifications.map((cert, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex items-center gap-3 p-3 rounded-lg"
-                                                    style={{ backgroundColor: "var(--color-bg-card-b)" }}
-                                                >
-                                                    <Award size={16} style={{ color: "var(--color-btn-b)" }} />
-                                                    <span style={{ color: "var(--color-text-dark)" }}>{cert}</span>
-                                                </div>
-                                            ))}
+                                            {Array.isArray(therapist.certifications) && therapist.certifications.length > 0 ? (
+                                                therapist.certifications.map((cert, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="flex items-center gap-3 p-3 rounded-lg"
+                                                        style={{ backgroundColor: "var(--color-bg-card-b)" }}
+                                                    >
+                                                        <Award size={16} style={{ color: "var(--color-btn-b)" }} />
+                                                        <span style={{ color: "var(--color-text-dark)" }}>{cert}</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <span style={{ color: "var(--color-text)" }}>No certifications specified</span>
+                                            )}
                                         </div>
                                     </div>
 
@@ -345,39 +421,41 @@ function View_Therapists() {
                 </div>
 
                 {/* Notes & Expertise */}
-                <div className="pt-6" style={{ borderColor: "var(--color-border)" }}>
-                    <div className="flex items-center gap-3 mb-4">
+                {therapist.bio && (
+                    <div className="pt-6" style={{ borderColor: "var(--color-border)" }}>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div
+                                className="w-10 h-10 flex items-center justify-center rounded-lg"
+                                style={{
+                                    backgroundColor: "rgba(74, 124, 89, 0.15)",
+                                }}
+                            >
+                                <FileText size={20} style={{ color: "var(--color-btn-b)" }} />
+                            </div>
+                            <h3
+                                className="text-xl font-semibold"
+                                style={{ color: "var(--color-text-dark)" }}
+                            >
+                                Notes & Expertise
+                            </h3>
+                        </div>
+
                         <div
-                            className="w-10 h-10 flex items-center justify-center rounded-lg"
+                            className="p-5 rounded-xl"
                             style={{
-                                backgroundColor: "rgba(74, 124, 89, 0.15)",
+                                backgroundColor: "var(--color-bg-card-b)",
+                                borderLeft: "4px solid var(--color-btn-b)"
                             }}
                         >
-                            <FileText size={20} style={{ color: "var(--color-btn-b)" }} />
+                            <p
+                                className="leading-relaxed"
+                                style={{ color: "var(--color-text-dark-b)" }}
+                            >
+                                {therapist.bio}
+                            </p>
                         </div>
-                        <h3
-                            className="text-xl font-semibold"
-                            style={{ color: "var(--color-text-dark)" }}
-                        >
-                            Notes & Expertise
-                        </h3>
                     </div>
-
-                    <div
-                        className="p-5 rounded-xl"
-                        style={{
-                            backgroundColor: "var(--color-bg-card-b)",
-                            borderLeft: "4px solid var(--color-btn-b)"
-                        }}
-                    >
-                        <p
-                            className="leading-relaxed"
-                            style={{ color: "var(--color-text-dark-b)" }}
-                        >
-                            {therapist.notes}
-                        </p>
-                    </div>
-                </div>
+                )}
             </div>
         </>
     );

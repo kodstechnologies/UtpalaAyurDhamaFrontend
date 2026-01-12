@@ -1,46 +1,142 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../../../services/adminUserService";
 import {
-    Mail, Phone, Calendar, User, Home, Stethoscope, FileBadge,
+    Mail, Phone, Calendar, User, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
     ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
     X, Save, AlertCircle, CheckCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
+import InputDialogModal from "../../../../components/modal/InputDialogModal";
 
 function Edit_Receptionists() {
+    const { receptionistId } = useParams();
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
+    const [languageModal, setLanguageModal] = useState(false);
+    const [skillModal, setSkillModal] = useState(false);
 
-    // Fake receptionist data
+    // Receptionist data
     const [receptionist, setReceptionist] = useState({
         // Personal Info
-        name: "Emily Carter",
-        email: "emily.c@hospital.com",
-        phone: "+1 (555) 234-5678",
-        dob: "1988-08-22",
-        gender: "Female",
-        address: "789 Admin St, Office Park, Chicago 60601",
-        emergencyContact: "+1 (555) 876-5432",
-        languages: ["English", "French"],
+        name: "",
+        email: "",
+        phone: "",
+        dob: "",
+        gender: "",
+        address: "",
+        emergencyContact: "",
+        languages: [],
+        profilePicture: "",
 
         // Professional Info
-        position: "Front Desk Receptionist",
-        department: "Administration",
-        employeeId: "REC-78901",
-        joiningDate: "2018-06-01",
-        experience: "6",
-        education: "Associate's Degree in Business Administration, Medical Office Management Certification",
+        position: "",
+        department: "",
+        employeeId: "",
+        joiningDate: "",
+        experience: "",
+        education: "",
         status: "Active",
-        salary: "3200",
-        workingHours: "Mon-Fri: 8AM-5PM",
+        salary: "",
+        workingHours: "",
 
         // Additional Info
-        bio: "Emily Carter is a dedicated receptionist with 6 years of experience in healthcare administration. She is known for her warm demeanor and efficient handling of patient inquiries.",
-        skills: ["Patient Registration", "Appointment Scheduling", "Billing Assistance", "Multilingual Support"]
+        bio: "",
+        skills: []
     });
+
+    // Format date to YYYY-MM-DD for date inputs
+    const formatDateForInput = (dateStr) => {
+        if (!dateStr) return "";
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return "";
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return "";
+        }
+    };
+
+    // Handle Image Upload
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            toast.error("File size should be less than 2MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await adminUserService.uploadImage(file);
+            if (response.success) {
+                setReceptionist(prev => ({ ...prev, profilePicture: response.data.url }));
+                toast.success("Image uploaded successfully!");
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            const errorMessage = error?.message || error?.response?.data?.message || "Failed to upload image";
+            toast.error(errorMessage);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Fetch receptionist data
+    const fetchReceptionistDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Receptionist", receptionistId);
+            if (response.success && response.data) {
+                const data = response.data;
+                setReceptionist({
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    dob: formatDateForInput(data.dob),
+                    gender: data.gender || "",
+                    address: data.address || "",
+                    emergencyContact: data.emergencyContact || "",
+                    languages: Array.isArray(data.languages) ? data.languages : [],
+                    profilePicture: data.profilePicture || "",
+                    position: data.position || "",
+                    department: data.department || "",
+                    employeeId: data.employeeId || "",
+                    joiningDate: formatDateForInput(data.joiningDate),
+                    experience: data.experience ? String(data.experience) : "",
+                    education: data.education || "",
+                    status: data.status || "Active",
+                    salary: data.salary ? String(data.salary) : "",
+                    workingHours: data.workingHours || "",
+                    bio: data.bio || "",
+                    skills: Array.isArray(data.skills) ? data.skills : []
+                });
+            } else {
+                toast.error(response.message || "Failed to fetch receptionist details");
+                navigate('/admin/receptionists');
+            }
+        } catch (error) {
+            console.error("Error fetching receptionist:", error);
+            toast.error(error.message || "Error fetching receptionist details");
+            navigate('/admin/receptionists');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [receptionistId, navigate]);
+
+    useEffect(() => {
+        if (receptionistId) {
+            fetchReceptionistDetails();
+        }
+    }, [receptionistId, fetchReceptionistDetails]);
 
     // Handle Input Change
     const updateField = (field, value) => {
@@ -48,12 +144,18 @@ function Edit_Receptionists() {
     };
 
     const handleAddLanguage = () => {
-        const newLang = prompt("Enter a new language:");
-        if (newLang && !receptionist.languages.includes(newLang)) {
+        setLanguageModal(true);
+    };
+
+    const handleLanguageConfirm = (language) => {
+        if (language && !receptionist.languages.includes(language)) {
             setReceptionist(prev => ({
                 ...prev,
-                languages: [...prev.languages, newLang]
+                languages: [...prev.languages, language]
             }));
+            toast.success("Language added successfully!");
+        } else if (receptionist.languages.includes(language)) {
+            toast.error("This language is already added");
         }
     };
 
@@ -65,12 +167,18 @@ function Edit_Receptionists() {
     };
 
     const handleAddSkill = () => {
-        const newSkill = prompt("Enter new skill:");
-        if (newSkill && !receptionist.skills.includes(newSkill)) {
+        setSkillModal(true);
+    };
+
+    const handleSkillConfirm = (skill) => {
+        if (skill && !receptionist.skills.includes(skill)) {
             setReceptionist(prev => ({
                 ...prev,
-                skills: [...prev.skills, newSkill]
+                skills: [...prev.skills, skill]
             }));
+            toast.success("Skill added successfully!");
+        } else if (receptionist.skills.includes(skill)) {
+            toast.error("This skill is already added");
         }
     };
 
@@ -84,17 +192,34 @@ function Edit_Receptionists() {
     const handleSave = async () => {
         setIsSaving(true);
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            // Prepare data - convert strings to numbers and dates where needed
+            const updateData = {
+                ...receptionist,
+                experience: receptionist.experience ? Number(receptionist.experience) : undefined,
+                salary: receptionist.salary ? Number(receptionist.salary) : undefined,
+                dateOfBirth: receptionist.dob ? new Date(receptionist.dob).toISOString() : undefined,
+                joiningDate: receptionist.joiningDate ? new Date(receptionist.joiningDate).toISOString() : undefined
+            };
 
-        console.log("Updated Receptionist Data:", receptionist);
-        setIsSaving(false);
-        setShowSuccess(true);
+            const response = await adminUserService.updateUser("Receptionist", receptionistId, updateData);
 
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate(-1);
-        }, 2000);
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Receptionist updated successfully!");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate(-1);
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to update receptionist");
+                setIsSaving(false);
+            }
+        } catch (error) {
+            console.error("Error updating receptionist:", error);
+            toast.error(error.message || "Error updating receptionist");
+            setIsSaving(false);
+        }
     };
 
     const sections = [
@@ -106,7 +231,7 @@ function Edit_Receptionists() {
     const breadcrumbItems = [
         { label: "Dashboard", url: "/admin/dashboard" },
         { label: "Receptionists", url: "/admin/receptionists" },
-        { label: "Emily Carter" }
+        { label: receptionist.name || "Edit Receptionist" }
     ]
 
     return (
@@ -259,6 +384,7 @@ function Edit_Receptionists() {
                                                 type="tel"
                                                 value={receptionist.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Emergency Contact"
@@ -266,6 +392,7 @@ function Edit_Receptionists() {
                                                 type="tel"
                                                 value={receptionist.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Date of Birth"
@@ -494,26 +621,48 @@ function Edit_Receptionists() {
                                                 borderColor: "var(--color-text)"
                                             }}>
                                                 <div
-                                                    className="w-20 h-20 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-200"
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform duration-200"
                                                     style={{
                                                         backgroundColor: "var(--color-icon-5-light)",
                                                         border: "2px dashed var(--color-icon-5)",
                                                         color: "var(--color-icon-5)"
                                                     }}
                                                 >
-                                                    <User size={32} />
+                                                    {receptionist.profilePicture ? (
+                                                        <img
+                                                            src={receptionist.profilePicture}
+                                                            alt="Profile"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <User size={32} />
+                                                    )}
+                                                    {isUploading && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
+                                                    <input
+                                                        type="file"
+                                                        id="profile-upload-receptionist-edit"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                    />
                                                     <button
                                                         type="button"
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm"
+                                                        onClick={() => document.getElementById('profile-upload-receptionist-edit').click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm disabled:opacity-50"
                                                         style={{
                                                             backgroundColor: "var(--color-btn-b)",
                                                             color: "var(--color-light)"
                                                         }}
                                                     >
                                                         <Upload size={16} />
-                                                        Upload New Photo
+                                                        {isUploading ? "Uploading..." : "Upload New Photo"}
                                                     </button>
                                                     <p className="text-sm mt-2" style={{ color: "var(--color-text)" }}>
                                                         JPG, PNG or GIF, max 2MB

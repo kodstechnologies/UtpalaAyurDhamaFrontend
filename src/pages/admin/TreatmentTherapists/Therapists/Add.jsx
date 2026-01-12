@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
     BookOpen,
     ReceiptIndianRupee,
@@ -12,6 +13,7 @@ import {
 import CardBorder from "../../../../components/card/CardBorder";
 import CancelButton from "../../../../components/buttons/CancelButton";
 import SubmitButton from "../../../../components/buttons/SubmitButton";
+import therapyService from "../../../../services/therapyService";
 
 function Add_TherapyManagement() {
     const navigate = useNavigate();
@@ -26,34 +28,51 @@ function Add_TherapyManagement() {
     const validateForm = () => {
         const newErrors = {};
 
-        if (!therapyName) newErrors.therapyName = "Therapy name is required";
-        if (!cost || parseFloat(cost) <= 0) newErrors.cost = "Valid cost is required";
+        if (!therapyName || therapyName.trim() === "") {
+            newErrors.therapyName = "Therapy name is required";
+        }
+        if (!cost || parseFloat(cost) <= 0) {
+            newErrors.cost = "Valid cost is required";
+        }
+        if (!description || description.trim() === "") {
+            newErrors.description = "Description is required";
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         if (!validateForm()) return;
 
         setIsSubmitting(true);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulated API
+        try {
+            const payload = {
+                therapyName: therapyName.trim(),
+                cost: parseFloat(cost),
+                description: description.trim(),
+            };
 
-        const payload = {
-            therapyName,
-            cost: parseFloat(cost),
-            description,
-        };
-
-        console.log("Submitted:", payload);
-
-        setIsSubmitting(false);
-        setShowSuccess(true);
-
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate("/admin/treatment-therapy");
-        }, 2000);
+            const response = await therapyService.createTherapy(payload);
+            
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Therapy created successfully");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate("/admin/treatment-therapy");
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to create therapy");
+            }
+        } catch (error) {
+            console.error("Error creating therapy:", error);
+            const errorMessage = error.message || error.response?.data?.message || "Failed to create therapy";
+            toast.error(errorMessage);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -94,6 +113,7 @@ function Add_TherapyManagement() {
             )}
 
             {/* Form Container */}
+            <form onSubmit={handleSubmit}>
             <div
                 className="rounded-2xl shadow-lg overflow-hidden border hover:shadow-[var(--shadow-medium)] transition-all duration-300"
                 style={{ backgroundColor: "var(--color-bg-card)", borderColor: "var(--color-text)" }}
@@ -170,7 +190,7 @@ function Add_TherapyManagement() {
                         <label className="font-medium text-sm flex items-center gap-1 text-[var(--color-text-dark)]">
                             <div className="flex gap-2">
                                 <FileText size={18} className="text-[var(--color-icon-2)]" />
-                                Description
+                                Description <span className="text-[var(--color-icon-1-light)]">*</span>
                             </div>
                         </label>
 
@@ -188,6 +208,12 @@ function Add_TherapyManagement() {
                                 style={{ color: "var(--color-text-dark)" }}
                             />
                         </div>
+                        {errors.description && (
+                            <p className="text-xs flex items-center gap-1 text-[var(--color-icon-1)]">
+                                <AlertCircle size={12} />
+                                {errors.description}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -223,6 +249,7 @@ function Add_TherapyManagement() {
                     </p>
                 </div>
             </div>
+            </form>
         </CardBorder>
     );
 }

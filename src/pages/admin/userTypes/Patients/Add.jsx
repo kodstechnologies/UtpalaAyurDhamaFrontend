@@ -273,6 +273,7 @@ function Add_Patients() {
                         type="tel"
                         value={patient.phone}
                         onChange={(e) => updateField("phone", e.target.value)}
+                        maxLength={10}
                       />
                       <FormInput
                         label="Emergency Contact"
@@ -280,6 +281,7 @@ function Add_Patients() {
                         type="tel"
                         value={patient.emergencyContact}
                         onChange={(e) => updateField("emergencyContact", e.target.value)}
+                        maxLength={10}
                       />
                       <FormInput
                         label="Date of Birth"

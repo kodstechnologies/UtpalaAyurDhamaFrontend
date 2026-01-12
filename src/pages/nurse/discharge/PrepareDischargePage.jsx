@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import axios from "axios";
+
 import HeadingCard from "../../../components/card/HeadingCard";
 import {
     Box,
@@ -11,6 +14,7 @@ import {
     Stack,
     Divider,
     IconButton,
+    CircularProgress,
 } from "@mui/material";
 import {
     CheckCircle as CheckIcon,
@@ -20,12 +24,17 @@ import {
     Receipt as BillingIcon,
     FamilyRestroom as CounselingIcon,
 } from "@mui/icons-material";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 function PrepareDischargePage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const patientId = searchParams.get("patientId");
+    const inpatientId = searchParams.get("inpatientId");
     const patientName = searchParams.get("patientName") || "";
+
+    const [isLoading, setIsLoading] = useState(false);
+    const [isFetchingPatient, setIsFetchingPatient] = useState(true);
+    const [patientData, setPatientData] = useState(null);
 
     const [checklist, setChecklist] = useState({
         vitals: false,
@@ -34,6 +43,35 @@ function PrepareDischargePage() {
         billing: false,
         counseling: false,
     });
+
+    useEffect(() => {
+        if (inpatientId) {
+            fetchPatientData();
+        } else {
+            setIsFetchingPatient(false);
+        }
+    }, [inpatientId]);
+
+    const fetchPatientData = async () => {
+        setIsFetchingPatient(true);
+        try {
+            const response = await axios.get(
+                getApiUrl(`inpatients/${inpatientId}`),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                setPatientData(response.data.data);
+            } else {
+                toast.error("Failed to fetch patient details");
+            }
+        } catch (error) {
+            console.error("Error fetching patient data:", error);
+            toast.error(error.response?.data?.message || "Error fetching patient details");
+        } finally {
+            setIsFetchingPatient(false);
+        }
+    };
 
     const handleChange = (name) => {
         setChecklist((prev) => ({ ...prev, [name]: !prev[name] }));
@@ -49,21 +87,53 @@ function PrepareDischargePage() {
         { key: "counseling", label: "Patient / Family Counseling Done", icon: <CounselingIcon /> },
     ];
 
-    const handleConfirm = () => {
-        console.log("Discharge confirmed:", {
-            patientId: patientId,
-            patientName: patientName,
-            checklist,
-        });
-        // Implement API call here
-        navigate(-1); // Go back to previous page
+    const handleConfirm = async () => {
+        if (!inpatientId) {
+            toast.error("Invalid patient ID");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await axios.patch(
+                getApiUrl(`inpatients/${inpatientId}/discharge`),
+                {
+                    dischargeChecklist: checklist,
+                    dischargeDate: new Date().toISOString(),
+                    status: "Discharged",
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                toast.success("Patient discharge completed successfully!");
+                navigate("/nurse/discharge-preparation");
+            } else {
+                toast.error(response.data.message || "Failed to process discharge");
+            }
+        } catch (error) {
+            console.error("Error processing discharge:", error);
+            toast.error(error.response?.data?.message || "Error processing discharge");
+        } finally {
+            setIsLoading(false);
+        }
     };
+
+    if (isFetchingPatient) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    const displayPatientName = patientData?.patient?.user?.name || patientName || "Unknown Patient";
 
     return (
         <div>
             <HeadingCard
                 title="Prepare Discharge"
-                subtitle={`Patient: ${patientName}`}
+                subtitle={`Patient: ${displayPatientName}`}
                 breadcrumbItems={[
                     { label: "Nurse", url: "/nurse/dashboard" },
                     { label: "Discharge Preparation", url: "/nurse/discharge-preparation" },
@@ -124,6 +194,7 @@ function PrepareDischargePage() {
                     <Button
                         variant="outlined"
                         onClick={() => navigate(-1)}
+                        disabled={isLoading}
                         sx={{
                             borderRadius: 2,
                             px: 3,
@@ -134,9 +205,9 @@ function PrepareDischargePage() {
                     </Button>
                     <Button
                         variant="contained"
-                        startIcon={<CheckIcon />}
+                        startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <CheckIcon />}
                         color="success"
-                        disabled={!allChecked}
+                        disabled={!allChecked || isLoading}
                         onClick={handleConfirm}
                         sx={{
                             backgroundColor: "var(--color-success)",
@@ -156,7 +227,7 @@ function PrepareDischargePage() {
                             },
                         }}
                     >
-                        Confirm Discharge
+                        {isLoading ? "Processing..." : "Confirm Discharge"}
                     </Button>
                 </Stack>
             </Box>
@@ -183,4 +254,3 @@ Field.propTypes = {
 };
 
 export default PrepareDischargePage;
-

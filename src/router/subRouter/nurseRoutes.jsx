@@ -23,6 +23,9 @@ const LogFoodPage = lazy(() =>
 const UpdateVitalsPage = lazy(() =>
     import("../../pages/nurse/monitoring/UpdateVitals")
 );
+const PatientDetailsPage = lazy(() =>
+    import("../../pages/nurse/monitoring/PatientDetails")
+);
 const PrepareDischargePage = lazy(() =>
     import("../../pages/nurse/discharge/PrepareDischargePage")
 );
@@ -86,6 +89,14 @@ export const nurseRoutes = [
             "Update Vitals",
             "Update patient vitals.",
             UpdateVitalsPage
+        ),
+    },
+    {
+        path: "/nurse/monitoring/patient-details",
+        element: withHelmet(
+            "Patient Details",
+            "View patient details including food intake and vitals history.",
+            PatientDetailsPage
         ),
     },
     {

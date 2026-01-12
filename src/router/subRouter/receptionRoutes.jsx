@@ -6,17 +6,25 @@ import { Helmet } from "react-helmet";
 const Appointments_View = lazy(() => import("../../pages/receptionist/appointments/View"));
 const Receptionist_dashboard = lazy(() => import("../../pages/receptionist/dashboard"));
 const Inpatient_View = lazy(() => import("../../pages/receptionist/inpatient/View"));
+const Outpatient_View = lazy(() => import("../../pages/receptionist/outpatient/View"));
 const InpatientBilling = lazy(() => import("../../pages/receptionist/inpatient/Billing"));
+const OutpatientBilling = lazy(() => import("../../pages/receptionist/outpatient/Billing"));
 const Marketing_View = lazy(() => import("../../pages/receptionist/marketing/View"));
 const Payments_View = lazy(() => import("../../pages/receptionist/payments/View"));
+const InvoiceDetails = lazy(() => import("../../pages/receptionist/payments/InvoiceDetails"));
 const Reports_View = lazy(() => import("../../pages/receptionist/reports/View"));
+const Treatments_View = lazy(() => import("../../pages/receptionist/treatments/View"));
+const PatientTherapyDetails = lazy(() => import("../../pages/receptionist/treatments/PatientTherapyDetails"));
 const ReceptionistProfile = lazy(() => import("../../pages/receptionist/Profile"));
+const SwarnaBinduEvents_Calendar = lazy(() => import("../../pages/receptionist/swarnaBinduEvents/View"));
+const PatientHistory = lazy(() => import("../../pages/receptionist/patient/PatientHistory"));
 
 // Modal pages
 const AddEditTransactionPage = lazy(() => import("../../pages/receptionist/payments/AddEditTransaction"));
 const DeleteTransactionPage = lazy(() => import("../../pages/receptionist/payments/DeleteTransaction"));
 const AdmitPatientPage = lazy(() => import("../../pages/receptionist/inpatient/AdmitPatient"));
 const AllocateResourcesPage = lazy(() => import("../../pages/receptionist/inpatient/AllocateResources"));
+const OutpatientAllocateResourcesPage = lazy(() => import("../../pages/receptionist/outpatient/AllocateResources"));
 const AddPatientPage = lazy(() => import("../../pages/receptionist/appointments/AddPatient"));
 const ScheduleAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/ScheduleAppointment"));
 const RescheduleAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/RescheduleAppointment"));
@@ -71,6 +79,17 @@ export const receptionRoutes = [
         ),
     },
     {
+        path: "/receptionist/outpatient",
+        element: (
+            <>
+                <Helmet>
+                    <title>Outpatients | UTPALA</title>
+                </Helmet>
+                <Outpatient_View />
+            </>
+        ),
+    },
+    {
         path: "/receptionist/inpatient-billing/:id",
         element: (
             <>
@@ -82,6 +101,17 @@ export const receptionRoutes = [
         ),
     },
     {
+        path: "/receptionist/outpatient-billing/:patientId",
+        element: (
+            <>
+                <Helmet>
+                    <title>Outpatient Billing | UTPALA</title>
+                </Helmet>
+                <OutpatientBilling />
+            </>
+        ),
+    },
+    {
         path: "/receptionist/payments",
         element: (
             <>
@@ -89,6 +119,17 @@ export const receptionRoutes = [
                     <title>Payments | UTPALA</title>
                 </Helmet>
                 <Payments_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/payments/invoice/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Invoice Details | UTPALA</title>
+                </Helmet>
+                <InvoiceDetails />
             </>
         ),
     },
@@ -111,6 +152,28 @@ export const receptionRoutes = [
                     <title>Reports | UTPALA</title>
                 </Helmet>
                 <Reports_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/treatments",
+        element: (
+            <>
+                <Helmet>
+                    <title>Treatments | UTPALA</title>
+                </Helmet>
+                <Treatments_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/treatments/therapy-details",
+        element: (
+            <>
+                <Helmet>
+                    <title>Patient Therapy Details | UTPALA</title>
+                </Helmet>
+                <PatientTherapyDetails />
             </>
         ),
     },
@@ -167,6 +230,17 @@ export const receptionRoutes = [
                     <title>Allocate Resources | UTPALA</title>
                 </Helmet>
                 <AllocateResourcesPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/outpatient/allocate",
+        element: (
+            <>
+                <Helmet>
+                    <title>Allocate Nurse | UTPALA</title>
+                </Helmet>
+                <OutpatientAllocateResourcesPage />
             </>
         ),
     },
@@ -244,6 +318,28 @@ export const receptionRoutes = [
                     <title>Edit Charge | UTPALA</title>
                 </Helmet>
                 <EditChargePage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/swarna-bindu-events",
+        element: (
+            <>
+                <Helmet>
+                    <title>Swarna Bindu Events | UTPALA</title>
+                </Helmet>
+                <SwarnaBinduEvents_Calendar />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/patient-history/:patientId",
+        element: (
+            <>
+                <Helmet>
+                    <title>Patient History | UTPALA</title>
+                </Helmet>
+                <PatientHistory />
             </>
         ),
     },

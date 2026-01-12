@@ -12,9 +12,8 @@
 
 // Get API base URL from environment variable or fallback
 export const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL
-// ||
-// "http://localhost:8000/api/v1";
+    import.meta.env.VITE_API_BASE_URL ||
+    "http://localhost:8000/api/v1";
 
 /**
  * Helper function to get the full API URL for an endpoint
@@ -29,17 +28,15 @@ export const getApiUrl = (endpoint) => {
     return `${API_BASE_URL}/${cleanEndpoint}`;
 };
 
-/**
- * Helper function to get auth token from localStorage
- * @returns {string | null} The auth token or null
- */
 export const getAuthToken = () => {
     try {
-        const token = localStorage.getItem("authToken");
+        const token = localStorage.getItem("token") || localStorage.getItem("authToken");
         if (token) return token;
 
         const user = JSON.parse(localStorage.getItem("user") || "null");
-        return user?.token || user?.accessToken || null;
+        const userToken = user?.token || user?.accessToken || null;
+
+        return userToken;
     } catch {
         return null;
     }
@@ -59,6 +56,8 @@ export const getAuthHeaders = (additionalHeaders = {}) => {
     const token = getAuthToken();
     if (token) {
         headers["Authorization"] = `Bearer ${token}`;
+    } else {
+        console.warn("No auth token found in localStorage for request headers");
     }
 
     return headers;

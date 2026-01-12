@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
-import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel } from "@mui/material";
+import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, CircularProgress } from "@mui/material";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 function AllocateResourcesPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const inpatientId = searchParams.get("inpatientId") || "";
     const patientName = searchParams.get("patientName") || "";
-    const isReallocation = searchParams.get("reallocate") === "true";
 
     const [allocationForm, setAllocationForm] = useState({
         allocatedNurse: searchParams.get("allocatedNurse") || "",
@@ -17,30 +19,108 @@ function AllocateResourcesPage() {
         bedNumber: searchParams.get("bedNumber") || "",
     });
 
-    // Mock data - in real app, fetch from API
-    const mockNurses = [];
+    const [nurses, setNurses] = useState([]);
+    const [isLoadingNurses, setIsLoadingNurses] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Fetch nurses from API
+    const fetchNurses = useCallback(async () => {
+        setIsLoadingNurses(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("nurses"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        page: 1,
+                        limit: 1000, // Get all nurses
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                setNurses(response.data.data || []);
+            } else {
+                toast.error("Failed to fetch nurses");
+            }
+        } catch (error) {
+            console.error("Error fetching nurses:", error);
+            toast.error(error.response?.data?.message || "Error fetching nurses");
+        } finally {
+            setIsLoadingNurses(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchNurses();
+    }, [fetchNurses]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setAllocationForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Implement API call here
-        console.log(isReallocation ? "Resources re-allocated:" : "Resources allocated:", allocationForm);
-        navigate(-1);
+
+        // Validation
+        if (!allocationForm.allocatedNurse || !allocationForm.wardCategory || !allocationForm.roomNo) {
+            toast.error("Please fill in all required fields");
+            return;
+        }
+
+        if (!inpatientId) {
+            toast.error("Invalid inpatient ID");
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            // Prepare update data
+            const updateData = {
+                allocatedNurse: allocationForm.allocatedNurse,
+                wardCategory: allocationForm.wardCategory,
+                roomNumber: allocationForm.roomNo,
+                bedNumber: allocationForm.bedNumber || undefined,
+            };
+
+            // Set status to "Admitted" for new allocations
+            updateData.status = "Admitted";
+
+            // Update inpatient record
+            const response = await axios.patch(
+                getApiUrl(`inpatients/${inpatientId}`),
+                updateData,
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                toast.success("Nurse allocated successfully!");
+                setTimeout(() => {
+                    navigate("/receptionist/inpatient");
+                }, 1500);
+            } else {
+                toast.error(response.data.message || "Failed to allocate nurse");
+                setIsSubmitting(false);
+            }
+        } catch (error) {
+            console.error("Error allocating resources:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error allocating nurse";
+            toast.error(errorMessage);
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <div>
             <HeadingCard
-                title={isReallocation ? "Re-allocate Resources" : "Allocate Resources"}
+                title="Allocate Nurse"
                 subtitle={`Patient: ${patientName}`}
                 breadcrumbItems={[
                     { label: "Receptionist", url: "/receptionist/dashboard" },
                     { label: "Inpatients", url: "/receptionist/inpatient" },
-                    { label: isReallocation ? "Re-allocate Resources" : "Allocate Resources" },
+                    { label: "Allocate Nurse" },
                 ]}
             />
 
@@ -56,7 +136,7 @@ function AllocateResourcesPage() {
             >
                 <form onSubmit={handleSubmit}>
                     <Box sx={{ mb: 3 }}>
-                        <FormControl fullWidth required sx={{ mb: 2 }}>
+                        <FormControl fullWidth required sx={{ mb: 2 }} disabled={isLoadingNurses}>
                             <InputLabel>Allocate Nurse *</InputLabel>
                             <Select
                                 name="allocatedNurse"
@@ -65,9 +145,9 @@ function AllocateResourcesPage() {
                                 label="Allocate Nurse *"
                             >
                                 <MenuItem value="">Select Nurse</MenuItem>
-                                {mockNurses.map((n) => (
+                                {nurses.map((n) => (
                                     <MenuItem key={n._id} value={n._id}>
-                                        {n.user?.name || n.name} {n.nurseId ? `(${n.nurseId})` : ""}
+                                        {n.name || "Unknown"} {n.licenseNumber ? `(${n.licenseNumber})` : ""}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -110,11 +190,27 @@ function AllocateResourcesPage() {
                     </Box>
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button variant="outlined" onClick={() => navigate(-1)}>
+                        <Button 
+                            variant="outlined" 
+                            onClick={() => navigate(-1)}
+                            disabled={isSubmitting}
+                        >
                             Cancel
                         </Button>
-                        <Button type="submit" variant="contained" sx={{ backgroundColor: "#8B4513" }}>
-                            {isReallocation ? "Re-allocate" : "Allocate"}
+                        <Button 
+                            type="submit" 
+                            variant="contained" 
+                            sx={{ backgroundColor: "#8B4513" }}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <CircularProgress size={20} sx={{ mr: 1, color: "white" }} />
+                                    Allocating...
+                                </>
+                            ) : (
+                                "Allocate Nurse"
+                            )}
                         </Button>
                     </Box>
                 </form>

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import adminUserService from '../../../../services/adminUserService';
 import {
     Mail, Phone, Calendar, User, Home,
     ReceiptText, MapPin, FileText, FileBadge,
@@ -11,35 +13,92 @@ import DetailsCard from '../../../../components/card/details/DetailsCard';
 import Breadcrumb from '../../../../components/breadcrumb/Breadcrumb';
 
 function View_Receptionists() {
-    const { id } = useParams();
+    const { receptionistId } = useParams();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
+    const [receptionist, setReceptionist] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Enhanced receptionist data
-    const receptionist = {
-        personalInfo: {
-            name: "Emily Carter",
-            initials: "EC",
-            email: "emily.c@hospital.com",
-            phone: "+1 (555) 234-5678",
-            dob: "22 August, 1988",
-            gender: "Female",
-            address: "789 Admin St, Office Park, Chicago 60601",
-            emergencyContact: "+1 (555) 876-5432",
-            languages: ["English", "French"]
-        },
-        professionalInfo: {
-            position: "Front Desk Receptionist",
-            department: "Administration",
-            employeeId: "REC-78901",
-            joiningDate: "01 June, 2018",
-            experience: "6 Years",
-            education: "Associate's Degree in Business Administration, Medical Office Management Certification",
-            status: "Active",
-            salary: "$3,200",
-            workingHours: "Mon-Fri: 8AM-5PM",
-            skills: ["Patient Registration", "Appointment Scheduling", "Billing Assistance", "Multilingual Support"]
-        },
-        notes: "Emily Carter (Employee ID: REC-78901) is a dedicated receptionist with 6 years of experience in healthcare administration. She is known for her warm demeanor and efficient handling of patient inquiries, contributing significantly to the Administration department since joining on 01/06/2018."
+    const fetchReceptionistDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Receptionist", receptionistId);
+            if (response.success) {
+                setReceptionist(response.data);
+            } else {
+                toast.error(response.message || "Failed to fetch receptionist details");
+                navigate('/admin/receptionists');
+            }
+        } catch (error) {
+            console.error("Error fetching receptionist:", error);
+            toast.error(error.message || "Error fetching receptionist details");
+            navigate('/admin/receptionists');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [receptionistId, navigate]);
+
+    useEffect(() => {
+        fetchReceptionistDetails();
+    }, [fetchReceptionistDetails]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
+
+    if (!receptionist) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--color-text-dark)" }}>Receptionist Not Found</h2>
+                <button
+                    onClick={() => navigate('/admin/receptionists')}
+                    className="flex items-center gap-2 px-6 py-2 rounded-xl text-white font-medium transition-all"
+                    style={{ backgroundColor: "var(--color-btn-b)" }}
+                >
+                    <ArrowLeft size={20} />
+                    Back to Receptionists
+                </button>
+            </div>
+        );
+    }
+
+    // Format dates for display
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "N/A";
+        try {
+            return new Date(dateStr).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount) return "0";
+        try {
+            return new Intl.NumberFormat('en-IN').format(amount);
+        } catch (e) {
+            return amount;
+        }
+    };
+
+    // Get Initials
+    const getInitials = (name) => {
+        if (!name) return "??";
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .substring(0, 2);
     };
 
     return (
@@ -48,7 +107,7 @@ function View_Receptionists() {
                 items={[
                     { label: "Dashboard", url: "/admin/dashboard" },
                     { label: "Receptionists", url: "/admin/receptionists" },
-                    { label: "Emily Carter" }
+                    { label: receptionist.name }
                 ]}
             />
             <div className="min-h-screen p-4 md:p-6 space-y-6" style={{ backgroundColor: "var(--color-bg-primary)" }}>
@@ -69,15 +128,24 @@ function View_Receptionists() {
                                 className="w-32 h-32 rounded-full flex items-center justify-center mb-4 relative"
                                 style={{
                                     backgroundColor: "var(--color-bg-card-b)",
-                                    border: "4px solid var(--color-btn-b)"
+                                    border: "4px solid var(--color-btn-b)",
+                                    overflow: "hidden"
                                 }}
                             >
-                                <span
-                                    className="text-5xl font-bold"
-                                    style={{ color: "var(--color-btn-dark-b)" }}
-                                >
-                                    {receptionist.personalInfo.initials}
-                                </span>
+                                {receptionist.profilePicture ? (
+                                    <img
+                                        src={receptionist.profilePicture}
+                                        alt={receptionist.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span
+                                        className="text-5xl font-bold"
+                                        style={{ color: "var(--color-btn-dark-b)" }}
+                                    >
+                                        {getInitials(receptionist.name)}
+                                    </span>
+                                )}
                                 <div
                                     className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full flex items-center justify-center"
                                     style={{ backgroundColor: "var(--color-btn-b)" }}
@@ -90,7 +158,7 @@ function View_Receptionists() {
                                 className="text-2xl font-bold text-center mb-2"
                                 style={{ color: "var(--color-text-dark)" }}
                             >
-                                {receptionist.personalInfo.name}
+                                {receptionist.name}
                             </h1>
 
                             <div
@@ -100,7 +168,7 @@ function View_Receptionists() {
                                     color: "var(--color-btn-dark-b)"
                                 }}
                             >
-                                {receptionist.professionalInfo.status}
+                                {receptionist.status || "Active"}
                             </div>
 
                             <div className="flex flex-wrap gap-2 justify-center">
@@ -112,7 +180,7 @@ function View_Receptionists() {
                                     }}
                                 >
                                     <FileText size={12} className="inline mr-1" />
-                                    {receptionist.professionalInfo.position}
+                                    {receptionist.position}
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded-full text-xs font-medium"
@@ -122,7 +190,7 @@ function View_Receptionists() {
                                     }}
                                 >
                                     <Clock size={12} className="inline mr-1" />
-                                    {receptionist.professionalInfo.experience}
+                                    {receptionist.experience} {receptionist.experience && "Years"}
                                 </span>
                             </div>
                         </div>
@@ -134,7 +202,7 @@ function View_Receptionists() {
                                     Monthly Salary
                                 </span>
                                 <span className="text-lg font-bold" style={{ color: "var(--color-text-dark)" }}>
-                                    {receptionist.professionalInfo.salary}
+                                    ₹{formatCurrency(receptionist.salary)}
                                 </span>
                             </div>
 
@@ -143,7 +211,7 @@ function View_Receptionists() {
                                     Working Hours
                                 </span>
                                 <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                    {receptionist.professionalInfo.workingHours}
+                                    {receptionist.workingHours || "Not Specified"}
                                 </span>
                             </div>
                         </div>
@@ -204,37 +272,37 @@ function View_Receptionists() {
                                         <DetailsCard
                                             icon={Mail}
                                             label="Email Address"
-                                            value={receptionist.personalInfo.email}
+                                            value={receptionist.email}
                                             iconColor="#3B82F6"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Phone Number"
-                                            value={receptionist.personalInfo.phone}
+                                            value={receptionist.phone}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Date of Birth"
-                                            value={receptionist.personalInfo.dob}
+                                            value={formatDate(receptionist.dob)}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={User}
                                             label="Gender"
-                                            value={receptionist.personalInfo.gender}
+                                            value={receptionist.gender}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={MapPin}
                                             label="Address"
-                                            value={receptionist.personalInfo.address}
+                                            value={receptionist.address}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Emergency Contact"
-                                            value={receptionist.personalInfo.emergencyContact}
+                                            value={receptionist.emergencyContact}
                                             iconColor="#EF4444"
                                         />
                                     </div>
@@ -248,7 +316,7 @@ function View_Receptionists() {
                                             Languages Spoken
                                         </h3>
                                         <div className="flex flex-wrap gap-2">
-                                            {receptionist.personalInfo.languages.map((lang, index) => (
+                                            {(Array.isArray(receptionist.languages) ? receptionist.languages : []).map((lang, index) => (
                                                 <span
                                                     key={index}
                                                     className="px-4 py-2 rounded-lg font-medium"
@@ -278,38 +346,38 @@ function View_Receptionists() {
                                         <DetailsCard
                                             icon={FileText}
                                             label="Position"
-                                            value={receptionist.professionalInfo.position}
+                                            value={receptionist.position}
                                             iconColor="#3B82F6"
                                             highlight
                                         />
                                         <DetailsCard
                                             icon={BriefcaseMedical}
                                             label="Department"
-                                            value={receptionist.professionalInfo.department}
+                                            value={receptionist.department}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={FileBadge}
                                             label="Employee ID"
-                                            value={receptionist.professionalInfo.employeeId}
+                                            value={receptionist.employeeId}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Joining Date"
-                                            value={receptionist.professionalInfo.joiningDate}
+                                            value={formatDate(receptionist.joiningDate)}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Award}
                                             label="Experience"
-                                            value={receptionist.professionalInfo.experience}
+                                            value={receptionist.experience ? `${receptionist.experience} Years` : "N/A"}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={GraduationCap}
                                             label="Education"
-                                            value={receptionist.professionalInfo.education}
+                                            value={receptionist.education}
                                             iconColor="#6366F1"
                                         />
                                     </div>
@@ -323,7 +391,7 @@ function View_Receptionists() {
                                             Skills
                                         </h3>
                                         <div className="space-y-2">
-                                            {receptionist.professionalInfo.skills.map((skill, index) => (
+                                            {(Array.isArray(receptionist.skills) ? receptionist.skills : []).map((skill, index) => (
                                                 <div
                                                     key={index}
                                                     className="flex items-center gap-3 p-3 rounded-lg"
@@ -374,7 +442,7 @@ function View_Receptionists() {
                             className="leading-relaxed"
                             style={{ color: "var(--color-text-dark-b)" }}
                         >
-                            {receptionist.notes}
+                            {receptionist.bio || "No additional notes available."}
                         </p>
                     </div>
                 </div>

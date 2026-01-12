@@ -35,6 +35,9 @@ const AddEditEntryPage = lazy(() =>
 const PatientTherapyDetailsPage = lazy(() =>
     import("../../pages/therapist/appointments/PatientTherapyDetails")
 );
+const ExecutionPage = lazy(() =>
+    import("../../pages/therapist/appointments/Execution")
+);
 
 // 🛣 Routes with Lazy Components
 export const therapistRoutes = [
@@ -131,6 +134,14 @@ export const therapistRoutes = [
         element: (
             <Suspense fallback={<div>Loading...</div>}>
                 <PatientTherapyDetailsPage />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/therapy-progress/execution/:id",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <ExecutionPage />
             </Suspense>
         ),
     },

@@ -194,6 +194,7 @@ function PharmacistProfile() {
                                                 size="small"
                                                 value={editData[field]}
                                                 onChange={handleInputChange(field)}
+                                                inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                             />
                                         ) : (
                                             <>

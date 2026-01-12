@@ -1,12 +1,13 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, CircularProgress, Typography, Chip } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
-import HeadingCardingCard from "../../../components/card/HeadingCard";
+import HeadingCard from "../../../components/card/HeadingCard";
 import SearchIcon from "@mui/icons-material/Search";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import HistoryIcon from "@mui/icons-material/History";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FullCalendar from "@fullcalendar/react";
@@ -15,6 +16,9 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import "../../../assets/css/fullcalendar.min.css";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 function Therapy_Progress() {
     const [search, setSearch] = useState("");
@@ -24,130 +28,30 @@ function Therapy_Progress() {
     const calendarRef = useRef(null);
     const navigate = useNavigate();
 
-    // Mock therapy sessions data - spread across multiple dates
-    const getTodayDate = () => {
-        const today = new Date();
-        return today.toISOString().split("T")[0];
+    const [sessions, setSessions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchSessions = async () => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("therapist-sessions/my-sessions"),
+                { headers: getAuthHeaders() }
+            );
+            if (response.data.success) {
+                setSessions(response.data.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching sessions:", error);
+            toast.error("Failed to load therapy sessions");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const getDateString = (daysFromToday) => {
-        const date = new Date();
-        date.setDate(date.getDate() + daysFromToday);
-        return date.toISOString().split("T")[0];
-    };
-
-    const [sessions] = useState([
-        {
-            id: "1",
-            patientName: "Sumitra Devi",
-            treatmentName: "Shirodhara",
-            date: getDateString(-2),
-            startTime: "10:00",
-            endTime: "11:00",
-            status: "Completed",
-            flowType: "Outpatient",
-            notes: "Patient felt relaxed post-session.",
-        },
-        {
-            id: "2",
-            patientName: "Rajesh Kumar",
-            treatmentName: "Abhyangam",
-            date: getDateString(-1),
-            startTime: "11:00",
-            endTime: "12:00",
-            status: "Completed",
-            flowType: "Inpatient",
-            notes: "",
-        },
-        {
-            id: "3",
-            patientName: "Anil Gupta",
-            treatmentName: "Pizhichil",
-            date: getTodayDate(),
-            startTime: "14:00",
-            endTime: "15:00",
-            status: "In Progress",
-            flowType: "Outpatient",
-            notes: "",
-        },
-        {
-            id: "4",
-            patientName: "Meera Desai",
-            treatmentName: "Shirodhara",
-            date: getDateString(1),
-            startTime: "09:00",
-            endTime: "10:00",
-            status: "Scheduled",
-            flowType: "Inpatient",
-            notes: "",
-        },
-        {
-            id: "5",
-            patientName: "Vijay Rathod",
-            treatmentName: "Abhyangam",
-            date: getDateString(1),
-            startTime: "10:30",
-            endTime: "11:30",
-            status: "Scheduled",
-            flowType: "Outpatient",
-            notes: "",
-        },
-        {
-            id: "6",
-            patientName: "Geeta Kapoor",
-            treatmentName: "Pizhichil",
-            date: getDateString(1),
-            startTime: "15:00",
-            endTime: "16:00",
-            status: "Pending",
-            flowType: "Inpatient",
-            notes: "",
-        },
-        {
-            id: "7",
-            patientName: "Priya Sharma",
-            treatmentName: "Shirodhara",
-            date: getDateString(2),
-            startTime: "10:00",
-            endTime: "11:00",
-            status: "Scheduled",
-            flowType: "Outpatient",
-            notes: "",
-        },
-        {
-            id: "8",
-            patientName: "Ravi Patel",
-            treatmentName: "Abhyangam",
-            date: getDateString(3),
-            startTime: "11:00",
-            endTime: "12:00",
-            status: "Scheduled",
-            flowType: "Inpatient",
-            notes: "",
-        },
-        {
-            id: "9",
-            patientName: "Sunita Reddy",
-            treatmentName: "Pizhichil",
-            date: getDateString(4),
-            startTime: "14:00",
-            endTime: "15:00",
-            status: "Pending",
-            flowType: "Outpatient",
-            notes: "",
-        },
-        {
-            id: "10",
-            patientName: "Kiran Desai",
-            treatmentName: "Shirodhara",
-            date: getDateString(5),
-            startTime: "09:00",
-            endTime: "10:00",
-            status: "Scheduled",
-            flowType: "Inpatient",
-            notes: "",
-        },
-    ]);
+    useEffect(() => {
+        fetchSessions();
+    }, []);
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -188,105 +92,177 @@ function Therapy_Progress() {
         if (!search) return sessions;
         const searchLower = search.toLowerCase();
         return sessions.filter(
-            (session) =>
-                session.patientName.toLowerCase().includes(searchLower) ||
-                session.treatmentName.toLowerCase().includes(searchLower) ||
-                session.status.toLowerCase().includes(searchLower)
+            (session) => {
+                const patientName = session.patient?.user?.name || "";
+                const uhid = session.patient?.user?.uhid || "";
+                const treatmentName = session.treatmentName || "";
+                const status = session.status || "";
+                return (
+                    patientName.toLowerCase().includes(searchLower) ||
+                    uhid.toLowerCase().includes(searchLower) ||
+                    treatmentName.toLowerCase().includes(searchLower) ||
+                    status.toLowerCase().includes(searchLower)
+                );
+            }
         );
     }, [sessions, search]);
 
-    const handleStartSession = (sessionId) => {
-        // TODO: Implement start session logic
-        console.log("Start session:", sessionId);
+    const handleStartSession = async (sessionId) => {
+        toast.info("Initializing session execution...", { autoClose: 1000 });
+        try {
+            // First mark as In Progress if not already (backend logic handles idempotency)
+            const response = await axios.patch(
+                getApiUrl(`therapist-sessions/${sessionId}`),
+                { status: "In Progress" },
+                { headers: getAuthHeaders() }
+            );
+            if (response.data.success) {
+                toast.success("Session started - Loading execution tracker");
+                navigate(`/therapist/therapy-progress/execution/${sessionId}`);
+            }
+        } catch (error) {
+            console.error("Error starting session:", error);
+            toast.error("Failed to start session");
+        }
     };
 
-    const handleStopSession = (sessionId) => {
-        // TODO: Implement stop session logic
-        console.log("Stop session:", sessionId);
+    const handleStopSession = async (sessionId) => {
+        try {
+            const response = await axios.patch(
+                getApiUrl(`therapist-sessions/${sessionId}`),
+                { status: "Completed" },
+                { headers: getAuthHeaders() }
+            );
+            if (response.data.success) {
+                toast.success("Session completed successfully");
+                fetchSessions();
+            }
+        } catch (error) {
+            console.error("Error completing session:", error);
+            toast.error("Failed to complete session");
+        }
     };
 
-    const handleViewDetails = (sessionId) => {
-        const session = sessions.find((s) => s.id === sessionId);
+    const handleViewDetails = (session) => {
         if (session) {
-            const params = new URLSearchParams({
-                patientName: session.patientName || "",
-                date: session.date || "",
+            navigate(`/therapist/therapy-progress/details?sessionId=${session._id}`, {
+                state: { session }
             });
-            navigate(`/therapist/therapy-progress/details?${params.toString()}`);
         }
     };
 
     // Convert sessions to FullCalendar events
     const calendarEvents = useMemo(() => {
-        return filteredSessions.map((session) => {
-            const startDateTime = new Date(`${session.date}T${session.startTime}`);
-            const endDateTime = new Date(`${session.date}T${session.endTime}`);
-            
-            // Get color based on status
-            let backgroundColor = "#6c757d"; // default gray
-            let borderColor = "#495057";
-            let textColor = "#ffffff";
-            
-            switch (session.status) {
-                case "Completed":
-                    backgroundColor = "#28a745";
-                    borderColor = "#1e7e34";
-                    break;
-                case "In Progress":
-                    backgroundColor = "#0dcaf0";
-                    borderColor = "#087990";
-                    break;
-                case "Scheduled":
-                    backgroundColor = "#8B5CF6";
-                    borderColor = "#7C3AED";
-                    break;
-                case "Pending":
-                    backgroundColor = "#ffc107";
-                    borderColor = "#d39e00";
-                    textColor = "#000000";
-                    break;
-                case "Cancelled":
-                    backgroundColor = "#dc3545";
-                    borderColor = "#c82333";
-                    break;
-                case "Missed":
-                    backgroundColor = "#DC2626";
-                    borderColor = "#991B1B";
-                    break;
+        return sessions.flatMap((session) => {
+            // If the session has a days array, show each day on the calendar
+            if (session.days && session.days.length > 0) {
+                return session.days.map((day, idx) => {
+                    const date = new Date(day.date).toISOString().split("T")[0];
+                    const startTime = day.time || session.sessionTime || "10:00";
+                    // End time is roughly 1 hour after start
+                    const [h, m] = startTime.split(":").map(Number);
+                    const endH = String((h + 1) % 24).padStart(2, "0");
+                    const endTime = `${endH}:${String(m).padStart(2, "0")}`;
+
+                    const startDateTime = `${date}T${startTime}`;
+                    const endDateTime = `${date}T${endTime}`;
+
+                    // Color based on status
+                    let backgroundColor = day.completed ? "#28a745" : "#8B5CF6";
+                    if (session.status === "In Progress" && !day.completed) {
+                        // Check if this is the "active" day
+                        const todayStr = new Date().toISOString().split("T")[0];
+                        if (date === todayStr) backgroundColor = "#0dcaf0";
+                    }
+
+                    return {
+                        id: `${session._id}-${idx}`,
+                        title: `${session.treatmentName} - ${session.patient?.user?.name}`,
+                        start: startDateTime,
+                        end: endDateTime,
+                        backgroundColor: backgroundColor,
+                        borderColor: backgroundColor,
+                        extendedProps: {
+                            session: session,
+                            day: day
+                        }
+                    };
+                });
             }
 
-            return {
-                id: session.id,
-                title: `${session.treatmentName} - ${session.patientName}`,
-                start: startDateTime,
-                end: endDateTime,
-                backgroundColor: backgroundColor,
-                borderColor: borderColor,
-                textColor: textColor,
-                extendedProps: {
-                    patientName: session.patientName,
-                    treatmentName: session.treatmentName,
-                    status: session.status,
-                    flowType: session.flowType,
-                    notes: session.notes,
-                },
-            };
+            // If we have realized days, show them
+            const realizedDays = Array.isArray(session.days) ? session.days : [];
+
+            const daysCount = Number(session.daysOfTreatment) || 1;
+            const timeline = session.timeline || "Daily";
+            const stepDays = timeline === "Weekly" ? 7 : (timeline === "AlternateDay" ? 2 : 1);
+            const startDate = session.sessionDate ? new Date(session.sessionDate) : new Date();
+            const time = session.sessionTime || "10:00";
+
+            const events = [];
+            for (let i = 0; i < daysCount; i++) {
+                const currentSlotDate = new Date(startDate);
+                currentSlotDate.setDate(startDate.getDate() + i * stepDays);
+
+                const dateStr = currentSlotDate.toISOString().split("T")[0];
+                const startDateTime = `${dateStr}T${time}`;
+
+                // Estimate end time (e.g., 1 hour later)
+                const endDateTime = new Date(new Date(startDateTime).getTime() + 60 * 60 * 1000).toISOString().split(".")[0];
+
+                // Check if this day is already recorded in session.days
+                const recordedDay = realizedDays.find(d => {
+                    const dDate = new Date(d.date);
+                    return dDate.toDateString() === currentSlotDate.toDateString();
+                });
+
+                let status = "Scheduled";
+                if (recordedDay) {
+                    status = recordedDay.completed ? "Completed" : (session.status === "In Progress" ? "In Progress" : "Scheduled");
+                } else {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const slotDateNoTime = new Date(currentSlotDate);
+                    slotDateNoTime.setHours(0, 0, 0, 0);
+
+                    if (slotDateNoTime < today) {
+                        status = "Missed";
+                    } else if (slotDateNoTime.getTime() === today.getTime()) {
+                        status = session.status === "In Progress" ? "In Progress" : "Pending";
+                    }
+                }
+
+                let backgroundColor = "#6c757d";
+                switch (status) {
+                    case "Completed": backgroundColor = "#28a745"; break;
+                    case "In Progress": backgroundColor = "#0dcaf0"; break;
+                    case "Scheduled": backgroundColor = "#8B5CF6"; break;
+                    case "Pending": backgroundColor = "#ffc107"; break;
+                    case "Missed": backgroundColor = "#DC2626"; break;
+                }
+
+                events.push({
+                    id: `${session._id}-${i}`,
+                    title: `${session.treatmentName} - ${session.patient?.user?.name || "Unknown"}`,
+                    start: startDateTime,
+                    end: endDateTime,
+                    backgroundColor: backgroundColor,
+                    borderColor: backgroundColor,
+                    extendedProps: {
+                        session: session,
+                        slotIndex: i,
+                        status: status
+                    },
+                });
+            }
+            return events;
         });
-    }, [filteredSessions]);
+    }, [sessions]);
 
     const handleEventClick = (clickInfo) => {
-        const event = clickInfo.event;
-        const extendedProps = event.extendedProps;
-        const eventDate = new Date(event.start);
-        const dateString = eventDate.toISOString().split("T")[0];
-        
-        const params = new URLSearchParams({
-            patientName: extendedProps.patientName || "",
-            date: dateString || "",
-        });
-        navigate(`/therapist/therapy-progress/details?${params.toString()}`);
+        const session = clickInfo.event.extendedProps.session;
+        handleViewDetails(session);
     };
-
 
     const handleDatesSet = (dateInfo) => {
         // Handle date navigation
@@ -324,7 +300,7 @@ function Therapy_Progress() {
             <Breadcrumb items={breadcrumbItems} />
 
             {/* Page Heading */}
-            <HeadingCardingCard
+            <HeadingCard
                 category="THERAPY PROGRESS"
                 title="My Therapy Appointments"
                 subtitle="View and manage your scheduled therapy sessions"
@@ -557,229 +533,293 @@ function Therapy_Progress() {
                                 <h5 className="card-title mb-0">Therapy Sessions</h5>
                             </div>
 
-                        {/* Search */}
-                        <div className="row g-3 mb-4">
-                            <div className="col-md-6">
-                                <div className="input-group">
-                                    <span className="input-group-text">
-                                        <SearchIcon />
-                                    </span>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        placeholder="Search by patient name, treatment, or status..."
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                    />
+                            {/* Search */}
+                            <div className="row g-3 mb-4">
+                                <div className="col-md-6">
+                                    <div className="input-group">
+                                        <span className="input-group-text">
+                                            <SearchIcon />
+                                        </span>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Search by patient name, treatment, or status..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {filteredSessions.length > 0 ? (
-                            <div className="table-responsive">
-                                <table className="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th style={{ fontSize: "0.875rem" }}>Sl. No.</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Patient Name</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Treatment</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Date</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Time</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Flow Type</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Status</th>
-                                            <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredSessions.map((session, index) => (
-                                            <tr key={session.id}>
-                                                <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
-                                                <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                    {session.patientName}
-                                                </td>
-                                                <td style={{ fontSize: "0.875rem" }}>{session.treatmentName}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>{formatDate(session.date)}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>
-                                                    {session.startTime} - {session.endTime}
-                                                </td>
-                                                <td style={{ fontSize: "0.875rem" }}>
-                                                    <span
-                                                        className="badge"
-                                                        style={{
-                                                            backgroundColor: session.flowType === "Inpatient" ? "#e3f2fd" : "#f3e5f5",
-                                                            color: session.flowType === "Inpatient" ? "#1976d2" : "#7b1fa2",
-                                                            borderRadius: "50px",
-                                                            padding: "4px 10px",
-                                                            fontSize: "0.75rem",
-                                                        }}
-                                                    >
-                                                        {session.flowType === "Inpatient" ? "[IP]" : "[OP]"} {session.flowType}
-                                                    </span>
-                                                </td>
-                                                <td style={{ fontSize: "0.875rem" }}>
-                                                    <span
-                                                        className={`badge ${getStatusBadgeClass(session.status)}`}
-                                                        style={{
-                                                            borderRadius: "50px",
-                                                            padding: "4px 10px",
-                                                            fontSize: "0.75rem",
-                                                        }}
-                                                    >
-                                                        {session.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ fontSize: "0.875rem" }}>
-                                                    <div className="d-flex gap-2 justify-content-center">
-                                                        <div style={{ position: "relative", display: "inline-block" }}>
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm"
-                                                                onClick={() => handleViewDetails(session.id)}
-                                                                onMouseEnter={() => setHoveredButton(`view-${session.id}`)}
-                                                                onMouseLeave={() => setHoveredButton(null)}
+                            {isLoading ? (
+                                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 5 }}>
+                                    <CircularProgress />
+                                </Box>
+                            ) : filteredSessions.length > 0 ? (
+                                <div className="table-responsive">
+                                    <table className="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ fontSize: "0.875rem" }}>Sl. No.</th>
+                                                <th style={{ fontSize: "0.875rem" }}>UHID</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Patient Name</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Treatment</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Sessions Progress</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Flow Type</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Status</th>
+                                                <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredSessions.map((session, index) => {
+                                                const isIPD = !!session.inpatient || session.patient?.inpatient;
+                                                return (
+                                                    <tr key={session._id}>
+                                                        <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
+                                                        <td style={{ fontSize: "0.875rem" }}>{session.patient?.user?.uhid || "N/A"}</td>
+                                                        <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                                                            {session.patient?.user?.name || "Unknown"}
+                                                        </td>
+                                                        <td style={{ fontSize: "0.875rem" }}>{session.treatmentName}</td>
+                                                        <td style={{ fontSize: "0.875rem" }}>
+                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                                                <div style={{
+                                                                    fontSize: "0.75rem",
+                                                                    fontWeight: 600,
+                                                                    color: "#2D3748",
+                                                                    backgroundColor: "#EDF2F7",
+                                                                    padding: "2px 8px",
+                                                                    borderRadius: "4px"
+                                                                }}>
+                                                                    {Array.isArray(session.days) ? session.days.filter(d => d.completed).length : 0} / {session.daysOfTreatment || 0}
+                                                                </div>
+                                                                <Typography variant="caption" color="text.secondary">Sessions</Typography>
+                                                            </Box>
+                                                        </td>
+                                                        <td style={{ fontSize: "0.875rem" }}>
+                                                            <span
+                                                                className="badge"
                                                                 style={{
-                                                                    backgroundColor: "#D4A574",
-                                                                    borderColor: "#D4A574",
-                                                                    color: "#000",
-                                                                    borderRadius: "8px",
-                                                                    padding: "6px 8px",
-                                                                    fontWeight: 500,
-                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                    transition: "all 0.3s ease",
-                                                                    minWidth: "40px",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center",
+                                                                    backgroundColor: isIPD ? "#e3f2fd" : "#f3e5f5",
+                                                                    color: isIPD ? "#1976d2" : "#7b1fa2",
+                                                                    borderRadius: "50px",
+                                                                    padding: "4px 10px",
+                                                                    fontSize: "0.75rem",
                                                                 }}
                                                             >
-                                                                <VisibilityIcon fontSize="small" />
-                                                            </button>
-                                                            {hoveredButton === `view-${session.id}` && (
-                                                                <div
-                                                                    style={{
-                                                                        position: "absolute",
-                                                                        top: "-35px",
-                                                                        left: "50%",
-                                                                        transform: "translateX(-50%)",
-                                                                        backgroundColor: "rgba(0, 0, 0, 0.8)",
-                                                                        color: "white",
-                                                                        padding: "4px 8px",
-                                                                        borderRadius: "4px",
-                                                                        whiteSpace: "nowrap",
-                                                                        zIndex: 1000,
-                                                                        pointerEvents: "none",
-                                                                    }}
-                                                                >
-                                                                    View Details
+                                                                {isIPD ? "[IP]" : "[OP]"} {isIPD ? "Inpatient" : "Outpatient"}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ fontSize: "0.875rem" }}>
+                                                            <span
+                                                                className={`badge ${getStatusBadgeClass(session.status)}`}
+                                                                style={{
+                                                                    borderRadius: "50px",
+                                                                    padding: "4px 10px",
+                                                                    fontSize: "0.75rem",
+                                                                }}
+                                                            >
+                                                                {session.status}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ fontSize: "0.875rem" }}>
+                                                            <div className="d-flex gap-2 justify-content-center">
+                                                                <div style={{ position: "relative", display: "inline-block" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm"
+                                                                        onClick={() => handleViewDetails(session)}
+                                                                        onMouseEnter={() => setHoveredButton(`view-${session._id}`)}
+                                                                        onMouseLeave={() => setHoveredButton(null)}
+                                                                        style={{
+                                                                            backgroundColor: "#D4A574",
+                                                                            borderColor: "#D4A574",
+                                                                            color: "#000",
+                                                                            borderRadius: "8px",
+                                                                            padding: "6px 8px",
+                                                                            fontWeight: 500,
+                                                                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                            transition: "all 0.3s ease",
+                                                                            minWidth: "40px",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                        }}
+                                                                    >
+                                                                        <VisibilityIcon fontSize="small" />
+                                                                    </button>
+                                                                    {hoveredButton === `view-${session._id}` && (
+                                                                        <div
+                                                                            style={{
+                                                                                position: "absolute",
+                                                                                top: "-35px",
+                                                                                left: "50%",
+                                                                                transform: "translateX(-50%)",
+                                                                                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                                                                                color: "white",
+                                                                                padding: "4px 8px",
+                                                                                borderRadius: "4px",
+                                                                                whiteSpace: "nowrap",
+                                                                                zIndex: 1000,
+                                                                                pointerEvents: "none",
+                                                                            }}
+                                                                        >
+                                                                            View Details
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                        {session.status === "Pending" || session.status === "Scheduled" ? (
-                                                            <div style={{ position: "relative", display: "inline-block" }}>
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-sm"
-                                                                    onClick={() => handleStartSession(session.id)}
-                                                                    onMouseEnter={() => setHoveredButton(`start-${session.id}`)}
-                                                                    onMouseLeave={() => setHoveredButton(null)}
-                                                                    style={{
-                                                                        backgroundColor: "#28a745",
-                                                                        borderColor: "#28a745",
-                                                                        color: "#fff",
-                                                                        borderRadius: "8px",
-                                                                        padding: "6px 8px",
-                                                                        fontWeight: 500,
-                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                        transition: "all 0.3s ease",
-                                                                        minWidth: "40px",
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                    }}
-                                                                >
-                                                                    <PlayArrowIcon fontSize="small" />
-                                                                </button>
-                                                                {hoveredButton === `start-${session.id}` && (
-                                                                    <div
-                                                                        style={{
-                                                                            position: "absolute",
-                                                                            top: "-35px",
-                                                                            left: "50%",
-                                                                            transform: "translateX(-50%)",
-                                                                            backgroundColor: "rgba(0, 0, 0, 0.8)",
-                                                                            color: "white",
-                                                                            padding: "4px 8px",
-                                                                            borderRadius: "4px",
-                                                                            whiteSpace: "nowrap",
-                                                                            zIndex: 1000,
-                                                                            pointerEvents: "none",
-                                                                        }}
-                                                                    >
-                                                                        Start Session
+                                                                {session.status === "Pending" || session.status === "Scheduled" ? (
+                                                                    <div style={{ position: "relative", display: "inline-block" }}>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm"
+                                                                            onClick={() => handleStartSession(session._id)}
+                                                                            onMouseEnter={() => setHoveredButton(`start-${session._id}`)}
+                                                                            onMouseLeave={() => setHoveredButton(null)}
+                                                                            style={{
+                                                                                backgroundColor: "#28a745",
+                                                                                borderColor: "#28a745",
+                                                                                color: "#fff",
+                                                                                borderRadius: "8px",
+                                                                                padding: "6px 8px",
+                                                                                fontWeight: 500,
+                                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                                transition: "all 0.3s ease",
+                                                                                minWidth: "40px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                            }}
+                                                                        >
+                                                                            <PlayArrowIcon fontSize="small" />
+                                                                        </button>
+                                                                        {hoveredButton === `start-${session._id}` && (
+                                                                            <div
+                                                                                style={{
+                                                                                    position: "absolute",
+                                                                                    top: "-35px",
+                                                                                    left: "50%",
+                                                                                    transform: "translateX(-50%)",
+                                                                                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                                                                                    color: "white",
+                                                                                    padding: "4px 8px",
+                                                                                    borderRadius: "4px",
+                                                                                    whiteSpace: "nowrap",
+                                                                                    zIndex: 1000,
+                                                                                    pointerEvents: "none",
+                                                                                }}
+                                                                            >
+                                                                                Execute / Progress Tracker
+                                                                            </div>
+                                                                        )}
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        ) : session.status === "In Progress" ? (
-                                                            <div style={{ position: "relative", display: "inline-block" }}>
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-sm"
-                                                                    onClick={() => handleStopSession(session.id)}
-                                                                    onMouseEnter={() => setHoveredButton(`stop-${session.id}`)}
-                                                                    onMouseLeave={() => setHoveredButton(null)}
-                                                                    style={{
-                                                                        backgroundColor: "#ffc107",
-                                                                        borderColor: "#ffc107",
-                                                                        color: "#000",
-                                                                        borderRadius: "8px",
-                                                                        padding: "6px 8px",
-                                                                        fontWeight: 500,
-                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                        transition: "all 0.3s ease",
-                                                                        minWidth: "40px",
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                    }}
-                                                                >
-                                                                    <StopIcon fontSize="small" />
-                                                                </button>
-                                                                {hoveredButton === `stop-${session.id}` && (
-                                                                    <div
-                                                                        style={{
-                                                                            position: "absolute",
-                                                                            top: "-35px",
-                                                                            left: "50%",
-                                                                            transform: "translateX(-50%)",
-                                                                            backgroundColor: "rgba(0, 0, 0, 0.8)",
-                                                                            color: "white",
-                                                                            padding: "4px 8px",
-                                                                            borderRadius: "4px",
-                                                                            whiteSpace: "nowrap",
-                                                                            zIndex: 1000,
-                                                                            pointerEvents: "none",
-                                                                        }}
-                                                                    >
-                                                                        Stop Session
+                                                                ) : session.status === "In Progress" ? (
+                                                                    <div style={{ position: "relative", display: "inline-block" }}>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm"
+                                                                            onClick={() => navigate(`/therapist/therapy-progress/execution/${session._id}`)}
+                                                                            onMouseEnter={() => setHoveredButton(`stop-${session._id}`)}
+                                                                            onMouseLeave={() => setHoveredButton(null)}
+                                                                            style={{
+                                                                                backgroundColor: "#ffc107",
+                                                                                borderColor: "#ffc107",
+                                                                                color: "#000",
+                                                                                borderRadius: "8px",
+                                                                                padding: "6px 8px",
+                                                                                fontWeight: 500,
+                                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                                transition: "all 0.3s ease",
+                                                                                minWidth: "40px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                            }}
+                                                                        >
+                                                                            <StopIcon fontSize="small" />
+                                                                        </button>
+                                                                        {hoveredButton === `stop-${session._id}` && (
+                                                                            <div
+                                                                                style={{
+                                                                                    position: "absolute",
+                                                                                    top: "-35px",
+                                                                                    left: "50%",
+                                                                                    transform: "translateX(-50%)",
+                                                                                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                                                                                    color: "white",
+                                                                                    padding: "4px 8px",
+                                                                                    borderRadius: "4px",
+                                                                                    whiteSpace: "nowrap",
+                                                                                    zIndex: 1000,
+                                                                                    pointerEvents: "none",
+                                                                                }}
+                                                                            >
+                                                                                Update Session Progress
+                                                                            </div>
+                                                                        )}
                                                                     </div>
-                                                                )}
+                                                                ) : session.status === "Completed" ? (
+                                                                    <div style={{ position: "relative", display: "inline-block" }}>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm"
+                                                                            onClick={() => navigate(`/therapist/therapy-progress/execution/${session._id}`)}
+                                                                            onMouseEnter={() => setHoveredButton(`review-${session._id}`)}
+                                                                            onMouseLeave={() => setHoveredButton(null)}
+                                                                            style={{
+                                                                                backgroundColor: "#17a2b8",
+                                                                                borderColor: "#17a2b8",
+                                                                                color: "#fff",
+                                                                                borderRadius: "8px",
+                                                                                padding: "6px 8px",
+                                                                                fontWeight: 500,
+                                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                                transition: "all 0.3s ease",
+                                                                                minWidth: "40px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                            }}
+                                                                        >
+                                                                            <HistoryIcon fontSize="small" />
+                                                                        </button>
+                                                                        {hoveredButton === `review-${session._id}` && (
+                                                                            <div
+                                                                                style={{
+                                                                                    position: "absolute",
+                                                                                    top: "-35px",
+                                                                                    left: "50%",
+                                                                                    transform: "translateX(-50%)",
+                                                                                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                                                                                    color: "white",
+                                                                                    padding: "4px 8px",
+                                                                                    borderRadius: "4px",
+                                                                                    whiteSpace: "nowrap",
+                                                                                    zIndex: 1000,
+                                                                                    pointerEvents: "none",
+                                                                                }}
+                                                                            >
+                                                                                Review Execution History
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : null}
                                                             </div>
-                                                        ) : null}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="text-center py-5">
-                                <p className="text-muted">No therapy sessions found. Try adjusting your search query.</p>
-                            </div>
-                        )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-5">
+                                    <p className="text-muted">No therapy sessions found. Try adjusting your search query.</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </Box>
+                </Box>
             )}
 
             {/* Calendar View */}
@@ -812,7 +852,7 @@ function Therapy_Progress() {
                                     dayMaxEvents={true}
                                     moreLinkClick="popover"
                                     eventContent={(eventInfo) => {
-    return (
+                                        return (
                                             <div
                                                 style={{
                                                     padding: "4px 6px",

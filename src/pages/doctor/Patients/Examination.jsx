@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
     Box,
     Typography,
@@ -10,6 +12,13 @@ import {
     Chip,
     Stack,
     Divider,
+    FormControlLabel,
+    Switch,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    Select,
+    CircularProgress,
 } from "@mui/material";
 import {
     CalendarToday,
@@ -24,8 +33,10 @@ import {
     LocalHospital,
     Healing,
 } from "@mui/icons-material";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
-import SubmitButton from "../../../components/buttons/SubmitButton";
 
 // Reusable Form Section Component
 function FormSection({ title, subtitle, icon: Icon, children }) {
@@ -65,12 +76,28 @@ function FormSection({ title, subtitle, icon: Icon, children }) {
     );
 }
 
-function ExaminationRecordsFormView({ onSubmitSuccess }) {
+function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, onSubmitSuccess, examinationId, examinationData, isEditMode = false }) {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { userId } = useParams();
+    const { user } = useSelector((state) => state.auth);
     const [isEditing] = useState(true);
+    const [admitPatient, setAdmitPatient] = useState(false);
+    const [inpatientFormData, setInpatientFormData] = useState({
+        roomNumber: "",
+        bedNumber: "",
+        wardCategory: "",
+        reason: "",
+        notes: "",
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
 
+    // Generate localStorage key based on appointment ID
+    const storageKey = appointmentId ? `examination_${appointmentId}` : null;
+    const savedKey = appointmentId ? `examination_saved_${appointmentId}` : null;
 
-
-    // Form Data
+    // Form Data - initial state
     const [formData, setFormData] = useState({
         // Prakriti Assessment
         vata: "",
@@ -123,6 +150,8 @@ function ExaminationRecordsFormView({ onSubmitSuccess }) {
         investigation: "",
         result: "",
         date: "",
+        // Laboratory Investigation
+        laboratoryInvestigation: "",
         // Diagnosis & Recommendations
         diagnosis: "",
         treatment: "",
@@ -130,15 +159,438 @@ function ExaminationRecordsFormView({ onSubmitSuccess }) {
         followUp: "",
     });
 
+    // Load examination data when in edit mode
+    useEffect(() => {
+        const fetchData = async () => {
+            if (isEditMode && examinationData) {
+                try {
+                    // Parse prakriti assessment
+                    const prakriti = examinationData.prakritiAssessment || "";
+                    const vataMatch = prakriti.match(/Vata:\s*([^,]*)/);
+                    const pittaMatch = prakriti.match(/Pitta:\s*([^,]*)/);
+                    const kaphaMatch = prakriti.match(/Kapha:\s*([^,]*)/);
+
+                    // Parse customFields (clinical and systemic examination)
+                    const customFields = examinationData.customFields || [];
+                    const customFieldsMap = {};
+                    customFields.forEach(field => {
+                        if (field.label && field.value) {
+                            customFieldsMap[field.label] = field.value;
+                        }
+                    });
+
+                    // Parse vitals
+                    const vitals = examinationData.vitals?.[0] || {};
+
+                    // Parse history of patient illness
+                    const history = examinationData.historyOfPatientIllness || "";
+                    const onsetMatch = history.match(/Onset:\s*([^.]*)/);
+                    const progressionMatch = history.match(/Progression:\s*([^.]*)/);
+                    const aggMatch = history.match(/Aggravating Factors:\s*([^.]*)/);
+                    const relMatch = history.match(/Relieving Factors:\s*([^.]*)/);
+                    const durationMatch = history.match(/Duration:\s*([^.]*)/);
+                    const severityMatch = history.match(/Severity:\s*([^/]*)/);
+
+                    // Parse medical history
+                    const medHistory = examinationData.medicalSurgicalHistory || "";
+                    const pastIllnessMatch = medHistory.match(/Past Illness:\s*([^.]*)/);
+                    const surgeriesMatch = medHistory.match(/Surgeries:\s*([^.]*)/);
+                    const allergiesMatch = medHistory.match(/Allergies:\s*([^.]*)/);
+                    const medicationsMatch = medHistory.match(/Past Medications:\s*([^.]*)/);
+
+                    // Parse examination notes
+                    const notes = examinationData.examinationNotes || "";
+                    const treatmentMatch = notes.match(/Treatment Plan:\s*([^.]*)/);
+                    const lifestyleMatch = notes.match(/Lifestyle Recommendations:\s*([^.]*)/);
+
+                    // Parse diagnoses
+                    const diagnosis = examinationData.diagnoses?.[0] || "";
+
+                    // Parse previous investigations
+                    const prevInvest = examinationData.previousInvestigations || "";
+                    const investDateMatch = prevInvest.match(/\(Date:\s*([^)]*)\)/);
+                    const investigation = investDateMatch ? prevInvest.replace(/\s*\(Date:.*\)/, "").trim() : prevInvest;
+
+                    // Set form data
+                    setFormData({
+                        vata: (vataMatch?.[1] || "").trim(),
+                        pitta: (pittaMatch?.[1] || "").trim(),
+                        kapha: (kaphaMatch?.[1] || "").trim(),
+                        pulse: customFieldsMap["Pulse (Nadi)"] || "",
+                        tongue: customFieldsMap["Tongue (Jivha)"] || "",
+                        skin: customFieldsMap["Skin (Tvak)"] || "",
+                        nails: customFieldsMap["Nails (Nakha)"] || "",
+                        eyes: customFieldsMap["Eyes (Netra)"] || "",
+                        appetite: customFieldsMap["Appetite (Agni)"] || "",
+                        digestion: customFieldsMap["Digestion"] || "",
+                        bowel: customFieldsMap["Bowel Movement"] || "",
+                        urine: customFieldsMap["Urine (Mutra)"] || "",
+                        sleep: customFieldsMap["Sleep (Nidra)"] || "",
+                        chiefComplaint: examinationData.complaints || "",
+                        duration: (durationMatch?.[1] || "").trim(),
+                        severity: (severityMatch?.[1] || "").trim(),
+                        pastIllness: (pastIllnessMatch?.[1] || "").trim(),
+                        surgeries: (surgeriesMatch?.[1] || "").trim(),
+                        allergies: (allergiesMatch?.[1] || "").trim(),
+                        medications: (medicationsMatch?.[1] || "").trim(),
+                        onset: (onsetMatch?.[1] || "").trim(),
+                        progression: (progressionMatch?.[1] || "").trim(),
+                        aggravatingFactors: (aggMatch?.[1] || "").trim(),
+                        relievingFactors: (relMatch?.[1] || "").trim(),
+                        currentMedications: examinationData.ongoingMedications || "",
+                        height: vitals.height || "",
+                        weight: vitals.weight || "",
+                        bmi: vitals.bmi || "",
+                        bloodPressure: vitals.bloodPressure || "",
+                        heartRate: vitals.heartRate || "",
+                        temperature: vitals.temperature || "",
+                        spo2: vitals.spo2 || "",
+                        respiratoryRate: vitals.respiratoryRate || "",
+                        cardiovascular: customFieldsMap["Cardiovascular"] || "",
+                        respiratory: customFieldsMap["Respiratory"] || "",
+                        gastrointestinal: customFieldsMap["Gastrointestinal"] || "",
+                        musculoskeletal: customFieldsMap["Musculoskeletal"] || "",
+                        neurological: customFieldsMap["Neurological"] || "",
+                        investigation: investigation || "",
+                        result: examinationData.presentInvestigations || "",
+                        date: investDateMatch?.[1] || "",
+                        laboratoryInvestigation: examinationData.laboratoryInvestigation || "",
+                        diagnosis: diagnosis,
+                        treatment: (treatmentMatch?.[1] || "").trim(),
+                        lifestyle: (lifestyleMatch?.[1] || "").trim(),
+                        followUp: examinationData.followUps?.[0]?.date ? new Date(examinationData.followUps[0].date).toISOString().split("T")[0] : "",
+                    });
+
+                    // Set inpatient data if exists
+                    if (examinationData.inpatient) {
+                        setAdmitPatient(true);
+                        // Fetch full inpatient details if available
+                        if (examinationData.inpatient._id || typeof examinationData.inpatient === 'string') {
+                            const inpatientId = examinationData.inpatient._id || examinationData.inpatient;
+                            try {
+                                const inpatientResponse = await axios.get(
+                                    getApiUrl(`inpatients/${inpatientId}`),
+                                    { headers: getAuthHeaders() }
+                                );
+                                if (inpatientResponse.data.success && inpatientResponse.data.data) {
+                                    const inpatient = inpatientResponse.data.data;
+                                    setInpatientFormData({
+                                        roomNumber: inpatient.roomNumber || "",
+                                        bedNumber: inpatient.bedNumber || "",
+                                        wardCategory: inpatient.wardCategory || "",
+                                        reason: inpatient.reason || "",
+                                        notes: inpatient.notes || "",
+                                    });
+                                }
+                            } catch (error) {
+                                console.error("Error fetching inpatient details:", error);
+                                // Set empty values if fetch fails
+                                setInpatientFormData({
+                                    roomNumber: "",
+                                    bedNumber: "",
+                                    wardCategory: "",
+                                    reason: "",
+                                    notes: "",
+                                });
+                            }
+                        } else {
+                            // If inpatient is populated object
+                            setInpatientFormData({
+                                roomNumber: examinationData.inpatient.roomNumber || "",
+                                bedNumber: examinationData.inpatient.bedNumber || "",
+                                wardCategory: examinationData.inpatient.wardCategory || "",
+                                reason: examinationData.inpatient.reason || "",
+                                notes: examinationData.inpatient.notes || "",
+                            });
+                        }
+                    } else {
+                        // If no inpatient, ensure toggle is off
+                        setAdmitPatient(false);
+                        setInpatientFormData({
+                            roomNumber: "",
+                            bedNumber: "",
+                            wardCategory: "",
+                            reason: "",
+                            notes: "",
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error parsing examination data:", error);
+                    toast.error("Error loading examination data for editing");
+                }
+            }
+        };
+        fetchData();
+    }, [isEditMode, examinationData]);
+
+    // Load from localStorage on mount (only if not in edit mode)
+    useEffect(() => {
+        if (!isEditMode && storageKey) {
+            try {
+                const saved = localStorage.getItem(storageKey);
+                const savedInpatient = localStorage.getItem(`${storageKey}_inpatient`);
+                const savedAdmit = localStorage.getItem(`${storageKey}_admit`);
+                const savedFlag = localStorage.getItem(savedKey);
+
+                if (saved) {
+                    setFormData(JSON.parse(saved));
+                }
+                if (savedInpatient) {
+                    setInpatientFormData(JSON.parse(savedInpatient));
+                }
+                if (savedAdmit) {
+                    setAdmitPatient(JSON.parse(savedAdmit));
+                }
+                if (savedFlag === 'true') {
+                    setIsSaved(true);
+                }
+            } catch (error) {
+                console.error("Error loading from localStorage:", error);
+            }
+        }
+    }, [storageKey, savedKey, isEditMode]);
+
+    // Save to localStorage whenever formData changes
+    useEffect(() => {
+        if (storageKey && !isSaved) {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(formData));
+            } catch (error) {
+                console.error("Error saving to localStorage:", error);
+            }
+        }
+    }, [formData, storageKey, isSaved]);
+
+    // Save inpatientFormData to localStorage
+    useEffect(() => {
+        if (storageKey && !isSaved) {
+            try {
+                const key = `${storageKey}_inpatient`;
+                localStorage.setItem(key, JSON.stringify(inpatientFormData));
+            } catch (error) {
+                console.error("Error saving inpatient data to localStorage:", error);
+            }
+        }
+    }, [inpatientFormData, storageKey, isSaved]);
+
+    // Save admitPatient flag to localStorage
+    useEffect(() => {
+        if (storageKey && !isSaved) {
+            try {
+                const key = `${storageKey}_admit`;
+                localStorage.setItem(key, JSON.stringify(admitPatient));
+            } catch (error) {
+                console.error("Error saving admit flag to localStorage:", error);
+            }
+        }
+    }, [admitPatient, storageKey, isSaved]);
+
     const handleChange = (field) => (event) => {
         setFormData({ ...formData, [field]: event.target.value });
     };
 
-    const handleSave = () => {
-        console.log("Saving form data:", formData);
-        // Call the onSubmitSuccess callback to advance to the next step
-        if (onSubmitSuccess) {
-            onSubmitSuccess();
+    const handleInpatientChange = (field) => (event) => {
+        setInpatientFormData({ ...inpatientFormData, [field]: event.target.value });
+    };
+
+    const handleSave = async () => {
+        if (!user?._id) {
+            toast.error("User not authenticated. Please log in again.");
+            return;
+        }
+
+        // For new examinations, we need either appointmentId OR patient (from userId)
+        if (!isEditMode && !appointmentId && !patient?._id) {
+            toast.error("Patient information is missing. Cannot create examination.");
+            return;
+        }
+
+        if (isEditMode && !examinationId) {
+            toast.error("Examination ID is missing. Cannot update examination.");
+            return;
+        }
+
+        // Prevent duplicate saves
+        if (isSaved) {
+            toast.info("Examination already saved. Proceeding to next step.");
+            if (onSubmitSuccess) {
+                onSubmitSuccess();
+            }
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            // Prepare examination data with ALL form fields
+            // Include appointment only if it exists, otherwise use patient directly
+            const examinationData = {
+                ...(appointmentId ? { appointment: appointmentId } : { patient: patient._id }),
+                // Chief Complaint (with duration and severity)
+                complaints: formData.chiefComplaint || "",
+                // Build comprehensive history with all fields
+                historyOfPatientIllness: [
+                    formData.onset && `Onset: ${formData.onset}`,
+                    formData.progression && `Progression: ${formData.progression}`,
+                    formData.aggravatingFactors && `Aggravating Factors: ${formData.aggravatingFactors}`,
+                    formData.relievingFactors && `Relieving Factors: ${formData.relievingFactors}`,
+                    formData.duration && `Duration: ${formData.duration}`,
+                    formData.severity && `Severity: ${formData.severity}/10`
+                ].filter(Boolean).join(". ") || "",
+                // Medications
+                ongoingMedications: formData.currentMedications || formData.medications || "",
+                // Investigations
+                previousInvestigations: formData.investigation ?
+                    `${formData.investigation}${formData.date ? ` (Date: ${formData.date})` : ""}` : "",
+                presentInvestigations: formData.result || "",
+                laboratoryInvestigation: formData.laboratoryInvestigation || "",
+                // Medical History (including allergies and medications)
+                medicalSurgicalHistory: [
+                    formData.pastIllness && `Past Illness: ${formData.pastIllness}`,
+                    formData.surgeries && `Surgeries: ${formData.surgeries}`,
+                    formData.allergies && `Allergies: ${formData.allergies}`,
+                    formData.medications && `Past Medications: ${formData.medications}`
+                ].filter(Boolean).join(". ") || "",
+                // Prakriti Assessment
+                prakritiAssessment: `Vata: ${formData.vata || ""}, Pitta: ${formData.pitta || ""}, Kapha: ${formData.kapha || ""}`,
+                // Vitals
+                vitals: [{
+                    temperature: formData.temperature || "",
+                    bloodPressure: formData.bloodPressure || "",
+                    heartRate: formData.heartRate || "",
+                    spo2: formData.spo2 || "",
+                    respiratoryRate: formData.respiratoryRate || "",
+                    weight: formData.weight || "",
+                    height: formData.height || "",
+                    bmi: formData.bmi || "",
+                }],
+                // Diagnoses
+                diagnoses: formData.diagnosis ? [formData.diagnosis] : [],
+                // Examination Notes (treatment and lifestyle)
+                examinationNotes: [
+                    formData.treatment && `Treatment Plan: ${formData.treatment}`,
+                    formData.lifestyle && `Lifestyle Recommendations: ${formData.lifestyle}`
+                ].filter(Boolean).join(". ") || "",
+                // Clinical Examination Fields (using customFields for additional data)
+                customFields: [
+                    // Clinical Examination (Ayurvedic)
+                    formData.pulse && { label: "Pulse (Nadi)", value: formData.pulse },
+                    formData.tongue && { label: "Tongue (Jivha)", value: formData.tongue },
+                    formData.skin && { label: "Skin (Tvak)", value: formData.skin },
+                    formData.nails && { label: "Nails (Nakha)", value: formData.nails },
+                    formData.eyes && { label: "Eyes (Netra)", value: formData.eyes },
+                    formData.appetite && { label: "Appetite (Agni)", value: formData.appetite },
+                    formData.digestion && { label: "Digestion", value: formData.digestion },
+                    formData.bowel && { label: "Bowel Movement", value: formData.bowel },
+                    formData.urine && { label: "Urine (Mutra)", value: formData.urine },
+                    formData.sleep && { label: "Sleep (Nidra)", value: formData.sleep },
+                    // Systemic Examination
+                    formData.cardiovascular && { label: "Cardiovascular", value: formData.cardiovascular },
+                    formData.respiratory && { label: "Respiratory", value: formData.respiratory },
+                    formData.gastrointestinal && { label: "Gastrointestinal", value: formData.gastrointestinal },
+                    formData.musculoskeletal && { label: "Musculoskeletal", value: formData.musculoskeletal },
+                    formData.neurological && { label: "Neurological", value: formData.neurological }
+                ].filter(Boolean),
+                // Follow-up information
+                followUps: formData.followUp ? [{
+                    date: new Date(formData.followUp),
+                    note: formData.lifestyle || "Follow-up scheduled"
+                }] : []
+            };
+
+            // If doctor wants to admit patient, add admission data
+            if (admitPatient) {
+                examinationData.admitPatient = true;
+                examinationData.inpatientData = {
+                    roomNumber: inpatientFormData.roomNumber || null,
+                    bedNumber: inpatientFormData.bedNumber || null,
+                    wardCategory: inpatientFormData.wardCategory || null,
+                    reason: inpatientFormData.reason || formData.chiefComplaint || "Admitted after consultation",
+                    notes: inpatientFormData.notes || null,
+                };
+            }
+
+            let response;
+            if (isEditMode) {
+                // Update existing examination using PATCH
+                response = await axios.patch(
+                    getApiUrl(`examinations/${examinationId}`),
+                    examinationData,
+                    { headers: getAuthHeaders() }
+                );
+            } else {
+                // Create new examination using POST
+                response = await axios.post(
+                    getApiUrl("examinations"),
+                    examinationData,
+                    { headers: getAuthHeaders() }
+                );
+            }
+
+            if (response.data.success) {
+                const savedExamination = response.data.data;
+                const newExaminationId = savedExamination?._id;
+
+                console.log("Examination saved successfully:", savedExamination);
+                console.log("Examination ID:", newExaminationId);
+                console.log("User ID from params:", userId);
+
+                if (isEditMode) {
+                    toast.success("Examination updated successfully!");
+                } else {
+                    if (admitPatient) {
+                        toast.success("Examination recorded and patient admitted successfully!");
+                    } else {
+                        toast.success("Examination recorded successfully!");
+                    }
+                }
+
+                // Clear localStorage and mark as saved (only for new examinations)
+                if (!isEditMode && storageKey) {
+                    try {
+                        localStorage.removeItem(storageKey);
+                        localStorage.removeItem(`${storageKey}_inpatient`);
+                        localStorage.removeItem(`${storageKey}_admit`);
+                        if (savedKey) {
+                            localStorage.setItem(savedKey, 'true');
+                        }
+                    } catch (error) {
+                        console.error("Error clearing localStorage:", error);
+                    }
+                }
+                setIsSaved(true);
+
+                // Navigate to examination details page after a short delay to show success message
+                if (newExaminationId && userId) {
+                    setTimeout(() => {
+                        console.log("Navigating to examination details page...");
+                        navigate(`/doctor/examination-details/${userId}`, {
+                            state: {
+                                examinationId: newExaminationId,
+                                appointment: appointmentData || null,
+                            },
+                            replace: true
+                        });
+                    }, 500);
+                } else {
+                    console.warn("Cannot navigate: missing examinationId or userId", {
+                        examinationId: newExaminationId,
+                        userId
+                    });
+                    if (onSubmitSuccess) {
+                        // Fallback to callback if navigation params are missing
+                        onSubmitSuccess(savedExamination);
+                    }
+                }
+            } else {
+                toast.error(response.data.message || (isEditMode ? "Failed to update examination" : "Failed to save examination"));
+            }
+        } catch (error) {
+            console.error("Error saving examination:", error);
+            console.error("Error response:", error.response?.data);
+            toast.error(error.response?.data?.message || error.message || "Failed to save examination");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -147,7 +599,7 @@ function ExaminationRecordsFormView({ onSubmitSuccess }) {
             <Box sx={{ p: 4 }}>
 
                 {/* Patient Card */}
-              
+
                 <Grid container spacing={3}>
                     {/* Left Column */}
                     <Grid item xs={12} md={6}>
@@ -374,6 +826,25 @@ function ExaminationRecordsFormView({ onSubmitSuccess }) {
                                     />
                                 </Grid>
                             </Grid>
+                        </FormSection>
+                        {/* Laboratory Investigation */}
+                        <FormSection
+                            title="Laboratory Investigation"
+                            subtitle="Detailed laboratory test results and findings"
+                            icon={MonitorHeart}
+                        >
+                            <TextField
+                                fullWidth
+                                label="Laboratory Investigation"
+                                variant="outlined"
+                                multiline
+                                rows={4}
+                                value={formData.laboratoryInvestigation}
+                                onChange={handleChange("laboratoryInvestigation")}
+                                disabled={!isEditing}
+                                size="small"
+                                placeholder="Enter detailed laboratory investigation results, test findings, and observations..."
+                            />
                         </FormSection>
                     </Grid>
                     {/* Right Column */}
@@ -786,17 +1257,132 @@ function ExaminationRecordsFormView({ onSubmitSuccess }) {
                                 </Grid>
                             </Grid>
                         </FormSection>
+                        {/* Admission Decision Section */}
+                        <FormSection
+                            title="Admission Decision"
+                            subtitle="Decide if patient requires admission (IPD)"
+                            icon={LocalHospital}
+                        >
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={admitPatient}
+                                                onChange={(e) => setAdmitPatient(e.target.checked)}
+                                                color="primary"
+                                            />
+                                        }
+                                        label={
+                                            <Typography variant="body1" fontWeight={600}>
+                                                Admit Patient (IPD)
+                                            </Typography>
+                                        }
+                                    />
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 4 }}>
+                                        {admitPatient
+                                            ? "Patient will be admitted and marked as IPD. Examination will be linked to inpatient record."
+                                            : "Patient will remain as OPD (Outpatient Department). Examination will be linked only to appointment."}
+                                    </Typography>
+                                </Grid>
+                                {admitPatient && (
+                                    <>
+                                        <Grid item xs={6}>
+                                            <TextField
+                                                fullWidth
+                                                label="Room Number"
+                                                variant="outlined"
+                                                value={inpatientFormData.roomNumber}
+                                                onChange={handleInpatientChange("roomNumber")}
+                                                size="small"
+                                            />
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <TextField
+                                                fullWidth
+                                                label="Bed Number"
+                                                variant="outlined"
+                                                value={inpatientFormData.bedNumber}
+                                                onChange={handleInpatientChange("bedNumber")}
+                                                size="small"
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                            <FormControl fullWidth size="small">
+                                                <InputLabel>Ward Category</InputLabel>
+                                                <Select
+                                                    value={inpatientFormData.wardCategory}
+                                                    onChange={handleInpatientChange("wardCategory")}
+                                                    label="Ward Category"
+                                                >
+                                                    <MenuItem value="">Select Ward</MenuItem>
+                                                    <MenuItem value="General">General</MenuItem>
+                                                    <MenuItem value="Duplex">Duplex</MenuItem>
+                                                    <MenuItem value="Special">Special</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                            <TextField
+                                                fullWidth
+                                                label="Reason for Admission"
+                                                variant="outlined"
+                                                multiline
+                                                rows={2}
+                                                value={inpatientFormData.reason}
+                                                onChange={handleInpatientChange("reason")}
+                                                size="small"
+                                                placeholder="Enter reason for admission (e.g., requires observation, needs therapy sessions, etc.)"
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                            <TextField
+                                                fullWidth
+                                                label="Admission Notes (Optional)"
+                                                variant="outlined"
+                                                multiline
+                                                rows={2}
+                                                value={inpatientFormData.notes}
+                                                onChange={handleInpatientChange("notes")}
+                                                size="small"
+                                            />
+                                        </Grid>
+                                    </>
+                                )}
+                            </Grid>
+                        </FormSection>
                     </Grid>
                 </Grid>
                 {/* Submit Button */}
-                <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-                    <SubmitButton onClick={handleSave} startIcon={<Save />} variant="contained" size="large">
-                        Add Examination Record
-                    </SubmitButton>
+                <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end", gap: 2 }}>
+                    <Button
+                        variant="outlined"
+                        onClick={() => navigate(-1)}
+                        disabled={isSubmitting}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleSave}
+                        startIcon={isSubmitting ? <CircularProgress size={20} /> : <Save />}
+                        variant="contained"
+                        size="large"
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting
+                            ? (isEditMode ? "Updating..." : "Saving...")
+                            : isEditMode
+                                ? "Update Examination"
+                                : admitPatient
+                                    ? "Save Examination & Admit Patient"
+                                    : "Save Examination (OPD)"}
+                    </Button>
                 </Box>
             </Box>
         </Box>
     );
 }
+
 
 export default ExaminationRecordsFormView;

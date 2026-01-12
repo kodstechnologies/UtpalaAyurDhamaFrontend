@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { keyframes } from '@mui/material/styles';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
@@ -26,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { toggleSidebar } from '../../redux/slices/uiSlice';
 import { logout } from '../../redux/slices/authSlice'; // Adjust path to your authSlice file
 import NotificationDrawer from './component/NotificationDrawer'; // Import the separate component here
+import { useNotifications } from '../../hooks/useNotifications'; // Import notification hook
 
 const settings = [
   { label: 'Profile', icon: <PersonIcon fontSize="small" /> },
@@ -41,7 +43,80 @@ function ResponsiveAppBar() {
   const [anchorElUser, setAnchorElUser] = React.useState(null);
   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
-  const [unreadNotifications, setUnreadNotifications] = React.useState(2);
+  
+  // Get notifications from hook (only for Receptionist role)
+  const isReceptionist = role?.toLowerCase() === 'receptionist';
+  const { paymentReminders, dobReminders } = useNotifications();
+  const totalNotifications = isReceptionist ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0)) : 0;
+  const hasNotifications = isReceptionist && totalNotifications > 0;
+  
+  // Blinking animation state
+  const [isBlinking, setIsBlinking] = React.useState(false);
+  
+  // Define keyframes for blinking animation
+  const bellBlink = keyframes`
+    0%, 100% { 
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% { 
+      transform: scale(1.15);
+      opacity: 0.7;
+    }
+  `;
+  
+  const badgePulse = keyframes`
+    0%, 100% { 
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% { 
+      transform: scale(1.3);
+      opacity: 0.8;
+    }
+  `;
+  
+  // Blink 10 times every 1 minute when there are notifications
+  React.useEffect(() => {
+    if (!hasNotifications) {
+      setIsBlinking(false);
+      return;
+    }
+    
+    // Function to trigger 10 blinks in sequence
+    const triggerBlinks = () => {
+      let blinkCount = 0;
+      const blinkDuration = 300; // Each blink animation lasts 0.3 seconds
+      const blinkGap = 200; // 200ms gap between each blink
+      
+      const blinkSequence = () => {
+        if (blinkCount < 10) {
+          setIsBlinking(true);
+          setTimeout(() => {
+            setIsBlinking(false);
+            blinkCount++;
+            if (blinkCount < 10) {
+              setTimeout(blinkSequence, blinkGap);
+            }
+          }, blinkDuration);
+        }
+      };
+      
+      blinkSequence();
+    };
+    
+    // Blink immediately when notifications appear
+    triggerBlinks();
+    
+    // Blink 10 times every 1 minute
+    const blinkInterval = setInterval(() => {
+      triggerBlinks();
+    }, 60 * 1000); // Every 1 minute
+    
+    return () => {
+      clearInterval(blinkInterval);
+    };
+  }, [hasNotifications, totalNotifications]);
 
   // Scroll detection
   React.useEffect(() => {
@@ -192,45 +267,53 @@ function ResponsiveAppBar() {
           {/* RIGHT SIDE SECTION */}
           <Box sx={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
 
-            {/* Notification Bell Icon with Red Dot Badge (No Count) */}
-            <Tooltip title="Notifications">
-              <IconButton
-                size="large"
-                color="inherit"
-                onClick={handleNotificationToggle}
-                sx={{
-                  transition: "all 0.2s ease",
-                  "&:hover": { backgroundColor: "rgba(255,255,255,0.1)", transform: "scale(1.05)" },
-                }}
-              >
-                <Badge
-                  badgeContent={null}
-                  invisible={!unreadNotifications || unreadNotifications === 0}
-                  color="error"
-                  variant="dot"
-                  anchorOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  sx={{
-                    '& .MuiBadge-badge': {
-                      backgroundColor: '#f44336', // Red dot
-                      boxShadow: '0 0 0 2px var(--color-bg-header)', // Border to make it pop
-                    },
-                  }}
-                >
-                  <NotificationsIcon />
-                </Badge>
-              </IconButton>
-            </Tooltip>
+            {/* Notification Bell Icon - Only for Receptionist */}
+            {isReceptionist && (
+              <>
+                <Tooltip title={hasNotifications ? "You have notifications" : "No notifications"}>
+                  <IconButton
+                    size="large"
+                    color="inherit"
+                    onClick={handleNotificationToggle}
+                    sx={{
+                      transition: "all 0.2s ease",
+                      "&:hover": { backgroundColor: "rgba(255,255,255,0.1)", transform: "scale(1.05)" },
+                      // Blinking animation
+                      animation: isBlinking ? `${bellBlink} 0.5s ease-in-out` : 'none',
+                    }}
+                  >
+                    <Badge
+                      badgeContent={null}
+                      invisible={!hasNotifications}
+                      color="error"
+                      variant="dot"
+                      anchorOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                      }}
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          backgroundColor: '#f44336', // Red dot
+                          boxShadow: '0 0 0 2px var(--color-bg-header)', // Border to make it pop
+                          // Blinking animation for badge (10 times)
+                          animation: isBlinking ? `${badgePulse} 0.5s ease-in-out` : 'none',
+                        },
+                      }}
+                    >
+                      <NotificationsIcon />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
 
-            {/* Single Call to the Separate Component - Handles Display on Click */}
-            <NotificationDrawer
-              open={notificationDrawerOpen}
-              onClose={() => setNotificationDrawerOpen(false)}
-              unreadCount={unreadNotifications}
-              onUnreadChange={setUnreadNotifications}
-            />
+                {/* Single Call to the Separate Component - Handles Display on Click */}
+                <NotificationDrawer
+                  open={notificationDrawerOpen}
+                  onClose={() => setNotificationDrawerOpen(false)}
+                  paymentReminders={paymentReminders}
+                  dobReminders={dobReminders}
+                />
+              </>
+            )}
 
             {/* USER INFO - Dynamic with Redux State */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: "column", textAlign: "right", lineHeight: "1rem" }}>

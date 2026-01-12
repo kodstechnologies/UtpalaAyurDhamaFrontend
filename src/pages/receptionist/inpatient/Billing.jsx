@@ -5,6 +5,7 @@ import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
+import inpatientService from "../../../services/inpatientService";
 
 // Icons
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
@@ -16,132 +17,6 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DownloadIcon from "@mui/icons-material/Download";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EditIcon from "@mui/icons-material/Edit";
-
-// Mock data - will be replaced with API calls later
-const mockPatientBilling = {
-    id: "inp-1",
-    name: "Amit Kumar",
-    age: 32,
-    gender: "Male",
-    admittedOn: "2025-01-15",
-    roomNo: "102",
-    wardCategory: "General",
-    doctorName: "Dr. Sharma",
-    uhid: "UHID001",
-    foodCharges: [
-        {
-            id: "food-1",
-            date: "2025-01-20",
-            description: "Breakfast - milk, bread, eggs",
-            amount: 150.0,
-        },
-        {
-            id: "food-2",
-            date: "2025-01-20",
-            description: "Lunch - rice, dal, vegetables",
-            amount: 200.0,
-        },
-        {
-            id: "food-3",
-            date: "2025-01-19",
-            description: "Breakfast - milk, bread",
-            amount: 120.0,
-        },
-    ],
-    consultationCharges: [
-        {
-            id: "cons-1",
-            date: "2025-01-18",
-            description: "Follow-up consultation",
-            amount: 500.0,
-            doctorName: "Dr. Sharma",
-        },
-        {
-            id: "cons-2",
-            date: "2025-01-16",
-            description: "Initial consultation",
-            amount: 1000.0,
-            doctorName: "Dr. Sharma",
-        },
-    ],
-    therapyCharges: [
-        {
-            id: "ther-1",
-            date: "2025-01-19",
-            description: "Physiotherapy Session",
-            amount: 800.0,
-            inTime: "10:00 AM",
-            outTime: "11:00 AM",
-            status: "Completed",
-        },
-        {
-            id: "ther-2",
-            date: "2025-01-17",
-            description: "Occupational Therapy",
-            amount: 600.0,
-            inTime: "2:00 PM",
-            outTime: "3:00 PM",
-            status: "Completed",
-        },
-    ],
-    pharmacyCharges: [
-        {
-            id: "pharm-1",
-            date: "2025-01-18",
-            description: "Paracetamol 500mg × 10",
-            amount: 150.0,
-            status: "Dispensed",
-        },
-        {
-            id: "pharm-2",
-            date: "2025-01-16",
-            description: "Antibiotic × 5",
-            amount: 300.0,
-            status: "Dispensed",
-        },
-    ],
-    wardCharges: [
-        {
-            id: "ward-1",
-            date: "2025-01-15",
-            description: "General Ward - Day 1",
-            amount: 200.0,
-        },
-        {
-            id: "ward-2",
-            date: "2025-01-16",
-            description: "General Ward - Day 2",
-            amount: 200.0,
-        },
-        {
-            id: "ward-3",
-            date: "2025-01-17",
-            description: "General Ward - Day 3",
-            amount: 200.0,
-        },
-        {
-            id: "ward-4",
-            date: "2025-01-18",
-            description: "General Ward - Day 4",
-            amount: 200.0,
-        },
-        {
-            id: "ward-5",
-            date: "2025-01-19",
-            description: "General Ward - Day 5",
-            amount: 200.0,
-        },
-        {
-            id: "ward-6",
-            date: "2025-01-20",
-            description: "General Ward - Day 6",
-            amount: 200.0,
-        },
-    ],
-    status: "Admitted",
-    discountRate: 0,
-    taxRate: 5,
-};
 
 const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) => {
     const totalAmount = charges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
@@ -178,7 +53,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
         return "badge bg-secondary";
     };
 
-    const columnCount = category === "therapy" ? 6 : category === "consultation" ? 4 : 3;
+    const columnCount = category === "therapy" ? 8 : category === "pharmacy" ? 7 : category === "consultation" ? 4 : category === "ward" ? 3 : 3;
 
     return (
         <div className="card shadow-sm mb-4">
@@ -199,9 +74,25 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                 {category === "therapy" ? (
                                     <>
                                         <th style={{ fontSize: "0.875rem" }}>Therapy</th>
+                                        <th style={{ fontSize: "0.875rem" }}>Therapist</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "center" }}>In Time</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Out Time</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Status</th>
+                                        <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapy Charge</th>
+                                        <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapist Charge</th>
+                                    </>
+                                ) : category === "pharmacy" ? (
+                                    <>
+                                        <th style={{ fontSize: "0.875rem" }}>Medicine Name</th>
+                                        <th style={{ fontSize: "0.875rem" }}>Dosage</th>
+                                        <th style={{ fontSize: "0.875rem" }}>Frequency</th>
+                                        <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Qty</th>
+                                        <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Unit Price</th>
+                                    </>
+                                ) : category === "ward" ? (
+                                    <>
+                                        <th style={{ fontSize: "0.875rem" }}>Ward Category</th>
+                                        <th style={{ fontSize: "0.875rem" }}>Description</th>
                                     </>
                                 ) : (
                                     <th style={{ fontSize: "0.875rem" }}>Description</th>
@@ -214,10 +105,11 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                         <tbody>
                             {charges.map((charge) => (
                                 <tr key={charge.id}>
-                                    <td style={{ fontSize: "0.875rem" }}>{formatDate(charge.date)}</td>
+                                    <td style={{ fontSize: "0.875rem" }}>{formatDate(charge.date || charge.dispensedAt || charge.createdAt)}</td>
                                     {category === "therapy" ? (
                                         <>
-                                            <td style={{ fontSize: "0.875rem" }}>{charge.description}</td>
+                                            <td style={{ fontSize: "0.875rem" }}>{charge.therapyName || charge.description}</td>
+                                            <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "N/A"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.inTime || "—"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.outTime || "—"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
@@ -227,15 +119,63 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                                     </span>
                                                 )}
                                             </td>
+                                            <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
+                                                {formatCurrency(charge.therapyCharge !== undefined ? charge.therapyCharge : (charge.amount || 0))}
+                                            </td>
+                                            <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
+                                                {formatCurrency(charge.therapistCharge !== undefined ? charge.therapistCharge : 0)}
+                                            </td>
+                                        </>
+                                    ) : category === "pharmacy" ? (
+                                        <>
+                                            <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                                                {charge.medication || "N/A"}
+                                                {charge.type && (
+                                                    <span className={`badge ${charge.type === "inpatient" ? "bg-info" : "bg-success"} ms-2`} style={{ fontSize: "0.65rem" }}>
+                                                        {charge.type === "inpatient" ? "IPD" : "OPD"}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td style={{ fontSize: "0.875rem" }}>{charge.dosage || "N/A"}</td>
+                                            <td style={{ fontSize: "0.875rem" }}>{charge.frequency || "N/A"}</td>
+                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.quantity || 0}</td>
+                                            <td style={{ fontSize: "0.875rem", textAlign: "right" }}>{formatCurrency(charge.unitPrice || 0)}</td>
+                                        </>
+                                    ) : category === "ward" ? (
+                                        <>
+                                            <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                                                {charge.wardCategory || "N/A"}
+                                            </td>
+                                            <td style={{ fontSize: "0.875rem" }}>
+                                                {charge.description || "Ward Charge"}
+                                            </td>
                                         </>
                                     ) : (
-                                        <td style={{ fontSize: "0.875rem" }}>{charge.description}</td>
+                                        <td style={{ fontSize: "0.875rem" }}>
+                                            {charge.description || charge.medication}
+                                            {charge.type && (
+                                                <span className={`badge ${charge.type === "inpatient" ? "bg-info" : "bg-success"} ms-2`} style={{ fontSize: "0.65rem" }}>
+                                                    {charge.type === "inpatient" ? "IPD" : "OPD"}
+                                                </span>
+                                            )}
+                                        </td>
                                     )}
                                     {category === "consultation" && (
-                                        <td style={{ fontSize: "0.875rem" }}>{charge.doctorName || "—"}</td>
+                                        <td style={{ fontSize: "0.875rem" }}>
+                                            {charge.doctorName || "—"}
+                                            {charge.type && (
+                                                <span className={`badge ${charge.type === "inpatient" ? "bg-info" : "bg-success"} ms-2`} style={{ fontSize: "0.65rem" }}>
+                                                    {charge.type === "inpatient" ? "IPD" : "OPD"}
+                                                </span>
+                                            )}
+                                        </td>
                                     )}
                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
-                                        {formatCurrency(charge.amount)}
+                                        {formatCurrency(category === "therapy" ? (
+                                            charge.amount || 
+                                            ((charge.therapyCharge !== undefined ? charge.therapyCharge : charge.amount || 0) + 
+                                             (charge.therapistCharge !== undefined ? charge.therapistCharge : 0))
+                                        ) : charge.amount)}
                                     </td>
                                     {isEditable && onEdit && (
                                         <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
@@ -266,6 +206,37 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                     </td>
                                 </tr>
                             )}
+                            {charges.length > 0 && category === "therapy" && (
+                                <tr style={{ backgroundColor: "#f8f9fa", fontWeight: 600, borderTop: "2px solid #dee2e6" }}>
+                                    <td colSpan={6} style={{ fontSize: "0.9rem", textAlign: "right", padding: "12px", fontWeight: 700 }}>
+                                        Total:
+                                    </td>
+                                    <td style={{ fontSize: "0.9rem", textAlign: "right", padding: "12px", fontWeight: 700 }}>
+                                        {formatCurrency(charges.reduce((sum, ch) => sum + Number(ch.therapyCharge || 0), 0))}
+                                    </td>
+                                    <td style={{ fontSize: "0.9rem", textAlign: "right", padding: "12px", fontWeight: 700 }}>
+                                        {formatCurrency(charges.reduce((sum, ch) => sum + Number(ch.therapistCharge || 0), 0))}
+                                    </td>
+                                    <td style={{ fontSize: "0.9rem", textAlign: "right", padding: "12px", fontWeight: 700, color: "#4CAF50" }}>
+                                        {formatCurrency(charges.reduce((sum, ch) => {
+                                            const therapyCharge = Number(ch.therapyCharge || 0);
+                                            const therapistCharge = Number(ch.therapistCharge || 0);
+                                            const total = Number(ch.amount || 0) > 0 ? Number(ch.amount) : (therapyCharge + therapistCharge);
+                                            return sum + total;
+                                        }, 0))}
+                                    </td>
+                                </tr>
+                            )}
+                            {charges.length > 0 && category === "ward" && (
+                                <tr style={{ backgroundColor: "#f8f9fa", fontWeight: 600, borderTop: "2px solid #dee2e6" }}>
+                                    <td colSpan={3} style={{ fontSize: "0.9rem", textAlign: "right", padding: "12px", fontWeight: 700 }}>
+                                        Total:
+                                    </td>
+                                    <td style={{ fontSize: "0.9rem", textAlign: "right", padding: "12px", fontWeight: 700, color: "#4CAF50" }}>
+                                        {formatCurrency(charges.reduce((sum, ch) => sum + Number(ch.amount || ch.dailyRate || 0), 0))}
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -277,43 +248,132 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
 function InpatientBilling() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
-    const [patient, setPatient] = useState(mockPatientBilling);
+    const [loading, setLoading] = useState(true);
+    const [billingData, setBillingData] = useState(null);
     const [discountRate, setDiscountRate] = useState(0);
     const [taxRate, setTaxRate] = useState(5);
     const [isDischarging, setIsDischarging] = useState(false);
     const [downloadingReport, setDownloadingReport] = useState(false);
+    const [patientId, setPatientId] = useState(null);
 
-    // Calculate totals
-    const chargeTotals = useMemo(() => {
-        return {
-            food: patient.foodCharges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
-            consultation: patient.consultationCharges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
-            therapy: patient.therapyCharges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
-            pharmacy: patient.pharmacyCharges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
-            ward: patient.wardCharges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
+    // First, get patient ID from inpatient if id is an inpatient ID
+    useEffect(() => {
+        const fetchPatientId = async () => {
+            if (id) {
+                try {
+                    const response = await inpatientService.getInpatientById(id);
+                    if (response && response.success && response.data) {
+                        const inpatient = response.data;
+                        const pid = inpatient.patient?._id || inpatient.patient;
+                        setPatientId(pid);
+                    } else {
+                        // If not an inpatient ID, assume it's a patient ID
+                        setPatientId(id);
+                    }
+                } catch (error) {
+                    // If error, assume id is a patient ID
+                    setPatientId(id);
+                }
+            }
         };
-    }, [patient]);
+        fetchPatientId();
+    }, [id]);
+
+    useEffect(() => {
+        const fetchBillingDetails = async () => {
+            if (!patientId) return;
+            
+            try {
+                setLoading(true);
+                console.log("Fetching unified billing details for patient ID:", patientId);
+                const response = await inpatientService.getUnifiedBillingSummary(patientId);
+                console.log("Billing API Response:", response);
+                
+                if (response && response.success && response.data) {
+                    const data = response.data;
+                    
+                    // Ensure charges arrays exist
+                    const charges = {
+                        food: Array.isArray(data.charges?.food) ? data.charges.food : [],
+                        consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
+                        therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
+                        pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
+                        ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
+                    };
+                    
+                    const billingDataWithCharges = {
+                        ...data,
+                        charges,
+                    };
+                    
+                    console.log("Processed billing data:", billingDataWithCharges);
+                    console.log("Ward charges count:", charges.ward.length);
+                    console.log("Sample ward charge:", charges.ward[0]);
+                    setBillingData(billingDataWithCharges);
+
+                    // Set initial values from invoice if available
+                    if (data.invoice && data.invoice.id) {
+                        setDiscountRate(data.invoice.discountRate || 0);
+                        setTaxRate(data.invoice.taxRate || 5);
+                    }
+                } else {
+                    console.error("Invalid response structure:", response);
+                    toast.error("Invalid response from server");
+                }
+            } catch (error) {
+                console.error("Error fetching billing details:", error);
+                console.error("Error response:", error.response);
+                const msg = error.response?.data?.message || error.message || "Failed to load billing details.";
+                toast.error(msg);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (patientId) {
+            fetchBillingDetails();
+        }
+    }, [patientId]);
+
+    const chargeTotals = useMemo(() => {
+        if (!billingData?.charges) return { food: 0, consultation: 0, therapy: 0, pharmacy: 0, ward: 0 };
+        const { charges } = billingData;
+        return {
+            food: charges.food.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
+            consultation: charges.consultation.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
+            therapy: charges.therapy.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
+            pharmacy: charges.pharmacy.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
+            ward: charges.ward.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
+        };
+    }, [billingData]);
 
     const grandTotal = useMemo(() => {
-        return chargeTotals.food + chargeTotals.consultation + chargeTotals.therapy + chargeTotals.pharmacy + chargeTotals.ward;
-    }, [chargeTotals]);
+        if (!billingData) return 0;
+        // Prefer backend calculation if available, otherwise sum frontend
+        return billingData.totals?.grandTotal || Object.values(chargeTotals).reduce((a, b) => a + b, 0);
+    }, [billingData, chargeTotals]);
 
     const discountAmount = useMemo(() => grandTotal * (discountRate / 100), [grandTotal, discountRate]);
     const discountedTotal = useMemo(() => Math.max(0, grandTotal - discountAmount), [grandTotal, discountAmount]);
     const taxAmount = useMemo(() => {
-        if (patient.status === "Discharged") {
-            return 0; // Already included in finalPayable
+        const isDischarged = billingData?.admission?.status === "Discharged";
+        if (isDischarged && billingData?.invoice) {
+            // If discharged, tax is already fixed in invoice or we recalculate based on stored rate
+            // But usually we just display what's there. 
+            // To allow consistent display, we calculate based on current total and rate
+            // UNLESS the invoice amount is fixed.
+            return 0; // Tax is usually included or calculated at the end
         }
         return Number((discountedTotal * (taxRate / 100)).toFixed(2));
-    }, [discountedTotal, taxRate, patient.status]);
+    }, [discountedTotal, taxRate, billingData]);
 
     const totalCharges = useMemo(() => {
-        if (patient.status === "Discharged") {
-            return grandTotal; // Use stored final amount
+        const isDischarged = billingData?.admission?.status === "Discharged";
+        if (isDischarged && billingData?.invoice) {
+            return billingData.invoice.totalPayable;
         }
         return Number((discountedTotal + taxAmount).toFixed(2));
-    }, [patient.status, grandTotal, discountedTotal, taxAmount]);
+    }, [grandTotal, discountedTotal, taxAmount, billingData]);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat("en-IN", {
@@ -321,11 +381,11 @@ function InpatientBilling() {
             currency: "INR",
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
-        }).format(amount);
+        }).format(amount || 0);
     };
 
     const handleDiscountInput = (value) => {
-        if (patient.status === "Discharged") return;
+        if (billingData?.admission?.status === "Discharged") return;
         const sanitized = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
         setDiscountRate(sanitized);
     };
@@ -333,17 +393,10 @@ function InpatientBilling() {
     const handleEditCharge = (charge) => {
         const params = new URLSearchParams({
             chargeId: charge.id || "",
-            chargeName: charge.name || charge.chargeName || "",
+            chargeName: charge.description || charge.medication || "",
             amount: (charge.amount || "").toString(),
         });
         navigate(`/receptionist/inpatient-billing/edit-charge?${params.toString()}`);
-    };
-
-    const handleSaveCharge = (formData) => {
-        // Mock save - will be replaced with API call later
-        toast.success("Charge updated successfully!");
-        setIsEditModalOpen(false);
-        setSelectedCharge(null);
     };
 
     const handleFinalizeDischarge = async () => {
@@ -352,12 +405,48 @@ function InpatientBilling() {
         }
         try {
             setIsDischarging(true);
-            // Mock API call - will be replaced later
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            toast.success(`Discharge completed. Invoice amount ${formatCurrency(totalCharges)}`);
-            setPatient((prev) => ({ ...prev, status: "Discharged" }));
+            const response = await inpatientService.finalizeDischarge(id, {
+                discountRate,
+                taxRate
+            });
+
+            if (response && response.success) {
+                toast.success(`Discharge completed. Invoice #${response.data.invoiceNumber} generated.`);
+                
+                // Refresh billing data to show updated invoice information
+                if (patientId) {
+                    try {
+                        const billingResponse = await inpatientService.getUnifiedBillingSummary(patientId);
+                        if (billingResponse && billingResponse.success && billingResponse.data) {
+                            const data = billingResponse.data;
+                            const charges = {
+                                food: Array.isArray(data.charges?.food) ? data.charges.food : [],
+                                consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
+                                therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
+                                pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
+                                ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
+                            };
+                            setBillingData({ ...data, charges });
+                            
+                            if (data.invoice && data.invoice.id) {
+                                setDiscountRate(data.invoice.discountRate || 0);
+                                setTaxRate(data.invoice.taxRate || 5);
+                            }
+                        }
+                    } catch (refreshError) {
+                        console.error("Error refreshing billing data:", refreshError);
+                    }
+                }
+                
+                // Navigate to payments page after a short delay
+                setTimeout(() => {
+                    navigate("/receptionist/payments");
+                }, 2000);
+            }
         } catch (error) {
-            toast.error(error.message || "Failed to finalize discharge.");
+            console.error("Discharge error:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Failed to finalize discharge.";
+            toast.error(errorMessage);
         } finally {
             setIsDischarging(false);
         }
@@ -366,11 +455,22 @@ function InpatientBilling() {
     const handleDownloadReport = async () => {
         try {
             setDownloadingReport(true);
-            // Mock download - will be replaced with API call later
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            toast.success("Report download started!");
+            const response = await inpatientService.downloadDischargeReport(id);
+
+            // Create blob link to download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            const fileName = `Discharge_${billingData?.patient?.name || 'Report'}.pdf`;
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            toast.success("Report downloaded successfully!");
         } catch (error) {
-            toast.error(error.message || "Failed to download discharge report.");
+            console.error("Download error:", error);
+            toast.error("Failed to download discharge report.");
         } finally {
             setDownloadingReport(false);
         }
@@ -383,6 +483,27 @@ function InpatientBilling() {
         { label: "Patient Billing" },
     ];
 
+    if (loading) {
+        return (
+            <Box sx={{ padding: "20px", display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </Box>
+        );
+    }
+
+    if (!billingData) {
+        return (
+            <Box sx={{ padding: "20px" }}>
+                <div className="alert alert-danger">Failed to load billing data.</div>
+            </Box>
+        );
+    }
+
+    const { patient, admission, charges, doctor, hasInpatient, hasOutpatient } = billingData;
+    const isDischarged = admission?.status === "Discharged";
+
     return (
         <Box sx={{ padding: "20px" }}>
             {/* ⭐ Breadcrumb */}
@@ -392,7 +513,12 @@ function InpatientBilling() {
             <HeadingCardingCard
                 category="INPATIENT BILLING"
                 title={`Billing Details - ${patient.name}`}
-                subtitle="View and manage all charges for this inpatient."
+                subtitle={hasInpatient && hasOutpatient 
+                    ? "View and manage all charges for this patient (Inpatient & Outpatient)."
+                    : hasInpatient 
+                    ? "View and manage all charges for this inpatient."
+                    : "View and manage all charges for this outpatient."
+                }
             />
 
             {/* ⭐ Patient Info Card */}
@@ -404,123 +530,47 @@ function InpatientBilling() {
                                 {patient.name}
                             </h3>
                             <div className="d-flex flex-wrap gap-3" style={{ fontSize: "0.875rem" }}>
-                                <span
-                                    style={{
-                                        backgroundColor: "#f8f9fa",
-                                        padding: "6px 12px",
-                                        borderRadius: "8px",
-                                        fontWeight: 500,
-                                        color: "#495057",
-                                    }}
-                                >
-                                    <strong style={{ color: "#6c757d", marginRight: "4px" }}>Ward:</strong>
-                                    {patient.wardCategory}
+                                <span className="badge bg-light text-dark p-2">
+                                    <strong className="text-muted me-1">Ward:</strong> {admission.wardCategory || 'N/A'}
                                 </span>
-                                <span
-                                    style={{
-                                        backgroundColor: "#f8f9fa",
-                                        padding: "6px 12px",
-                                        borderRadius: "8px",
-                                        fontWeight: 500,
-                                        color: "#495057",
-                                    }}
-                                >
-                                    <strong style={{ color: "#6c757d", marginRight: "4px" }}>Room No:</strong>
-                                    {patient.roomNo}
+                                <span className="badge bg-light text-dark p-2">
+                                    <strong className="text-muted me-1">Room:</strong> {admission.roomNumber || 'N/A'}
                                 </span>
-                                {patient.doctorName && (
-                                    <span
-                                        style={{
-                                            backgroundColor: "#f8f9fa",
-                                            padding: "6px 12px",
-                                            borderRadius: "8px",
-                                            fontWeight: 500,
-                                            color: "#495057",
-                                        }}
-                                    >
-                                        <strong style={{ color: "#6c757d", marginRight: "4px" }}>Doctor:</strong>
-                                        {patient.doctorName}
+                                {doctor && (
+                                    <span className="badge bg-light text-dark p-2">
+                                        <strong className="text-muted me-1">Doctor:</strong> {doctor.name || 'N/A'}
                                     </span>
                                 )}
-                                <span
-                                    style={{
-                                        backgroundColor: "#f8f9fa",
-                                        padding: "6px 12px",
-                                        borderRadius: "8px",
-                                        fontWeight: 500,
-                                        color: "#495057",
-                                    }}
-                                >
-                                    <strong style={{ color: "#6c757d", marginRight: "4px" }}>Gender:</strong>
-                                    {patient.gender}
-                                </span>
-                                <span
-                                    style={{
-                                        backgroundColor: "#f8f9fa",
-                                        padding: "6px 12px",
-                                        borderRadius: "8px",
-                                        fontWeight: 500,
-                                        color: "#495057",
-                                    }}
-                                >
-                                    <strong style={{ color: "#6c757d", marginRight: "4px" }}>Age:</strong>
-                                    {patient.age}
+                                <span className="badge bg-light text-dark p-2">
+                                    <strong className="text-muted me-1">Gender:</strong> {patient.gender || 'N/A'}
                                 </span>
                                 {patient.uhid && (
-                                    <span
-                                        style={{
-                                            backgroundColor: "#f8f9fa",
-                                            padding: "6px 12px",
-                                            borderRadius: "8px",
-                                            fontWeight: 500,
-                                            color: "#495057",
-                                        }}
-                                    >
-                                        <strong style={{ color: "#6c757d", marginRight: "4px" }}>UHID:</strong>
-                                        {patient.uhid}
+                                    <span className="badge bg-light text-dark p-2">
+                                        <strong className="text-muted me-1">UHID:</strong> {patient.uhid}
                                     </span>
                                 )}
-                                <span
-                                    style={{
-                                        backgroundColor: "#f8f9fa",
-                                        padding: "6px 12px",
-                                        borderRadius: "8px",
-                                        fontWeight: 500,
-                                        color: "#495057",
-                                    }}
-                                >
-                                    <strong style={{ color: "#6c757d", marginRight: "4px" }}>Admitted:</strong>
-                                    {new Date(patient.admittedOn).toLocaleDateString()}
+                                <span className="badge bg-light text-dark p-2">
+                                    <strong className="text-muted me-1">Admitted:</strong> {new Date(admission.admissionDate).toLocaleDateString()}
+                                </span>
+                                <span className={`badge ${isDischarged ? 'bg-secondary' : 'bg-success'} p-2`}>
+                                    {admission.status}
                                 </span>
                             </div>
                         </div>
                         <div className="col-md-4 text-md-end">
                             <div
                                 style={{
-                                    background: "linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)",
+                                    background: isDischarged ? "linear-gradient(135deg, #6c757d 0%, #495057 100%)" : "linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)",
                                     borderRadius: "16px",
                                     padding: "24px 32px",
                                     display: "inline-block",
-                                    boxShadow: "0 8px 24px rgba(76, 175, 80, 0.25), 0 4px 8px rgba(76, 175, 80, 0.15)",
+                                    boxShadow: "0 8px 24px rgba(0,0,0, 0.25)",
                                     border: "1px solid rgba(255, 255, 255, 0.2)",
                                     minWidth: "220px",
                                     position: "relative",
                                     overflow: "hidden",
                                 }}
                             >
-                                {/* Decorative background element */}
-                                <div
-                                    style={{
-                                        position: "absolute",
-                                        top: "-20px",
-                                        right: "-20px",
-                                        width: "100px",
-                                        height: "100px",
-                                        borderRadius: "50%",
-                                        background: "rgba(255, 255, 255, 0.1)",
-                                        zIndex: 0,
-                                    }}
-                                />
                                 <div style={{ position: "relative", zIndex: 1 }}>
                                     <p
                                         style={{
@@ -532,7 +582,7 @@ function InpatientBilling() {
                                             letterSpacing: "0.5px",
                                         }}
                                     >
-                                        Total Outstanding
+                                        {isDischarged ? "Total Paid / Billed" : "Total Outstanding"}
                                     </p>
                                     <h2
                                         style={{
@@ -541,7 +591,6 @@ function InpatientBilling() {
                                             color: "#FFFFFF",
                                             marginBottom: 0,
                                             lineHeight: "1.2",
-                                            textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                                         }}
                                     >
                                         {formatCurrency(totalCharges)}
@@ -580,7 +629,9 @@ function InpatientBilling() {
                     <div className="row align-items-center">
                         <div className="col-md-6">
                             <h5 className="mb-1">Adjustments</h5>
-                            <p className="text-muted small mb-0">Apply discount before finalizing discharge.</p>
+                            <p className="text-muted small mb-0">
+                                {isDischarged ? "Final adjustments applied at discharge." : "Apply discount before finalizing discharge."}
+                            </p>
                         </div>
                         <div className="col-md-6">
                             <div className="d-flex flex-wrap align-items-center gap-3">
@@ -596,7 +647,7 @@ function InpatientBilling() {
                                     style={{ width: "100px" }}
                                     value={discountRate}
                                     onChange={(e) => handleDiscountInput(parseFloat(e.target.value))}
-                                    disabled={patient.status === "Discharged"}
+                                    disabled={isDischarged}
                                 />
                                 <span className="text-muted" style={{ fontSize: "0.875rem" }}>
                                     GST ({taxRate}%): <strong>{formatCurrency(taxAmount)}</strong>
@@ -607,46 +658,46 @@ function InpatientBilling() {
                 </div>
             </div>
 
-            {/* ⭐ Charges Panels */}
+            {/* ⭐ Charges Panels - All Vertical */}
             <div className="row">
-                <div className="col-lg-6 mb-4">
+                <div className="col-12 mb-4">
                     <ChargesPanel
                         title="Food Charges"
-                        charges={patient.foodCharges}
+                        charges={charges.food}
                         category="food"
                         isEditable={false}
                     />
                 </div>
-                <div className="col-lg-6 mb-4">
+                <div className="col-12 mb-4">
                     <ChargesPanel
                         title="Doctor Consultation"
-                        charges={patient.consultationCharges}
+                        charges={charges.consultation}
                         category="consultation"
-                        isEditable={patient.status !== "Discharged"}
+                        isEditable={!isDischarged}
                         onEdit={handleEditCharge}
                     />
                 </div>
-                <div className="col-lg-6 mb-4">
+                <div className="col-12 mb-4">
                     <ChargesPanel
                         title="Therapy Charges"
-                        charges={patient.therapyCharges}
+                        charges={charges.therapy}
                         category="therapy"
                         isEditable={false}
                     />
                 </div>
-                <div className="col-lg-6 mb-4">
+                <div className="col-12 mb-4">
                     <ChargesPanel
                         title="Pharmacy Charges"
-                        charges={patient.pharmacyCharges}
+                        charges={charges.pharmacy}
                         category="pharmacy"
-                        isEditable={patient.status !== "Discharged"}
+                        isEditable={!isDischarged}
                         onEdit={handleEditCharge}
                     />
                 </div>
                 <div className="col-12 mb-4">
                     <ChargesPanel
                         title="Ward Charges"
-                        charges={patient.wardCharges}
+                        charges={charges.ward}
                         category="ward"
                         isEditable={false}
                     />
@@ -663,7 +714,7 @@ function InpatientBilling() {
                     type="button"
                     className="btn btn-outline-primary"
                     onClick={handleDownloadReport}
-                    disabled={downloadingReport || !patient.id}
+                    disabled={downloadingReport || !id}
                 >
                     {downloadingReport ? (
                         <>
@@ -677,7 +728,7 @@ function InpatientBilling() {
                         </>
                     )}
                 </button>
-                {patient.id && patient.status !== "Discharged" && (
+                {!isDischarged && (
                     <button
                         type="button"
                         className="btn btn-success"

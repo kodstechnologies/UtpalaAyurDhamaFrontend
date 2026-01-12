@@ -1,18 +1,24 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
-    Mail, Phone, Calendar, User, Home, Stethoscope, FileBadge,
+    Mail, Phone, Calendar, User, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
     ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
     X, Save, AlertCircle, CheckCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
+import InputDialogModal from "../../../../components/modal/InputDialogModal";
+import adminUserService from "../../../../services/adminUserService";
 
 function Add_Pharmacists() {
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
+    const [languageModal, setLanguageModal] = useState(false);
+    const [certificationModal, setCertificationModal] = useState(false);
 
     // Initial empty pharmacist data for creation
     const [pharmacist, setPharmacist] = useState({
@@ -25,6 +31,7 @@ function Add_Pharmacists() {
         address: "",
         emergencyContact: "",
         languages: [],
+        profilePicture: "",
 
         // Professional Info
         specialization: "",
@@ -42,18 +49,51 @@ function Add_Pharmacists() {
         certifications: []
     });
 
+    // Handle Image Upload
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            toast.error("File size should be less than 2MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await adminUserService.uploadImage(file);
+            if (response.success) {
+                setPharmacist(prev => ({ ...prev, profilePicture: response.data.url }));
+                toast.success("Image uploaded successfully!");
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            const errorMessage = error?.message || error?.response?.data?.message || "Failed to upload image";
+            toast.error(errorMessage);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     // Handle Input Change
     const updateField = (field, value) => {
         setPharmacist((prev) => ({ ...prev, [field]: value }));
     };
 
     const handleAddLanguage = () => {
-        const newLang = prompt("Enter a new language:");
-        if (newLang && !pharmacist.languages.includes(newLang)) {
+        setLanguageModal(true);
+    };
+
+    const handleLanguageConfirm = (language) => {
+        if (language && !pharmacist.languages.includes(language)) {
             setPharmacist(prev => ({
                 ...prev,
-                languages: [...prev.languages, newLang]
+                languages: [...prev.languages, language]
             }));
+            toast.success("Language added successfully!");
+        } else if (pharmacist.languages.includes(language)) {
+            toast.error("This language is already added");
         }
     };
 
@@ -65,12 +105,18 @@ function Add_Pharmacists() {
     };
 
     const handleAddCertification = () => {
-        const newCert = prompt("Enter new certification:");
-        if (newCert && !pharmacist.certifications.includes(newCert)) {
+        setCertificationModal(true);
+    };
+
+    const handleCertificationConfirm = (certification) => {
+        if (certification && !pharmacist.certifications.includes(certification)) {
             setPharmacist(prev => ({
                 ...prev,
-                certifications: [...prev.certifications, newCert]
+                certifications: [...prev.certifications, certification]
             }));
+            toast.success("Certification added successfully!");
+        } else if (pharmacist.certifications.includes(certification)) {
+            toast.error("This certification is already added");
         }
     };
 
@@ -82,25 +128,42 @@ function Add_Pharmacists() {
     };
 
     const handleSave = async () => {
-        // Basic validation (can be enhanced)
+        // Basic validation
         if (!pharmacist.name || !pharmacist.email || !pharmacist.specialization || !pharmacist.licenseNumber) {
-            alert("Please fill in the required fields (Name, Email, Specialization, License Number).");
+            toast.error("Please fill in the required fields (Name, Email, Specialization, License Number).");
             return;
         }
 
         setIsSaving(true);
 
-        // Simulate API call for creation
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            // Prepare data - convert strings to numbers and dates where needed
+            const pharmacistData = {
+                ...pharmacist,
+                experience: pharmacist.experience ? Number(pharmacist.experience) : undefined,
+                salary: pharmacist.salary ? Number(pharmacist.salary) : undefined,
+                dateOfBirth: pharmacist.dob ? new Date(pharmacist.dob).toISOString() : undefined,
+                joiningDate: pharmacist.joiningDate ? new Date(pharmacist.joiningDate).toISOString() : undefined
+            };
 
-        console.log("Created Pharmacist Data:", pharmacist);
-        setIsSaving(false);
-        setShowSuccess(true);
+            const response = await adminUserService.createUser("Pharmacist", pharmacistData);
 
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate("/admin/pharmacists"); // Redirect to pharmacists list
-        }, 2000);
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Pharmacist created successfully!");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate("/admin/pharmacists");
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to create pharmacist");
+                setIsSaving(false);
+            }
+        } catch (error) {
+            console.error("Error creating pharmacist:", error);
+            toast.error(error.message || "Error creating pharmacist");
+            setIsSaving(false);
+        }
     };
 
     const sections = [
@@ -267,6 +330,7 @@ function Add_Pharmacists() {
                                                 type="tel"
                                                 value={pharmacist.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Emergency Contact"
@@ -274,6 +338,7 @@ function Add_Pharmacists() {
                                                 type="tel"
                                                 value={pharmacist.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Date of Birth"
@@ -500,26 +565,48 @@ function Add_Pharmacists() {
                                                 borderColor: "var(--color-text)"
                                             }}>
                                                 <div
-                                                    className="w-20 h-20 rounded-full flex items-center justify-center"
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden relative"
                                                     style={{
                                                         backgroundColor: "var(--color-icon-5-light)",
                                                         border: "2px dashed var(--color-icon-5)",
                                                         color: "var(--color-icon-5)"
                                                     }}
                                                 >
-                                                    <User size={32} />
+                                                    {pharmacist.profilePicture ? (
+                                                        <img
+                                                            src={pharmacist.profilePicture}
+                                                            alt="Profile"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <User size={32} />
+                                                    )}
+                                                    {isUploading && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
+                                                    <input
+                                                        type="file"
+                                                        id="profile-upload-pharmacist"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                    />
                                                     <button
                                                         type="button"
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105"
+                                                        onClick={() => document.getElementById('profile-upload-pharmacist').click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50"
                                                         style={{
                                                             backgroundColor: "var(--color-btn-b)",
                                                             color: "var(--color-light)"
                                                         }}
                                                     >
                                                         <Upload size={16} />
-                                                        Upload New Photo
+                                                        {isUploading ? "Uploading..." : "Upload New Photo"}
                                                     </button>
                                                     <p className="text-sm mt-2" style={{ color: "var(--color-text)" }}>
                                                         JPG, PNG or GIF, max 2MB
@@ -581,6 +668,40 @@ function Add_Pharmacists() {
                     </div>
                 </div>
             </div>
+
+            {/* Language Input Modal */}
+            <InputDialogModal
+                isOpen={languageModal}
+                onClose={() => setLanguageModal(false)}
+                onConfirm={handleLanguageConfirm}
+                title="Add Language"
+                label="Language"
+                placeholder="e.g., English, Spanish, French"
+                confirmText="Add Language"
+                validate={(value) => {
+                    if (pharmacist.languages.includes(value)) {
+                        return "This language is already added";
+                    }
+                    return null;
+                }}
+            />
+
+            {/* Certification Input Modal */}
+            <InputDialogModal
+                isOpen={certificationModal}
+                onClose={() => setCertificationModal(false)}
+                onConfirm={handleCertificationConfirm}
+                title="Add Certification"
+                label="Certification"
+                placeholder="e.g., BLS Certified, ACLS Certified"
+                confirmText="Add Certification"
+                validate={(value) => {
+                    if (pharmacist.certifications.includes(value)) {
+                        return "This certification is already added";
+                    }
+                    return null;
+                }}
+            />
         </div>
     );
 }

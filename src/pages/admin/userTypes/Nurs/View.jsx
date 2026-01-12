@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import adminUserService from '../../../../services/adminUserService';
 import {
     Mail, Phone, Calendar, User, Home,
     ReceiptText, MapPin, Stethoscope, FileBadge,
@@ -11,35 +13,93 @@ import DetailsCard from '../../../../components/card/details/DetailsCard';
 import Breadcrumb from '../../../../components/breadcrumb/Breadcrumb';
 
 function View_Nurs() {
-    const { id } = useParams();
+    const { nurseId } = useParams();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
+    const [nurse, setNurse] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Enhanced nurse data
-    const nurse = {
-        personalInfo: {
-            name: "Sarah Johnson, RN",
-            initials: "SJ",
-            email: "sarah.j@hospital.com",
-            phone: "+1 (555) 123-4567",
-            dob: "15 May, 1990",
-            gender: "Female",
-            address: "456 Health Ave, Medical City, New York 10001",
-            emergencyContact: "+1 (555) 987-6543",
-            languages: ["English", "Spanish"]
-        },
-        professionalInfo: {
-            specialty: "Emergency Nursing",
-            unit: "Emergency Department",
-            licenseNumber: "RN-NY-45678",
-            joiningDate: "10 March, 2015",
-            experience: "8 Years",
-            qualifications: "BSN, RN License",
-            status: "Active",
-            hourlyRate: "35,000",
-            shiftAvailability: "Rotating shifts, including nights",
-            certifications: ["BLS Certified", "ACLS Certified", "PALS Certified"]
-        },
-        notes: "Sarah Johnson, RN (License: RN-NY-45678) is an experienced Emergency Nurse with 8 years in high-pressure environments. She excels in triage and patient stabilization, contributing significantly to the Emergency Department since joining on 10/03/2015."
+    const fetchNurseDetails = useCallback(async () => {
+        setIsLoading(true);
+        console.log("Fetching nurse details for ID:", nurseId);
+        try {
+            const response = await adminUserService.getUserById("Nurse", nurseId);
+            console.log("Nurse API Response:", response);
+            if (response.success) {
+                setNurse(response.data);
+            } else {
+                console.error("API success false:", response.message);
+                toast.error(response.message || "Failed to fetch nurse details");
+            }
+        } catch (error) {
+            console.error("Error fetching nurse catch block:", error);
+            toast.error(error.message || "Error fetching nurse details");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [nurseId]);
+
+    useEffect(() => {
+        fetchNurseDetails();
+    }, [fetchNurseDetails]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
+
+    if (!nurse) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
+                <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--color-text-dark)" }}>Nurse Not Found</h2>
+                <button
+                    onClick={() => navigate('/admin/nursing')}
+                    className="flex items-center gap-2 px-6 py-2 rounded-xl text-white font-medium transition-all"
+                    style={{ backgroundColor: "var(--color-btn-b)" }}
+                >
+                    <ArrowLeft size={20} />
+                    Back to Nurses
+                </button>
+            </div>
+        );
+    }
+
+    // Format dates for display
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "N/A";
+        try {
+            return new Date(dateStr).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount) return "0";
+        try {
+            return new Intl.NumberFormat('en-IN').format(amount);
+        } catch (e) {
+            return amount;
+        }
+    };
+
+    // Get Initials
+    const getInitials = (name) => {
+        if (!name) return "??";
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .substring(0, 2);
     };
 
     return (
@@ -47,8 +107,8 @@ function View_Nurs() {
             <Breadcrumb
                 items={[
                     { label: "Dashboard", url: "/admin/dashboard" },
-                    { label: "Nurses", url: "/admin/nurses" },
-                    { label: "Sarah Johnson" }
+                    { label: "Nurses", url: "/admin/nursing" },
+                    { label: nurse.name }
                 ]}
             />
             <div className="min-h-screen p-4 md:p-6 space-y-6" style={{ backgroundColor: "var(--color-bg-primary)" }}>
@@ -69,15 +129,24 @@ function View_Nurs() {
                                 className="w-32 h-32 rounded-full flex items-center justify-center mb-4 relative"
                                 style={{
                                     backgroundColor: "var(--color-bg-card-b)",
-                                    border: "4px solid var(--color-btn-b)"
+                                    border: "4px solid var(--color-btn-b)",
+                                    overflow: "hidden"
                                 }}
                             >
-                                <span
-                                    className="text-5xl font-bold"
-                                    style={{ color: "var(--color-btn-dark-b)" }}
-                                >
-                                    {nurse.personalInfo.initials}
-                                </span>
+                                {nurse.profilePicture ? (
+                                    <img
+                                        src={nurse.profilePicture}
+                                        alt={nurse.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <span
+                                        className="text-5xl font-bold"
+                                        style={{ color: "var(--color-btn-dark-b)" }}
+                                    >
+                                        {getInitials(nurse.name)}
+                                    </span>
+                                )}
                                 <div
                                     className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full flex items-center justify-center"
                                     style={{ backgroundColor: "var(--color-btn-b)" }}
@@ -90,7 +159,7 @@ function View_Nurs() {
                                 className="text-2xl font-bold text-center mb-2"
                                 style={{ color: "var(--color-text-dark)" }}
                             >
-                                {nurse.personalInfo.name}
+                                {nurse.name}
                             </h1>
 
                             <div
@@ -100,7 +169,7 @@ function View_Nurs() {
                                     color: "var(--color-btn-dark-b)"
                                 }}
                             >
-                                {nurse.professionalInfo.status}
+                                {nurse.status || "Active"}
                             </div>
 
                             <div className="flex flex-wrap gap-2 justify-center">
@@ -112,7 +181,7 @@ function View_Nurs() {
                                     }}
                                 >
                                     <Stethoscope size={12} className="inline mr-1" />
-                                    {nurse.professionalInfo.specialty}
+                                    {nurse.specialty}
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded-full text-xs font-medium"
@@ -122,7 +191,7 @@ function View_Nurs() {
                                     }}
                                 >
                                     <Clock size={12} className="inline mr-1" />
-                                    {nurse.professionalInfo.experience}
+                                    {nurse.experience} {nurse.experience && "Years"}
                                 </span>
                             </div>
                         </div>
@@ -134,7 +203,7 @@ function View_Nurs() {
                                     Hourly Rate
                                 </span>
                                 <span className="text-lg font-bold" style={{ color: "var(--color-text-dark)" }}>
-                                    {nurse.professionalInfo.hourlyRate}
+                                    ₹{formatCurrency(nurse.hourlyRate)}
                                 </span>
                             </div>
 
@@ -143,7 +212,7 @@ function View_Nurs() {
                                     Shift Availability
                                 </span>
                                 <span className="text-sm font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                    {nurse.professionalInfo.shiftAvailability}
+                                    {nurse.shiftAvailability || "Not Specified"}
                                 </span>
                             </div>
                         </div>
@@ -204,64 +273,66 @@ function View_Nurs() {
                                         <DetailsCard
                                             icon={Mail}
                                             label="Email Address"
-                                            value={nurse.personalInfo.email}
+                                            value={nurse.email}
                                             iconColor="#3B82F6"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Phone Number"
-                                            value={nurse.personalInfo.phone}
+                                            value={nurse.phone}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Date of Birth"
-                                            value={nurse.personalInfo.dob}
+                                            value={formatDate(nurse.dob)}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={User}
                                             label="Gender"
-                                            value={nurse.personalInfo.gender}
+                                            value={nurse.gender}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={MapPin}
                                             label="Address"
-                                            value={nurse.personalInfo.address}
+                                            value={nurse.address}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Phone}
                                             label="Emergency Contact"
-                                            value={nurse.personalInfo.emergencyContact}
+                                            value={nurse.emergencyContact}
                                             iconColor="#EF4444"
                                         />
                                     </div>
 
                                     {/* Languages */}
-                                    <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
-                                        <h3
-                                            className="text-lg font-semibold mb-3"
-                                            style={{ color: "var(--color-text-dark)" }}
-                                        >
-                                            Languages Spoken
-                                        </h3>
-                                        <div className="flex flex-wrap gap-2">
-                                            {nurse.personalInfo.languages.map((lang, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="px-4 py-2 rounded-lg font-medium"
-                                                    style={{
-                                                        backgroundColor: "var(--color-bg-card-b)",
-                                                        color: "var(--color-text-dark)"
-                                                    }}
-                                                >
-                                                    {lang}
-                                                </span>
-                                            ))}
+                                    {nurse.languages && nurse.languages.length > 0 && (
+                                        <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
+                                            <h3
+                                                className="text-lg font-semibold mb-3"
+                                                style={{ color: "var(--color-text-dark)" }}
+                                            >
+                                                Languages Spoken
+                                            </h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {nurse.languages.map((lang, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className="px-4 py-2 rounded-lg font-medium"
+                                                        style={{
+                                                            backgroundColor: "var(--color-bg-card-b)",
+                                                            color: "var(--color-text-dark)"
+                                                        }}
+                                                    >
+                                                        {lang}
+                                                    </span>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             )}
 
@@ -278,65 +349,65 @@ function View_Nurs() {
                                         <DetailsCard
                                             icon={Stethoscope}
                                             label="Nursing Specialty"
-                                            value={nurse.professionalInfo.specialty}
+                                            value={nurse.specialty}
                                             iconColor="#3B82F6"
                                             highlight
                                         />
                                         <DetailsCard
                                             icon={BriefcaseMedical}
                                             label="Assigned Unit/Ward"
-                                            value={nurse.professionalInfo.unit}
+                                            value={nurse.unit}
                                             iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={FileBadge}
                                             label="Nursing License Number"
-                                            value={nurse.professionalInfo.licenseNumber}
+                                            value={nurse.licenseNumber}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Joining Date"
-                                            value={nurse.professionalInfo.joiningDate}
+                                            value={formatDate(nurse.joiningDate)}
                                             iconColor="#F59E0B"
                                         />
                                         <DetailsCard
                                             icon={Award}
                                             label="Experience"
-                                            value={nurse.professionalInfo.experience}
+                                            value={`${nurse.experience} Years`}
                                             iconColor="#EC4899"
                                         />
                                         <DetailsCard
                                             icon={GraduationCap}
                                             label="Qualifications"
-                                            value={nurse.professionalInfo.qualifications}
+                                            value={nurse.qualifications}
                                             iconColor="#6366F1"
                                         />
                                     </div>
 
                                     {/* Certifications */}
-                                    <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
-                                        <h3
-                                            className="text-lg font-semibold mb-3"
-                                            style={{ color: "var(--color-text-dark)" }}
-                                        >
-                                            Certifications
-                                        </h3>
-                                        <div className="space-y-2">
-                                            {nurse.professionalInfo.certifications.map((cert, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex items-center gap-3 p-3 rounded-lg"
-                                                    style={{ backgroundColor: "var(--color-bg-card-b)" }}
-                                                >
-                                                    <Award size={16} style={{ color: "var(--color-btn-b)" }} />
-                                                    <span style={{ color: "var(--color-text-dark)" }}>{cert}</span>
-                                                </div>
-                                            ))}
+                                    {nurse.certifications && nurse.certifications.length > 0 && (
+                                        <div className="pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
+                                            <h3
+                                                className="text-lg font-semibold mb-3"
+                                                style={{ color: "var(--color-text-dark)" }}
+                                            >
+                                                Certifications
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {nurse.certifications.map((cert, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="flex items-center gap-3 p-3 rounded-lg"
+                                                        style={{ backgroundColor: "var(--color-bg-card-b)" }}
+                                                    >
+                                                        <Award size={16} style={{ color: "var(--color-btn-b)" }} />
+                                                        <span style={{ color: "var(--color-text-dark)" }}>{cert}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-
-
+                                    )}
                                 </div>
                             )}
 
@@ -345,39 +416,41 @@ function View_Nurs() {
                 </div>
 
                 {/* Notes & Expertise */}
-                <div className="pt-6" style={{ borderColor: "var(--color-border)" }}>
-                    <div className="flex items-center gap-3 mb-4">
+                {nurse.bio && (
+                    <div className="pt-6" style={{ borderColor: "var(--color-border)" }}>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div
+                                className="w-10 h-10 flex items-center justify-center rounded-lg"
+                                style={{
+                                    backgroundColor: "rgba(74, 124, 89, 0.15)",
+                                }}
+                            >
+                                <FileText size={20} style={{ color: "var(--color-btn-b)" }} />
+                            </div>
+                            <h3
+                                className="text-xl font-semibold"
+                                style={{ color: "var(--color-text-dark)" }}
+                            >
+                                Notes & Expertise
+                            </h3>
+                        </div>
+
                         <div
-                            className="w-10 h-10 flex items-center justify-center rounded-lg"
+                            className="p-5 rounded-xl"
                             style={{
-                                backgroundColor: "rgba(74, 124, 89, 0.15)",
+                                backgroundColor: "var(--color-bg-card-b)",
+                                borderLeft: "4px solid var(--color-btn-b)"
                             }}
                         >
-                            <FileText size={20} style={{ color: "var(--color-btn-b)" }} />
+                            <p
+                                className="leading-relaxed"
+                                style={{ color: "var(--color-text-dark-b)" }}
+                            >
+                                {nurse.bio}
+                            </p>
                         </div>
-                        <h3
-                            className="text-xl font-semibold"
-                            style={{ color: "var(--color-text-dark)" }}
-                        >
-                            Notes & Expertise
-                        </h3>
                     </div>
-
-                    <div
-                        className="p-5 rounded-xl"
-                        style={{
-                            backgroundColor: "var(--color-bg-card-b)",
-                            borderLeft: "4px solid var(--color-btn-b)"
-                        }}
-                    >
-                        <p
-                            className="leading-relaxed"
-                            style={{ color: "var(--color-text-dark-b)" }}
-                        >
-                            {nurse.notes}
-                        </p>
-                    </div>
-                </div>
+                )}
             </div>
         </>
     );

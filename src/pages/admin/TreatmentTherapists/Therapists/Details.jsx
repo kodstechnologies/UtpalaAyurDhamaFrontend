@@ -1,36 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import HeadingCard from '../../../../components/card/HeadingCard';
 import TableComponent from '../../../../components/table/TableComponent';
 import CardBorder from '../../../../components/card/CardBorder';
 import Search from '../../../../components/search/Search';
 import ExportDataButton from '../../../../components/buttons/ExportDataButton';
 import RedirectButton from '../../../../components/buttons/RedirectButton';
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
-
-// ===== Placeholder API calls =====
-const deleteTherapyAPI = async (id) => {
-    console.log("Deleted therapy:", id);
-};
+import therapyService from '../../../../services/therapyService';
+import { Box, CircularProgress } from '@mui/material';
 
 function TherapyManagement() {
-    const navigate = useNavigate()
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            therapyName: "Abhyanga Massage",
-            cost: "1500",
-            description: "Full-body warm oil massage therapy",
-        },
-        {
-            _id: "2",
-            therapyName: "Shirodhara",
-            cost: "2000",
-            description: "Warm oil therapy for stress relief",
-        },
-    ]);
-
+    const navigate = useNavigate();
+    const [rows, setRows] = useState([]);
     const [searchText, setSearchText] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch therapies from API
+    useEffect(() => {
+        fetchTherapies();
+    }, []);
+
+    const fetchTherapies = async () => {
+        try {
+            setIsLoading(true);
+            const response = await therapyService.getAllTherapies({ page: 1, limit: 100 });
+            if (response.success && response.data) {
+                setRows(response.data);
+            } else {
+                toast.error(response.message || "Failed to fetch therapies");
+            }
+        } catch (error) {
+            console.error("Error fetching therapies:", error);
+            toast.error(error.message || "Failed to fetch therapies");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this therapy?")) {
+            try {
+                const response = await therapyService.deleteTherapy(id);
+                if (response.success) {
+                    toast.success("Therapy deleted successfully");
+                    setRows((prev) => prev.filter((r) => r._id !== id));
+                } else {
+                    toast.error(response.message || "Failed to delete therapy");
+                }
+            } catch (error) {
+                console.error("Error deleting therapy:", error);
+                toast.error(error.message || "Failed to delete therapy");
+            }
+        }
+    };
 
     const filteredRows = rows.filter((row) =>
         Object.values(row)
@@ -41,17 +65,15 @@ function TherapyManagement() {
 
     const columns = [
         { field: "therapyName", header: "Therapy Name" },
-        { field: "cost", header: "Cost" },
+        { 
+            field: "cost", 
+            header: "Cost",
+            render: (row) => `₹${row.cost || 0}`
+        },
         { field: "description", header: "Description" },
     ];
 
     const actions = [
-        // {
-        //     label: "View",
-        //     icon: <Eye />,
-        //     color: "var(--color-icon-3)",
-        //     onClick: (row) => navigate(`/admin/treatment-therapy/view/${row._id}`)
-        // },
         {
             label: "Edit",
             icon: <Edit />,
@@ -62,14 +84,17 @@ function TherapyManagement() {
             label: "Delete",
             icon: <Trash2 />,
             color: "var(--color-icon-1)",
-            onClick: (row) => {
-                if (window.confirm("Are you sure you want to delete this therapy?")) {
-                    deleteTherapyAPI(row._id);
-                    setRows((prev) => prev.filter((r) => r._id !== row._id));
-                }
-            },
+            onClick: (row) => handleDelete(row._id),
         },
     ];
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <div className="space-y-6 p-6">

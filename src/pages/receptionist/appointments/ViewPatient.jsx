@@ -1,38 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import HeadingCard from "../../../components/card/HeadingCard";
-import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, Grid } from "@mui/material";
+import { Box, TextField, CircularProgress, Grid, Typography } from "@mui/material";
 import { toast } from "react-toastify";
 
 function ViewPatientPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const patientId = searchParams.get("patientId");
     
-    const [editingPatient, setEditingPatient] = useState({
-        patientId: searchParams.get("patientId") || "",
-        name: searchParams.get("patientName") || "",
-        contact: searchParams.get("contact") || "",
-        email: searchParams.get("email") || "",
-        dateOfBirth: searchParams.get("dateOfBirth") || "",
-        gender: searchParams.get("gender") || "",
-        age: searchParams.get("age") || "",
-        address: searchParams.get("address") || "",
-        preferredDate: searchParams.get("preferredDate") || "",
-        preferredTime: searchParams.get("preferredTime") || "",
-        disease: searchParams.get("disease") || "",
-    });
+    const [patient, setPatient] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setEditingPatient((prev) => ({ ...prev, [name]: value }));
-    };
+    const fetchPatientDetails = useCallback(async () => {
+        if (!patientId) {
+            toast.error("Patient ID is required");
+            navigate("/receptionist/appointments");
+            return;
+        }
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        // Implement API call here
-        toast.success(`Patient ${editingPatient.name} details updated successfully!`);
-        navigate(-1);
-    };
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl(`reception-patients/${patientId}`),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                setPatient(response.data.data);
+            } else {
+                toast.error(response.data.message || "Failed to fetch patient details");
+                navigate("/receptionist/appointments");
+            }
+        } catch (error) {
+            console.error("Error fetching patient details:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch patient details");
+            navigate("/receptionist/appointments");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [patientId, navigate]);
+
+    useEffect(() => {
+        fetchPatientDetails();
+    }, [fetchPatientDetails]);
 
     return (
         <div>
@@ -46,145 +59,169 @@ function ViewPatientPage() {
                 ]}
             />
 
-            <Box
-                sx={{
-                    backgroundColor: "var(--color-bg-a)",
-                    borderRadius: "12px",
-                    p: 3,
-                    mt: 2,
-                    maxWidth: "800px",
-                    mx: "auto",
-                }}
-            >
-                <form onSubmit={handleSubmit}>
-                    <Grid container spacing={2} sx={{ mb: 3 }}>
+            {isLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                    <CircularProgress />
+                </Box>
+            ) : patient ? (
+                <Box
+                    sx={{
+                        backgroundColor: "var(--color-bg-a)",
+                        borderRadius: "12px",
+                        p: 3,
+                        mt: 2,
+                        maxWidth: "800px",
+                        mx: "auto",
+                    }}
+                >
+                    <Grid container spacing={2}>
                         <Grid item xs={12} md={6}>
                             <TextField
-                                label="Patient Name *"
-                                name="name"
+                                label="Patient Name"
                                 fullWidth
-                                required
-                                value={editingPatient.name}
-                                onChange={handleChange}
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                label="Contact Number *"
-                                name="contact"
-                                fullWidth
-                                required
-                                value={editingPatient.contact}
-                                onChange={handleChange}
+                                value={patient.patientName || ""}
+                                InputProps={{ readOnly: true }}
+                                variant="outlined"
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>
                             <TextField
-                                label="Email *"
-                                name="email"
-                                type="email"
+                                label="Contact Number"
                                 fullWidth
-                                required
-                                value={editingPatient.email}
-                                onChange={handleChange}
+                                value={patient.contactNumber || ""}
+                                InputProps={{ readOnly: true }}
+                                variant="outlined"
                             />
                         </Grid>
+                        {patient.alternativeNumber && (
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    label="Alternative Number"
+                                    fullWidth
+                                    value={patient.alternativeNumber || ""}
+                                    InputProps={{ readOnly: true }}
+                                    variant="outlined"
+                                />
+                            </Grid>
+                        )}
                         <Grid item xs={12} md={6}>
                             <TextField
-                                label="Date of Birth *"
-                                name="dateOfBirth"
-                                type="date"
+                                label="Email"
                                 fullWidth
-                                required
-                                value={editingPatient.dateOfBirth}
-                                onChange={handleChange}
-                                InputLabelProps={{ shrink: true }}
+                                value={patient.email || ""}
+                                InputProps={{ readOnly: true }}
+                                variant="outlined"
                             />
                         </Grid>
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth required>
-                                <InputLabel>Gender *</InputLabel>
-                                <Select
-                                    name="gender"
-                                    value={editingPatient.gender}
-                                    onChange={handleChange}
-                                    label="Gender *"
-                                >
-                                    <MenuItem value="">Select Gender</MenuItem>
-                                    <MenuItem value="Male">Male</MenuItem>
-                                    <MenuItem value="Female">Female</MenuItem>
-                                    <MenuItem value="Other">Other</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                label="Age *"
-                                name="age"
-                                type="number"
-                                fullWidth
-                                required
-                                value={editingPatient.age}
-                                onChange={handleChange}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                label="Address *"
-                                name="address"
-                                fullWidth
-                                required
-                                value={editingPatient.address}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                        {patient.gender && (
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    label="Gender"
+                                    fullWidth
+                                    value={patient.gender || ""}
+                                    InputProps={{ readOnly: true }}
+                                    variant="outlined"
+                                />
+                            </Grid>
+                        )}
+                        {patient.age && (
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    label="Age"
+                                    fullWidth
+                                    type="number"
+                                    value={patient.age || ""}
+                                    InputProps={{ readOnly: true }}
+                                    variant="outlined"
+                                />
+                            </Grid>
+                        )}
+                        {patient.address && (
+                            <Grid item xs={12}>
+                                <TextField
+                                    label="Address"
+                                    fullWidth
+                                    multiline
+                                    rows={2}
+                                    value={patient.address || ""}
+                                    InputProps={{ readOnly: true }}
+                                    variant="outlined"
+                                />
+                            </Grid>
+                        )}
                         <Grid item xs={12} md={6}>
                             <TextField
-                                label="Preferred Date *"
-                                name="preferredDate"
-                                type="date"
+                                label="UHID"
                                 fullWidth
-                                required
-                                value={editingPatient.preferredDate}
-                                onChange={handleChange}
-                                InputLabelProps={{ shrink: true }}
+                                value={patient.patientProfile?.user?.uhid || "Not assigned"}
+                                InputProps={{ readOnly: true }}
+                                variant="outlined"
                             />
                         </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                label="Preferred Time *"
-                                name="preferredTime"
-                                type="time"
-                                fullWidth
-                                required
-                                value={editingPatient.preferredTime}
-                                onChange={handleChange}
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                label="Complaints / Disease"
-                                name="disease"
-                                fullWidth
-                                multiline
-                                rows={3}
-                                value={editingPatient.disease}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                        {patient.patientProfile?.patientId && (
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    label="Patient ID"
+                                    fullWidth
+                                    value={patient.patientProfile.patientId || ""}
+                                    InputProps={{ readOnly: true }}
+                                    variant="outlined"
+                                />
+                            </Grid>
+                        )}
+                        {patient.status && (
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    label="Status"
+                                    fullWidth
+                                    value={patient.status || ""}
+                                    InputProps={{ readOnly: true }}
+                                    variant="outlined"
+                                />
+                            </Grid>
+                        )}
+                        {patient.createdAt && (
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    label="Registered Date"
+                                    fullWidth
+                                    value={new Date(patient.createdAt).toLocaleDateString("en-GB", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric"
+                                    })}
+                                    InputProps={{ readOnly: true }}
+                                    variant="outlined"
+                                />
+                            </Grid>
+                        )}
                     </Grid>
 
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button variant="outlined" onClick={() => navigate(-1)}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" variant="contained" sx={{ backgroundColor: "#28a745" }}>
-                            Save Changes
-                        </Button>
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 3 }}>
+                        <Box 
+                            component="button"
+                            onClick={() => navigate(-1)}
+                            sx={{
+                                padding: "10px 20px",
+                                backgroundColor: "#6c757d",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                "&:hover": {
+                                    backgroundColor: "#5a6268"
+                                }
+                            }}
+                        >
+                            Back
+                        </Box>
                     </Box>
-                </form>
-            </Box>
+                </Box>
+            ) : (
+                <Box sx={{ textAlign: "center", padding: "40px", color: "#666" }}>
+                    Patient not found
+                </Box>
+            )}
         </div>
     );
 }

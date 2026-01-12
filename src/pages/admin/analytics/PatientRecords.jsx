@@ -1,48 +1,85 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
-// Form fields (only used for View modal)
-const fields = [
-    { name: 'invoice', label: 'Invoice #', type: 'text', required: true },
-    { name: 'patientName', label: 'Patient Name', type: 'text', required: true },
-    { name: 'doctor', label: 'Doctor', type: 'text', required: true },
-    { name: 'amount', label: 'Final Amount (Incl. GST)', type: 'number', required: true },
-    { name: 'date', label: 'Date', type: 'date', required: true },
-];
+// Helper function to format date
+const formatDate = (date) => {
+    if (!date) return "N/A";
+    const d = new Date(date);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
 
 function PatientRecords() {
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            invoice: "INV-001",
-            patientName: "Amit Sharma",
-            doctor: "Dr. Rakesh",
-            amount: 2500,
-            date: "2025-02-10",
-        },
-        {
-            _id: "2",
-            invoice: "INV-002",
-            patientName: "Neha Gupta",
-            doctor: "Dr. Priya",
-            amount: 3200,
-            date: "2025-02-11",
-        },
-        {
-            _id: "3",
-            invoice: "INV-003",
-            patientName: "Rohan Das",
-            doctor: "Dr. Mehta",
-            amount: 1850,
-            date: "2025-02-12",
-        },
-    ]);
-
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
+
+    const fetchPatientRecords = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // Fetch all invoices (billing records)
+            const response = await fetch(getApiUrl("invoices?limit=1000"), {
+                method: "GET",
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch patient records");
+            }
+
+            const data = await response.json();
+            if (data.success && data.data) {
+                // Transform the data to match table structure
+                const transformedRecords = data.data.map((invoice) => ({
+                    _id: invoice._id,
+                    invoice: invoice.invoiceNumber || "N/A",
+                    patientName: invoice.patient?.user?.name || invoice.patient?.name || "N/A",
+                    doctor: invoice.doctor?.user?.name 
+                        ? `Dr. ${invoice.doctor.user.name}` 
+                        : invoice.doctor?.name 
+                        ? `Dr. ${invoice.doctor.name}` 
+                        : "N/A",
+                    amount: invoice.totalPayable || 0,
+                    date: formatDate(invoice.createdAt || invoice.date),
+                    dateRaw: invoice.createdAt || invoice.date, // For sorting
+                }));
+
+                // Sort by date (newest first)
+                transformedRecords.sort((a, b) => {
+                    const dateA = new Date(a.dateRaw || 0);
+                    const dateB = new Date(b.dateRaw || 0);
+                    return dateB - dateA;
+                });
+
+                setRows(transformedRecords);
+            } else {
+                toast.error(data.message || "Failed to fetch patient records");
+            }
+        } catch (error) {
+            console.error("Error fetching patient records:", error);
+            toast.error(error.message || "Failed to fetch patient records");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchPatientRecords();
+    }, [fetchPatientRecords]);
+
+    // Form fields (only used for View modal)
+    const fields = [
+        { name: 'invoice', label: 'Invoice #', type: 'text', required: true },
+        { name: 'patientName', label: 'Patient Name', type: 'text', required: true },
+        { name: 'doctor', label: 'Doctor', type: 'text', required: true },
+        { name: 'amount', label: 'Final Amount (Incl. GST)', type: 'number', required: true },
+        { name: 'date', label: 'Date', type: 'date', required: true },
+    ];
 
     const columns = [
         { field: "invoice", header: "Invoice #" },
@@ -101,18 +138,24 @@ function PatientRecords() {
                 </div>
             </CardBorder>
 
-            <TableComponent
-                title="Patient Billing Records"
-                columns={columns}
-                rows={filteredRows}
-                formFields={fields} // For View modal only
-
-                showView={true}           // View details ON
-                showEdit={false}          // Edit OFF
-                showDelete={false}        // Delete OFF
-                showAddButton={false}     // Add New OFF
-                showExportButton={true}   // Export Excel ON (but handled above)
-            />
+            {isLoading ? (
+                <div className="flex justify-center items-center p-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
+                        style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+                </div>
+            ) : (
+                <TableComponent
+                    title="Patient Billing Records"
+                    columns={columns}
+                    rows={filteredRows}
+                    formFields={fields}
+                    showView={true}
+                    showEdit={false}
+                    showDelete={false}
+                    showAddButton={false}
+                    showExportButton={true}
+                />
+            )}
         </div>
     );
 }

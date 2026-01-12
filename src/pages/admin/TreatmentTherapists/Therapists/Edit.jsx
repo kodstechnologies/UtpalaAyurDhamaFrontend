@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
     BookOpen,
     ReceiptIndianRupee,
@@ -9,75 +10,115 @@ import {
     Save,
     FileText
 } from "lucide-react";
-
+import { Box, CircularProgress } from "@mui/material";
 import CardBorder from "../../../../components/card/CardBorder";
 import CancelButton from "../../../../components/buttons/CancelButton";
 import SubmitButton from "../../../../components/buttons/SubmitButton";
+import therapyService from "../../../../services/therapyService";
 
 function Edit_TherapyManagement() {
     const navigate = useNavigate();
-    const { id } = useParams(); // Assuming route is /edit/:id
+    const { therapyId } = useParams();
 
     const [therapyName, setTherapyName] = useState("");
     const [cost, setCost] = useState("");
     const [description, setDescription] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [showSuccess, setShowSuccess] = useState(false);
     const [errors, setErrors] = useState({});
 
-    // Simulate fetching existing data based on id with dummy data pre-filled
+    // Fetch existing therapy data
     useEffect(() => {
         const fetchData = async () => {
-            // Simulated API call
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Dummy data for demonstration — replace with real API
-            const dummyData = {
-                therapyName: "Shirodhara", // Pre-filled therapy name
-                cost: "1200", // Pre-filled with updated cost value
-                description: "Shirodhara is an Ayurvedic therapy where warm oil is poured in a continuous stream over the forehead to promote relaxation and balance.", // Pre-filled updated description
-            };
-            setTherapyName(dummyData.therapyName);
-            setCost(dummyData.cost);
-            setDescription(dummyData.description);
+            if (!therapyId) {
+                toast.error("Therapy ID is missing");
+                navigate("/admin/treatment-therapy");
+                return;
+            }
+
+            try {
+                setIsLoading(true);
+                const response = await therapyService.getTherapyById(therapyId);
+                
+                if (response.success && response.data) {
+                    const therapy = response.data;
+                    setTherapyName(therapy.therapyName || "");
+                    setCost(therapy.cost?.toString() || "");
+                    setDescription(therapy.description || "");
+                } else {
+                    toast.error(response.message || "Failed to fetch therapy details");
+                    navigate("/admin/treatment-therapy");
+                }
+            } catch (error) {
+                console.error("Error fetching therapy:", error);
+                toast.error(error.message || "Failed to fetch therapy details");
+                navigate("/admin/treatment-therapy");
+            } finally {
+                setIsLoading(false);
+            }
         };
-        if (id) {
-            fetchData();
-        }
-    }, [id]);
+
+        fetchData();
+    }, [therapyId, navigate]);
 
     const validateForm = () => {
         const newErrors = {};
 
-        if (!therapyName) newErrors.therapyName = "Therapy name is required";
-        if (!cost || parseFloat(cost) <= 0) newErrors.cost = "Valid cost is required";
+        if (!therapyName || therapyName.trim() === "") {
+            newErrors.therapyName = "Therapy name is required";
+        }
+        if (!cost || parseFloat(cost) <= 0) {
+            newErrors.cost = "Valid cost is required";
+        }
+        if (!description || description.trim() === "") {
+            newErrors.description = "Description is required";
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         if (!validateForm()) return;
 
         setIsSubmitting(true);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulated API
+        try {
+            const payload = {
+                therapyName: therapyName.trim(),
+                cost: parseFloat(cost),
+                description: description.trim(),
+            };
 
-        const payload = {
-            id, // Include ID for update
-            therapyName,
-            cost: parseFloat(cost),
-            description,
-        };
-
-        console.log("Updated:", payload);
-
-        setIsSubmitting(false);
-        setShowSuccess(true);
-
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate("/admin/treatment-therapy");
-        }, 2000);
+            const response = await therapyService.updateTherapy(therapyId, payload);
+            
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Therapy updated successfully");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate("/admin/treatment-therapy");
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to update therapy");
+            }
+        } catch (error) {
+            console.error("Error updating therapy:", error);
+            const errorMessage = error.message || error.response?.data?.message || "Failed to update therapy";
+            toast.error(errorMessage);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <CardBorder padding="2rem">
@@ -116,6 +157,7 @@ function Edit_TherapyManagement() {
             )}
 
             {/* Form Container */}
+            <form onSubmit={handleSubmit}>
             <div
                 className="rounded-2xl shadow-lg overflow-hidden border hover:shadow-[var(--shadow-medium)] transition-all duration-300"
                 style={{ backgroundColor: "var(--color-bg-card)", borderColor: "var(--color-text)" }}
@@ -192,7 +234,7 @@ function Edit_TherapyManagement() {
                         <label className="font-medium text-sm flex items-center gap-1 text-[var(--color-text-dark)]">
                             <div className="flex gap-2">
                                 <FileText size={18} className="text-[var(--color-icon-2)]" />
-                                Description
+                                Description <span className="text-[var(--color-icon-1-light)]">*</span>
                             </div>
                         </label>
 
@@ -210,6 +252,12 @@ function Edit_TherapyManagement() {
                                 style={{ color: "var(--color-text-dark)" }}
                             />
                         </div>
+                        {errors.description && (
+                            <p className="text-xs flex items-center gap-1 text-[var(--color-icon-1)]">
+                                <AlertCircle size={12} />
+                                {errors.description}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -245,6 +293,7 @@ function Edit_TherapyManagement() {
                     </p>
                 </div>
             </div>
+            </form>
         </CardBorder>
     );
 }

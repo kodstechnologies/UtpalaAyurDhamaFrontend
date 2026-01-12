@@ -1,5 +1,4 @@
 // NotificationDrawer.jsx - Separate Component File
-import * as React from 'react';
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -9,57 +8,66 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { useSelector } from 'react-redux'; // If using Redux for notifications; otherwise, pass as props
+import PaymentIcon from '@mui/icons-material/Payment';
+import CakeIcon from '@mui/icons-material/Cake';
+import { useNavigate } from 'react-router-dom';
+import PropTypes from 'prop-types';
 
-// Mock data - Replace with API/Redux fetch
-const mockNotifications = [
-    {
-        id: 1,
-        title: 'New Patient Admission',
-        description: 'John Doe has been admitted to Ward 5.',
-        time: '2 min ago',
-        unread: true,
-        type: 'admission',
-    },
-    {
-        id: 2,
-        title: 'Appointment Reminder',
-        description: 'Dr. Smith\'s consultation slot is upcoming.',
-        time: '1 hour ago',
-        unread: false,
-        type: 'appointment',
-    },
-    {
-        id: 3,
-        title: 'Inventory Low Stock',
-        description: 'Paracetamol stock is below threshold.',
-        time: '3 hours ago',
-        unread: true,
-        type: 'inventory',
-    },
-    {
-        id: 4,
-        title: 'System Update Available',
-        description: 'Update to version 2.1.3 is ready.',
-        time: 'Yesterday',
-        unread: false,
-        type: 'system',
-    },
-];
-
-function NotificationDrawer({ open, onClose }) {
-    // If using Redux, replace with: const unreadNotifications = useSelector(state => state.notifications.unreadCount);
-    const [unreadNotifications, setUnreadNotifications] = React.useState(2);
-    const notifications = mockNotifications.map((notif) => ({
-        ...notif,
-        unread: notif.unread && unreadNotifications > 0,
-    }));
+function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders = [] }) {
+    const navigate = useNavigate();
+    
+    // Format currency
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat("en-IN", {
+            style: "currency",
+            currency: "INR",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount || 0);
+    };
+    
+    // Format date
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) return "Today";
+        if (diffDays === 1) return "Yesterday";
+        if (diffDays < 7) return `${diffDays} days ago`;
+        return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    };
+    
+    // Combine and format notifications
+    const allNotifications = [
+        ...paymentReminders.map((reminder) => ({
+            id: `payment-${reminder.id}`,
+            type: 'payment',
+            title: `Payment Due: ${reminder.patientName}`,
+            description: `Invoice #${reminder.invoiceNumber} - Amount Due: ${formatCurrency(reminder.amountDue)}`,
+            time: formatDate(reminder.createdAt),
+            unread: true,
+            data: reminder,
+        })),
+        ...dobReminders.map((reminder) => ({
+            id: `dob-${reminder.id}`,
+            type: 'dob',
+            title: reminder.daysUntil === 0 ? `🎉 Birthday Today!` : `Upcoming Birthday`,
+            description: `${reminder.name} (${reminder.role}) - ${reminder.daysUntil === 0 ? 'Today!' : `in ${reminder.daysUntil} day${reminder.daysUntil > 1 ? 's' : ''}`}`,
+            time: formatDate(reminder.dateOfBirth),
+            unread: true,
+            data: reminder,
+        })),
+    ];
+    
+    const totalNotifications = allNotifications.length;
 
     const handleNotificationClick = (notification) => {
-        if (notification.unread) {
-            setUnreadNotifications((prev) => Math.max(0, prev - 1));
+        if (notification.type === 'payment' && notification.data?.invoiceId) {
+            navigate(`/receptionist/payments/invoice/${notification.data.invoiceId}`);
         }
-        console.log('Notification clicked:', notification);
         onClose(); // Close drawer after interaction
     };
 
@@ -83,14 +91,14 @@ function NotificationDrawer({ open, onClose }) {
         >
             <Box sx={{ p: 2, bgcolor: "var(--color-primary)", color: "var(--color-text-white)" }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Notifications ({unreadNotifications})
+                    Notifications ({totalNotifications})
                 </Typography>
             </Box>
 
             <Divider />
 
             <List sx={{ p: 0, height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-                {notifications.map((notification) => (
+                {allNotifications.map((notification) => (
                     <ListItem
                         key={notification.id}
                         button
@@ -104,18 +112,15 @@ function NotificationDrawer({ open, onClose }) {
                             transition: "background 0.25s ease",
                             '&:hover': { bgcolor: "rgba(205,152,125,0.22)" },
                             '&:last-child': { borderBottom: 'none' },
+                            cursor: notification.type === 'payment' ? 'pointer' : 'default',
                         }}
                     >
                         <ListItemAvatar sx={{ minWidth: 42 }}>
-                            <Box
-                                sx={{
-                                    width: 10,
-                                    height: 10,
-                                    borderRadius: '50%',
-                                    bgcolor: notification.unread ? "var(--color-primary)" : "var(--color-text-muted)",
-                                    mt: 0.5,
-                                }}
-                            />
+                            {notification.type === 'payment' ? (
+                                <PaymentIcon sx={{ color: "#f44336", fontSize: "1.5rem", mt: 0.5 }} />
+                            ) : (
+                                <CakeIcon sx={{ color: "#ff9800", fontSize: "1.5rem", mt: 0.5 }} />
+                            )}
                         </ListItemAvatar>
                         <ListItemText
                             primary={
@@ -143,7 +148,7 @@ function NotificationDrawer({ open, onClose }) {
                     </ListItem>
                 ))}
 
-                {notifications.length === 0 && (
+                {allNotifications.length === 0 && (
                     <ListItem sx={{ justifyContent: "center", py: 3 }}>
                         <ListItemText
                             primary="No notifications"
@@ -156,5 +161,12 @@ function NotificationDrawer({ open, onClose }) {
         </Drawer>
     );
 }
+
+NotificationDrawer.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    paymentReminders: PropTypes.array,
+    dobReminders: PropTypes.array,
+};
 
 export default NotificationDrawer;

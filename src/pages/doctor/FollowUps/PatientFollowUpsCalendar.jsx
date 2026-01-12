@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Stack, Button, Typography, Paper, Avatar, Chip } from "@mui/material";
+import { Box, Stack, Button, Typography, Paper, Avatar, Chip, CircularProgress } from "@mui/material";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -11,101 +11,12 @@ import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import ListIcon from "@mui/icons-material/List";
 import AddIcon from "@mui/icons-material/Add";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { toast } from "react-toastify";
 
 import HeadingCard from "../../../components/card/HeadingCard";
 import "../../../assets/css/fullcalendar.min.css";
-
-// Mock data for the specific patient
-const mockPatientData = {
-    "PAT-001": {
-        name: "Amit Kumar",
-        age: 32,
-        gender: "Male",
-        avatar: "AK",
-        followUps: [
-            {
-                id: "1",
-                title: "Review medication effectiveness",
-                date: "2026-01-05",
-                startTime: "10:00",
-                endTime: "10:30",
-                status: "Upcoming",
-            },
-        ]
-    },
-    "PAT-002": {
-        name: "Sita Verma",
-        age: 28,
-        gender: "Female",
-        avatar: "SV",
-        followUps: [
-            {
-                id: "2",
-                title: "Post-treatment checkup",
-                date: "2026-01-02",
-                startTime: "11:00",
-                endTime: "11:30",
-                status: "Upcoming",
-            },
-        ]
-    },
-    "PAT-003": {
-        name: "Rajesh Singh",
-        age: 45,
-        gender: "Male",
-        avatar: "RS",
-        followUps: [
-            {
-                id: "3",
-                title: "Blood test results review",
-                date: "2025-12-30",
-                startTime: "09:00",
-                endTime: "09:30",
-                status: "Today",
-            },
-        ]
-    },
-    "PAT-004": {
-        name: "Priya Sharma",
-        age: 30,
-        gender: "Female",
-        avatar: "PS",
-        followUps: [
-            {
-                id: "4",
-                title: "Routine checkup",
-                date: "2025-12-28",
-                startTime: "14:00",
-                endTime: "14:30",
-                status: "Overdue",
-            },
-        ]
-    },
-    "PAI-001": { // Support for the ID seen in screenshot
-        name: "Amit Kumar",
-        age: 32,
-        gender: "Male",
-        avatar: "AK",
-        followUps: [
-            {
-                id: "1",
-                title: "Review medication effectiveness",
-                date: "2026-01-05",
-                startTime: "10:00",
-                endTime: "10:30",
-                status: "Upcoming",
-            },
-            {
-                id: "3",
-                title: "General Checkup",
-                date: "2025-12-31",
-                startTime: "11:00",
-                endTime: "12:00",
-                status: "Upcoming",
-            }
-        ]
-    }
-};
 
 function PatientFollowUpsCalendar() {
     const { userId } = useParams();
@@ -113,32 +24,118 @@ function PatientFollowUpsCalendar() {
     const calendarRef = useRef(null);
     const [viewMode, setViewMode] = useState("dayGridMonth");
     const [currentTitle, setCurrentTitle] = useState("");
-
-    const patient = mockPatientData[userId] || {
-        name: "Patient " + userId,
+    const [patient, setPatient] = useState({
+        name: "Loading...",
         age: "--",
         gender: "Unknown",
-        avatar: userId ? userId.charAt(0) : "P",
-        followUps: []
-    };
+        avatar: "P",
+    });
+    const [appointments, setAppointments] = useState([]);
+    const [appointmentsRaw, setAppointmentsRaw] = useState([]); // Store raw appointment data
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch patient information
+    const fetchPatientInfo = useCallback(async () => {
+        try {
+            const response = await axios.get(
+                getApiUrl(`patients/by-user/${userId}`),
+                { headers: getAuthHeaders() }
+            );
+            
+            if (response.data.success && response.data.data) {
+                const profile = response.data.data;
+                const user = profile.user || {};
+                setPatient({
+                    name: user.name || `Patient ${userId}`,
+                    age: user.dob ? new Date().getFullYear() - new Date(user.dob).getFullYear() : "--",
+                    gender: user.gender || "Unknown",
+                    avatar: user.name ? user.name.charAt(0).toUpperCase() : "P",
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching patient info:", error);
+            // Use default patient info if fetch fails
+            setPatient({
+                name: `Patient ${userId}`,
+                age: "--",
+                gender: "Unknown",
+                avatar: userId ? userId.charAt(0).toUpperCase() : "P",
+            });
+        }
+    }, [userId]);
+
+    // Fetch appointments for this patient
+    const fetchAppointments = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl(`appointments?userId=${userId}&type=patient&limit=1000`),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                const appointmentsData = response.data.data || [];
+                
+                // Transform appointments to calendar events
+                const events = appointmentsData.map((appointment) => {
+                    const appointmentDate = new Date(appointment.appointmentDate);
+                    const dateStr = appointmentDate.toISOString().split('T')[0];
+                    
+                    // Parse time (format: "HH:MM")
+                    const [hours, minutes] = (appointment.appointmentTime || "10:00").split(':');
+                    const startTime = `${dateStr}T${hours.padStart(2, '0')}:${minutes || '00'}:00`;
+                    
+                    // Calculate end time (assuming 30 minutes default duration)
+                    const endDate = new Date(startTime);
+                    endDate.setMinutes(endDate.getMinutes() + 30);
+                    const endTime = endDate.toISOString();
+
+                    // Determine color based on status
+                    let backgroundColor = "#8B5CF6"; // Default purple
+                    if (appointment.status === "Completed") backgroundColor = "#28a745"; // Green
+                    if (appointment.status === "Cancelled") backgroundColor = "#dc3545"; // Red
+                    if (appointment.status === "Ongoing") backgroundColor = "#ffc107"; // Yellow
+
+                    // Create event title
+                    const doctorName = appointment.doctor?.user?.name || "Doctor";
+                    const title = `Appointment with ${doctorName}${appointment.notes ? ` - ${appointment.notes}` : ''}`;
+
+                    return {
+                        id: appointment._id,
+                        title: title,
+                        start: startTime,
+                        end: endTime,
+                        backgroundColor: backgroundColor,
+                        borderColor: backgroundColor,
+                        extendedProps: { 
+                            status: appointment.status,
+                            doctor: doctorName,
+                            notes: appointment.notes,
+                        }
+                    };
+                });
+
+                setAppointments(events);
+                setAppointmentsRaw(appointmentsData); // Store raw data for later use
+            } else {
+                toast.error(response.data.message || "Failed to fetch appointments");
+            }
+        } catch (error) {
+            console.error("Error fetching appointments:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch appointments");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        fetchPatientInfo();
+        fetchAppointments();
+    }, [fetchPatientInfo, fetchAppointments]);
 
     const calendarEvents = useMemo(() => {
-        return patient.followUps.map(fu => {
-            let backgroundColor = "#8B5CF6";
-            if (fu.status === "Completed") backgroundColor = "#28a745";
-            if (fu.status === "Overdue") backgroundColor = "#dc3545";
-
-            return {
-                id: fu.id,
-                title: fu.title,
-                start: `${fu.date}T${fu.startTime}`,
-                end: `${fu.date}T${fu.endTime}`,
-                backgroundColor: backgroundColor,
-                borderColor: backgroundColor,
-                extendedProps: { status: fu.status }
-            };
-        });
-    }, [patient]);
+        return appointments;
+    }, [appointments]);
 
     const handlePrev = () => {
         const calendarApi = calendarRef.current.getApi();
@@ -164,6 +161,31 @@ function PatientFollowUpsCalendar() {
 
     const handleDatesSet = (dateInfo) => {
         setCurrentTitle(dateInfo.view.title);
+    };
+
+    const handleEventClick = (clickInfo) => {
+        // Prevent default event propagation
+        clickInfo.jsEvent.preventDefault();
+        
+        // Get the appointment ID from the clicked event
+        const appointmentId = clickInfo.event.id;
+        
+        // Find the full appointment data
+        const appointment = appointmentsRaw.find(apt => apt._id === appointmentId);
+        
+        if (appointment) {
+            // Navigate to patient examination page with appointment context
+            // Store appointment ID in sessionStorage or pass via state
+            navigate(`/doctor/add-examination/${userId}`, {
+                state: {
+                    appointment: appointment,
+                    appointmentId: appointmentId
+                }
+            });
+        } else {
+            // Fallback: just navigate to examination page
+            navigate(`/doctor/add-examination/${userId}`);
+        }
     };
 
     return (
@@ -295,40 +317,47 @@ function PatientFollowUpsCalendar() {
                     </Stack>
                 </Stack>
 
-                <Box sx={{
-                    "& .fc": {
-                        "--fc-border-color": "var(--color-border)",
-                        "--fc-today-bg-color": "rgba(139, 92, 246, 0.05)",
-                        fontFamily: "inherit"
-                    },
-                    "& .fc-col-header-cell": {
-                        py: 2,
-                        bgcolor: "var(--color-bg-hover)",
-                        fontWeight: 600,
-                        fontSize: "0.875rem"
-                    },
-                    "& .fc-daygrid-day-number": {
-                        p: 1.5,
-                        fontSize: "0.875rem",
-                        fontWeight: 500
-                    },
-                    "& .fc-event": {
-                        borderRadius: 1.5,
-                        p: 0.5,
-                        border: "none",
-                        cursor: "pointer"
-                    }
-                }}>
-                    <FullCalendar
-                        ref={calendarRef}
-                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                        initialView="dayGridMonth"
-                        events={calendarEvents}
-                        headerToolbar={false}
-                        height="auto"
-                        datesSet={handleDatesSet}
-                    />
-                </Box>
+                {isLoading ? (
+                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                        <CircularProgress />
+                    </Box>
+                ) : (
+                    <Box sx={{
+                        "& .fc": {
+                            "--fc-border-color": "var(--color-border)",
+                            "--fc-today-bg-color": "rgba(139, 92, 246, 0.05)",
+                            fontFamily: "inherit"
+                        },
+                        "& .fc-col-header-cell": {
+                            py: 2,
+                            bgcolor: "var(--color-bg-hover)",
+                            fontWeight: 600,
+                            fontSize: "0.875rem"
+                        },
+                        "& .fc-daygrid-day-number": {
+                            p: 1.5,
+                            fontSize: "0.875rem",
+                            fontWeight: 500
+                        },
+                        "& .fc-event": {
+                            borderRadius: 1.5,
+                            p: 0.5,
+                            border: "none",
+                            cursor: "pointer"
+                        }
+                    }}>
+                        <FullCalendar
+                            ref={calendarRef}
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView="dayGridMonth"
+                            events={calendarEvents}
+                            headerToolbar={false}
+                            height="auto"
+                            datesSet={handleDatesSet}
+                            eventClick={handleEventClick}
+                        />
+                    </Box>
+                )}
             </Paper>
         </Box>
     );

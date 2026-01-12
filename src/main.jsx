@@ -48,6 +48,11 @@ import { Provider } from 'react-redux';
 import { store } from './redux/store.js';
 import { HelmetProvider } from 'react-helmet-async';
 
+// Import test utilities (only in development)
+if (import.meta.env.DEV) {
+    import('./utils/testNotifications.js');
+}
+
 createRoot(document.getElementById('root')).render(
   <HelmetProvider>
     <Provider store={store}>

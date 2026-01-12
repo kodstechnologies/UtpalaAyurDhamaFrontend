@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
     Activity,
     User,
@@ -9,80 +10,168 @@ import {
     Save,
     ReceiptIndianRupee
 } from "lucide-react";
-
+import { Box, CircularProgress } from "@mui/material";
 import CardBorder from "../../../../components/card/CardBorder";
 import CancelButton from "../../../../components/buttons/CancelButton";
 import SubmitButton from "../../../../components/buttons/SubmitButton";
+import therapyService from "../../../../services/therapyService";
+import therapistService from "../../../../services/therapistService";
 
 function Edit_TherapyAssignment() {
     const navigate = useNavigate();
-    const { id } = useParams(); // Assuming route is /edit/:id
+    const { nurseId } = useParams(); // Route uses nurseId but it's actually assignmentId
+    const id = nurseId; // Use nurseId as the assignment ID
 
-    const [therapyType, setTherapyType] = useState("");
+    const [therapyId, setTherapyId] = useState("");
     const [cost, setCost] = useState("");
-    const [therapist, setTherapist] = useState("");
+    const [therapistId, setTherapistId] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingData, setIsLoadingData] = useState(true);
     const [showSuccess, setShowSuccess] = useState(false);
     const [errors, setErrors] = useState({});
+    const [therapies, setTherapies] = useState([]);
+    const [therapists, setTherapists] = useState([]);
 
-    // Example dropdown data — replace with API
-    const therapyOptions = ["Abhyanga", "Pizhichil", "Shirodhara", "Nasyam"];
-    const therapistOptions = ["Rahul Verma", "Meera Nair", "Arun Kumar", "Sita Devi"];
-
-    // Simulate fetching existing data based on id with dummy data pre-filled
+    // Fetch therapies and therapists from backend
     useEffect(() => {
         const fetchData = async () => {
-            // Simulated API call
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Dummy data for demonstration — replace with real API
-            const dummyData = {
-                therapyType: "Pizhichil", // Pre-selected therapy type
-                cost: "750", // Pre-filled with single number for cost
-                therapist: "Meera Nair", // Pre-selected therapist
-            };
-            setTherapyType(dummyData.therapyType);
-            setCost(dummyData.cost);
-            setTherapist(dummyData.therapist);
+            setIsLoading(true);
+            try {
+                const [therapiesResponse, therapistsResponse] = await Promise.all([
+                    therapyService.getAllTherapies({ page: 1, limit: 100 }),
+                    therapistService.getAllTherapists({ page: 1, limit: 100 })
+                ]);
+
+                // Handle therapies response
+                if (therapiesResponse.success) {
+                    // Handle different response structures (array or paginated)
+                    const therapiesData = Array.isArray(therapiesResponse.data)
+                        ? therapiesResponse.data
+                        : (therapiesResponse.data?.data || []);
+                    setTherapies(therapiesData);
+                } else {
+                    toast.error(therapiesResponse.message || "Failed to fetch therapies");
+                }
+
+                // Handle therapists response
+                if (therapistsResponse.success) {
+                    // Handle different response structures (array or paginated)
+                    const therapistsData = Array.isArray(therapistsResponse.data)
+                        ? therapistsResponse.data
+                        : (therapistsResponse.data?.data || []);
+                    setTherapists(therapistsData);
+                } else {
+                    toast.error(therapistsResponse.message || "Failed to fetch therapists");
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                toast.error(error.message || "Failed to fetch data");
+            } finally {
+                setIsLoading(false);
+            }
         };
+
+        fetchData();
+    }, []);
+
+    // Fetch existing assignment data
+    useEffect(() => {
+        const fetchAssignment = async () => {
+            if (!id) {
+                toast.error("Assignment ID is missing");
+                navigate("/admin/treatment-assignments");
+                return;
+            }
+
+            try {
+                setIsLoadingData(true);
+                const response = await therapyService.getAssignmentById(id);
+                
+                if (response.success && response.data) {
+                    const assignment = response.data;
+                    
+                    // Set therapy ID
+                    setTherapyId(assignment.therapy?._id || assignment.therapy || "");
+                    
+                    // Set cost
+                    setCost(assignment.cost?.toString() || "");
+                    
+                    // Set therapist ID - need to get the User ID from TherapistProfile.user
+                    // The assignment.therapist is a TherapistProfile, and therapist.user is the User
+                    const therapistUserId = assignment.therapist?.user?._id 
+                        || assignment.therapist?.user 
+                        || null;
+                    setTherapistId(therapistUserId || "");
+                } else {
+                    toast.error(response.message || "Failed to fetch assignment details");
+                    navigate("/admin/treatment-assignments");
+                }
+            } catch (error) {
+                console.error("Error fetching assignment:", error);
+                toast.error(error.response?.data?.message || error.message || "Failed to fetch assignment details");
+                navigate("/admin/treatment-assignments");
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+
         if (id) {
-            fetchData();
+            fetchAssignment();
         }
-    }, [id]);
+    }, [id, navigate]);
 
     const validateForm = () => {
         const newErrors = {};
 
-        if (!therapyType) newErrors.therapyType = "Therapy type is required";
+        if (!therapyId) newErrors.therapyId = "Therapy type is required";
         if (!cost || parseFloat(cost) <= 0) newErrors.cost = "Valid cost is required";
-        if (!therapist) newErrors.therapist = "Therapist is required";
+        if (!therapistId) newErrors.therapistId = "Therapist is required";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         if (!validateForm()) return;
 
         setIsSubmitting(true);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulated API
+        try {
+            const payload = {
+                therapyId: therapyId,
+                therapistId: therapistId,
+                cost: parseFloat(cost),
+            };
 
-        const payload = {
-            id, // Include ID for update
-            therapyType,
-            cost: parseFloat(cost),
-            therapist,
-        };
-
-        console.log("Updated:", payload);
-
-        setIsSubmitting(false);
-        setShowSuccess(true);
-
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate("/admin/treatment-assignments");
-        }, 2000);
+            const response = await therapyService.updateAssignment(id, payload);
+            
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Assignment updated successfully");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate("/admin/treatment-assignments", { state: { refresh: true } });
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to update assignment");
+            }
+        } catch (error) {
+            console.error("Error updating assignment:", error);
+            const errorMessage = error.message || error.response?.data?.message || "Failed to update assignment";
+            toast.error(errorMessage);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
+
+    if (isLoading || isLoadingData) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <CardBorder padding="2rem">
@@ -99,7 +188,6 @@ function Edit_TherapyAssignment() {
                     Modify existing therapist-to-therapy assignments for better coordination.
                 </p>
             </div>
-
 
             {/* Success Notification */}
             {showSuccess && (
@@ -122,6 +210,7 @@ function Edit_TherapyAssignment() {
             )}
 
             {/* Form Container */}
+            <form onSubmit={handleSubmit}>
             <div
                 className="rounded-2xl shadow-lg overflow-hidden border hover:shadow-[var(--shadow-medium)] transition-all duration-300"
                 style={{ backgroundColor: "var(--color-bg-card)", borderColor: "var(--color-text)" }}
@@ -142,14 +231,17 @@ function Edit_TherapyAssignment() {
                         >
                             <Activity size={18} className="text-[var(--color-icon-2)]" />
                             <select
-                                value={therapyType}
-                                onChange={(e) => setTherapyType(e.target.value)}
+                                value={therapyId}
+                                onChange={(e) => setTherapyId(e.target.value)}
                                 className="w-full bg-transparent outline-none pr-8 cursor-pointer"
                                 style={{ color: "var(--color-text-dark)" }}
+                                required
                             >
                                 <option value="" disabled>Select Therapy Type</option>
-                                {therapyOptions.map((t, i) => (
-                                    <option key={i} value={t}>{t}</option>
+                                {therapies.map((therapy) => (
+                                    <option key={therapy._id} value={therapy._id}>
+                                        {therapy.therapyName}
+                                    </option>
                                 ))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--color-text)]">
@@ -159,10 +251,10 @@ function Edit_TherapyAssignment() {
                             </div>
                         </div>
 
-                        {errors.therapyType && (
+                        {errors.therapyId && (
                             <p className="text-xs flex items-center gap-1 text-[var(--color-icon-1)]">
                                 <AlertCircle size={12} />
-                                {errors.therapyType}
+                                {errors.therapyId}
                             </p>
                         )}
                     </div>
@@ -190,6 +282,7 @@ function Edit_TherapyAssignment() {
                                 onChange={(e) => setCost(e.target.value)}
                                 className="w-full bg-transparent outline-none"
                                 style={{ color: "var(--color-text-dark)" }}
+                                required
                             />
                         </div>
 
@@ -216,14 +309,17 @@ function Edit_TherapyAssignment() {
                         >
                             <User size={18} className="text-[var(--color-icon-2)]" />
                             <select
-                                value={therapist}
-                                onChange={(e) => setTherapist(e.target.value)}
+                                value={therapistId}
+                                onChange={(e) => setTherapistId(e.target.value)}
                                 className="w-full bg-transparent outline-none pr-8 cursor-pointer"
                                 style={{ color: "var(--color-text-dark)" }}
+                                required
                             >
                                 <option value="" disabled>Select Therapist</option>
-                                {therapistOptions.map((t, i) => (
-                                    <option key={i} value={t}>{t}</option>
+                                {therapists.map((therapist) => (
+                                    <option key={therapist._id} value={therapist._id}>
+                                        {therapist.name || therapist.firstName || "Unknown"}
+                                    </option>
                                 ))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--color-text)]">
@@ -233,10 +329,10 @@ function Edit_TherapyAssignment() {
                             </div>
                         </div>
 
-                        {errors.therapist && (
+                        {errors.therapistId && (
                             <p className="text-xs flex items-center gap-1 text-[var(--color-icon-1)]">
                                 <AlertCircle size={12} />
-                                {errors.therapist}
+                                {errors.therapistId}
                             </p>
                         )}
                     </div>
@@ -274,6 +370,7 @@ function Edit_TherapyAssignment() {
                     </p>
                 </div>
             </div>
+            </form>
         </CardBorder>
     );
 }

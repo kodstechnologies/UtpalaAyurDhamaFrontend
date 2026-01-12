@@ -1,79 +1,134 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../services/adminUserService";
+
 import HeadingCard from "../../components/card/HeadingCard";
 import TableComponent from "../../components/table/TableComponent";
-
-import { useNavigate } from "react-router-dom";
 import CardBorder from "../../components/card/CardBorder";
-import Search from "../../components/search/Search";
 import RedirectButton from "../../components/buttons/RedirectButton";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import Search from "../../components/search/Search";
 import ExportDataButton from "../../components/buttons/ExportDataButton";
+import DeleteConfirmationModal from "../../components/modal/DeleteConfirmationModal";
+
+import { Eye, Edit, Trash2 } from "lucide-react";
 
 function Nursing() {
     const navigate = useNavigate();
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [deleteModal, setDeleteModal] = useState({
+        isOpen: false,
+        nurseId: null,
+        nurseName: "",
+        isDeleting: false
+    });
 
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            name: "Priya Nair",
-            department: "General Ward",
-            designation: "Senior Nurse",
-            mobile: "+91 9876501234",
-            email: "priya.nair@hospital.com",
-            status: "Active",
-        },
-        {
-            _id: "2",
-            name: "Rohan Verma",
-            department: "ICU",
-            designation: "Staff Nurse",
-            mobile: "+91 9823456780",
-            email: "rohan.verma@hospital.com",
-            status: "Inactive",
-        },
-        {
-            _id: "3",
-            name: "Sangeeta Patil",
-            department: "Emergency",
-            designation: "Registered Nurse",
-            mobile: "+91 9988776655",
-            email: "sangeeta.patil@hospital.com",
-            status: "Active",
-        },
-        {
-            _id: "4",
-            name: "Meena Rao",
-            department: "Pediatrics",
-            designation: "Nurse Supervisor",
-            mobile: "+91 9090908080",
-            email: "meena.rao@hospital.com",
-            status: "Inactive",
-        },
-        {
-            _id: "5",
-            name: "Arun Das",
-            department: "Surgery",
-            designation: "Operating Room Nurse",
-            mobile: "+91 9811223344",
-            email: "arun.das@hospital.com",
-            status: "Active",
-        },
-    ]);
+    const fetchNurses = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getAllUsers("Nurse");
+            
+            if (response && response.success) {
+                // Handle the actual response structure: { data: { nurses: [...], total, page, limit, totalPages } }
+                let data = response.data;
+                
+                // If data is an object with a 'nurses' property, extract the nurses array
+                if (data && typeof data === 'object' && !Array.isArray(data)) {
+                    if (data.nurses && Array.isArray(data.nurses)) {
+                        data = data.nurses;
+                    } else if (data.data && Array.isArray(data.data)) {
+                        // Fallback for other paginated structures
+                        data = data.data;
+                    }
+                }
+                
+                // Ensure data is always an array
+                const rowsData = Array.isArray(data) ? data : [];
+                setRows(rowsData);
+            } else {
+                toast.error(response?.message || "Failed to fetch nurses");
+                setRows([]); // Set empty array on error
+            }
+        } catch (error) {
+            console.error("Error fetching nurses:", error);
+            
+            // Handle different error structures
+            let errorMessage = "Failed to fetch nurses";
+            if (typeof error === 'string') {
+                errorMessage = error;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            } else if (error?.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error?.response?.data) {
+                // If error.response.data is the ApiResponse object
+                if (error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                } else if (typeof error.response.data === 'string') {
+                    errorMessage = error.response.data;
+                }
+            }
+            
+            toast.error(errorMessage);
+            setRows([]); // Set empty array on error
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchNurses();
+    }, [fetchNurses]);
+
+    // DELETE FUNCTION
+    const handleDeleteClick = useCallback((row) => {
+        setDeleteModal({
+            isOpen: true,
+            nurseId: row._id,
+            nurseName: row.name || "this nurse",
+            isDeleting: false
+        });
+    }, []);
+
+    const handleDeleteConfirm = useCallback(async () => {
+        if (!deleteModal.nurseId) return;
+
+        setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+
+        try {
+            const response = await adminUserService.deleteUser("Nurse", deleteModal.nurseId);
+            
+            if (response.success) {
+                setRows(prev => prev.filter(row => row._id !== deleteModal.nurseId));
+                toast.success("Nurse deleted successfully!");
+                setDeleteModal({ isOpen: false, nurseId: null, nurseName: "", isDeleting: false });
+            } else {
+                toast.error(response.message || "Failed to delete nurse");
+                setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+            }
+        } catch (error) {
+            console.error("Error deleting nurse:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error deleting nurse";
+            toast.error(errorMessage);
+            setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+        }
+    }, [deleteModal.nurseId]);
+
+    const handleDeleteClose = useCallback(() => {
+        if (!deleteModal.isDeleting) {
+            setDeleteModal({ isOpen: false, nurseId: null, nurseName: "", isDeleting: false });
+        }
+    }, [deleteModal.isDeleting]);
 
     const columns = [
         { field: "name", header: "Name" },
-        { field: "department", header: "Department" },
-        { field: "designation", header: "Designation" },
-        { field: "mobile", header: "Mobile" },
+        { field: "specialty", header: "Specialty" },
+        { field: "department", header: "Unit/Ward" }, // Changed from "unit" to "department"
+        { field: "phone", header: "Phone" },
         { field: "email", header: "Email" },
         { field: "status", header: "Status" },
     ];
-
-    const handleDelete = (id) => {
-        if (window.confirm("Are you sure you want to delete this nurse?")) {
-            setRows((prev) => prev.filter((r) => r._id !== id));
-        }
-    };
 
     // ACTION BUTTONS
     const actions = [
@@ -93,7 +148,7 @@ function Nursing() {
             label: "Delete",
             icon: <Trash2 />,
             color: "var(--color-icon-1)",
-            onClick: (row) => handleDelete(row._id)
+            onClick: (row) => handleDeleteClick(row)
         }
     ];
     const [searchText, setSearchText] = useState("");
@@ -126,12 +181,36 @@ function Nursing() {
                 </div>
             </CardBorder>
 
-            <TableComponent
-                columns={columns}
-                rows={rows}
-                actions={actions}
-                showStatusBadge={true}
-                statusField="status"
+            {isLoading ? (
+                <div className="flex justify-center items-center p-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
+                        style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+                </div>
+            ) : rows.length === 0 ? (
+                <div className="flex flex-col justify-center items-center p-20">
+                    <p style={{ fontSize: "1.1rem", color: "var(--color-text-b)", marginBottom: "1rem" }}>
+                        No nurses found
+                    </p>
+                    <RedirectButton text="Create First Nurse" link="/admin/nursing/add" />
+                </div>
+            ) : (
+                <TableComponent
+                    columns={columns}
+                    rows={rows}
+                    actions={actions}
+                    showStatusBadge={true}
+                    statusField="status"
+                />
+            )}
+
+            {/* Delete Confirmation Modal */}
+            <DeleteConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                title={deleteModal.nurseName}
+                itemType="nurse"
+                isLoading={deleteModal.isDeleting}
             />
         </div>
     );

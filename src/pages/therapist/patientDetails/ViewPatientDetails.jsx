@@ -1,44 +1,70 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import HeadingCard from "../../../components/card/HeadingCard";
-import { Box, Typography, Button, Card, CardContent, LinearProgress } from "@mui/material";
-import PersonIcon from "@mui/icons-material/Person";
+import { Box, Typography, Button, Card, CardContent, LinearProgress, CircularProgress } from "@mui/material";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import PendingIcon from "@mui/icons-material/Pending";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 function ViewPatientDetailsPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
-    
-    // In a real app, you'd fetch this data based on patientId
-    // For now, we'll use URL params or localStorage
-    const patientId = searchParams.get("patientId") || "";
-    
-    // Mock data - in real app, fetch from API
-    const selectedPatient = {
-        patientName: searchParams.get("patientName") || "Unknown",
-        patientId: patientId || "N/A",
-        age: searchParams.get("age") || "N/A",
-        gender: searchParams.get("gender") || "N/A",
-        diagnosis: searchParams.get("diagnosis") || "N/A",
-        doctor: searchParams.get("doctor") || "N/A",
-        status: searchParams.get("status") || "Active",
-        totalSessions: parseInt(searchParams.get("totalSessions") || "0"),
-        completedSessions: parseInt(searchParams.get("completedSessions") || "0"),
-        lastSessionDate: searchParams.get("lastSessionDate") || "N/A",
-        sessions: [], // Would be fetched from API
-    };
+    const [session, setSession] = useState(location.state?.session || null);
+    const [isLoading, setIsLoading] = useState(!session);
 
-    const calculateProgress = (completed, total) => {
-        if (total === 0) return 0;
-        return Math.round((completed / total) * 100);
-    };
+    const sessionId = searchParams.get("sessionId");
+
+    useEffect(() => {
+        const fetchSessionDetails = async () => {
+            if (session || !sessionId) return;
+
+            setIsLoading(true);
+            try {
+                const response = await axios.get(
+                    getApiUrl(`therapist-sessions/${sessionId}`),
+                    { headers: getAuthHeaders() }
+                );
+                if (response.data.success) {
+                    setSession(response.data.data);
+                }
+            } catch (error) {
+                console.error("Error fetching session details:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchSessionDetails();
+    }, [sessionId, session]);
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (!session) {
+        return (
+            <Box sx={{ p: 3, textAlign: "center" }}>
+                <Typography variant="h6" color="error">Session details not found</Typography>
+                <Button variant="contained" onClick={() => navigate(-1)} sx={{ mt: 2 }}>Back</Button>
+            </Box>
+        );
+    }
+
+    const completedSessions = session.days?.filter(d => d.completed).length || 0;
+    const progress = Math.round((completedSessions / (session.daysOfTreatment || 1)) * 100);
 
     const formatDate = (dateString) => {
-        if (!dateString || dateString === "N/A") return "N/A";
+        if (!dateString) return "N/A";
         try {
             return new Date(dateString).toLocaleDateString("en-US", {
                 month: "short",
@@ -51,19 +77,19 @@ function ViewPatientDetailsPage() {
     };
 
     const getStatusBadgeClass = (status) => {
-        const statusLower = status?.toLowerCase() || "";
-        if (statusLower.includes("active")) return "bg-success";
-        if (statusLower.includes("pending")) return "bg-warning";
-        if (statusLower.includes("completed")) return "bg-info";
-        return "bg-secondary";
+        switch (status) {
+            case "Completed": return "bg-success";
+            case "In Progress": return "bg-primary";
+            case "Scheduled": return "bg-info";
+            case "Pending": return "bg-warning";
+            default: return "bg-secondary";
+        }
     };
-
-    const progress = calculateProgress(selectedPatient.completedSessions, selectedPatient.totalSessions);
 
     return (
         <div>
             <HeadingCard
-                title={`Patient Details: ${selectedPatient.patientName}`}
+                title={`Patient Details: ${session.patient?.user?.name || "Unknown"}`}
                 subtitle="View complete patient information and therapy sessions"
                 breadcrumbItems={[
                     { label: "Therapist", url: "/therapist/dashboard" },
@@ -82,28 +108,28 @@ function ViewPatientDetailsPage() {
                                     Patient Name
                                 </Typography>
                                 <Typography variant="body1" fontWeight={600}>
-                                    {selectedPatient.patientName}
+                                    {session.patient?.user?.name || "Unknown"}
                                 </Typography>
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">
-                                    Patient ID
+                                    UHID
                                 </Typography>
                                 <Typography variant="body1">
-                                    {selectedPatient.patientId}
+                                    {session.patient?.user?.uhid || "N/A"}
                                 </Typography>
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">
-                                    Age / Gender
+                                    Gender
                                 </Typography>
                                 <Typography variant="body1">
-                                    {selectedPatient.age} / {selectedPatient.gender}
+                                    {session.patient?.user?.gender || "N/A"}
                                 </Typography>
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">
-                                    Diagnosis
+                                    Therapy / Diagnosis
                                 </Typography>
                                 <Typography variant="body1">
                                     <span
@@ -116,7 +142,7 @@ function ViewPatientDetailsPage() {
                                             color: "white",
                                         }}
                                     >
-                                        {selectedPatient.diagnosis}
+                                        {session.treatmentName || "N/A"}
                                     </span>
                                 </Typography>
                             </Box>
@@ -126,7 +152,7 @@ function ViewPatientDetailsPage() {
                                 </Typography>
                                 <Typography variant="body1" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                     <LocalHospitalIcon fontSize="small" />
-                                    {selectedPatient.doctor}
+                                    {session.examination?.doctor?.user?.name || "N/A"}
                                 </Typography>
                             </Box>
                             <Box>
@@ -135,14 +161,14 @@ function ViewPatientDetailsPage() {
                                 </Typography>
                                 <Typography variant="body1">
                                     <span
-                                        className={`badge ${getStatusBadgeClass(selectedPatient.status)}`}
+                                        className={`badge ${getStatusBadgeClass(session.status)}`}
                                         style={{
                                             borderRadius: "50px",
                                             padding: "4px 10px",
                                             fontSize: "0.75rem",
                                         }}
                                     >
-                                        {selectedPatient.status}
+                                        {session.status}
                                     </span>
                                 </Typography>
                             </Box>
@@ -151,7 +177,7 @@ function ViewPatientDetailsPage() {
                                     Total Sessions
                                 </Typography>
                                 <Typography variant="body1" fontWeight={600}>
-                                    {selectedPatient.totalSessions}
+                                    {session.daysOfTreatment}
                                 </Typography>
                             </Box>
                             <Box>
@@ -159,7 +185,7 @@ function ViewPatientDetailsPage() {
                                     Completed Sessions
                                 </Typography>
                                 <Typography variant="body1" fontWeight={600}>
-                                    {selectedPatient.completedSessions}
+                                    {completedSessions}
                                 </Typography>
                             </Box>
                             <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
@@ -183,10 +209,10 @@ function ViewPatientDetailsPage() {
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">
-                                    Last Session
+                                    Session Date / Time
                                 </Typography>
                                 <Typography variant="body1">
-                                    {formatDate(selectedPatient.lastSessionDate)}
+                                    {formatDate(session.sessionDate)} {session.sessionTime && `at ${session.sessionTime}`}
                                 </Typography>
                             </Box>
                         </Box>
@@ -194,14 +220,14 @@ function ViewPatientDetailsPage() {
                 </Card>
 
                 {/* Sessions List */}
-                {selectedPatient.sessions && selectedPatient.sessions.length > 0 && (
+                {session.days && session.days.length > 0 && (
                     <Card sx={{ borderRadius: "12px" }}>
                         <CardContent sx={{ p: 3 }}>
                             <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                                Therapy Sessions
+                                Session History
                             </Typography>
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                {selectedPatient.sessions.map((session, index) => (
+                                {session.days.map((day, index) => (
                                     <Box
                                         key={index}
                                         sx={{
@@ -209,16 +235,12 @@ function ViewPatientDetailsPage() {
                                             borderRadius: 2,
                                             border: "1px solid",
                                             borderColor:
-                                                session.status === "Completed"
+                                                day.completed
                                                     ? "#28a745"
-                                                    : session.status === "Scheduled"
-                                                    ? "#0dcaf0"
                                                     : "#ffc107",
                                             bgcolor:
-                                                session.status === "Completed"
+                                                day.completed
                                                     ? "#f8fff9"
-                                                    : session.status === "Scheduled"
-                                                    ? "#f0f9ff"
                                                     : "#fffbf0",
                                         }}
                                     >
@@ -230,10 +252,8 @@ function ViewPatientDetailsPage() {
                                                         height: 32,
                                                         borderRadius: "50%",
                                                         bgcolor:
-                                                            session.status === "Completed"
+                                                            day.completed
                                                                 ? "#28a745"
-                                                                : session.status === "Scheduled"
-                                                                ? "#0dcaf0"
                                                                 : "#ffc107",
                                                         display: "flex",
                                                         alignItems: "center",
@@ -243,24 +263,23 @@ function ViewPatientDetailsPage() {
                                                         fontSize: "0.875rem",
                                                     }}
                                                 >
-                                                    {session.sessionNumber}
+                                                    {index + 1}
                                                 </Box>
                                                 <Box>
                                                     <Typography variant="subtitle2" fontWeight={600}>
-                                                        Session {session.sessionNumber}: {session.therapyType}
+                                                        Session {index + 1}
                                                     </Typography>
                                                     <Box sx={{ display: "flex", gap: 2, mt: 0.5, fontSize: "0.875rem" }}>
                                                         <Typography variant="caption" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                                             <CalendarTodayIcon fontSize="small" />
-                                                            {formatDate(session.date)}
+                                                            {formatDate(day.date)}
                                                         </Typography>
-                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                                            <AccessTimeIcon fontSize="small" />
-                                                            {session.time}
-                                                        </Typography>
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            Duration: {session.duration}
-                                                        </Typography>
+                                                        {day.time && (
+                                                            <Typography variant="caption" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                                                <AccessTimeIcon fontSize="small" />
+                                                                {day.time}
+                                                            </Typography>
+                                                        )}
                                                     </Box>
                                                 </Box>
                                             </Box>
@@ -270,34 +289,17 @@ function ViewPatientDetailsPage() {
                                                     px: 1.5,
                                                     py: 0.5,
                                                     borderRadius: "50px",
-                                                    bgcolor:
-                                                        session.status === "Completed"
-                                                            ? "#28a745"
-                                                            : session.status === "Scheduled"
-                                                            ? "#0dcaf0"
-                                                            : "#ffc107",
+                                                    bgcolor: day.completed ? "#28a745" : "#ffc107",
                                                     color: "white",
                                                 }}
                                             >
-                                                {session.status === "Completed" && <CheckCircleIcon fontSize="small" sx={{ verticalAlign: "middle", mr: 0.5 }} />}
-                                                {session.status === "Scheduled" && <RadioButtonUncheckedIcon fontSize="small" sx={{ verticalAlign: "middle", mr: 0.5 }} />}
-                                                {session.status === "Pending" && <PendingIcon fontSize="small" sx={{ verticalAlign: "middle", mr: 0.5 }} />}
-                                                {session.status}
+                                                {day.completed ? (
+                                                    <><CheckCircleIcon fontSize="small" sx={{ verticalAlign: "middle", mr: 0.5 }} /> Completed</>
+                                                ) : (
+                                                    <><PendingIcon fontSize="small" sx={{ verticalAlign: "middle", mr: 0.5 }} /> Pending</>
+                                                )}
                                             </Typography>
                                         </Box>
-                                        {session.notes && (
-                                            <Box
-                                                sx={{
-                                                    mt: 1,
-                                                    p: 1,
-                                                    borderRadius: 1,
-                                                    bgcolor: "rgba(255,255,255,0.7)",
-                                                    fontSize: "0.875rem",
-                                                }}
-                                            >
-                                                <strong>Notes:</strong> {session.notes}
-                                            </Box>
-                                        )}
                                     </Box>
                                 ))}
                             </Box>
@@ -307,7 +309,7 @@ function ViewPatientDetailsPage() {
 
                 <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
                     <Button variant="outlined" onClick={() => navigate(-1)}>
-                        Close
+                        Back
                     </Button>
                 </Box>
             </Box>

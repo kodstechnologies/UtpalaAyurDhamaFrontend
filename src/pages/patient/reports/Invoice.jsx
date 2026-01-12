@@ -1,37 +1,119 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
-import HeadingCard from "../../../components/card/HeadingCard";
-import {
-    Box,
-    Typography,
-    Card,
-    CardContent,
-    Divider,
-    Button,
-} from "@mui/material";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Box, Typography, Card, CardContent, Divider, Button, CircularProgress } from "@mui/material";
+import { toast } from "react-toastify";
 import PrintIcon from "@mui/icons-material/Print";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import HeadingCard from "../../../components/card/HeadingCard";
+import invoiceService from "../../../services/invoiceService";
 import logo from "../../../assets/logo/LOGO.WEBP";
 
 function InvoicePage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { id } = useParams(); // Get invoice ID from route params
     
-    // Get invoice data from URL params or use defaults
-    const invoiceNumber = searchParams.get("invoiceNumber") || "INVOICE-20251125-0001";
-    const invoiceDate = searchParams.get("invoiceDate") || "12/09/2025";
-    const patientName = searchParams.get("patientName") || "Sharavni";
-    const dob = searchParams.get("dob") || "11/18/2025";
-    const patientId = searchParams.get("patientId") || "P-0001";
-    const service = searchParams.get("service") || "Ashwagandha Tablet";
-    const serviceDate = searchParams.get("serviceDate") || "12/09/2025";
-    const cost = searchParams.get("cost") || "₹120.00";
-    const totalDue = searchParams.get("totalDue") || "₹123.60";
-    const instructions = searchParams.get("instructions") || 
-        "Please make payment by 12/24/2025 via online portal, check, or credit card. For inquiries, contact us at 5465647658. Thank you!";
+    const [invoice, setInvoice] = useState(null);
+    const [loading, setLoading] = useState(false);
+    
+    // Initialize with defaults (for backward compatibility with URL params)
+    const [invoiceData, setInvoiceData] = useState({
+        invoiceNumber: searchParams.get("invoiceNumber") || "INVOICE-20251125-0001",
+        invoiceDate: searchParams.get("invoiceDate") || "12/09/2025",
+        patientName: searchParams.get("patientName") || "Sharavni",
+        dob: searchParams.get("dob") || "11/18/2025",
+        patientId: searchParams.get("patientId") || "P-0001",
+        service: searchParams.get("service") || "Ashwagandha Tablet",
+        serviceDate: searchParams.get("serviceDate") || "12/09/2025",
+        cost: searchParams.get("cost") || "₹120.00",
+        totalDue: searchParams.get("totalDue") || "₹123.60",
+        items: null, // Will be set from backend or URL params
+        instructions: searchParams.get("instructions") || 
+            "Please make payment by 12/24/2025 via online portal, check, or credit card. For inquiries, contact us at 5465647658. Thank you!",
+    });
+
+    useEffect(() => {
+        // If ID is provided, fetch invoice data from backend
+        if (id) {
+            fetchInvoiceData(id);
+        }
+    }, [id]);
+
+    const fetchInvoiceData = async (invoiceId) => {
+        try {
+            setLoading(true);
+            const response = await invoiceService.getInvoiceById(invoiceId);
+            if (response && response.success && response.data) {
+                const inv = response.data;
+                const patientName = inv.patient?.user?.name || inv.patient?.name || "N/A";
+                const patientId = inv.patient?.patientId || inv.patient?._id || "N/A";
+                const dob = inv.patient?.dateOfBirth 
+                    ? new Date(inv.patient.dateOfBirth).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })
+                    : "N/A";
+                const invoiceDate = inv.createdAt 
+                    ? new Date(inv.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })
+                    : new Date().toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
+                
+                // Format items for display
+                const items = inv.items || [];
+                const formattedItems = items.length > 0 
+                    ? items.map(item => ({
+                        name: item.name || "Service",
+                        date: invoiceDate,
+                        cost: `₹${(item.total || 0).toFixed(2)}`
+                    }))
+                    : [{ name: "Service", date: invoiceDate, cost: `₹${(inv.totalPayable || 0).toFixed(2)}` }];
+
+                // Calculate discount and tax amounts
+                const subtotal = inv.subtotal || 0;
+                const discountRate = inv.discountRate || 0;
+                const taxRate = inv.taxRate || 0;
+                const discountAmount = subtotal * (discountRate / 100);
+                const taxableAmount = subtotal - discountAmount;
+                const taxAmount = taxableAmount * (taxRate / 100);
+
+                setInvoice(inv);
+                setInvoiceData({
+                    invoiceNumber: inv.invoiceNumber || "N/A",
+                    invoiceDate: invoiceDate,
+                    patientName: patientName,
+                    dob: dob,
+                    patientId: patientId,
+                    items: formattedItems,
+                    subtotal: subtotal,
+                    discountRate: discountRate,
+                    discountAmount: discountAmount,
+                    taxRate: taxRate,
+                    taxAmount: taxAmount,
+                    totalDue: `₹${(inv.totalPayable || 0).toFixed(2)}`,
+                    instructions: "Please make payment via online portal, check, or credit card. For inquiries, contact us at 5465647658. Thank you!",
+                });
+            } else {
+                toast.error("Failed to fetch invoice data.");
+            }
+        } catch (error) {
+            console.error("Error fetching invoice:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch invoice data.");
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    // Use invoiceData state (which is either from URL params or fetched from backend)
+    const { invoiceNumber, invoiceDate, patientName, dob, patientId, service, serviceDate, cost, totalDue, instructions, subtotal, discountRate, discountAmount, taxRate, taxAmount } = invoiceData;
 
     const handlePrint = () => {
         window.print();
     };
+
+    // Show loading state
+    if (loading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 400 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <>
@@ -317,25 +399,84 @@ function InvoicePage() {
                                 <span>Cost (INR)</span>
                             </Box>
 
-                            {/* DATA ROW */}
-                            <Box
-                                sx={{
-                                    display: "grid",
-                                    gridTemplateColumns: "1fr 1fr 1fr",
-                                    p: 1.5,
-                                    color: "var(--color-text-dark)",
-                                }}
-                            >
-                                <span>{service}</span>
-                                <span>{serviceDate}</span>
-                                <span>{cost}</span>
-                            </Box>
+                            {/* DATA ROWS */}
+                            {invoiceData.items && invoiceData.items.length > 0 ? (
+                                invoiceData.items.map((item, index) => (
+                                    <Box
+                                        key={index}
+                                        sx={{
+                                            display: "grid",
+                                            gridTemplateColumns: "1fr 1fr 1fr",
+                                            p: 1.5,
+                                            color: "var(--color-text-dark)",
+                                            borderTop: index > 0 ? "1px solid var(--color-border)" : "none",
+                                        }}
+                                    >
+                                        <span>{item.name}</span>
+                                        <span>{item.date}</span>
+                                        <span>{item.cost}</span>
+                                    </Box>
+                                ))
+                            ) : (
+                                <Box
+                                    sx={{
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr 1fr 1fr",
+                                        p: 1.5,
+                                        color: "var(--color-text-dark)",
+                                    }}
+                                >
+                                    <span>{service}</span>
+                                    <span>{serviceDate}</span>
+                                    <span>{cost}</span>
+                                </Box>
+                            )}
                         </Box>
 
-                        {/* TOTAL */}
-                        <Typography sx={{ mt: 2, fontWeight: 700, color: "var(--color-text-dark)" }}>
-                            Total Amount Due: <span style={{ color: "var(--color-success)" }}>{totalDue}</span>
-                        </Typography>
+                        {/* TOTALS BREAKDOWN */}
+                        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+                            {subtotal !== undefined && (
+                                <>
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                            Subtotal:
+                                        </Typography>
+                                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
+                                            ₹{subtotal.toFixed(2)}
+                                        </Typography>
+                                    </Box>
+                                    {discountRate > 0 && discountAmount !== undefined && (
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                                Discount ({discountRate}%):
+                                            </Typography>
+                                            <Typography sx={{ color: "var(--color-success)", fontWeight: 500 }}>
+                                                - ₹{discountAmount.toFixed(2)}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    {taxRate > 0 && taxAmount !== undefined && (
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                                GST ({taxRate}%):
+                                            </Typography>
+                                            <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
+                                                ₹{taxAmount.toFixed(2)}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    <Divider sx={{ my: 1 }} />
+                                </>
+                            )}
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <Typography sx={{ fontWeight: 700, color: "var(--color-text-dark)" }}>
+                                    Total Amount Due:
+                                </Typography>
+                                <Typography sx={{ fontWeight: 700, color: "var(--color-success)", fontSize: "1.1rem" }}>
+                                    {totalDue}
+                                </Typography>
+                            </Box>
+                        </Box>
 
                         {/* INSTRUCTIONS */}
                         <Box sx={{ mt: 3 }}>

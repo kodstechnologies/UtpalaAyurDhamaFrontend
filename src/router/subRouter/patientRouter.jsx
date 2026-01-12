@@ -17,6 +17,10 @@ const Consultations_View = lazy(() =>
     import("../../pages/patient/consultations/View")
 );
 
+const Consultation_Details = lazy(() =>
+    import("../../pages/patient/consultations/Details")
+);
+
 const Prescriptions_View = lazy(() =>
     import("../../pages/patient/prescriptions/View")
 );
@@ -32,6 +36,10 @@ const AddMemberPage = lazy(() =>
     import("../../pages/patient/familyMembers/AddMember")
 );
 
+const EditMemberPage = lazy(() =>
+    import("../../pages/patient/familyMembers/Edit")
+);
+
 const InvoicePage = lazy(() =>
     import("../../pages/patient/reports/Invoice")
 );
@@ -42,9 +50,12 @@ export const patientRoutes = [
     { path: "/patient/dashboard", element: <Patient_Dashboard /> },
     { path: "/patient/family", element: < Family_Members_View /> },
     { path: "/patient/family/add", element: <AddMemberPage /> },
+    { path: "/patient/family/edit/:id", element: <EditMemberPage /> },
     { path: "/patient/consultations", element: <Consultations_View /> },
+    { path: "/patient/consultations/:id", element: <Consultation_Details /> },
     { path: "/patient/prescriptions", element: <Prescriptions_View /> },
     { path: "/patient/therapies", element: <Therapies_View /> },
     { path: "/patient/reports", element: <Reports_View /> },
+    { path: "/patient/reports/invoice/:id", element: <InvoicePage /> },
     { path: "/patient/reports/invoice", element: <InvoicePage /> },
 ];

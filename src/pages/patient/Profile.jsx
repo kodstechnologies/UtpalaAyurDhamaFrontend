@@ -604,6 +604,7 @@ function PatientProfile() {
                                                     value={editData[field]}
                                                     onChange={handleInputChange(field)}
                                                     size="small"
+                                                    inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
                                                             '&:hover fieldset': { borderColor: '#556B2F' },
@@ -655,6 +656,7 @@ function PatientProfile() {
                                                     value={editData[field]}
                                                     onChange={handleInputChange(field)}
                                                     size="small"
+                                                    inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
                                                             '&:hover fieldset': { borderColor: '#556B2F' },

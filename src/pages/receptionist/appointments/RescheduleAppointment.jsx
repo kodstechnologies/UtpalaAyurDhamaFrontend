@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import HeadingCard from "../../../components/card/HeadingCard";
-import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel } from "@mui/material";
+import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, CircularProgress } from "@mui/material";
 
 function RescheduleAppointmentPage() {
     const navigate = useNavigate();
@@ -15,19 +18,98 @@ function RescheduleAppointmentPage() {
         time: searchParams.get("time") || "",
     });
 
-    // Mock data - in real app, fetch from API
-    const mockDoctors = [];
+    const [doctors, setDoctors] = useState([]);
+    const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Fetch all doctors from API
+    const fetchDoctors = useCallback(async () => {
+        setIsLoadingDoctors(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("doctors/profiles"),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                const doctorsData = response.data.data || [];
+                setDoctors(doctorsData);
+                
+                if (doctorsData.length === 0) {
+                    toast.warning("No doctors available. Please add doctors first.");
+                }
+            } else {
+                toast.error(response.data.message || "Failed to fetch doctors");
+            }
+        } catch (error) {
+            console.error("Error fetching doctors:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch doctors");
+            setDoctors([]);
+        } finally {
+            setIsLoadingDoctors(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchDoctors();
+    }, [fetchDoctors]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Implement API call here
-        console.log("Appointment rescheduled:", { appointmentId, patientName, ...formData });
-        navigate(-1);
+        
+        // Validate form
+        if (!formData.doctor) {
+            toast.error("Please select a doctor");
+            return;
+        }
+        if (!formData.date) {
+            toast.error("Please select a date");
+            return;
+        }
+        if (!formData.time) {
+            toast.error("Please select a time");
+            return;
+        }
+        if (!appointmentId) {
+            toast.error("Appointment ID is missing");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const requestBody = {
+                appointmentDate: formData.date,
+                appointmentTime: formData.time,
+            };
+            
+            // Only include doctorId if a doctor is selected (optional for reschedule)
+            if (formData.doctor) {
+                requestBody.doctorId = formData.doctor;
+            }
+            
+            const response = await axios.patch(
+                getApiUrl(`appointments/${appointmentId}/reschedule`),
+                requestBody,
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                toast.success("Appointment rescheduled successfully!");
+                navigate("/receptionist/appointments");
+            } else {
+                toast.error(response.data.message || "Failed to reschedule appointment");
+            }
+        } catch (error) {
+            console.error("Error rescheduling appointment:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to reschedule appointment");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -62,20 +144,27 @@ function RescheduleAppointmentPage() {
                             sx={{ mb: 2 }}
                         />
                         <FormControl fullWidth required sx={{ mb: 2 }}>
-                            <InputLabel>Doctor *</InputLabel>
+                            <InputLabel id="doctor-select-label">Doctor *</InputLabel>
                             <Select
                                 name="doctor"
                                 value={formData.doctor}
                                 onChange={handleChange}
                                 label="Doctor *"
+                                labelId="doctor-select-label"
+                                disabled={isLoadingDoctors}
                             >
                                 <MenuItem value="">Select Doctor</MenuItem>
-                                {mockDoctors.map((d) => (
+                                {doctors.map((d) => (
                                     <MenuItem key={d._id} value={d._id}>
-                                        {d.name || d.user?.name}
+                                        {d.user?.name || d.name || "Unknown"}
                                     </MenuItem>
                                 ))}
                             </Select>
+                            {isLoadingDoctors && (
+                                <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+                                    <CircularProgress size={20} />
+                                </Box>
+                            )}
                         </FormControl>
                         <Box sx={{ display: "flex", gap: 2 }}>
                             <TextField
@@ -102,11 +191,16 @@ function RescheduleAppointmentPage() {
                     </Box>
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button variant="outlined" onClick={() => navigate(-1)}>
+                        <Button variant="outlined" onClick={() => navigate(-1)} disabled={isSubmitting}>
                             Cancel
                         </Button>
-                        <Button type="submit" variant="contained" sx={{ backgroundColor: "#8B4513" }}>
-                            Reschedule Appointment
+                        <Button 
+                            type="submit" 
+                            variant="contained" 
+                            sx={{ backgroundColor: "#8B4513" }}
+                            disabled={isSubmitting || isLoadingDoctors}
+                        >
+                            {isSubmitting ? "Rescheduling..." : "Reschedule Appointment"}
                         </Button>
                     </Box>
                 </form>

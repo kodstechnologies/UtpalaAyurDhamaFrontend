@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Box } from "@mui/material";
+import { useSelector } from "react-redux";
 import Breadcrumb from "../../components/breadcrumb/Breadcrumb";
 import DashboardCard from "../../components/card/DashboardCard";
 
@@ -16,6 +17,9 @@ import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import GreetingBanner from "../../components/card/GreetingCard";
 import GreetingsImg from "../../assets/greeting/therapist.png"
 function Therapist_Dashboard() {
+    const { user } = useSelector((state) => state.auth);
+    const therapistName = user?.name || "Therapist";
+    
     // Mock data - will be replaced with API calls later
     const [summary] = useState({
         todayAppointments: 8,
@@ -106,8 +110,6 @@ function Therapist_Dashboard() {
         });
     };
 
-    // Get therapist name from Redux or localStorage
-    const therapistName = "Therapist"; // Will be replaced with actual user data
 
     // Upcoming sessions (today and future)
     const upcomingSessions = useMemo(() => {
@@ -280,9 +282,9 @@ function Therapist_Dashboard() {
                 </Box>
             </Box> */}
             <GreetingBanner
-                // title="Good Morning"
-                name="Therapist"
-                subtitle="Review prescriptions, manage verification, and dispense medicines efficiently."
+                title="Namaste"
+                name={therapistName}
+                subtitle="Here is a snapshot of today's healing journey. Track upcoming sessions, monitor patient progress, and jump into the areas that need your attention."
                 image={GreetingsImg}
                 breadcrumbItems={breadcrumbItems}
             />

@@ -1,18 +1,24 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
-    Mail, Phone, Calendar, User, Home, Stethoscope, FileBadge,
+    Mail, Phone, Calendar, User, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
     ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
     X, Save, AlertCircle, CheckCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
+import InputDialogModal from "../../../../components/modal/InputDialogModal";
+import adminUserService from "../../../../services/adminUserService";
 
 function Add_Doctors() {
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
+    const [languageModal, setLanguageModal] = useState(false);
+    const [certificationModal, setCertificationModal] = useState(false);
 
     // Initial empty doctor data for creation
     const [doctor, setDoctor] = useState({
@@ -39,8 +45,33 @@ function Add_Doctors() {
 
         // Additional Info
         bio: "",
-        certifications: []
+        certifications: [],
+        profilePicture: ""
     });
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            alert("File size should be less than 2MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await adminUserService.uploadImage(file);
+            if (response.success) {
+                setDoctor(prev => ({ ...prev, profilePicture: response.data.url }));
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Failed to upload image");
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     // Handle Input Change
     const updateField = (field, value) => {
@@ -48,12 +79,18 @@ function Add_Doctors() {
     };
 
     const handleAddLanguage = () => {
-        const newLang = prompt("Enter a new language:");
-        if (newLang && !doctor.languages.includes(newLang)) {
+        setLanguageModal(true);
+    };
+
+    const handleLanguageConfirm = (language) => {
+        if (language && !doctor.languages.includes(language)) {
             setDoctor(prev => ({
                 ...prev,
-                languages: [...prev.languages, newLang]
+                languages: [...prev.languages, language]
             }));
+            toast.success("Language added successfully!");
+        } else if (doctor.languages.includes(language)) {
+            toast.error("This language is already added");
         }
     };
 
@@ -65,12 +102,18 @@ function Add_Doctors() {
     };
 
     const handleAddCertification = () => {
-        const newCert = prompt("Enter new certification:");
-        if (newCert && !doctor.certifications.includes(newCert)) {
+        setCertificationModal(true);
+    };
+
+    const handleCertificationConfirm = (certification) => {
+        if (certification && !doctor.certifications.includes(certification)) {
             setDoctor(prev => ({
                 ...prev,
-                certifications: [...prev.certifications, newCert]
+                certifications: [...prev.certifications, certification]
             }));
+            toast.success("Certification added successfully!");
+        } else if (doctor.certifications.includes(certification)) {
+            toast.error("This certification is already added");
         }
     };
 
@@ -82,7 +125,7 @@ function Add_Doctors() {
     };
 
     const handleSave = async () => {
-        // Basic validation (can be enhanced)
+        // Basic validation
         if (!doctor.name || !doctor.email || !doctor.specialization || !doctor.licenseNumber) {
             alert("Please fill in the required fields (Name, Email, Specialization, License Number).");
             return;
@@ -90,17 +133,22 @@ function Add_Doctors() {
 
         setIsSaving(true);
 
-        // Simulate API call for creation
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            await adminUserService.createUser("Doctor", doctor);
 
-        console.log("Created Doctor Data:", doctor);
-        setIsSaving(false);
-        setShowSuccess(true);
+            console.log("Created Doctor Data:", doctor);
+            setIsSaving(false);
+            setShowSuccess(true);
 
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate("/admin/doctors"); // Redirect to doctors list
-        }, 2000);
+            setTimeout(() => {
+                setShowSuccess(false);
+                navigate("/admin/doctors"); // Redirect to doctors list
+            }, 2000);
+        } catch (error) {
+            console.error("Error creating doctor:", error);
+            setIsSaving(false);
+            alert(`Failed to create doctor: ${error.message || "Unknown error"}`);
+        }
     };
 
     const sections = [
@@ -267,6 +315,7 @@ function Add_Doctors() {
                                                 type="tel"
                                                 value={doctor.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Emergency Contact"
@@ -274,6 +323,7 @@ function Add_Doctors() {
                                                 type="tel"
                                                 value={doctor.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Date of Birth"
@@ -498,26 +548,49 @@ function Add_Doctors() {
                                                 borderColor: "var(--color-text)"
                                             }}>
                                                 <div
-                                                    className="w-20 h-20 rounded-full flex items-center justify-center"
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden relative"
                                                     style={{
                                                         backgroundColor: "var(--color-icon-5-light)",
                                                         border: "2px dashed var(--color-icon-5)",
                                                         color: "var(--color-icon-5)"
                                                     }}
                                                 >
-                                                    <User size={32} />
+                                                    {doctor.profilePicture ? (
+                                                        <img
+                                                            src={doctor.profilePicture}
+                                                            alt="Profile"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <User size={32} />
+                                                    )}
+
+                                                    {isUploading && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
+                                                    <input
+                                                        type="file"
+                                                        id="profile-upload"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                    />
                                                     <button
                                                         type="button"
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105"
+                                                        onClick={() => document.getElementById('profile-upload').click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50"
                                                         style={{
                                                             backgroundColor: "var(--color-btn-b)",
                                                             color: "var(--color-light)"
                                                         }}
                                                     >
                                                         <Upload size={16} />
-                                                        Upload New Photo
+                                                        {isUploading ? "Uploading..." : "Upload New Photo"}
                                                     </button>
                                                     <p className="text-sm mt-2" style={{ color: "var(--color-text)" }}>
                                                         JPG, PNG or GIF, max 2MB
@@ -579,6 +652,40 @@ function Add_Doctors() {
                     </div>
                 </div>
             </div>
+
+            {/* Language Input Modal */}
+            <InputDialogModal
+                isOpen={languageModal}
+                onClose={() => setLanguageModal(false)}
+                onConfirm={handleLanguageConfirm}
+                title="Add Language"
+                label="Language"
+                placeholder="e.g., English, Spanish, French"
+                confirmText="Add Language"
+                validate={(value) => {
+                    if (doctor.languages.includes(value)) {
+                        return "This language is already added";
+                    }
+                    return null;
+                }}
+            />
+
+            {/* Certification Input Modal */}
+            <InputDialogModal
+                isOpen={certificationModal}
+                onClose={() => setCertificationModal(false)}
+                onConfirm={handleCertificationConfirm}
+                title="Add Certification"
+                label="Certification"
+                placeholder="e.g., BLS Certified, ACLS Certified"
+                confirmText="Add Certification"
+                validate={(value) => {
+                    if (doctor.certifications.includes(value)) {
+                        return "This certification is already added";
+                    }
+                    return null;
+                }}
+            />
         </div>
     );
 }

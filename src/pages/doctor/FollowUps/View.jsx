@@ -1,10 +1,13 @@
-import { useState, useMemo } from "react";
-import { Box, Stack, Button, Chip } from "@mui/material";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Box, Stack, Button, CircularProgress, Chip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import ReplayIcon from "@mui/icons-material/Replay";
 import PersonIcon from "@mui/icons-material/Person";
 import EventIcon from "@mui/icons-material/Event";
-import WarningIcon from "@mui/icons-material/Warning";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
@@ -12,56 +15,78 @@ import DashboardCard from "../../../components/card/DashboardCard";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
-
-// Mock data
-const mockFollowUps = [
-    {
-        _id: "1",
-        patientName: "Amit Kumar",
-        patientId: "PAT-001",
-        followUpDate: "2026-01-05", // Forward date
-        followUpTime: "10:00 AM",
-        reason: "Review medication effectiveness",
-        status: "Upcoming",
-        daysUntil: 6,
-    },
-    {
-        _id: "2",
-        patientName: "Sita Verma",
-        patientId: "PAT-002",
-        followUpDate: "2026-01-02", // Forward date
-        followUpTime: "11:00 AM",
-        reason: "Post-treatment checkup",
-        status: "Upcoming",
-        daysUntil: 3,
-    },
-    {
-        _id: "3",
-        patientName: "Rajesh Singh",
-        patientId: "PAT-003",
-        followUpDate: "2025-12-30", // Today!
-        followUpTime: "09:00 AM",
-        reason: "Blood test results review",
-        status: "Today",
-        daysUntil: 0,
-    },
-    {
-        _id: "4",
-        patientName: "Priya Sharma",
-        patientId: "PAT-004",
-        followUpDate: "2025-12-28", // Past date
-        followUpTime: "02:00 PM",
-        reason: "Routine checkup",
-        status: "Overdue",
-        daysUntil: -2,
-    },
-];
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 function FollowUps_View() {
-    const [followUps] = useState(mockFollowUps);
+    const [followUps, setFollowUps] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [filter, setFilter] = useState("All");
     const navigate = useNavigate();
+    const { user } = useSelector((state) => state.auth);
+
+    // Fetch follow-ups from backend
+    const fetchFollowUps = useCallback(async () => {
+        if (!user?._id) {
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            // Fetch all follow-ups for the authenticated doctor
+            const response = await axios.get(
+                getApiUrl(`examinations/followups/all/by-doctor`),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                const followUpData = response.data.data || [];
+
+                // Transform the data to match the table structure
+                const transformedFollowUps = followUpData.map((fup) => {
+                    const followUpDate = fup.date
+                        ? new Date(fup.date).toISOString().split("T")[0]
+                        : "N/A";
+                    const followUpTime = fup.date
+                        ? new Date(fup.date).toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true
+                        })
+                        : "N/A";
+
+                    const daysUntil = fup.daysUntil !== undefined ? fup.daysUntil : 0;
+                    
+                    return {
+                        _id: fup._id,
+                        patientName: fup.patientName || "Unknown",
+                        patientId: fup.patientUhid || fup.patientId || "N/A",
+                        followUpDate,
+                        followUpTime,
+                        reason: fup.note || "Follow-up appointment",
+                        status: fup.status || "Upcoming",
+                        daysUntil,
+                        examinationId: fup.examinationId,
+                        patientIdRaw: fup.patientUserId || fup.patientId,
+                    };
+                });
+
+                setFollowUps(transformedFollowUps);
+            } else {
+                toast.error(response.data.message || "Failed to fetch follow-ups");
+            }
+        } catch (error) {
+            console.error("Error fetching follow-ups:", error);
+            toast.error(error.response?.data?.message || "Error fetching follow-ups");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchFollowUps();
+    }, [fetchFollowUps]);
 
     // Filter follow-ups
     const filteredFollowUps = useMemo(() => {
@@ -88,35 +113,67 @@ function FollowUps_View() {
         };
     }, [followUps]);
 
+    const getDaysUntilDisplay = (daysUntil) => {
+        if (daysUntil === 0) {
+            return { text: "Today", color: "warning", variant: "filled" };
+        } else if (daysUntil > 0) {
+            if (daysUntil === 1) {
+                return { text: "Tomorrow", color: "info", variant: "filled" };
+            } else if (daysUntil <= 7) {
+                return { text: `In ${daysUntil} days`, color: "info", variant: "outlined" };
+            } else {
+                return { text: `In ${daysUntil} days`, color: "default", variant: "outlined" };
+            }
+        } else {
+            return { text: `${Math.abs(daysUntil)} days ago`, color: "error", variant: "filled" };
+        }
+    };
+
     const columns = [
         { field: "patientName", header: "Patient Name" },
         { field: "patientId", header: "Patient ID" },
         { field: "followUpDate", header: "Date" },
         { field: "followUpTime", header: "Time" },
+        {
+            field: "daysUntil",
+            header: "Timeline",
+            render: (row) => {
+                const display = getDaysUntilDisplay(row.daysUntil);
+                return (
+                    <Chip
+                        icon={<AccessTimeIcon fontSize="small" />}
+                        label={display.text}
+                        color={display.color}
+                        variant={display.variant}
+                        size="small"
+                        sx={{
+                            fontWeight: 600,
+                            "& .MuiChip-icon": {
+                                color: "inherit",
+                            },
+                        }}
+                    />
+                );
+            },
+        },
         { field: "reason", header: "Reason" },
-        { field: "status", header: "Status" },
     ];
 
     const actions = [
         {
             icon: <PersonIcon fontSize="small" />,
             color: "var(--color-primary)",
-            label: "Patient Calendar",
+            tooltip: "Patient Calendar",
             onClick: (row) => {
-                navigate(`/doctor/examination/${row.patientId}`);
+                if (row.patientIdRaw) {
+                    navigate(`/doctor/examination/${row.patientIdRaw}`);
+                } else {
+                    toast.info("Patient information not available");
+                }
             },
         },
     ];
 
-    const getStatusBadge = (status) => {
-        const colors = {
-            Today: "warning",
-            Upcoming: "info",
-            Overdue: "error",
-            Completed: "success",
-        };
-        return <Chip label={status} color={colors[status] || "default"} size="small" />;
-    };
 
     return (
         <Box>
@@ -142,7 +199,6 @@ function FollowUps_View() {
                 <DashboardCard title="Total Follow-ups" count={stats.total} icon={ReplayIcon} />
                 <DashboardCard title="Today" count={stats.today} icon={EventIcon} />
                 <DashboardCard title="Upcoming" count={stats.upcoming} icon={EventIcon} />
-                <DashboardCard title="Overdue" count={stats.overdue} icon={WarningIcon} />
             </Stack>
 
             {/* Search */}
@@ -175,7 +231,7 @@ function FollowUps_View() {
 
             {/* Filter Buttons */}
             <Stack direction="row" spacing={2} mb={3}>
-                {["All", "Today", "Upcoming", "Overdue", "Completed"].map((btn) => (
+                {["All", "Today", "Upcoming"].map((btn) => (
                     <Button
                         key={btn}
                         onClick={() => setFilter(btn)}
@@ -200,13 +256,15 @@ function FollowUps_View() {
             </Stack>
 
             {/* Table */}
+            {isLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                    <CircularProgress />
+                </Box>
+            ) : (
             <TableComponent
                 title="Follow-ups"
                 columns={columns}
-                rows={filteredFollowUps.map((row) => ({
-                    ...row,
-                    status: getStatusBadge(row.status),
-                }))}
+                    rows={filteredFollowUps}
                 actions={actions}
                 showView={false}
                 showEdit={false}
@@ -214,6 +272,7 @@ function FollowUps_View() {
                 showAddButton={false}
                 showExportButton={false}
             />
+            )}
         </Box>
     );
 }

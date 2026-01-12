@@ -13,11 +13,14 @@ import {
     Typography,
     Grid,
     Divider,
+    CircularProgress,
 } from "@mui/material";
 import { toast } from "react-toastify";
+import familyMemberService from "../../../services/familyMemberService";
 
 function AddMemberPage() {
     const navigate = useNavigate();
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         fullName: "",
         relation: "",
@@ -31,29 +34,56 @@ function AddMemberPage() {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // Validation
-        if (!formData.fullName || !formData.relation || !formData.phone || !formData.dob || !formData.gender) {
+        // Validation (phone is optional - if not provided or same, will use main patient's phone)
+        if (!formData.fullName || !formData.relation || !formData.dob || !formData.gender) {
             toast.error("Please fill in all required fields.");
             return;
         }
 
-        // Phone validation
-        if (formData.phone.length < 10) {
-            toast.error("Please enter a valid phone number.");
+        // Phone validation (if provided, must be valid)
+        if (formData.phone && formData.phone.length < 10) {
+            toast.error("Please enter a valid phone number (10 digits).");
             return;
         }
 
-        // In a real app, this would be an API call
-        console.log("New Member Added:", formData);
-        toast.success("Family member added successfully!");
-        
-        // Navigate back to family members page
-        setTimeout(() => {
-            navigate("/patient/family");
-        }, 1000);
+        setIsSubmitting(true);
+
+        try {
+            // Format date for API (ISO format)
+            const dateOfBirth = new Date(formData.dob).toISOString();
+
+            const requestData = {
+                fullName: formData.fullName,
+                relation: formData.relation,
+                dateOfBirth: dateOfBirth,
+                gender: formData.gender,
+            };
+
+            // Include phoneNumber only if provided (optional field)
+            if (formData.phone && formData.phone.trim()) {
+                requestData.phoneNumber = formData.phone.trim();
+            }
+
+            const response = await familyMemberService.createFamilyMember(requestData);
+
+            if (response && response.success) {
+                toast.success("Family member added successfully!");
+                setTimeout(() => {
+                    navigate("/patient/family", { state: { refresh: true } });
+                }, 1500);
+            } else {
+                toast.error(response?.message || "Failed to add family member");
+                setIsSubmitting(false);
+            }
+        } catch (error) {
+            console.error("Error adding family member:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error adding family member";
+            toast.error(errorMessage);
+            setIsSubmitting(false);
+        }
     };
 
     const relationOptions = ["Spouse", "Father", "Mother", "Daughter", "Son", "Brother", "Sister", "Other"];
@@ -128,7 +158,7 @@ function AddMemberPage() {
                             </Box>
                         </Grid>
 
-                        {/* Phone Number */}
+                        {/* Phone Number (Optional) */}
                         <Grid item xs={12} md={6}>
                             <Box>
                                 <Typography
@@ -139,16 +169,15 @@ function AddMemberPage() {
                                         mb: 0.5,
                                     }}
                                 >
-                                    Phone Number <span style={{ color: "var(--color-error)" }}>*</span>
+                                    Phone Number <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", fontWeight: 400 }}>(Optional - will use your phone if not provided)</span>
                                 </Typography>
                                 <StyledTextField
-                                    placeholder="Enter phone number"
+                                    placeholder="Enter phone number (optional)"
                                     name="phone"
                                     type="tel"
                                     value={formData.phone}
                                     onChange={handleChange}
                                     inputProps={{ maxLength: 10 }}
-                                    required
                                 />
                             </Box>
                         </Grid>
@@ -219,6 +248,7 @@ function AddMemberPage() {
                         <Button
                             type="submit"
                             variant="contained"
+                            disabled={isSubmitting}
                             sx={{
                                 backgroundColor: "var(--color-btn)",
                                 color: "var(--color-text-light)",
@@ -231,7 +261,7 @@ function AddMemberPage() {
                                 },
                             }}
                         >
-                            Add Member
+                            {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Add Member"}
                         </Button>
                     </Box>
                 </form>

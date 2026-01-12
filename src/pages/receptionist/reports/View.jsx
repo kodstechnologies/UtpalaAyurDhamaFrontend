@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
+import paymentService from "../../../services/paymentService";
+import logo from "../../../assets/logo/logo.webp";
 
 // Icons
 import CreditScoreIcon from "@mui/icons-material/CreditScore";
@@ -19,90 +21,32 @@ import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 
-// Mock data - will be replaced with API calls later
-// Generate mock transactions for various dates including December 2025
-const generateMockTransactions = () => {
-    const transactions = [];
-    const baseDate = new Date("2025-12-01");
-
-    // Add transactions for December 2025
-    for (let i = 0; i < 20; i++) {
-        const date = new Date(baseDate);
-        date.setDate(baseDate.getDate() + i);
-
-        const types = ["Credit", "Debit"];
-        const paymentMethods = ["Cash", "Online", "Card"];
-        const descriptions = [
-            "Consultation Fee",
-            "Room Booking Advance",
-            "Medical Supplies Purchase",
-            "Therapy Session Fee",
-            "Equipment Maintenance",
-            "Follow-up Visit",
-            "Lab Test Charges",
-            "Pharmacy Purchase",
-            "Ward Charges",
-            "Doctor Consultation",
-        ];
-
-        transactions.push({
-            id: `txn-dec-${i + 1}`,
-            date: date.toISOString().split("T")[0],
-            description: descriptions[i % descriptions.length],
-            type: types[i % 2],
-            amount: Math.floor(Math.random() * 5000) + 100,
-            paymentMethod: paymentMethods[i % 3],
-        });
-    }
-
-    // Add some transactions from January 2025 as well
-    const janTransactions = [
-        {
-            id: "txn-jan-1",
-            date: "2025-01-20",
-            description: "Consultation Fee for John Doe",
-            type: "Credit",
-            amount: 1500.0,
-            paymentMethod: "Cash",
-        },
-        {
-            id: "txn-jan-2",
-            date: "2025-01-19",
-            description: "Room Booking Advance - Amit Kumar",
-            type: "Credit",
-            amount: 2500.0,
-            paymentMethod: "Online",
-        },
-        {
-            id: "txn-jan-3",
-            date: "2025-01-18",
-            description: "Medical Supplies Purchase",
-            type: "Debit",
-            amount: 1500.0,
-            paymentMethod: "Card",
-        },
-    ];
-
-    return [...transactions, ...janTransactions];
-};
-
-const mockTransactions = generateMockTransactions();
-
 function Reports_View() {
     const [reportData, setReportData] = useState([]);
+    const [summaryData, setSummaryData] = useState(null);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [loading, setLoading] = useState(false);
     const [hasGenerated, setHasGenerated] = useState(false);
 
-    // Calculate totals
+    // Calculate totals from report data (as fallback)
     const totals = useMemo(() => {
-        const credit = reportData.filter((t) => t.type === "Credit").reduce((sum, t) => sum + t.amount, 0);
-        const debit = reportData.filter((t) => t.type === "Debit").reduce((sum, t) => sum + t.amount, 0);
+        if (summaryData) {
+            // Use backend summary data
+            return {
+                credit: summaryData.totalIncome || 0,
+                debit: summaryData.totalExpense || 0,
+                balance: summaryData.netTotal || 0,
+                transactionCount: reportData.length,
+            };
+        }
+        // Fallback: calculate from report data
+        const credit = reportData.filter((t) => t.type === "Credit" || t.type === "Income").reduce((sum, t) => sum + (t.amount || 0), 0);
+        const debit = reportData.filter((t) => t.type === "Debit" || t.type === "Expense").reduce((sum, t) => sum + (t.amount || 0), 0);
         const balance = credit - debit;
         const transactionCount = reportData.length;
         return { credit, debit, balance, transactionCount };
-    }, [reportData]);
+    }, [reportData, summaryData]);
 
     // Format currency
     const formatCurrency = (amount) => {
@@ -111,7 +55,7 @@ function Reports_View() {
             currency: "INR",
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
-        }).format(amount);
+        }).format(amount || 0);
     };
 
     // Format date
@@ -148,51 +92,100 @@ function Reports_View() {
         }
         try {
             setLoading(true);
-            // Mock API call - will be replaced with actual API call later
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            
+            // Convert dates to ISO strings for API (YYYY-MM-DD format is fine, API will convert)
+            // The backend validation expects ISO 8601 format
+            const startDateObj = new Date(startDate);
+            startDateObj.setHours(0, 0, 0, 0); // Set to start of day in local time
+            const endDateObj = new Date(endDate);
+            endDateObj.setHours(23, 59, 59, 999); // Set to end of day in local time
+            
+            const startDateISO = startDateObj.toISOString();
+            const endDateISO = endDateObj.toISOString();
 
-            // Filter mock transactions by date range
-            const filtered = mockTransactions.filter((txn) => {
-                const txnDate = new Date(txn.date);
-                txnDate.setHours(0, 0, 0, 0); // Reset time to start of day
-                const start = new Date(startDate);
-                start.setHours(0, 0, 0, 0);
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999); // Set to end of day
-                return txnDate >= start && txnDate <= end;
+            console.log("Fetching report with dates:", { startDateISO, endDateISO });
+
+            const response = await paymentService.getPaymentReport({
+                startDate: startDateISO,
+                endDate: endDateISO,
+                format: "json",
             });
 
-            const formattedData = filtered.map((item) => ({
-                id: item.id,
-                date: formatDate(item.date),
-                description: item.description,
-                type: item.type,
-                amount: item.amount,
-                paymentMethod: item.paymentMethod,
-            }));
+            console.log("Report API response:", response);
 
-            setReportData(formattedData);
-            setHasGenerated(true);
-            if (formattedData.length === 0) {
-                toast.success("No transactions found for the selected date range.");
+            if (response && response.success && response.data) {
+                const { summary, transactions } = response.data;
+
+                console.log("Report data:", { summary, transactionsCount: transactions?.length });
+
+                // Map backend data to frontend format
+                const formattedTransactions = (transactions || []).map((payment, index) => ({
+                    id: payment._id || `payment-${index}`,
+                    date: payment.date || payment.createdAt,
+                    description: payment.description || "N/A",
+                    type: payment.type === "Income" ? "Credit" : payment.type === "Expense" ? "Debit" : payment.type,
+                    amount: payment.amount || 0,
+                    paymentMethod: payment.paymentMethod || "N/A",
+                    originalType: payment.type, // Keep original for reference
+                }));
+
+                setReportData(formattedTransactions);
+                setSummaryData(summary || null);
+                setHasGenerated(true);
+
+                if (formattedTransactions.length === 0) {
+                    toast.info("No transactions found for the selected date range.");
+                } else {
+                    toast.success(`Report generated successfully. Found ${formattedTransactions.length} transaction(s).`);
+                }
             } else {
-                toast.success(`Report generated successfully. Found ${formattedData.length} transaction(s).`);
+                console.error("Invalid response structure:", response);
+                toast.error(response?.message || "Failed to generate report. Invalid response from server.");
             }
         } catch (error) {
-            toast.error(error.message || "Failed to generate report.");
+            console.error("Error generating report:", error);
+            console.error("Error details:", error.response?.data || error.message);
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Failed to generate report.";
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
     // Handle download Excel
-    const handleDownloadExcel = () => {
+    const handleDownloadExcel = async () => {
         if (!startDate || !endDate) {
             toast.error("Please select a date range first.");
             return;
         }
-        // Mock download - will be replaced with actual API call later
-        toast.info("Excel export functionality will be available after backend integration.");
+        try {
+            // Convert dates to ISO strings for API
+            const startDateISO = new Date(startDate).toISOString();
+            const endDateISO = new Date(endDate).toISOString();
+
+            const response = await paymentService.getPaymentReport({
+                startDate: startDateISO,
+                endDate: endDateISO,
+                format: "excel",
+            });
+
+            // Create blob link to download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            const formattedStartDate = startDate.replace(/-/g, '');
+            const formattedEndDate = endDate.replace(/-/g, '');
+            const fileName = `payment_report_${formattedStartDate}_to_${formattedEndDate}.xlsx`;
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            toast.success("Excel file downloaded successfully!");
+        } catch (error) {
+            console.error("Error downloading Excel:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to download Excel file.");
+        }
     };
 
     // Handle print
@@ -209,6 +202,8 @@ function Reports_View() {
                 return <AccountBalanceWalletIcon fontSize="small" className="me-1" />;
             case "Card":
                 return <CreditScoreIcon fontSize="small" className="me-1" />;
+            case "Bank Transfer":
+                return <AccountBalanceWalletIcon fontSize="small" className="me-1" />;
             default:
                 return null;
         }
@@ -220,7 +215,7 @@ function Reports_View() {
 
     // Get type icon and color
     const getTypeIcon = (type) => {
-        return type === "Credit" ? (
+        return type === "Credit" || type === "Income" ? (
             <TrendingUpIcon fontSize="small" className="me-1" />
         ) : (
             <TrendingDownIcon fontSize="small" className="me-1" />
@@ -228,7 +223,7 @@ function Reports_View() {
     };
 
     const getTypeColor = (type) => {
-        return type === "Credit" ? "#198754" : "#dc3545"; // Green for Credit, Red for Debit
+        return type === "Credit" || type === "Income" ? "#198754" : "#dc3545"; // Green for Credit/Income, Red for Debit/Expense
     };
 
     // Breadcrumb items
@@ -376,13 +371,84 @@ function Reports_View() {
                     <Box sx={{ marginTop: 4 }} id="printable-area">
                         <div className="card shadow-sm">
                             <div className="card-body">
-                                <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom no-print">
-                                    <div>
-                                        <h5 className="card-title mb-1">Transaction Details</h5>
-                                        <p className="text-muted small mb-0">
+                                {/* Header Section with Logo and Title */}
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        mb: 4,
+                                        pb: 3,
+                                        borderBottom: "2px solid #e0e0e0",
+                                    }}
+                                >
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                        <Box
+                                            component="img"
+                                            src={logo}
+                                            alt="Utpala Ayurdham"
+                                            sx={{
+                                                height: { xs: "60px", md: "80px" },
+                                                width: "auto",
+                                                objectFit: "contain",
+                                            }}
+                                        />
+                                        <Box>
+                                            <Typography
+                                                variant="h4"
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    color: "#2d2d2d",
+                                                    mb: 0.5,
+                                                    fontSize: { xs: "1.5rem", md: "2rem" },
+                                                }}
+                                            >
+                                                Utpala Ayurdham
+                                            </Typography>
+                                            <Typography
+                                                variant="h6"
+                                                sx={{
+                                                    fontWeight: 600,
+                                                    color: "#666",
+                                                    fontSize: { xs: "1rem", md: "1.25rem" },
+                                                }}
+                                            >
+                                                Transaction Details
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box
+                                        className="no-print"
+                                        sx={{
+                                            display: { xs: "none", md: "flex" },
+                                            flexDirection: "column",
+                                            alignItems: "flex-end",
+                                        }}
+                                    >
+                                        <Typography
+                                            variant="body2"
+                                            sx={{ color: "#666", fontWeight: 500 }}
+                                        >
                                             Period: {formatDateDisplay(startDate)} - {formatDateDisplay(endDate)}
-                                        </p>
-                                    </div>
+                                        </Typography>
+                                    </Box>
+                                </Box>
+
+                                {/* Period info for mobile/print */}
+                                <Box
+                                    sx={{
+                                        mb: 3,
+                                        pb: 2,
+                                        borderBottom: "1px solid #e0e0e0",
+                                        display: { xs: "block", md: "none" },
+                                    }}
+                                >
+                                    <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
+                                        Period: {formatDateDisplay(startDate)} - {formatDateDisplay(endDate)}
+                                    </Typography>
+                                </Box>
+
+                                <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom no-print">
                                     <div className="d-flex gap-2 mt-3 mt-md-0">
                                         <button
                                             type="button"
@@ -420,7 +486,7 @@ function Reports_View() {
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <div className="d-flex align-items-center gap-2">
                                                             <CalendarTodayIcon fontSize="small" sx={{ color: "#6c757d" }} />
-                                                            <span>{transaction.date}</span>
+                                                            <span>{formatDate(transaction.date)}</span>
                                                         </div>
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
@@ -507,6 +573,8 @@ function Reports_View() {
                                         setStartDate("");
                                         setEndDate("");
                                         setHasGenerated(false);
+                                        setReportData([]);
+                                        setSummaryData(null);
                                     }}
                                 >
                                     Select New Date Range

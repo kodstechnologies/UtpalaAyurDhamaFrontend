@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 function RedirectButton({
@@ -19,6 +19,35 @@ function RedirectButton({
     const navigate = useNavigate();
     const [isHovered, setIsHovered] = useState(false);
     const [isPressed, setIsPressed] = useState(false);
+
+    // Inject styles into document head
+    useEffect(() => {
+        const styleId = 'redirect-button-styles';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                @keyframes ripple {
+                    to {
+                        transform: scale(4);
+                        opacity: 0;
+                    }
+                }
+                .redirect-button:focus {
+                    outline: 2px solid var(--color-primary, #2563eb);
+                    outline-offset: 2px;
+                }
+                .redirect-button:focus:not(:focus-visible) {
+                    outline: none;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }, []);
 
     const handleClick = (e) => {
         if (disabled || loading) return;
@@ -119,12 +148,6 @@ function RedirectButton({
                 xmlns="http://www.w3.org/2000/svg"
                 style={{ animation: "spin 1s linear infinite" }}
             >
-                <style jsx>{`
-                    @keyframes spin {
-                        from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
-                    }
-                `}</style>
                 <path
                     d="M12 2C6.477 2 2 6.477 2 12C2 17.523 6.477 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2Z"
                     stroke="currentColor"
@@ -171,24 +194,6 @@ function RedirectButton({
                     pointerEvents: "none",
                 }}
             />
-
-            <style jsx>{`
-                @keyframes ripple {
-                    to {
-                        transform: scale(4);
-                        opacity: 0;
-                    }
-                }
-                
-                .redirect-button:focus {
-                    outline: 2px solid ${currentVariant.background};
-                    outline-offset: 2px;
-                }
-                
-                .redirect-button:focus:not(:focus-visible) {
-                    outline: none;
-                }
-            `}</style>
 
             {loading && <LoadingSpinner />}
 

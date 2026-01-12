@@ -1,94 +1,90 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
-// Form fields for modals
-const fields = [
-    { name: 'patientId', label: 'Patient ID', type: 'text', required: true },
-    { name: 'patientName', label: 'Patient Name', type: 'text', required: true },
-    { name: 'mobile', label: 'Mobile No', type: 'tel', required: true },
-    { name: 'admissionDate', label: 'Admission Date', type: 'date', required: true },
-];
-
-// Mock APIs
-const createAdmissionAPI = async (data) => {
-    const newId = Date.now().toString();
-    const newAdmission = { _id: newId, ...data };
-    console.log('Created admission:', newAdmission);
-    return newAdmission;
-};
-
-const updateAdmissionAPI = async (data, id) => {
-    console.log('Updated admission:', { _id: id, ...data });
-    return { _id: id, ...data };
-};
-
-const deleteAdmissionAPI = async (id) => {
-    console.log('Deleted admission:', id);
+// Helper function to format date
+const formatDate = (date) => {
+    if (!date) return "N/A";
+    const d = new Date(date);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
 function Admissions_View() {
-    const [rows, setRows] = useState([
-        {
-            _id: "A001",
-            patientId: "P-1001",
-            patientName: "Amit Kumar",
-            mobile: "9876543210",
-            admissionDate: "2025-02-10",
-            status: "Active"
-        },
-        {
-            _id: "A002",
-            patientId: "P-1002",
-            patientName: "Neha Sharma",
-            mobile: "9123456780",
-            admissionDate: "2025-02-12",
-            status: "Discharged"
-        },
-        {
-            _id: "A003",
-            patientId: "P-1003",
-            patientName: "Rohan Das",
-            mobile: "9988776655",
-            admissionDate: "2025-02-15",
-            status: "Active"
-        },
-    ]);
-
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
+
+    const fetchAdmissions = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // Fetch all inpatients (admissions)
+            const response = await fetch(getApiUrl("inpatients?limit=1000"), {
+                method: "GET",
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch admissions");
+            }
+
+            const data = await response.json();
+            if (data.success && data.data) {
+                // Transform the data to match table structure
+                const transformedAdmissions = data.data.map((inpatient) => ({
+                    _id: inpatient._id,
+                    patientId: inpatient.patient?.patientId || inpatient.patient?._id || "N/A",
+                    patientName: inpatient.patient?.user?.name || "N/A",
+                    mobile: inpatient.patient?.user?.phone || "N/A",
+                    admissionDate: formatDate(inpatient.admissionDate),
+                    admissionDateRaw: inpatient.admissionDate, // For sorting
+                    status: inpatient.status || "Admitted",
+                    roomNumber: inpatient.roomNumber || "N/A",
+                    bedNumber: inpatient.bedNumber || "N/A",
+                    doctorName: inpatient.doctor?.user?.name || "N/A",
+                }));
+                
+                // Sort by admission date (newest first)
+                transformedAdmissions.sort((a, b) => {
+                    const dateA = new Date(a.admissionDateRaw || 0);
+                    const dateB = new Date(b.admissionDateRaw || 0);
+                    return dateB - dateA;
+                });
+                
+                setRows(transformedAdmissions);
+            } else {
+                toast.error(data.message || "Failed to fetch admissions");
+            }
+        } catch (error) {
+            console.error("Error fetching admissions:", error);
+            toast.error(error.message || "Failed to fetch admissions");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchAdmissions();
+    }, [fetchAdmissions]);
 
     const columns = [
         { field: "patientId", header: "Patient ID" },
         { field: "patientName", header: "Patient Name" },
         { field: "mobile", header: "Mobile No" },
         { field: "admissionDate", header: "Admission Date" },
+        { field: "status", header: "Status" },
     ];
 
     // Filter rows based on search text (search in patientName and patientId)
     const filteredRows = rows.filter(row =>
         row.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-        row.patientId.toLowerCase().includes(searchText.toLowerCase())
+        row.patientId.toLowerCase().includes(searchText.toLowerCase()) ||
+        row.mobile.toLowerCase().includes(searchText.toLowerCase())
     );
-
-    const handleCreateSubmit = async (data) => {
-        const newAdmission = await createAdmissionAPI(data);
-        setRows(prev => [...prev, newAdmission]);
-    };
-
-    const handleEditSubmit = async (data, row) => {
-        const updatedAdmission = await updateAdmissionAPI(data, row._id);
-        setRows(prev => prev.map(r => r._id === row._id ? updatedAdmission : r));
-    };
-
-    const handleDelete = (id) => {
-        if (window.confirm(`Are you sure you want to delete admission ${id}?`)) {
-            deleteAdmissionAPI(id);
-            setRows(prev => prev.filter(r => r._id !== id));
-        }
-    };
 
     return (
         <div className="space-y-6 p-6">
@@ -101,7 +97,7 @@ function Admissions_View() {
                     { label: "Admission List" }
                 ]}
             />
-            {/* SEARCH + EXPORT + CREATE */}
+            {/* SEARCH + EXPORT */}
             <CardBorder
                 justify="between"
                 align="center"
@@ -109,7 +105,6 @@ function Admissions_View() {
                 padding="2rem"
                 style={{ width: "100%" }}
             >
-
                 {/* LEFT SIDE — Search */}
                 <div style={{ flex: 1, marginRight: "1rem" }}>
                     <Search
@@ -119,23 +114,29 @@ function Admissions_View() {
                     />
                 </div>
 
-                {/* RIGHT SIDE — Export + Create Buttons */}
+                {/* RIGHT SIDE — Export Button */}
                 <div style={{ display: "flex", gap: "1rem" }}>
                     <ExportDataButton
                         rows={filteredRows}
                         columns={columns}
                         fileName="admissions.xlsx"
                     />
-
                 </div>
-
             </CardBorder>
-            <TableComponent
-                columns={columns}
-                rows={filteredRows}
-                showStatusBadge={true}
-                statusField="status"
-            />
+
+            {isLoading ? (
+                <div className="flex justify-center items-center p-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
+                        style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+                </div>
+            ) : (
+                <TableComponent
+                    columns={columns}
+                    rows={filteredRows}
+                    showStatusBadge={true}
+                    statusField="status"
+                />
+            )}
         </div>
     );
 }

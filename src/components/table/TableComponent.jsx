@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
     Table, TableHead, TableRow, TableCell, TableBody,
     TableContainer, Paper, Checkbox,
     TablePagination, Stack,
     IconButton,
-    Chip
+    Chip,
+    Tooltip
 } from "@mui/material";
 
 function TableComponent({
@@ -15,13 +16,17 @@ function TableComponent({
 
     showStatusBadge = false,
     statusField = null,
+    showCheckbox = true, // New prop to control checkbox visibility
 }) {
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(8);
 
+    // Ensure rows is always an array
+    const safeRows = Array.isArray(rows) ? rows : [];
+
     const handleSelectAll = (e) => {
-        if (e.target.checked) setSelected(rows.map((r) => r._id));
+        if (e.target.checked) setSelected(safeRows.map((r) => r._id));
         else setSelected([]);
     };
 
@@ -33,7 +38,7 @@ function TableComponent({
         );
     };
 
-    const hasActions = actions.length > 0;
+    const hasActions = (typeof actions === 'function' ? true : actions.length > 0);
 
     // Helper function to render cell content
     const renderCellContent = (col, row) => {
@@ -74,18 +79,20 @@ function TableComponent({
                 <Table>
                     <TableHead>
                         <TableRow>
-                            <TableCell padding="checkbox">
-                                <Checkbox
-                                    checked={
-                                        selected.length === rows.length && rows.length > 0
-                                    }
-                                    indeterminate={
-                                        selected.length > 0 &&
-                                        selected.length < rows.length
-                                    }
-                                    onChange={handleSelectAll}
-                                />
-                            </TableCell>
+                            {showCheckbox && (
+                                <TableCell padding="checkbox">
+                                    <Checkbox
+                                        checked={
+                                            selected.length === safeRows.length && safeRows.length > 0
+                                        }
+                                        indeterminate={
+                                            selected.length > 0 &&
+                                            selected.length < safeRows.length
+                                        }
+                                        onChange={handleSelectAll}
+                                    />
+                                </TableCell>
+                            )}
 
                             <TableCell>Sl. No.</TableCell>
 
@@ -100,16 +107,18 @@ function TableComponent({
                     </TableHead>
 
                     <TableBody>
-                        {rows
+                        {safeRows
                             .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                             .map((row, i) => (
                                 <TableRow key={row._id || i} hover>
-                                    <TableCell padding="checkbox">
-                                        <Checkbox
-                                            checked={selected.includes(row._id)}
-                                            onChange={() => handleSelect(row._id)}
-                                        />
-                                    </TableCell>
+                                    {showCheckbox && (
+                                        <TableCell padding="checkbox">
+                                            <Checkbox
+                                                checked={selected.includes(row._id)}
+                                                onChange={() => handleSelect(row._id)}
+                                            />
+                                        </TableCell>
+                                    )}
 
                                     <TableCell>
                                         {page * rowsPerPage + i + 1}
@@ -124,16 +133,27 @@ function TableComponent({
                                     {hasActions && (
                                         <TableCell align="center">
                                             <Stack direction="row" spacing={0.8} justifyContent="center">
-                                                {actions.map((action, idx) => (
+                                                {(typeof actions === 'function' ? actions(row) : actions).map((action, idx) => {
+                                                    const tooltipText = action.tooltip || action.label || "";
+                                                    const iconButton = (
                                                     <IconButton
                                                         key={idx}
                                                         sx={{ color: action.color || "var(--color-primary)" }}
                                                         onClick={() => action.onClick(row)}
-                                                        title={action.label}
+                                                            disabled={action.disabled || false}
                                                     >
                                                         {action.icon}
                                                     </IconButton>
-                                                ))}
+                                                    );
+                                                    
+                                                    return tooltipText ? (
+                                                        <Tooltip key={idx} title={tooltipText} arrow>
+                                                            {iconButton}
+                                                        </Tooltip>
+                                                    ) : (
+                                                        iconButton
+                                                    );
+                                                })}
                                             </Stack>
                                         </TableCell>
                                     )}
@@ -146,7 +166,7 @@ function TableComponent({
             {/* PAGINATION */}
             <TablePagination
                 component="div"
-                count={rows.length}
+                count={safeRows.length}
                 page={page}
                 rowsPerPage={rowsPerPage}
                 onPageChange={(_, p) => setPage(p)}

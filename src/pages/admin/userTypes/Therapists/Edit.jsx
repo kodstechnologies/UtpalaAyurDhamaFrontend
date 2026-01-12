@@ -1,46 +1,142 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../../../services/adminUserService";
 import {
-    Mail, Phone, Calendar, User, Home, Stethoscope, FileBadge,
+    Mail, Phone, Calendar, User, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
     ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
     X, Save, AlertCircle, CheckCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
+import InputDialogModal from "../../../../components/modal/InputDialogModal";
 
 function Edit_Therapists() {
+    const { therapistsId } = useParams();
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
+    const [languageModal, setLanguageModal] = useState(false);
+    const [certificationModal, setCertificationModal] = useState(false);
 
-    // Fake therapist data
+    // Therapist data
     const [therapist, setTherapist] = useState({
         // Personal Info
-        name: "Dr. Jordan Lee, PT",
-        email: "jordan.lee@hospital.com",
-        phone: "+1 (555) 456-7890",
-        dob: "1980-09-15",
-        gender: "Non-binary",
-        address: "321 Rehab Blvd, Therapy Wing, Seattle 98101",
-        emergencyContact: "+1 (555) 567-8901",
-        languages: ["English", "Spanish"],
+        name: "",
+        email: "",
+        phone: "",
+        dob: "",
+        gender: "",
+        address: "",
+        emergencyContact: "",
+        languages: [],
+        profilePicture: "",
 
         // Professional Info
-        specialization: "Physical Therapy",
-        department: "Rehabilitation Services",
-        licenseNumber: "PT-WA-12345",
-        joiningDate: "2015-01-05",
-        experience: "10",
-        qualifications: "Doctor of Physical Therapy (DPT), Certified Orthopedic Manual Therapist",
+        specialization: "",
+        department: "",
+        licenseNumber: "",
+        joiningDate: "",
+        experience: "",
+        qualifications: "",
         status: "Active",
-        salary: "5800",
-        workingHours: "Mon-Fri: 9AM-6PM",
+        salary: "",
+        workingHours: "",
 
         // Additional Info
-        bio: "Dr. Jordan Lee is a highly skilled physical therapist with 10 years of experience in rehabilitation services. Specializing in orthopedic and sports therapy, they focus on personalized recovery plans.",
-        certifications: ["Manual Therapy", "Sports Rehabilitation", "Pediatric Therapy"]
+        bio: "",
+        certifications: []
     });
+
+    // Format date to YYYY-MM-DD for date inputs
+    const formatDateForInput = (dateStr) => {
+        if (!dateStr) return "";
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return "";
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return "";
+        }
+    };
+
+    // Handle Image Upload
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            toast.error("File size should be less than 2MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await adminUserService.uploadImage(file);
+            if (response.success) {
+                setTherapist(prev => ({ ...prev, profilePicture: response.data.url }));
+                toast.success("Image uploaded successfully!");
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            const errorMessage = error?.message || error?.response?.data?.message || "Failed to upload image";
+            toast.error(errorMessage);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Fetch therapist data
+    const fetchTherapistDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Therapist", therapistsId);
+            if (response.success && response.data) {
+                const data = response.data;
+                setTherapist({
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    dob: formatDateForInput(data.dob),
+                    gender: data.gender || "",
+                    address: data.address || "",
+                    emergencyContact: data.emergencyContact || "",
+                    languages: Array.isArray(data.languages) ? data.languages : [],
+                    profilePicture: data.profilePicture || "",
+                    specialization: data.specialization || "",
+                    department: data.department || "",
+                    licenseNumber: data.licenseNumber || "",
+                    joiningDate: formatDateForInput(data.joiningDate),
+                    experience: data.experience ? String(data.experience) : "",
+                    qualifications: data.qualifications || "",
+                    status: data.status || "Active",
+                    salary: data.salary ? String(data.salary) : "",
+                    workingHours: data.workingHours || "",
+                    bio: data.bio || "",
+                    certifications: Array.isArray(data.certifications) ? data.certifications : []
+                });
+            } else {
+                toast.error(response.message || "Failed to fetch therapist details");
+                navigate('/admin/therapists');
+            }
+        } catch (error) {
+            console.error("Error fetching therapist:", error);
+            toast.error(error.message || "Error fetching therapist details");
+            navigate('/admin/therapists');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [therapistsId, navigate]);
+
+    useEffect(() => {
+        if (therapistsId) {
+            fetchTherapistDetails();
+        }
+    }, [therapistsId, fetchTherapistDetails]);
 
     // Handle Input Change
     const updateField = (field, value) => {
@@ -48,12 +144,18 @@ function Edit_Therapists() {
     };
 
     const handleAddLanguage = () => {
-        const newLang = prompt("Enter a new language:");
-        if (newLang && !therapist.languages.includes(newLang)) {
+        setLanguageModal(true);
+    };
+
+    const handleLanguageConfirm = (language) => {
+        if (language && !therapist.languages.includes(language)) {
             setTherapist(prev => ({
                 ...prev,
-                languages: [...prev.languages, newLang]
+                languages: [...prev.languages, language]
             }));
+            toast.success("Language added successfully!");
+        } else if (therapist.languages.includes(language)) {
+            toast.error("This language is already added");
         }
     };
 
@@ -65,12 +167,18 @@ function Edit_Therapists() {
     };
 
     const handleAddCertification = () => {
-        const newCert = prompt("Enter new certification:");
-        if (newCert && !therapist.certifications.includes(newCert)) {
+        setCertificationModal(true);
+    };
+
+    const handleCertificationConfirm = (certification) => {
+        if (certification && !therapist.certifications.includes(certification)) {
             setTherapist(prev => ({
                 ...prev,
-                certifications: [...prev.certifications, newCert]
+                certifications: [...prev.certifications, certification]
             }));
+            toast.success("Certification added successfully!");
+        } else if (therapist.certifications.includes(certification)) {
+            toast.error("This certification is already added");
         }
     };
 
@@ -84,17 +192,32 @@ function Edit_Therapists() {
     const handleSave = async () => {
         setIsSaving(true);
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            // Prepare data - convert strings to numbers and dates where needed
+            const updateData = {
+                ...therapist,
+                experience: therapist.experience ? Number(therapist.experience) : undefined,
+                salary: therapist.salary ? Number(therapist.salary) : undefined,
+                dob: therapist.dob ? new Date(therapist.dob).toISOString() : undefined,
+                joiningDate: therapist.joiningDate ? new Date(therapist.joiningDate).toISOString() : undefined
+            };
 
-        console.log("Updated Therapist Data:", therapist);
-        setIsSaving(false);
+            const response = await adminUserService.updateUser("Therapist", therapistsId, updateData);
+            if (response.success) {
         setShowSuccess(true);
-
         setTimeout(() => {
             setShowSuccess(false);
-            navigate(-1);
+                    navigate(`/admin/therapists/view/${therapistsId}`);
         }, 2000);
+            } else {
+                toast.error(response.message || "Failed to update therapist");
+            }
+        } catch (error) {
+            console.error("Error updating therapist:", error);
+            toast.error(error.message || "Error updating therapist");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const sections = [
@@ -106,11 +229,36 @@ function Edit_Therapists() {
     const breadcrumbItems = [
         { label: "Dashboard", url: "/admin/dashboard" },
         { label: "Therapists", url: "/admin/therapists" },
-        { label: "Dr. Jordan Lee" }
+        { label: therapist.name || "Edit Therapist" }
     ]
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-a)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: "var(--color-bg-a)" }}>
+            {/* Modals */}
+            <InputDialogModal
+                isOpen={languageModal}
+                onClose={() => setLanguageModal(false)}
+                onConfirm={handleLanguageConfirm}
+                title="Add Language"
+                label="Language"
+                placeholder="Enter a language"
+            />
+            <InputDialogModal
+                isOpen={certificationModal}
+                onClose={() => setCertificationModal(false)}
+                onConfirm={handleCertificationConfirm}
+                title="Add Certification"
+                label="Certification"
+                placeholder="Enter a certification"
+            />
             {/* Success Notification */}
             {showSuccess && (
                 <div className="fixed top-4 right-4 z-50" style={{ animation: 'slideInRight 0.3s ease-out' }}>
@@ -259,6 +407,7 @@ function Edit_Therapists() {
                                                 type="tel"
                                                 value={therapist.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Emergency Contact"
@@ -266,6 +415,7 @@ function Edit_Therapists() {
                                                 type="tel"
                                                 value={therapist.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Date of Birth"
@@ -494,26 +644,48 @@ function Edit_Therapists() {
                                                 borderColor: "var(--color-text)"
                                             }}>
                                                 <div
-                                                    className="w-20 h-20 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-200"
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden relative"
                                                     style={{
                                                         backgroundColor: "var(--color-icon-5-light)",
                                                         border: "2px dashed var(--color-icon-5)",
                                                         color: "var(--color-icon-5)"
                                                     }}
                                                 >
+                                                    {therapist.profilePicture ? (
+                                                        <img
+                                                            src={therapist.profilePicture}
+                                                            alt="Profile"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
                                                     <User size={32} />
+                                                    )}
+                                                    {isUploading && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
+                                                    <input
+                                                        type="file"
+                                                        id="profile-upload-therapist-edit"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                    />
                                                     <button
                                                         type="button"
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm"
+                                                        onClick={() => document.getElementById('profile-upload-therapist-edit').click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm disabled:opacity-50"
                                                         style={{
                                                             backgroundColor: "var(--color-btn-b)",
                                                             color: "var(--color-light)"
                                                         }}
                                                     >
                                                         <Upload size={16} />
-                                                        Upload New Photo
+                                                        {isUploading ? "Uploading..." : "Upload New Photo"}
                                                     </button>
                                                     <p className="text-sm mt-2" style={{ color: "var(--color-text)" }}>
                                                         JPG, PNG or GIF, max 2MB

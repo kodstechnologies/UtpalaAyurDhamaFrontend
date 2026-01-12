@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import HeadingCard from "../../../components/card/HeadingCard";
-import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel } from "@mui/material";
+import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, CircularProgress } from "@mui/material";
 
 function ScheduleAppointmentPage() {
     const navigate = useNavigate();
@@ -15,19 +18,126 @@ function ScheduleAppointmentPage() {
         time: searchParams.get("time") || "",
     });
 
-    // Mock data - in real app, fetch from API
-    const mockDoctors = [];
+    const [doctors, setDoctors] = useState([]);
+    const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Fetch all doctors from API
+    const fetchDoctors = useCallback(async () => {
+        setIsLoadingDoctors(true);
+        try {
+            console.log("Fetching doctors from:", getApiUrl("doctors/profiles"));
+            const response = await axios.get(
+                getApiUrl("doctors/profiles"),
+                { headers: getAuthHeaders() }
+            );
+
+            console.log("Doctors API Response:", response.data);
+            
+            if (response.data.success) {
+                const doctorsData = response.data.data || [];
+                console.log("Setting doctors:", doctorsData);
+                setDoctors(doctorsData);
+                
+                if (doctorsData.length === 0) {
+                    console.warn("No doctors found in the database");
+                    toast.warning("No doctors available. Please add doctors first.");
+                }
+            } else {
+                console.error("API returned success=false:", response.data);
+                toast.error(response.data.message || "Failed to fetch doctors");
+            }
+        } catch (error) {
+            console.error("Error fetching doctors:", error);
+            console.error("Error response:", error.response?.data);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch doctors");
+            setDoctors([]); // Clear doctors on error
+        } finally {
+            setIsLoadingDoctors(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchDoctors();
+    }, [fetchDoctors]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Implement API call here
-        console.log("Appointment scheduled:", { patientId, patientName, ...formData });
-        navigate(-1);
+        
+        // Validate form
+        if (!formData.doctor) {
+            toast.error("Please select a doctor");
+            return;
+        }
+        if (!formData.date) {
+            toast.error("Please select a date");
+            return;
+        }
+        if (!formData.time) {
+            toast.error("Please select a time");
+            return;
+        }
+        if (!patientId) {
+            toast.error("Patient ID is missing");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            // Step 1: Fetch reception patient to get PatientProfile ID
+            const receptionPatientResponse = await axios.get(
+                getApiUrl(`reception-patients/${patientId}`),
+                { headers: getAuthHeaders() }
+            );
+
+            if (!receptionPatientResponse.data.success) {
+                throw new Error(receptionPatientResponse.data.message || "Failed to fetch patient details");
+            }
+
+            const receptionPatient = receptionPatientResponse.data.data;
+            const patientProfileId = receptionPatient.patientProfile?._id;
+
+            if (!patientProfileId) {
+                throw new Error("Patient profile not found. Please ensure the patient is properly registered.");
+            }
+
+            // Step 2: Create the appointment
+            const appointmentData = {
+                doctorId: formData.doctor, // This is the DoctorProfile ID
+                patientId: patientProfileId, // This is the PatientProfile ID
+                appointmentDate: formData.date,
+                appointmentTime: formData.time,
+            };
+
+            console.log("Creating appointment with data:", appointmentData);
+
+            const appointmentResponse = await axios.post(
+                getApiUrl("appointments"),
+                appointmentData,
+                { headers: getAuthHeaders() }
+            );
+
+            if (appointmentResponse.data.success) {
+                toast.success("Appointment scheduled successfully!");
+                navigate(-1); // Go back to previous page
+            } else {
+                throw new Error(appointmentResponse.data.message || "Failed to schedule appointment");
+            }
+        } catch (error) {
+            console.error("Error scheduling appointment:", error);
+            toast.error(
+                error.response?.data?.message || 
+                error.message || 
+                "Failed to schedule appointment. Please try again."
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -62,20 +172,45 @@ function ScheduleAppointmentPage() {
                             sx={{ mb: 2 }}
                         />
                         <FormControl fullWidth required sx={{ mb: 2 }}>
-                            <InputLabel>Doctor *</InputLabel>
+                            <InputLabel id="doctor-select-label" shrink={!!formData.doctor}>Doctor *</InputLabel>
                             <Select
+                                labelId="doctor-select-label"
                                 name="doctor"
                                 value={formData.doctor}
                                 onChange={handleChange}
                                 label="Doctor *"
+                                disabled={isLoadingDoctors}
+                                displayEmpty={false}
+                                notched={!!formData.doctor}
                             >
-                                <MenuItem value="">Select Doctor</MenuItem>
-                                {mockDoctors.map((d) => (
-                                    <MenuItem key={d._id} value={d._id}>
-                                        {d.name || d.user?.name}
+                                {isLoadingDoctors ? (
+                                    <MenuItem value="" disabled>
+                                        Loading doctors...
                                     </MenuItem>
-                                ))}
+                                ) : doctors.length === 0 ? (
+                                    <MenuItem value="" disabled>
+                                        No doctors available
+                                    </MenuItem>
+                                ) : (
+                                    doctors.map((doctor) => {
+                                        console.log("Rendering doctor:", doctor);
+                                        const doctorName = doctor.user?.name || 
+                                            `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || 
+                                            "Doctor";
+                                        const displayName = doctor.specialization 
+                                            ? `${doctorName} - ${doctor.specialization}`
+                                            : doctorName;
+                                        return (
+                                            <MenuItem key={doctor._id || doctor.id} value={doctor._id || doctor.id}>
+                                                {displayName}
+                                            </MenuItem>
+                                        );
+                                    })
+                                )}
                             </Select>
+                            {isLoadingDoctors && (
+                                <CircularProgress size={24} sx={{ position: "absolute", right: 40, top: "50%", transform: "translateY(-50%)" }} />
+                            )}
                         </FormControl>
                         <Box sx={{ display: "flex", gap: 2 }}>
                             <TextField
@@ -102,11 +237,27 @@ function ScheduleAppointmentPage() {
                     </Box>
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button variant="outlined" onClick={() => navigate(-1)}>
+                        <Button 
+                            variant="outlined" 
+                            onClick={() => navigate(-1)}
+                            disabled={isSubmitting}
+                        >
                             Cancel
                         </Button>
-                        <Button type="submit" variant="contained" sx={{ backgroundColor: "#8B4513" }}>
-                            Schedule Appointment
+                        <Button 
+                            type="submit" 
+                            variant="contained" 
+                            sx={{ backgroundColor: "#8B4513" }}
+                            disabled={isSubmitting || isLoadingDoctors}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <CircularProgress size={20} sx={{ mr: 1, color: "white" }} />
+                                    Scheduling...
+                                </>
+                            ) : (
+                                "Schedule Appointment"
+                            )}
                         </Button>
                     </Box>
                 </form>

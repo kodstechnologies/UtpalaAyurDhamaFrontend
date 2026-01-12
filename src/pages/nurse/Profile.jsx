@@ -200,6 +200,7 @@ function NurseProfile() {
                                             value={editData[field]}
                                             onChange={handleInputChange(field)}
                                             size="small"
+                                            inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                         />
                                     ) : (
                                         <>
@@ -246,6 +247,7 @@ function NurseProfile() {
                                             value={editData[field]}
                                             onChange={handleInputChange(field)}
                                             size="small"
+                                            inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                         />
                                     ) : (
                                         <>

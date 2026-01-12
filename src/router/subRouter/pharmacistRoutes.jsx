@@ -1,40 +1,34 @@
 // src/router/subRouter/pharmacyRoutes.jsx
 
+import { lazy } from "react";
 import { Helmet } from "react-helmet";
 
 /* ==============================
-   Pages
+   Lazy-loaded Pages
 ================================ */
 
 // Dashboard & Profile
-import Pharmacist_Dashboard from "../../pages/pharmacist/Dashboard";
-import PharmacistProfile from "../../pages/pharmacist/Profile";
+const Pharmacist_Dashboard = lazy(() => import("../../pages/pharmacist/Dashboard"));
+const PharmacistProfile = lazy(() => import("../../pages/pharmacist/Profile"));
 
 // Inventory
-import Inventory_View_Details from "../../pages/pharmacist/inventory/View";
-import BatchLogView from "../../pages/pharmacist/inventory/BatchLogView";
-import BatchLogDetails from "../../pages/pharmacist/inventory/BatchLogDetails";
+const Inventory_View_Details = lazy(() => import("../../pages/pharmacist/inventory/View"));
+const InventoryDetails = lazy(() => import("../../pages/pharmacist/inventory/Details"));
+const BatchLogView = lazy(() => import("../../pages/pharmacist/inventory/BatchLogView"));
+const BatchLogDetails = lazy(() => import("../../pages/pharmacist/inventory/BatchLogDetails"));
 
 // Prescriptions – Outpatient
-import Outpatient_View_Details from "../../pages/pharmacist/prescriptions/outpatient/View";
-import OutpatientPrescriptions from "../../pages/pharmacist/prescriptions/outpatient/Outpatientprescriptions";
+const Outpatient_View_Details = lazy(() => import("../../pages/pharmacist/prescriptions/outpatient/View"));
+const OutpatientPrescriptions = lazy(() => import("../../pages/pharmacist/prescriptions/outpatient/Outpatientprescriptions"));
 
 // Prescriptions – Inpatient
-import Inpatient_View_Details from "../../pages/pharmacist/prescriptions/inpatient/View";
-import InpatientPrescriptions from "../../pages/pharmacist/prescriptions/inpatient/Inpatientprescriptions";
+const Inpatient_View_Details = lazy(() => import("../../pages/pharmacist/prescriptions/inpatient/View"));
+const InpatientPrescriptions = lazy(() => import("../../pages/pharmacist/prescriptions/inpatient/Inpatientprescriptions"));
 
-/* ==============================
-   Reusable SEO Wrapper
-================================ */
-const withHelmet = (title, description, Component) => (
-    <>
-        <Helmet>
-            <title>{title} | UTPALA</title>
-            <meta name="description" content={description} />
-        </Helmet>
-        <Component />
-    </>
-);
+// Medicines
+const MedicinesView = lazy(() => import("../../pages/pharmacist/medicines/View"));
+const AddEditMedicine = lazy(() => import("../../pages/pharmacist/medicines/AddEdit"));
+const MedicineDetails = lazy(() => import("../../pages/pharmacist/medicines/Details"));
 
 /* ==============================
    Pharmacist Routes
@@ -43,82 +37,180 @@ export const pharmacistRoutes = [
     /* Dashboard */
     {
         path: "/pharmacist/dashboard",
-        element: withHelmet(
-            "Pharmacist Dashboard",
-            "Overview of pharmacy operations, prescriptions, and inventory status.",
-            Pharmacist_Dashboard
+        element: (
+            <>
+                <Helmet>
+                    <title>Pharmacist Dashboard | UTPALA</title>
+                    <meta name="description" content="Overview of pharmacy operations, prescriptions, and inventory status." />
+                </Helmet>
+                <Pharmacist_Dashboard />
+            </>
         ),
     },
 
     /* Profile */
     {
         path: "/pharmacist/profile",
-        element: withHelmet(
-            "Pharmacist Profile",
-            "Manage pharmacist profile details and account information.",
-            PharmacistProfile
+        element: (
+            <>
+                <Helmet>
+                    <title>Pharmacist Profile | UTPALA</title>
+                    <meta name="description" content="Manage pharmacist profile details and account information." />
+                </Helmet>
+                <PharmacistProfile />
+            </>
         ),
     },
 
     /* Inventory */
     {
         path: "/pharmacist/inventory",
-        element: withHelmet(
-            "Inventory Management",
-            "View and manage pharmacy inventory, stock levels, and medicines.",
-            Inventory_View_Details
+        element: (
+            <>
+                <Helmet>
+                    <title>Inventory Management | UTPALA</title>
+                    <meta name="description" content="View and manage pharmacy inventory, stock levels, and medicines." />
+                </Helmet>
+                <Inventory_View_Details />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/inventory/view/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Inventory Details | UTPALA</title>
+                    <meta name="description" content="View detailed inventory information for a medicine." />
+                </Helmet>
+                <InventoryDetails />
+            </>
         ),
     },
     {
         path: "/pharmacist/batch-log/:id",
-        element: withHelmet(
-            "Batch Log",
-            "View batch-wise stock logs, expiry dates, and movement history.",
-            BatchLogView
+        element: (
+            <>
+                <Helmet>
+                    <title>Batch Log | UTPALA</title>
+                    <meta name="description" content="View batch-wise stock logs, expiry dates, and movement history." />
+                </Helmet>
+                <BatchLogView />
+            </>
         ),
     },
     {
         path: "/pharmacist/inventory/batch-log-details",
-        element: withHelmet(
-            "Batch Log Details",
-            "View detailed batch log information including expiry dates and supplier details.",
-            BatchLogDetails
+        element: (
+            <>
+                <Helmet>
+                    <title>Batch Log Details | UTPALA</title>
+                    <meta name="description" content="View detailed batch log information including expiry dates and supplier details." />
+                </Helmet>
+                <BatchLogDetails />
+            </>
         ),
     },
 
     /* Outpatient Prescriptions */
     {
         path: "/pharmacist/prescriptions/outpatient",
-        element: withHelmet(
-            "Outpatient Prescriptions",
-            "Review and dispense outpatient prescriptions received from doctors.",
-            Outpatient_View_Details
+        element: (
+            <>
+                <Helmet>
+                    <title>Outpatient Prescriptions | UTPALA</title>
+                    <meta name="description" content="Review and dispense outpatient prescriptions received from doctors." />
+                </Helmet>
+                <Outpatient_View_Details />
+            </>
         ),
     },
     {
         path: "/pharmacist/prescriptions/outpatient/:id",
-        element: withHelmet(
-            "Outpatient Prescription Details",
-            "View detailed outpatient prescription and dispensing information.",
-            OutpatientPrescriptions
+        element: (
+            <>
+                <Helmet>
+                    <title>Outpatient Prescription Details | UTPALA</title>
+                    <meta name="description" content="View detailed outpatient prescription and dispensing information." />
+                </Helmet>
+                <OutpatientPrescriptions />
+            </>
         ),
     },
 
     /* Inpatient Prescriptions */
     {
         path: "/pharmacist/prescriptions/inpatient",
-        element: withHelmet(
-            "Inpatient Prescriptions",
-            "Manage inpatient prescriptions and medicine dispensing.",
-            Inpatient_View_Details
+        element: (
+            <>
+                <Helmet>
+                    <title>Inpatient Prescriptions | UTPALA</title>
+                    <meta name="description" content="Manage inpatient prescriptions and medicine dispensing." />
+                </Helmet>
+                <Inpatient_View_Details />
+            </>
         ),
     },
     {
         path: "/pharmacist/prescriptions/inpatient/:id",
-        element: withHelmet(
-            "Inpatient Prescription Details",
-            "View detailed inpatient prescription and dispensing information.",
-            InpatientPrescriptions
+        element: (
+            <>
+                <Helmet>
+                    <title>Inpatient Prescription Details | UTPALA</title>
+                    <meta name="description" content="View detailed inpatient prescription and dispensing information." />
+                </Helmet>
+                <InpatientPrescriptions />
+            </>
+        ),
+    },
+
+    /* Medicines */
+    {
+        path: "/pharmacist/medicines",
+        element: (
+            <>
+                <Helmet>
+                    <title>Medicine Management | UTPALA</title>
+                    <meta name="description" content="View and manage all medicines in the pharmacy inventory." />
+                </Helmet>
+                <MedicinesView />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/medicines/add",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Medicine | UTPALA</title>
+                    <meta name="description" content="Add a new medicine to the pharmacy inventory." />
+                </Helmet>
+                <AddEditMedicine />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/medicines/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Medicine | UTPALA</title>
+                    <meta name="description" content="Update medicine information." />
+                </Helmet>
+                <AddEditMedicine />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/medicines/view/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Medicine Details | UTPALA</title>
+                    <meta name="description" content="View complete information about the medicine." />
+                </Helmet>
+                <MedicineDetails />
+            </>
         ),
     },
 ];

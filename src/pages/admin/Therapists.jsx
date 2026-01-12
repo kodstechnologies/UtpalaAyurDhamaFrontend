@@ -1,69 +1,101 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../services/adminUserService";
+
 import HeadingCard from "../../components/card/HeadingCard";
 import TableComponent from "../../components/table/TableComponent";
+import CardBorder from "../../components/card/CardBorder";
+import RedirectButton from "../../components/buttons/RedirectButton";
+import Search from "../../components/search/Search";
+import ExportDataButton from "../../components/buttons/ExportDataButton";
+import DeleteConfirmationModal from "../../components/modal/DeleteConfirmationModal";
 
 import { Eye, Edit, Trash2 } from "lucide-react";
-import CardBorder from "../../components/card/CardBorder";
-import Search from "../../components/search/Search";
-import RedirectButton from "../../components/buttons/RedirectButton";
-import { useNavigate } from "react-router-dom";
-import ExportDataButton from "../../components/buttons/ExportDataButton";
-
-// ===== FORM FIELDS =====
-
-const deleteTherapistAPI = async (id) => {
-    console.log("Deleted therapist:", id);
-};
 
 function Therapists() {
     const navigate = useNavigate();
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [deleteModal, setDeleteModal] = useState({
+        isOpen: false,
+        therapistId: null,
+        therapistName: "",
+        isDeleting: false
+    });
 
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            name: "Rahul Verma",
-            department: "Physiotherapy",
-            designation: "Senior Therapist",
-            mobile: "+91 9876543211",
-            email: "rahul.verma@example.com",
-            status: "Active",
-        },
-        {
-            _id: "2",
-            name: "Priya Nair",
-            department: "Ayurvedic Therapy",
-            designation: "Therapist",
-            mobile: "+91 8765432199",
-            email: "priya.nair@example.com",
-            status: "Inactive",
-        },
-    ]);
+    const fetchTherapists = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getAllUsers("Therapist");
+            if (response.success) {
+                setRows(response.data || []);
+            } else {
+                toast.error(response.message || "Failed to fetch therapists");
+            }
+        } catch (error) {
+            console.error("Error fetching therapists:", error);
+            toast.error(error.message || "Failed to fetch therapists");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchTherapists();
+    }, [fetchTherapists]);
+
+    // DELETE FUNCTION
+    const handleDeleteClick = useCallback((row) => {
+        setDeleteModal({
+            isOpen: true,
+            therapistId: row._id,
+            therapistName: row.name || "this therapist",
+            isDeleting: false
+        });
+    }, []);
+
+    const handleDeleteConfirm = useCallback(async () => {
+        if (!deleteModal.therapistId) return;
+
+        setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+
+        try {
+            const response = await adminUserService.deleteUser("Therapist", deleteModal.therapistId);
+            
+            if (response.success) {
+                setRows(prev => prev.filter(row => row._id !== deleteModal.therapistId));
+                toast.success("Therapist deleted successfully!");
+                setDeleteModal({ isOpen: false, therapistId: null, therapistName: "", isDeleting: false });
+            } else {
+                toast.error(response.message || "Failed to delete therapist");
+                setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+            }
+        } catch (error) {
+            console.error("Error deleting therapist:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error deleting therapist";
+            toast.error(errorMessage);
+            setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+        }
+    }, [deleteModal.therapistId]);
+
+    const handleDeleteClose = useCallback(() => {
+        if (!deleteModal.isDeleting) {
+            setDeleteModal({ isOpen: false, therapistId: null, therapistName: "", isDeleting: false });
+        }
+    }, [deleteModal.isDeleting]);
 
     const [searchText, setSearchText] = useState("");
-
-    // FILTERED ROWS
-    const filteredRows = rows.filter(r =>
-        r.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        r.department.toLowerCase().includes(searchText.toLowerCase()) ||
-        r.designation.toLowerCase().includes(searchText.toLowerCase())
-    );
 
     // ===== TABLE COLUMNS =====
     const columns = [
         { field: "name", header: "Name" },
+        { field: "specialization", header: "Specialization" },
         { field: "department", header: "Department" },
-        { field: "designation", header: "Designation" },
-        { field: "mobile", header: "Mobile" },
+        { field: "phone", header: "Phone" },
         { field: "email", header: "Email" },
         { field: "status", header: "Status" },
     ];
-
-    const handleDelete = (id) => {
-        if (window.confirm("Are you sure you want to delete this therapist?")) {
-            deleteTherapistAPI(id);
-            setRows(prev => prev.filter(r => r._id !== id));
-        }
-    };
 
     // ACTION BUTTONS
     const actions = [
@@ -83,7 +115,7 @@ function Therapists() {
             label: "Delete",
             icon: <Trash2 />,
             color: "var(--color-icon-1)",
-            onClick: (row) => handleDelete(row._id)
+            onClick: (row) => handleDeleteClick(row)
         }
     ];
 
@@ -118,10 +150,20 @@ function Therapists() {
 
             <TableComponent
                 columns={columns}
-                rows={filteredRows}
+                rows={rows}
                 actions={actions}
                 showStatusBadge={true}
                 statusField="status"
+                isLoading={isLoading}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Therapist"
+                message={`Are you sure you want to delete ${deleteModal.therapistName}? This action cannot be undone.`}
+                isDeleting={deleteModal.isDeleting}
             />
         </div>
     );

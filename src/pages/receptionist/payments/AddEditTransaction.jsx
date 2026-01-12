@@ -5,6 +5,8 @@ import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel } fro
 import WalletIcon from "@mui/icons-material/Wallet";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import { toast } from "react-toastify";
+import paymentService from "../../../services/paymentService";
 
 function AddEditTransactionPage() {
     const navigate = useNavigate();
@@ -12,26 +14,41 @@ function AddEditTransactionPage() {
     const isEdit = searchParams.get("edit") === "true";
     const transactionId = searchParams.get("transactionId") || "";
 
+    const [loading, setLoading] = useState(false);
+
     const [formData, setFormData] = useState({
         date: searchParams.get("date") || new Date().toISOString().split("T")[0],
-        type: searchParams.get("type") || "Credit",
+        type: searchParams.get("type") || "Expense", // Default to Expense as Invoices cover Income
         description: searchParams.get("description") || "",
         amount: searchParams.get("amount") || "",
         paymentMethod: searchParams.get("paymentMethod") || "Cash",
     });
 
-    const paymentMethods = ["Cash", "UPI", "Card", "Net Banking", "Cheque", "Other"];
+    const paymentMethods = ["Cash", "Online", "Card", "Bank Transfer"];
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Implement API call here
-        console.log(isEdit ? "Transaction updated:" : "Transaction added:", formData);
-        navigate(-1);
+        setLoading(true);
+        try {
+            if (isEdit && transactionId) {
+                await paymentService.updatePayment(transactionId, formData);
+                toast.success("Transaction updated successfully!");
+            } else {
+                await paymentService.createPayment(formData);
+                toast.success("Transaction added successfully!");
+            }
+            navigate('/receptionist/payments');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || "Failed to save transaction.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -81,7 +98,7 @@ function AddEditTransactionPage() {
                                     label="Transaction Type *"
                                 >
                                     <MenuItem value="Credit">Credit (Income)</MenuItem>
-                                    <MenuItem value="Debit">Debit (Expense)</MenuItem>
+                                    <MenuItem value="Expense">Debit (Expense)</MenuItem>
                                 </Select>
                             </FormControl>
                         </Box>
@@ -91,7 +108,7 @@ function AddEditTransactionPage() {
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
-                            placeholder="e.g., Consultation Fee for John Doe"
+                            placeholder="e.g., Office Supplies, Maintenance"
                             required
                             fullWidth
                             sx={{ mb: 2 }}
@@ -133,11 +150,11 @@ function AddEditTransactionPage() {
                     </Box>
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button variant="outlined" onClick={() => navigate(-1)}>
+                        <Button variant="outlined" onClick={() => navigate(-1)} disabled={loading}>
                             Cancel
                         </Button>
-                        <Button type="submit" variant="contained" sx={{ backgroundColor: "#0d6efd" }}>
-                            {isEdit ? "Update Transaction" : "Save Transaction"}
+                        <Button type="submit" variant="contained" sx={{ backgroundColor: "#0d6efd" }} disabled={loading}>
+                            {loading ? "Saving..." : (isEdit ? "Update Transaction" : "Save Transaction")}
                         </Button>
                     </Box>
                 </form>

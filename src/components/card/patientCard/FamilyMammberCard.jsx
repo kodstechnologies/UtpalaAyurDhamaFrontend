@@ -88,8 +88,9 @@
 
 // export default FamilyMemberCard;
 import React from "react";
-import { Card, Box, Typography, Avatar, Divider } from "@mui/material";
-import PersonIcon from "@mui/icons-material/Person";
+import { Card, Box, Typography, Avatar, Divider, IconButton, Tooltip } from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { motion } from "framer-motion";
 
 function FamilyMemberCard({
@@ -98,6 +99,10 @@ function FamilyMemberCard({
     phone = "1234567890",
     dob = "2022-02-23",
     gender = "Female",
+    uhid = "Not assigned",
+    id,
+    onEdit,
+    onDelete,
 }) {
     // Animation variants
     const cardVariants = {
@@ -262,7 +267,69 @@ function FamilyMemberCard({
                             {gender}
                         </Typography>
                     </motion.div>
+
+                    <motion.div variants={textVariants} initial="initial" animate="animate">
+                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 600, fontSize: "0.9rem" }}>
+                            UHID:
+                        </Typography>
+                    </motion.div>
+                    <motion.div variants={textVariants} initial="initial" animate="animate">
+                        <Typography sx={{ color: "var(--color-text-dark)", fontSize: "0.9rem", fontWeight: 500 }}>
+                            {uhid}
+                        </Typography>
+                    </motion.div>
                 </Box>
+
+                {/* Action Buttons */}
+                {(onEdit || onDelete) && (
+                    <Box
+                        sx={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            gap: 1,
+                            mt: 3,
+                            pt: 2,
+                            borderTop: "1px solid var(--color-border)",
+                        }}
+                    >
+                        {onEdit && (
+                            <Tooltip title="Edit Family Member">
+                                <IconButton
+                                    onClick={() => onEdit(id)}
+                                    sx={{
+                                        backgroundColor: "var(--color-primary-light)",
+                                        color: "var(--color-primary)",
+                                        "&:hover": {
+                                            backgroundColor: "var(--color-primary)",
+                                            color: "#fff",
+                                        },
+                                        transition: "all 0.3s ease",
+                                    }}
+                                >
+                                    <EditIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        {onDelete && (
+                            <Tooltip title="Delete Family Member">
+                                <IconButton
+                                    onClick={() => onDelete(id, name)}
+                                    sx={{
+                                        backgroundColor: "#ffebee",
+                                        color: "#d32f2f",
+                                        "&:hover": {
+                                            backgroundColor: "#d32f2f",
+                                            color: "#fff",
+                                        },
+                                        transition: "all 0.3s ease",
+                                    }}
+                                >
+                                    <DeleteIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                    </Box>
+                )}
             </Card>
         </motion.div>
     );

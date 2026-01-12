@@ -62,7 +62,7 @@ function DashboardCard({
                                 fontWeight: 600,
                                 color: "var(--color-text-dark)",
                                 mb: 0.5,
-                                fontSize: "0.875rem",
+                                fontSize: "0.7rem",
                             }}
                         >
                             {title}
@@ -75,7 +75,7 @@ function DashboardCard({
                                 sx={{
                                     fontWeight: "bold",
                                     color: "var(--color-text-dark)",
-                                    fontSize: "1.75rem",
+                                    fontSize: "1.4rem",
                                 }}
                             >
                                 {prefix}
@@ -91,7 +91,7 @@ function DashboardCard({
                             <Typography
                                 sx={{
                                     color: "var(--color-text-light)",
-                                    fontSize: "0.9rem",
+                                    fontSize: "0.75rem",
                                     fontWeight: 500,
                                 }}
                             >
@@ -104,18 +104,18 @@ function DashboardCard({
                     {Icon && (
                         <Box
                             sx={{
-                                width: 45,
-                                height: 45,
-                                borderRadius: 2,
+                                width: 36,
+                                height: 36,
+                                borderRadius: 1.5,
                                 background: "var(--color-bg-header)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                ml: 2,
+                                ml: 1.5,
                                 flexShrink: 0,
                             }}
                         >
-                            <Icon sx={{ fontSize: 26, color: "var(--color-text-header)" }} />
+                            <Icon sx={{ fontSize: 20, color: "var(--color-text-header)" }} />
                         </Box>
                     )}
                 </Box>

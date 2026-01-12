@@ -1,6 +1,9 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
 import { Box, Typography, Button } from "@mui/material";
+import { toast } from "react-toastify";
+import paymentService from "../../../services/paymentService";
+import { useState } from "react";
 
 function DeleteTransactionPage() {
     const navigate = useNavigate();
@@ -8,6 +11,7 @@ function DeleteTransactionPage() {
     const description = searchParams.get("description") || "";
     const amount = searchParams.get("amount") || "";
     const transactionId = searchParams.get("transactionId") || "";
+    const [loading, setLoading] = useState(false);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat("en-IN", {
@@ -18,10 +22,22 @@ function DeleteTransactionPage() {
         }).format(parseFloat(amount) || 0);
     };
 
-    const handleDelete = () => {
-        // Implement API call here
-        console.log("Transaction deleted:", transactionId);
-        navigate(-1);
+    const handleDelete = async () => {
+        if (!transactionId) {
+            toast.error("Invalid transaction ID");
+            return;
+        }
+        setLoading(true);
+        try {
+            await paymentService.deletePayment(transactionId);
+            toast.success("Transaction deleted successfully!");
+            navigate('/receptionist/payments');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || "Failed to delete transaction.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -63,11 +79,11 @@ function DeleteTransactionPage() {
                 )}
 
                 <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                    <Button variant="outlined" onClick={() => navigate(-1)}>
+                    <Button variant="outlined" onClick={() => navigate(-1)} disabled={loading}>
                         Cancel
                     </Button>
-                    <Button variant="contained" color="error" onClick={handleDelete}>
-                        Delete
+                    <Button variant="contained" color="error" onClick={handleDelete} disabled={loading}>
+                        {loading ? "Deleting..." : "Delete"}
                     </Button>
                 </Box>
             </Box>

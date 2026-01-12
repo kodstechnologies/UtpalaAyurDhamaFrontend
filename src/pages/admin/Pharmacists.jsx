@@ -1,60 +1,101 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../services/adminUserService";
+
 import HeadingCard from "../../components/card/HeadingCard";
 import TableComponent from "../../components/table/TableComponent";
 import CardBorder from "../../components/card/CardBorder";
-import Search from "../../components/search/Search";
 import RedirectButton from "../../components/buttons/RedirectButton";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import Search from "../../components/search/Search";
 import ExportDataButton from "../../components/buttons/ExportDataButton";
+import DeleteConfirmationModal from "../../components/modal/DeleteConfirmationModal";
 
-// ===== Placeholder API =====
-const deletePharmacistAPI = async (id) => {
-    console.log("Deleted pharmacist:", id);
-};
+import { Eye, Edit, Trash2 } from "lucide-react";
 
 function Pharmacists() {
     const navigate = useNavigate();
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            name: "Rohan Verma",
-            department: "Pharmacy",
-            designation: "Chief Pharmacist",
-            mobile: "+91 9876543210",
-            email: "rohan.verma@email.com",
-            status: "Active",   // ⭐ NEW
-        },
-        {
-            _id: "2",
-            name: "Priya Singh",
-            department: "Pharmacy",
-            designation: "Pharmacist",
-            mobile: "+91 8765432109",
-            email: "priya.singh@email.com",
-            status: "Inactive", // ⭐ NEW
-        },
-    ]);
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [deleteModal, setDeleteModal] = useState({
+        isOpen: false,
+        pharmacistId: null,
+        pharmacistName: "",
+        isDeleting: false
+    });
+
+    const fetchPharmacists = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getAllUsers("Pharmacist");
+            if (response.success) {
+                setRows(response.data || []);
+            } else {
+                toast.error(response.message || "Failed to fetch pharmacists");
+            }
+        } catch (error) {
+            console.error("Error fetching pharmacists:", error);
+            toast.error(error.message || "Failed to fetch pharmacists");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchPharmacists();
+    }, [fetchPharmacists]);
+
+    // DELETE FUNCTION
+    const handleDeleteClick = useCallback((row) => {
+        setDeleteModal({
+            isOpen: true,
+            pharmacistId: row._id,
+            pharmacistName: row.name || "this pharmacist",
+            isDeleting: false
+        });
+    }, []);
+
+    const handleDeleteConfirm = useCallback(async () => {
+        if (!deleteModal.pharmacistId) return;
+
+        setDeleteModal(prev => ({ ...prev, isDeleting: true }));
+
+        try {
+            const response = await adminUserService.deleteUser("Pharmacist", deleteModal.pharmacistId);
+            
+            if (response.success) {
+                setRows(prev => prev.filter(row => row._id !== deleteModal.pharmacistId));
+                toast.success("Pharmacist deleted successfully!");
+                setDeleteModal({ isOpen: false, pharmacistId: null, pharmacistName: "", isDeleting: false });
+            } else {
+                toast.error(response.message || "Failed to delete pharmacist");
+                setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+            }
+        } catch (error) {
+            console.error("Error deleting pharmacist:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error deleting pharmacist";
+            toast.error(errorMessage);
+            setDeleteModal(prev => ({ ...prev, isDeleting: false }));
+        }
+    }, [deleteModal.pharmacistId]);
+
+    const handleDeleteClose = useCallback(() => {
+        if (!deleteModal.isDeleting) {
+            setDeleteModal({ isOpen: false, pharmacistId: null, pharmacistName: "", isDeleting: false });
+        }
+    }, [deleteModal.isDeleting]);
 
     const [searchText, setSearchText] = useState("");
 
     // ===== TABLE COLUMNS =====
     const columns = [
         { field: "name", header: "Name" },
+        { field: "specialization", header: "Specialization" },
         { field: "department", header: "Department" },
-        { field: "designation", header: "Designation" },
-        { field: "mobile", header: "Mobile" },
+        { field: "phone", header: "Phone" },
         { field: "email", header: "Email" },
-        { field: "status", header: "Status" }, // ⭐ Enable status badge
+        { field: "status", header: "Status" },
     ];
-
-
-    const handleDelete = (id) => {
-        if (window.confirm(`Are you sure you want to delete pharmacist ${id}?`)) {
-            deletePharmacistAPI(id);
-            setRows(prev => prev.filter(r => r._id !== id));
-        }
-    };
     // ACTION BUTTONS
     const actions = [
         {
@@ -73,7 +114,7 @@ function Pharmacists() {
             label: "Delete",
             icon: <Trash2 />,
             color: "var(--color-icon-1)",
-            onClick: (row) => handleDelete(row._id)
+            onClick: (row) => handleDeleteClick(row)
         }
     ];
 
@@ -112,6 +153,16 @@ function Pharmacists() {
                 actions={actions}
                 showStatusBadge={true}
                 statusField="status"
+                isLoading={isLoading}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Pharmacist"
+                message={`Are you sure you want to delete ${deleteModal.pharmacistName}? This action cannot be undone.`}
+                isDeleting={deleteModal.isDeleting}
             />
         </div>
     );

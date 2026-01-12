@@ -1,10 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import { Link } from "react-router-dom";
+import axios from "axios";
+import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 // Icons
 import PeopleIcon from "@mui/icons-material/People";
@@ -18,69 +21,11 @@ import SearchIcon from "@mui/icons-material/Search";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import EditIcon from "@mui/icons-material/Edit";
-
-// Mock data - will be replaced with API calls later
-const mockInpatients = [
-    {
-        id: "inp-1",
-        name: "Amit Kumar",
-        age: 32,
-        gender: "Male",
-        admittedOn: "2025-01-15",
-        complain: "Fever, Weakness",
-        admitStatus: "Admitted",
-        roomNo: "102",
-        wardCategory: "General",
-        allocatedNurse: "Nurse Priya",
-        allocatedNurseId: "nurse-1",
-        doctorName: "Dr. Sharma",
-    },
-    {
-        id: "inp-2",
-        name: "Sita Verma",
-        age: 28,
-        gender: "Female",
-        admittedOn: "2025-01-12",
-        complain: "Migraine",
-        admitStatus: "Under Observation",
-        roomNo: "205",
-        wardCategory: "Duplex",
-        allocatedNurse: "Nurse Geeta",
-        allocatedNurseId: "nurse-2",
-        doctorName: "Dr. Patel",
-    },
-    {
-        id: "inp-3",
-        name: "Rajesh Singh",
-        age: 45,
-        gender: "Male",
-        admittedOn: "2025-01-10",
-        complain: "Diabetes Management",
-        admitStatus: "Pending Allocation",
-        roomNo: undefined,
-        wardCategory: undefined,
-        allocatedNurse: undefined,
-        allocatedNurseId: undefined,
-        doctorName: "Dr. Kumar",
-    },
-    {
-        id: "inp-4",
-        name: "Priya Sharma",
-        age: 35,
-        gender: "Female",
-        admittedOn: "2025-01-08",
-        complain: "Post-surgery recovery",
-        admitStatus: "Discharged",
-        roomNo: "301",
-        wardCategory: "Special",
-        allocatedNurse: "Nurse Anjali",
-        allocatedNurseId: "nurse-3",
-        doctorName: "Dr. Mehta",
-    },
-];
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
 function Inpatient_View() {
-    const [inpatients] = useState(mockInpatients);
+    const [inpatients, setInpatients] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const navigate = useNavigate();
@@ -94,6 +39,134 @@ function Inpatient_View() {
         { label: "Receptionist", url: "/receptionist/dashboard" },
         { label: "Inpatients" },
     ];
+
+    // Fetch only inpatients
+    const fetchInpatients = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("inpatients"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        page: 1,
+                        limit: 1000, // Get all inpatients
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                const inpatientsData = response.data.data || [];
+                
+                // Fetch invoices for all inpatients to check payment status
+                const invoiceIds = inpatientsData
+                    .filter(ip => ip._id)
+                    .map(ip => ip._id);
+                
+                let invoicesMap = {};
+                if (invoiceIds.length > 0) {
+                    try {
+                        const invoicesResponse = await axios.get(
+                            getApiUrl("invoices"),
+                            {
+                                headers: getAuthHeaders(),
+                                params: {
+                                    page: 1,
+                                    limit: 1000,
+                                },
+                            }
+                        );
+                        
+                        if (invoicesResponse.data.success && invoicesResponse.data.data) {
+                            // Create a map of inpatientId -> invoice
+                            invoicesResponse.data.data.forEach((invoice) => {
+                                if (invoice.inpatient) {
+                                    const inpatientId = invoice.inpatient._id || invoice.inpatient;
+                                    if (!invoicesMap[inpatientId] || 
+                                        new Date(invoice.createdAt) > new Date(invoicesMap[inpatientId].createdAt)) {
+                                        invoicesMap[inpatientId] = invoice;
+                                    }
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.error("Error fetching invoices for payment status:", error);
+                    }
+                }
+                
+                // Transform API response to match frontend table structure
+                const transformedInpatients = inpatientsData.map((inpatient) => {
+                    // Check payment status
+                    const invoice = invoicesMap[inpatient._id];
+                    const isFullyPaid = invoice ? ((invoice.amountPaid || 0) >= (invoice.totalPayable || 0)) : false;
+                    
+                    // Determine status based on payment and discharge date
+                    let displayStatus = inpatient.status;
+                    
+                    // If dischargeDate is set (bill finalized), check payment status
+                    if (inpatient.dischargeDate) {
+                        if (isFullyPaid) {
+                            // Payment is complete - show as Discharged
+                            displayStatus = "Discharged";
+                        } else {
+                            // Payment pending - show as Admitted (pending payment)
+                            displayStatus = "Admitted";
+                        }
+                    }
+                    // If no dischargeDate, use original status
+                    
+                    // Map backend status to frontend status
+                    const statusMap = {
+                        "Admitted": "Admitted",
+                        "admitted": "Admitted",
+                        "Discharged": "Discharged",
+                        "discharged": "Discharged",
+                        "Transferred": "Under Observation",
+                        "transferred": "Under Observation",
+                    };
+                    
+                    const mappedStatus = statusMap[displayStatus] || "Pending Allocation";
+                    
+                    // Get patient profile ID (could be object or string)
+                    const patientProfileId = inpatient.patient?._id || inpatient.patient || null;
+                    
+                    return {
+                        id: inpatient._id,
+                        _id: inpatient._id,
+                        patientProfileId: patientProfileId?.toString() || null,
+                        name: inpatient.patient?.user?.name || "Unknown",
+                        age: inpatient.patient?.user?.age || "N/A",
+                        gender: inpatient.patient?.user?.gender || "N/A",
+                        admittedOn: inpatient.admissionDate
+                            ? new Date(inpatient.admissionDate).toISOString().split("T")[0]
+                            : "N/A",
+                        complain: inpatient.reason || "N/A",
+                        admitStatus: mappedStatus,
+                        roomNo: inpatient.roomNumber || undefined,
+                        wardCategory: inpatient.wardCategory || undefined,
+                        allocatedNurse: inpatient.allocatedNurse?.user?.name || undefined,
+                        allocatedNurseId: inpatient.allocatedNurse?._id || undefined,
+                        doctorName: inpatient.doctor?.user?.name || inpatient.examinations?.[0]?.doctor?.user?.name || "N/A",
+                        bedNumber: inpatient.bedNumber || undefined,
+                        hasPendingPayment: invoice && !isFullyPaid, // Flag for UI indication
+                    };
+                });
+
+                setInpatients(transformedInpatients);
+            } else {
+                toast.error(response.data.message || "Failed to fetch inpatients");
+            }
+        } catch (error) {
+            console.error("Error fetching inpatients:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch inpatients");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchInpatients();
+    }, [fetchInpatients]);
 
     // Calculate statistics
     const stats = useMemo(() => {
@@ -111,7 +184,6 @@ function Inpatient_View() {
         return inpatients.filter((patient) => {
             const matchesSearch =
                 patient.name.toLowerCase().includes(search.toLowerCase()) ||
-                patient.complain.toLowerCase().includes(search.toLowerCase()) ||
                 (patient.doctorName && patient.doctorName.toLowerCase().includes(search.toLowerCase())) ||
                 (patient.roomNo && patient.roomNo.toLowerCase().includes(search.toLowerCase()));
             const matchesStatus = statusFilter === "All" || patient.admitStatus === statusFilter;
@@ -127,7 +199,6 @@ function Inpatient_View() {
             wardCategory: patient.wardCategory || "",
             roomNo: patient.roomNo || "",
             bedNumber: patient.bedNumber || "",
-            reallocate: patient.admitStatus !== "Pending Allocation" ? "true" : "false",
         });
         navigate(`/receptionist/inpatient/allocate?${params.toString()}`);
     };
@@ -212,7 +283,7 @@ function Inpatient_View() {
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Search by name, complain, doctor, or room..."
+                                        placeholder="Search by name, doctor, or room..."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
                                     />
@@ -234,29 +305,38 @@ function Inpatient_View() {
                         </div>
 
                         {/* Table */}
-                        <div className="table-responsive">
-                            <table className="table table-hover" style={{ fontSize: "0.875rem" }}>
-                                <thead>
-                                    <tr>
-                                        <th style={{ fontSize: "0.875rem" }}>Sl. No.</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Patient Name</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Complain</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Doctor</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Ward</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Room No.</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Allocated Nurse</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Status</th>
-                                        <th style={{ fontSize: "0.875rem" }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredData.map((patient, index) => (
+                        {isLoading ? (
+                            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : filteredData.length === 0 ? (
+                            <Box sx={{ textAlign: "center", padding: "40px" }}>
+                                <Typography variant="body1" color="text.secondary">
+                                    No inpatients found.
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <div className="table-responsive">
+                                <table className="table table-hover" style={{ fontSize: "0.875rem" }}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ fontSize: "0.875rem" }}>Sl. No.</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Patient Name</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Doctor</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Ward</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Room No.</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Allocated Nurse</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Status</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredData.map((patient, index) => (
                                         <tr key={patient.id}>
                                             <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
                                             <td style={{ fontSize: "0.875rem" }}>
                                                 <strong>{patient.name}</strong>
                                             </td>
-                                            <td style={{ fontSize: "0.875rem" }}>{patient.complain}</td>
                                             <td style={{ fontSize: "0.875rem" }}>
                                                 {patient.doctorName ? (
                                                     <span>
@@ -292,6 +372,15 @@ function Inpatient_View() {
                                                 >
                                                     {patient.admitStatus}
                                                 </span>
+                                                {patient.hasPendingPayment && (
+                                                    <span
+                                                        className="badge bg-warning ms-2"
+                                                        style={{ fontSize: "0.7rem", padding: "2px 6px" }}
+                                                        title="Payment pending - Patient will show as Discharged after full payment"
+                                                    >
+                                                        Payment Pending
+                                                    </span>
+                                                )}
                                             </td>
                                             <td style={{ fontSize: "0.875rem" }}>
                                                 <div className="d-flex gap-2">
@@ -351,75 +440,193 @@ function Inpatient_View() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    {patient.admitStatus !== "Discharged" && (
-                                                        <div style={{ position: "relative", display: "inline-block" }}>
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm"
-                                                                onClick={() => handleOpenAllocationModal(patient)}
+                                                    <div style={{ position: "relative", display: "inline-block" }}>
+                                                        <Link
+                                                            to={`/receptionist/patient-history/${patient.patientProfileId || patient.id}`}
+                                                            className="btn btn-sm"
+                                                            style={{
+                                                                backgroundColor: "#4A90E2",
+                                                                borderColor: "#4A90E2",
+                                                                color: "#fff",
+                                                                borderRadius: "8px",
+                                                                padding: "6px 12px",
+                                                                fontWeight: 500,
+                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                transition: "all 0.3s ease",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "4px",
+                                                                textDecoration: "none",
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = "#357ABD";
+                                                                e.currentTarget.style.transform = "translateY(-2px)";
+                                                                e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                setHoveredButton(`history-${patient.id}`);
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = "#4A90E2";
+                                                                e.currentTarget.style.transform = "translateY(0)";
+                                                                e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                setHoveredButton(null);
+                                                            }}
+                                                        >
+                                                            <CalendarTodayIcon fontSize="small" />
+                                                            <span style={{ fontSize: "0.75rem" }}>View History</span>
+                                                        </Link>
+                                                        {hoveredButton === `history-${patient.id}` && (
+                                                            <span
                                                                 style={{
-                                                                    backgroundColor: "#90EE90",
-                                                                    borderColor: "#90EE90",
+                                                                    position: "absolute",
+                                                                    bottom: "100%",
+                                                                    left: "50%",
+                                                                    transform: "translateX(-50%)",
+                                                                    marginBottom: "5px",
+                                                                    padding: "4px 8px",
+                                                                    backgroundColor: "#333",
                                                                     color: "#fff",
-                                                                    borderRadius: "8px",
-                                                                    padding: "6px 8px",
-                                                                    fontWeight: 500,
-                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                    transition: "all 0.3s ease",
-                                                                    minWidth: "40px",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center",
-                                                                }}
-                                                                onMouseEnter={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#7ACC7A";
-                                                                    e.currentTarget.style.transform = "translateY(-2px)";
-                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                    setHoveredButton(`allocate-${patient.id}`);
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#90EE90";
-                                                                    e.currentTarget.style.transform = "translateY(0)";
-                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                    setHoveredButton(null);
+                                                                    fontSize: "0.75rem",
+                                                                    borderRadius: "4px",
+                                                                    whiteSpace: "nowrap",
+                                                                    zIndex: 1000,
+                                                                    pointerEvents: "none",
                                                                 }}
                                                             >
-                                                                {patient.admitStatus === "Pending Allocation" ? (
-                                                                    <AssignmentIcon fontSize="small" />
-                                                                ) : (
-                                                                    <EditIcon fontSize="small" />
-                                                                )}
-                                                            </button>
-                                                            {hoveredButton === `allocate-${patient.id}` && (
-                                                                <span
-                                                                    style={{
-                                                                        position: "absolute",
-                                                                        bottom: "100%",
-                                                                        left: "50%",
-                                                                        transform: "translateX(-50%)",
-                                                                        marginBottom: "5px",
-                                                                        padding: "4px 8px",
-                                                                        backgroundColor: "#333",
-                                                                        color: "#fff",
-                                                                        fontSize: "0.75rem",
-                                                                        borderRadius: "4px",
-                                                                        whiteSpace: "nowrap",
-                                                                        zIndex: 1000,
-                                                                        pointerEvents: "none",
-                                                                    }}
-                                                                >
-                                                                    {patient.admitStatus === "Pending Allocation" ? "Allocate Resources" : "Re-allocate"}
-                                                                </span>
+                                                                View Complete History
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {patient.admitStatus !== "Discharged" && (
+                                                        <div style={{ position: "relative", display: "inline-block" }}>
+                                                            {!patient.allocatedNurse || patient.allocatedNurse === "N/A" ? (
+                                                                // No nurse assigned - Show "Allocate Nurse" button
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm"
+                                                                        onClick={() => handleOpenAllocationModal(patient)}
+                                                                        style={{
+                                                                            backgroundColor: "#90EE90",
+                                                                            borderColor: "#90EE90",
+                                                                            color: "#fff",
+                                                                            borderRadius: "8px",
+                                                                            padding: "6px 12px",
+                                                                            fontWeight: 500,
+                                                                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                            transition: "all 0.3s ease",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            gap: "4px",
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            e.currentTarget.style.backgroundColor = "#7ACC7A";
+                                                                            e.currentTarget.style.transform = "translateY(-2px)";
+                                                                            e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                            setHoveredButton(`allocate-${patient.id}`);
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            e.currentTarget.style.backgroundColor = "#90EE90";
+                                                                            e.currentTarget.style.transform = "translateY(0)";
+                                                                            e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                            setHoveredButton(null);
+                                                                        }}
+                                                                    >
+                                                                        <AssignmentIcon fontSize="small" />
+                                                                        <span style={{ fontSize: "0.75rem" }}>Allocate Nurse</span>
+                                                                    </button>
+                                                                    {hoveredButton === `allocate-${patient.id}` && (
+                                                                        <span
+                                                                            style={{
+                                                                                position: "absolute",
+                                                                                bottom: "100%",
+                                                                                left: "50%",
+                                                                                transform: "translateX(-50%)",
+                                                                                marginBottom: "5px",
+                                                                                padding: "4px 8px",
+                                                                                backgroundColor: "#333",
+                                                                                color: "#fff",
+                                                                                fontSize: "0.75rem",
+                                                                                borderRadius: "4px",
+                                                                                whiteSpace: "nowrap",
+                                                                                zIndex: 1000,
+                                                                                pointerEvents: "none",
+                                                                            }}
+                                                                        >
+                                                                            Allocate Nurse
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                // Nurse assigned - Show edit/pen button with "Re-allocate Nurse" tooltip
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm"
+                                                                        onClick={() => handleOpenAllocationModal(patient)}
+                                                                        style={{
+                                                                            backgroundColor: "#90EE90",
+                                                                            borderColor: "#90EE90",
+                                                                            color: "#fff",
+                                                                            borderRadius: "8px",
+                                                                            padding: "6px 8px",
+                                                                            fontWeight: 500,
+                                                                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                            transition: "all 0.3s ease",
+                                                                            minWidth: "40px",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            e.currentTarget.style.backgroundColor = "#7ACC7A";
+                                                                            e.currentTarget.style.transform = "translateY(-2px)";
+                                                                            e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                            setHoveredButton(`allocate-${patient.id}`);
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            e.currentTarget.style.backgroundColor = "#90EE90";
+                                                                            e.currentTarget.style.transform = "translateY(0)";
+                                                                            e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                            setHoveredButton(null);
+                                                                        }}
+                                                                    >
+                                                                        <EditIcon fontSize="small" />
+                                                                    </button>
+                                                                    {hoveredButton === `allocate-${patient.id}` && (
+                                                                        <span
+                                                                            style={{
+                                                                                position: "absolute",
+                                                                                bottom: "100%",
+                                                                                left: "50%",
+                                                                                transform: "translateX(-50%)",
+                                                                                marginBottom: "5px",
+                                                                                padding: "4px 8px",
+                                                                                backgroundColor: "#333",
+                                                                                color: "#fff",
+                                                                                fontSize: "0.75rem",
+                                                                                borderRadius: "4px",
+                                                                                whiteSpace: "nowrap",
+                                                                                zIndex: 1000,
+                                                                                pointerEvents: "none",
+                                                                            }}
+                                                                        >
+                                                                            Re-allocate Nurse
+                                                                        </span>
+                                                                    )}
+                                                                </>
                                                             )}
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </div>
             </Box>

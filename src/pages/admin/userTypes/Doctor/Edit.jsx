@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../../../services/adminUserService";
 import {
     Mail, Phone, Calendar, User, Home, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
@@ -7,40 +9,134 @@ import {
     X, Save, AlertCircle, CheckCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
+import InputDialogModal from "../../../../components/modal/InputDialogModal";
 
 function Edit_Doctors() {
+    const { doctorId } = useParams();
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
+    const [languageModal, setLanguageModal] = useState(false);
+    const [certificationModal, setCertificationModal] = useState(false);
 
-    // Fake doctor data
+    // Doctor data
     const [doctor, setDoctor] = useState({
         // Personal Info
-        name: "Dr. Anajali D",
-        email: "anajali.d@hospital.com",
-        phone: "+1 (234) 567-8888",
-        dob: "1997-11-17",
-        gender: "Female",
-        address: "123 Medical Plaza, Health District, Bangalore 560001",
-        emergencyContact: "+1 (234) 567-9999",
-        languages: ["English", "Hindi", "Kannada"],
+        name: "",
+        email: "",
+        phone: "",
+        dob: "",
+        gender: "",
+        address: "",
+        emergencyContact: "",
+        languages: [],
+        profilePicture: "",
 
         // Professional Info
-        specialization: "Cardiology",
-        department: "Cardiology",
-        licenseNumber: "DOC-KA-122222",
-        joiningDate: "2010-11-05",
-        experience: "13",
-        qualifications: "MD, DM Cardiology",
+        specialization: "",
+        department: "",
+        licenseNumber: "",
+        joiningDate: "",
+        experience: "",
+        qualifications: "",
         status: "Active",
-        consultationFee: "150",
-        availability: "Mon-Fri: 9AM-5PM",
+        consultationFee: "",
+        availability: "",
 
         // Additional Info
-        bio: "Dr. Anajali D is a highly respected Cardiology specialist with over 13 years of experience. Known for her commitment to patient well-being, she emphasizes holistic care and preventive wellness.",
-        certifications: ["Cardiology Board Certified", "Advanced Cardiac Life Support"]
+        bio: "",
+        certifications: []
     });
+
+    // Format date to YYYY-MM-DD for date inputs
+    const formatDateForInput = (dateStr) => {
+        if (!dateStr) return "";
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return "";
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return "";
+        }
+    };
+
+    // Handle Image Upload
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            toast.error("File size should be less than 2MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await adminUserService.uploadImage(file);
+            if (response.success) {
+                setDoctor(prev => ({ ...prev, profilePicture: response.data.url }));
+                toast.success("Image uploaded successfully!");
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            const errorMessage = error?.message || error?.response?.data?.message || "Failed to upload image";
+            toast.error(errorMessage);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Fetch doctor data
+    const fetchDoctorDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Doctor", doctorId);
+            if (response.success && response.data) {
+                const data = response.data;
+                setDoctor({
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    dob: formatDateForInput(data.dob),
+                    gender: data.gender || "",
+                    address: data.address || "",
+                    emergencyContact: data.emergencyContact || "",
+                    languages: Array.isArray(data.languages) ? data.languages : [],
+                    profilePicture: data.profilePicture || "",
+                    specialization: data.specialization || "",
+                    department: data.department || "",
+                    licenseNumber: data.licenseNumber || "",
+                    joiningDate: formatDateForInput(data.joiningDate),
+                    experience: data.experience ? String(data.experience) : "",
+                    qualifications: data.qualifications || "",
+                    status: data.status || "Active",
+                    consultationFee: data.consultationFee ? String(data.consultationFee) : "",
+                    availability: data.availability || "",
+                    bio: data.bio || "",
+                    certifications: Array.isArray(data.certifications) ? data.certifications : []
+                });
+            } else {
+                toast.error(response.message || "Failed to fetch doctor details");
+                navigate('/admin/doctors');
+            }
+        } catch (error) {
+            console.error("Error fetching doctor:", error);
+            toast.error(error.message || "Error fetching doctor details");
+            navigate('/admin/doctors');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [doctorId, navigate]);
+
+    useEffect(() => {
+        if (doctorId) {
+            fetchDoctorDetails();
+        }
+    }, [doctorId, fetchDoctorDetails]);
 
     // Handle Input Change
     const updateField = (field, value) => {
@@ -48,12 +144,18 @@ function Edit_Doctors() {
     };
 
     const handleAddLanguage = () => {
-        const newLang = prompt("Enter a new language:");
-        if (newLang && !doctor.languages.includes(newLang)) {
+        setLanguageModal(true);
+    };
+
+    const handleLanguageConfirm = (language) => {
+        if (language && !doctor.languages.includes(language)) {
             setDoctor(prev => ({
                 ...prev,
-                languages: [...prev.languages, newLang]
+                languages: [...prev.languages, language]
             }));
+            toast.success("Language added successfully!");
+        } else if (doctor.languages.includes(language)) {
+            toast.error("This language is already added");
         }
     };
 
@@ -65,12 +167,18 @@ function Edit_Doctors() {
     };
 
     const handleAddCertification = () => {
-        const newCert = prompt("Enter new certification:");
-        if (newCert && !doctor.certifications.includes(newCert)) {
+        setCertificationModal(true);
+    };
+
+    const handleCertificationConfirm = (certification) => {
+        if (certification && !doctor.certifications.includes(certification)) {
             setDoctor(prev => ({
                 ...prev,
-                certifications: [...prev.certifications, newCert]
+                certifications: [...prev.certifications, certification]
             }));
+            toast.success("Certification added successfully!");
+        } else if (doctor.certifications.includes(certification)) {
+            toast.error("This certification is already added");
         }
     };
 
@@ -82,19 +190,41 @@ function Edit_Doctors() {
     };
 
     const handleSave = async () => {
+        // Basic validation
+        if (!doctor.name || !doctor.email || !doctor.specialization || !doctor.licenseNumber) {
+            toast.error("Please fill in the required fields (Name, Email, Specialization, License Number).");
+            return;
+        }
+
         setIsSaving(true);
+        try {
+            // Prepare update data - convert strings to numbers where needed
+            const updateData = {
+                ...doctor,
+                experience: doctor.experience ? Number(doctor.experience) : undefined,
+                consultationFee: doctor.consultationFee ? Number(doctor.consultationFee) : undefined,
+                // Convert date strings back to ISO format for backend
+                dob: doctor.dob ? new Date(doctor.dob).toISOString() : undefined,
+                joiningDate: doctor.joiningDate ? new Date(doctor.joiningDate).toISOString() : undefined
+            };
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        console.log("Updated Doctor Data:", doctor);
-        setIsSaving(false);
-        setShowSuccess(true);
-
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate(-1);
-        }, 2000);
+            const response = await adminUserService.updateUser("Doctor", doctorId, updateData);
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Doctor updated successfully!");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate(`/admin/doctors/view/${doctorId}`);
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to update doctor");
+            }
+        } catch (error) {
+            console.error("Error updating doctor:", error);
+            toast.error(error.message || "Error updating doctor");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const sections = [
@@ -106,8 +236,16 @@ function Edit_Doctors() {
     const breadcrumbItems = [
         { label: "Dashboard", url: "/admin/dashboard" },
         { label: "Doctors", url: "/admin/doctors" },
-        { label: "Dr. Anajali D" }
-    ]
+        { label: doctor.name || "Edit Doctor" }
+    ];
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-a)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: "var(--color-bg-a)" }}>
@@ -260,6 +398,7 @@ function Edit_Doctors() {
                                                 type="tel"
                                                 value={doctor.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Emergency Contact"
@@ -267,6 +406,7 @@ function Edit_Doctors() {
                                                 type="tel"
                                                 value={doctor.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Date of Birth"
@@ -493,26 +633,48 @@ function Edit_Doctors() {
                                                 borderColor: "var(--color-text)"
                                             }}>
                                                 <div
-                                                    className="w-20 h-20 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-200"
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform duration-200"
                                                     style={{
                                                         backgroundColor: "var(--color-icon-5-light)",
                                                         border: "2px dashed var(--color-icon-5)",
                                                         color: "var(--color-icon-5)"
                                                     }}
                                                 >
-                                                    <User size={32} />
+                                                    {doctor.profilePicture ? (
+                                                        <img
+                                                            src={doctor.profilePicture}
+                                                            alt="Profile"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <User size={32} />
+                                                    )}
+                                                    {isUploading && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
+                                                    <input
+                                                        type="file"
+                                                        id="profile-upload-doctor"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                    />
                                                     <button
                                                         type="button"
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm"
+                                                        onClick={() => document.getElementById('profile-upload-doctor').click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm disabled:opacity-50"
                                                         style={{
                                                             backgroundColor: "var(--color-btn-b)",
                                                             color: "var(--color-light)"
                                                         }}
                                                     >
                                                         <Upload size={16} />
-                                                        Upload New Photo
+                                                        {isUploading ? "Uploading..." : "Upload New Photo"}
                                                     </button>
                                                     <p className="text-sm mt-2" style={{ color: "var(--color-text)" }}>
                                                         JPG, PNG or GIF, max 2MB
@@ -574,6 +736,40 @@ function Edit_Doctors() {
                     </div>
                 </div>
             </div>
+
+            {/* Language Input Modal */}
+            <InputDialogModal
+                isOpen={languageModal}
+                onClose={() => setLanguageModal(false)}
+                onConfirm={handleLanguageConfirm}
+                title="Add Language"
+                label="Language"
+                placeholder="e.g., English, Spanish, French"
+                confirmText="Add Language"
+                validate={(value) => {
+                    if (doctor.languages.includes(value)) {
+                        return "This language is already added";
+                    }
+                    return null;
+                }}
+            />
+
+            {/* Certification Input Modal */}
+            <InputDialogModal
+                isOpen={certificationModal}
+                onClose={() => setCertificationModal(false)}
+                onConfirm={handleCertificationConfirm}
+                title="Add Certification"
+                label="Certification"
+                placeholder="e.g., BLS Certified, ACLS Certified"
+                confirmText="Add Certification"
+                validate={(value) => {
+                    if (doctor.certifications.includes(value)) {
+                        return "This certification is already added";
+                    }
+                    return null;
+                }}
+            />
         </div>
     );
 }

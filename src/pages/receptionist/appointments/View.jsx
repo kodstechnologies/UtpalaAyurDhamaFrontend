@@ -1,6 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
@@ -10,7 +12,6 @@ import { toast } from "react-toastify";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import PeopleIcon from "@mui/icons-material/People";
 import UpcomingIcon from "@mui/icons-material/Upcoming";
-import SpaIcon from "@mui/icons-material/Spa";
 import AddIcon from "@mui/icons-material/Add";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
@@ -107,26 +108,6 @@ const mockAppointments = [
     },
 ];
 
-const mockTherapySessions = [
-    {
-        id: "th-1",
-        patientName: "Amit Kumar",
-        therapistName: "Mr. Anand",
-        treatment: "Physiotherapy",
-        sessionDateTime: "2025-01-20 10:00",
-        status: "Scheduled",
-        patientUserId: "user-1",
-    },
-    {
-        id: "th-2",
-        patientName: "Sita Verma",
-        therapistName: "Not Assigned",
-        treatment: "Panchakarma",
-        sessionDateTime: "Not Scheduled",
-        status: "Pending",
-        patientUserId: "user-2",
-    },
-];
 
 const mockDoctors = [
     { _id: "doc-1", user: { name: "Dr. Sharma" } },
@@ -141,12 +122,64 @@ function Appointments_View() {
         appointmentStatus: "",
         gender: "",
     });
-    const [allPatients] = useState(mockPatients);
-    const [appointments] = useState(mockAppointments);
-    const [therapySessions] = useState(mockTherapySessions);
+    const [allPatients, setAllPatients] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [appointments, setAppointments] = useState([]);
+    const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
     const [doctors] = useState(mockDoctors);
 
     const navigate = useNavigate();
+
+    // Fetch reception patients from API
+    const fetchReceptionPatients = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("reception-patients"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        page: 1,
+                        limit: 1000 // Get all patients for now
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                // Transform API response to match table structure
+                const transformedPatients = (response.data.data || []).map((patient) => ({
+                    id: patient._id || patient.patientProfile?._id || "",
+                    name: patient.patientName || "",
+                    contact: patient.contactNumber || "",
+                    gender: patient.gender || "",
+                    age: patient.age || "",
+                    email: patient.email || "",
+                    registeredDate: patient.createdAt
+                        ? new Date(patient.createdAt).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric"
+                        })
+                        : "",
+                    address: patient.address || "",
+                    patientProfileId: patient.patientProfile?._id || "",
+                    alternativeNumber: patient.alternativeNumber || "",
+                }));
+                setAllPatients(transformedPatients);
+            } else {
+                toast.error(response.data.message || "Failed to fetch patients");
+            }
+        } catch (error) {
+            console.error("Error fetching reception patients:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch patients");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchReceptionPatients();
+    }, [fetchReceptionPatients]);
 
     // Breadcrumb Data
     const breadcrumbItems = [
@@ -173,9 +206,8 @@ function Appointments_View() {
             upcomingAppointments: appointments.filter(
                 (apt) => apt.status === "Upcoming" || apt.status === "Confirmed" || apt.status === "Scheduled"
             ).length,
-            therapySessions: therapySessions.length,
         };
-    }, [allPatients, appointments, therapySessions]);
+    }, [allPatients, appointments]);
 
     // Filter patients
     const filteredPatients = useMemo(() => {
@@ -190,26 +222,110 @@ function Appointments_View() {
         });
     }, [allPatients, filters]);
 
-    // Filter appointments
+    // Fetch appointments from API
+    const fetchAppointments = useCallback(async () => {
+        setIsLoadingAppointments(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("appointments"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        page: 1,
+                        limit: 1000, // Get all appointments
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                const appointmentsData = response.data.data?.appointments || response.data.data || [];
+                
+                // Transform API response to match frontend structure
+                const transformedAppointments = appointmentsData.map((apt) => ({
+                    id: apt._id,
+                    name: apt.patient?.user?.name || apt.patientName || "Unknown",
+                    appointmentDateTime: apt.appointmentDate && apt.appointmentTime
+                        ? `${new Date(apt.appointmentDate).toISOString().split("T")[0]} ${apt.appointmentTime}`
+                        : apt.appointmentDateTime || "N/A",
+                    doctor: apt.doctor?.user?.name || apt.doctorName || "N/A",
+                    contact: apt.patient?.user?.phone || apt.contact || "N/A",
+                    disease: apt.notes || apt.disease || "N/A",
+                    status: apt.status || "Scheduled",
+                    patientProfileId: apt.patient?._id || apt.patient || "",
+                    invoiceId: apt.invoice?._id || apt.invoiceId || null,
+                    invoiceNumber: apt.invoice?.invoiceNumber || apt.invoiceNumber || null,
+                }));
+                
+                setAppointments(transformedAppointments);
+            } else {
+                toast.error(response.data.message || "Failed to fetch appointments");
+                // Fallback to mock data if API fails
+                setAppointments(mockAppointments);
+            }
+        } catch (error) {
+            console.error("Error fetching appointments:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch appointments");
+            // Fallback to mock data if API fails
+            setAppointments(mockAppointments);
+        } finally {
+            setIsLoadingAppointments(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === "appointments") {
+            fetchAppointments();
+        }
+    }, [activeTab, fetchAppointments]);
+
+    // Filter appointments - Show all future appointments by default in "Upcoming Appointments" tab
     const filteredAppointments = useMemo(() => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        
+        // For "Upcoming Appointments" tab, show all future appointments
+        if (activeTab === "appointments") {
+            if (!filters.appointmentStatus) {
+                // Default: Show all future appointments
+                return appointments.filter((apt) => {
+                    try {
+                        const [dateStr, timeStr] = apt.appointmentDateTime.split(" ");
+                        if (!dateStr) return false;
+                        const appointmentDate = new Date(dateStr);
+                        appointmentDate.setHours(0, 0, 0, 0);
+                        return appointmentDate >= now && apt.status !== "Cancelled" && apt.status !== "Completed";
+                    } catch {
+                        return false;
+                    }
+                });
+            }
+        }
+        
+        // Apply filters if any
         if (!filters.appointmentStatus) {
             return appointments;
         }
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        
         return appointments.filter((apt) => {
-            const appointmentDate = new Date(apt.appointmentDateTime.split(" ")[0]);
-            appointmentDate.setHours(0, 0, 0, 0);
-            if (filters.appointmentStatus === "upcoming") {
-                return apt.status === "Upcoming" || (appointmentDate > today && apt.status !== "Ongoing" && apt.status !== "Completed");
-            } else if (filters.appointmentStatus === "ongoing") {
-                return apt.status === "Ongoing" || (appointmentDate.getTime() === today.getTime() && apt.status === "Confirmed");
-            } else if (filters.appointmentStatus === "completed") {
-                return apt.status === "Completed" || appointmentDate < today;
+            try {
+                const [dateStr] = apt.appointmentDateTime.split(" ");
+                if (!dateStr) return false;
+                const appointmentDate = new Date(dateStr);
+                appointmentDate.setHours(0, 0, 0, 0);
+                
+                if (filters.appointmentStatus === "upcoming") {
+                    return appointmentDate > now && apt.status !== "Ongoing" && apt.status !== "Completed" && apt.status !== "Cancelled";
+                } else if (filters.appointmentStatus === "ongoing") {
+                    return apt.status === "Ongoing" || (appointmentDate.getTime() === now.getTime() && apt.status === "Confirmed");
+                } else if (filters.appointmentStatus === "completed") {
+                    return apt.status === "Completed" || appointmentDate < now;
+                }
+                return true;
+            } catch {
+                return false;
             }
-            return true;
         });
-    }, [appointments, filters.appointmentStatus]);
+    }, [appointments, filters.appointmentStatus, activeTab]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -240,14 +356,6 @@ function Appointments_View() {
     const handleViewPatientClick = (patient) => {
         const params = new URLSearchParams({
             patientId: patient.id || "",
-            patientName: patient.name || "",
-            contact: patient.contact || "",
-            email: patient.email || "",
-            gender: patient.gender || "",
-            age: (patient.age || "").toString(),
-            address: patient.address || "",
-            registeredDate: patient.registeredDate || "",
-            disease: patient.disease || "",
         });
         navigate(`/receptionist/appointments/view-patient?${params.toString()}`);
     };
@@ -333,7 +441,6 @@ function Appointments_View() {
                 <DashboardCard title="Total Patients" count={statistics.totalPatients} icon={PeopleIcon} />
                 <DashboardCard title="Today's Appointments" count={statistics.todayAppointments} icon={EventAvailableIcon} />
                 <DashboardCard title="Upcoming" count={statistics.upcomingAppointments} icon={UpcomingIcon} />
-                <DashboardCard title="Therapy Sessions" count={statistics.therapySessions} icon={SpaIcon} />
             </Box>
 
             {/* Tabs Panel */}
@@ -357,15 +464,6 @@ function Appointments_View() {
                                 >
                                     <EventAvailableIcon className="me-2" />
                                     Upcoming Appointments
-                                </button>
-                            </li>
-                            <li className="nav-item" role="presentation">
-                                <button
-                                    className={`nav-link ${activeTab === "therapists" ? "active" : ""}`}
-                                    onClick={() => setActiveTab("therapists")}
-                                >
-                                    <SpaIcon className="me-2" />
-                                    Therapist Sessions
                                 </button>
                             </li>
                         </ul>
@@ -400,132 +498,142 @@ function Appointments_View() {
                                         </select>
                                     </div>
                                 </div>
-                                <div className="table-responsive">
-                                    <table className="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Sl. No.</th>
-                                                <th>Name</th>
-                                                <th>Contact</th>
-                                                <th>Gender</th>
-                                                <th>Age</th>
-                                                <th>Email</th>
-                                                <th>Registered On</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredPatients.map((patient, index) => (
-                                                <tr key={patient.id}>
-                                                    <td>{index + 1}</td>
-                                                    <td>{patient.name}</td>
-                                                    <td>{patient.contact}</td>
-                                                    <td>{patient.gender}</td>
-                                                    <td>{patient.age}</td>
-                                                    <td>{patient.email}</td>
-                                                    <td>{patient.registeredDate}</td>
-                                                    <td>
-                                                        <div className="d-flex gap-2" role="group">
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm"
-                                                                onClick={() => handleViewPatientClick(patient)}
-                                                                style={{
-                                                                    backgroundColor: "#D4A574",
-                                                                    borderColor: "#D4A574",
-                                                                    color: "#000",
-                                                                    borderRadius: "8px",
-                                                                    padding: "8px 12px",
-                                                                    fontWeight: 500,
-                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                    transition: "all 0.3s ease",
-                                                                    minWidth: "45px",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center"
-                                                                }}
-                                                                onMouseEnter={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#C8965A";
-                                                                    e.currentTarget.style.transform = "translateY(-2px)";
-                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#D4A574";
-                                                                    e.currentTarget.style.transform = "translateY(0)";
-                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                }}
-                                                            >
-                                                                <VisibilityIcon fontSize="small" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm"
-                                                                onClick={() => handleScheduleAppointmentClick(patient)}
-                                                                style={{
-                                                                    backgroundColor: "#90EE90",
-                                                                    borderColor: "#90EE90",
-                                                                    color: "#fff",
-                                                                    borderRadius: "8px",
-                                                                    padding: "8px 12px",
-                                                                    fontWeight: 500,
-                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                    transition: "all 0.3s ease",
-                                                                    minWidth: "45px",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center"
-                                                                }}
-                                                                onMouseEnter={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#7ACC7A";
-                                                                    e.currentTarget.style.transform = "translateY(-2px)";
-                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#90EE90";
-                                                                    e.currentTarget.style.transform = "translateY(0)";
-                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                }}
-                                                            >
-                                                                <EventAvailableIcon fontSize="small" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm"
-                                                                onClick={() => handleSendMessageClick(patient)}
-                                                                style={{
-                                                                    backgroundColor: "#FFB347",
-                                                                    borderColor: "#FFB347",
-                                                                    color: "#000",
-                                                                    borderRadius: "8px",
-                                                                    padding: "8px 12px",
-                                                                    fontWeight: 500,
-                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                    transition: "all 0.3s ease",
-                                                                    minWidth: "45px",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center"
-                                                                }}
-                                                                onMouseEnter={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#FF9F33";
-                                                                    e.currentTarget.style.transform = "translateY(-2px)";
-                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#FFB347";
-                                                                    e.currentTarget.style.transform = "translateY(0)";
-                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                }}
-                                                            >
-                                                                <MessageIcon fontSize="small" />
-                                                            </button>
-                                                        </div>
-                                                    </td>
+                                {isLoading ? (
+                                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
+                                        <CircularProgress />
+                                    </Box>
+                                ) : filteredPatients.length === 0 ? (
+                                    <Box sx={{ textAlign: "center", padding: "40px", color: "#666" }}>
+                                        No patients found
+                                    </Box>
+                                ) : (
+                                    <div className="table-responsive">
+                                        <table className="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sl. No.</th>
+                                                    <th>Name</th>
+                                                    <th>Contact</th>
+                                                    <th>Gender</th>
+                                                    <th>Age</th>
+                                                    <th>Email</th>
+                                                    <th>Registered On</th>
+                                                    <th>Actions</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody>
+                                                {filteredPatients.map((patient, index) => (
+                                                    <tr key={patient.id}>
+                                                        <td>{index + 1}</td>
+                                                        <td>{patient.name}</td>
+                                                        <td>{patient.contact}</td>
+                                                        <td>{patient.gender}</td>
+                                                        <td>{patient.age}</td>
+                                                        <td>{patient.email}</td>
+                                                        <td>{patient.registeredDate}</td>
+                                                        <td>
+                                                            <div className="d-flex gap-2" role="group">
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
+                                                                    onClick={() => handleViewPatientClick(patient)}
+                                                                    style={{
+                                                                        backgroundColor: "#D4A574",
+                                                                        borderColor: "#D4A574",
+                                                                        color: "#000",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        fontWeight: 500,
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                        transition: "all 0.3s ease",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#C8965A";
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#D4A574";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                >
+                                                                    <VisibilityIcon fontSize="small" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
+                                                                    onClick={() => handleScheduleAppointmentClick(patient)}
+                                                                    style={{
+                                                                        backgroundColor: "#90EE90",
+                                                                        borderColor: "#90EE90",
+                                                                        color: "#fff",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        fontWeight: 500,
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                        transition: "all 0.3s ease",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#7ACC7A";
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#90EE90";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                >
+                                                                    <EventAvailableIcon fontSize="small" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
+                                                                    onClick={() => handleSendMessageClick(patient)}
+                                                                    style={{
+                                                                        backgroundColor: "#FFB347",
+                                                                        borderColor: "#FFB347",
+                                                                        color: "#000",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        fontWeight: 500,
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                        transition: "all 0.3s ease",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#FF9F33";
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#FFB347";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                >
+                                                                    <MessageIcon fontSize="small" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </>
                         )}
 
@@ -539,12 +647,21 @@ function Appointments_View() {
                                         value={filters.appointmentStatus}
                                         onChange={handleFilterChange}
                                     >
-                                        <option value="">All Appointments</option>
+                                        <option value="">All Future Appointments</option>
                                         <option value="upcoming">Upcoming</option>
                                         <option value="ongoing">Ongoing (Today)</option>
                                         <option value="completed">Completed</option>
                                     </select>
                                 </div>
+                                {isLoadingAppointments ? (
+                                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
+                                        <CircularProgress />
+                                    </Box>
+                                ) : filteredAppointments.length === 0 ? (
+                                    <Box sx={{ textAlign: "center", padding: "40px", color: "#666" }}>
+                                        No future appointments found
+                                    </Box>
+                                ) : (
                                 <div className="table-responsive">
                                     <table className="table table-hover">
                                         <thead>
@@ -596,74 +713,10 @@ function Appointments_View() {
                                         </tbody>
                                     </table>
                                 </div>
+                                )}
                             </>
                         )}
 
-                        {/* Therapist Sessions Tab */}
-                        {activeTab === "therapists" && (
-                            <>
-                                <div className="d-flex justify-content-end mb-4">
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary"
-                                        onClick={() => navigate("/receptionist/appointments/schedule-therapy")}
-                                    >
-                                        <AddIcon className="me-2" />
-                                        Schedule Therapy
-                                    </button>
-                                </div>
-                                <div className="table-responsive">
-                                    <table className="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Sl. No.</th>
-                                                <th>Patient Name</th>
-                                                <th>Therapist</th>
-                                                <th>Treatment</th>
-                                                <th>Date & Time</th>
-                                                <th>Status</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {therapySessions.map((session, index) => (
-                                                <tr key={session.id}>
-                                                    <td>{index + 1}</td>
-                                                    <td>{session.patientName}</td>
-                                                    <td>{session.therapistName}</td>
-                                                    <td>{session.treatment}</td>
-                                                    <td>{session.sessionDateTime}</td>
-                                                    <td>
-                                                        <span className={getStatusBadgeClass(session.status)}>
-                                                            {session.status}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        {session.status === "Pending" && session.therapistName === "Not Assigned" ? (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-primary"
-                                                                onClick={() => toast.info("Assign therapist functionality")}
-                                                            >
-                                                                Assign Therapist
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-info"
-                                                                onClick={() => toast.info("View progress functionality")}
-                                                            >
-                                                                View
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </>
-                        )}
                     </div>
                 </div>
             </Box>

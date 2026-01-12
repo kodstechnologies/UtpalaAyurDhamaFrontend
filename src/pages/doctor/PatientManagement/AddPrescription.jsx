@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -15,12 +15,18 @@ import {
     Radio,
     Grid,
     Divider,
+    CircularProgress,
 } from "@mui/material";
+import { toast } from "react-toastify";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 function AddPrescriptionPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const inpatientId = searchParams.get("inpatientId") || "";
     const patientName = searchParams.get("patientName") || "";
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [formData, setFormData] = useState({
         medicineType: "",
@@ -31,6 +37,7 @@ function AddPrescriptionPage() {
         quantity: "",
         specialInstructions: "",
     });
+
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -44,11 +51,122 @@ function AddPrescriptionPage() {
         }));
     };
 
-    const handleSubmit = (e) => {
+    // Convert dosageTimes to a dosage string
+    const formatDosage = () => {
+        const times = [];
+        if (formData.dosageTimes.morning) times.push("Morning");
+        if (formData.dosageTimes.afternoon) times.push("Afternoon");
+        if (formData.dosageTimes.evening) times.push("Evening");
+        
+        if (times.length === 0) {
+            return formData.frequencyTiming || "As directed";
+        }
+        
+        return `${times.join(", ")} - ${formData.frequencyTiming || "As directed"}`;
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log("Prescription added:", formData);
-        // Implement API call here
-        navigate(-1); // Go back to previous page
+
+        if (!formData.medicineName || !formData.frequencyTiming || !formData.medicineType) {
+            toast.error("Please fill in all required fields (Medicine Name, Medicine Type, Frequency).");
+            return;
+        }
+
+        if (!inpatientId) {
+            toast.error("Invalid patient information. Please try again.");
+            navigate(-1);
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            // Get existing examination for this inpatient
+            let examinationId = null;
+            
+            try {
+                const examResponse = await axios.get(
+                    getApiUrl(`examinations/inpatient/${inpatientId}`),
+                    { headers: getAuthHeaders() }
+                );
+                
+                if (examResponse.data.success && examResponse.data.data && examResponse.data.data.length > 0) {
+                    // Use the latest examination (already sorted by createdAt -1)
+                    examinationId = examResponse.data.data[0]._id;
+                }
+            } catch (err) {
+                console.error("Error fetching examinations:", err);
+            }
+
+            // If no examination exists, create one
+            if (!examinationId) {
+                try {
+                    const createExamResponse = await axios.post(
+                        getApiUrl(`examinations/inpatient/${inpatientId}`),
+                        { complaints: "Prescription consultation" },
+                        { headers: getAuthHeaders() }
+                    );
+                    if (createExamResponse.data.success && createExamResponse.data.data) {
+                        examinationId = createExamResponse.data.data._id;
+                    }
+                } catch (createErr) {
+                    console.error("Error creating examination:", createErr);
+                    const errorMsg = createErr.response?.data?.message || "Failed to create examination";
+                    toast.error(errorMsg);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
+            if (!examinationId) {
+                toast.error("Unable to find or create examination for this patient.");
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Map form data to backend API structure
+            const dosageString = formatDosage();
+            
+            const requestData = {
+                medication: formData.medicineName.trim(),
+                medicineType: formData.medicineType || undefined,
+                administration: formData.administrationRoute || "Internal",
+                dosage: dosageString,
+                frequency: formData.frequencyTiming,
+                duration: undefined, // Not in form, optional
+                notes: formData.specialInstructions.trim() || undefined,
+                quantity: formData.quantity ? parseInt(formData.quantity, 10) : 1,
+            };
+
+            // Remove undefined values
+            Object.keys(requestData).forEach(key => {
+                if (requestData[key] === undefined) {
+                    delete requestData[key];
+                }
+            });
+
+            const response = await axios.post(
+                getApiUrl(`examinations/${examinationId}/prescriptions`),
+                requestData,
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                toast.success("Prescription added successfully!");
+                setTimeout(() => {
+                    navigate(-1);
+                }, 1500);
+            } else {
+                toast.error(response.data.message || "Failed to add prescription");
+                setIsSubmitting(false);
+            }
+        } catch (error) {
+            console.error("Error adding prescription:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Error adding prescription";
+            toast.error(errorMessage);
+            setIsSubmitting(false);
+        }
     };
 
     const medicineTypes = ["Tablet", "Capsule", "Syrup", "Injection", "Ointment"];
@@ -95,6 +213,7 @@ function AddPrescriptionPage() {
                                     onChange={handleChange}
                                     options={medicineTypes}
                                     placeholder="Select Type"
+                                    required
                                 />
                             </Box>
                         </Grid>
@@ -144,6 +263,7 @@ function AddPrescriptionPage() {
                                     onChange={handleChange}
                                     options={frequencyTimings}
                                     placeholder="Select intake timing"
+                                    required
                                 />
                             </Box>
                         </Grid>
@@ -287,6 +407,7 @@ function AddPrescriptionPage() {
                                     value={formData.quantity}
                                     onChange={handleChange}
                                     placeholder="Enter quantity"
+                                    inputProps={{ min: 1 }}
                                 />
                             </Box>
                         </Grid>
@@ -321,6 +442,7 @@ function AddPrescriptionPage() {
                         <Button
                             variant="outlined"
                             onClick={() => navigate(-1)}
+                            disabled={isSubmitting}
                             sx={{
                                 borderRadius: "10px",
                                 px: 4,
@@ -332,6 +454,7 @@ function AddPrescriptionPage() {
                         <Button
                             type="submit"
                             variant="contained"
+                            disabled={isSubmitting}
                             sx={{
                                 backgroundColor: "var(--color-btn)",
                                 color: "var(--color-text-light)",
@@ -342,9 +465,16 @@ function AddPrescriptionPage() {
                                 "&:hover": {
                                     backgroundColor: "var(--color-btn-dark)",
                                 },
+                                "&:disabled": {
+                                    backgroundColor: "var(--color-btn)",
+                                    opacity: 0.6,
+                                },
+                                "& .MuiCircularProgress-root": {
+                                    color: "var(--color-text-light)",
+                                },
                             }}
                         >
-                            Add Prescription
+                            {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Add Prescription"}
                         </Button>
                     </Box>
                 </form>
@@ -375,12 +505,13 @@ const StyledTextField = (props) => (
     />
 );
 
-const StyledSelect = ({ label, options, ...props }) => (
-    <FormControl fullWidth sx={{ mb: 2 }}>
+const StyledSelect = ({ label, options, placeholder, required = false, ...props }) => (
+    <FormControl fullWidth sx={{ mb: 2 }} required={required}>
         <InputLabel sx={{ color: "var(--color-text)" }}>{label}</InputLabel>
         <Select
             {...props}
             label={label}
+            displayEmpty
             sx={{
                 backgroundColor: "var(--color-bg-input)",
                 borderRadius: "10px",
@@ -396,7 +527,11 @@ const StyledSelect = ({ label, options, ...props }) => (
                 },
             }}
         >
-            <MenuItem value="">Select {label || "Option"}</MenuItem>
+            <MenuItem value="">
+                <Typography sx={{ color: "var(--color-text)" }}>
+                    {placeholder || `Select ${label || "Option"}`}
+                </Typography>
+            </MenuItem>
             {options.map((opt) => (
                 <MenuItem key={opt} value={opt}>
                     {opt}
@@ -409,7 +544,8 @@ const StyledSelect = ({ label, options, ...props }) => (
 StyledSelect.propTypes = {
     label: PropTypes.string,
     options: PropTypes.arrayOf(PropTypes.string).isRequired,
+    placeholder: PropTypes.string,
+    required: PropTypes.bool,
 };
 
 export default AddPrescriptionPage;
-

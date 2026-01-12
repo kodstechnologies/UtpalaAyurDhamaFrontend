@@ -1,9 +1,15 @@
-import { useState, useMemo } from "react";
-import { Box, Stack, Button, Chip } from "@mui/material";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Box, Stack, Button, Chip, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { toast } from "react-toastify";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import PersonIcon from "@mui/icons-material/Person";
 import EventIcon from "@mui/icons-material/Event";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import EditIcon from "@mui/icons-material/Edit";
 
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
@@ -12,45 +18,97 @@ import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
 
-// Mock data
-const mockConsultations = [
-    {
-        _id: "1",
-        patientName: "Amit Kumar",
-        patientId: "PAT-001",
-        appointmentDate: "2025-01-20",
-        appointmentTime: "10:00 AM",
-        chiefComplaint: "Fever and cough",
-        status: "Scheduled",
-        contact: "9876543210",
-    },
-    {
-        _id: "2",
-        patientName: "Sita Verma",
-        patientId: "PAT-002",
-        appointmentDate: "2025-01-20",
-        appointmentTime: "11:00 AM",
-        chiefComplaint: "Headache",
-        status: "Completed",
-        contact: "9123456780",
-    },
-    {
-        _id: "3",
-        patientName: "Rajesh Singh",
-        patientId: "PAT-003",
-        appointmentDate: "2025-01-21",
-        appointmentTime: "09:00 AM",
-        chiefComplaint: "Back pain",
-        status: "Scheduled",
-        contact: "9988776655",
-    },
-];
-
 function OPConsultation_View() {
-    const [consultations] = useState(mockConsultations);
+    const [consultations, setConsultations] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [filter, setFilter] = useState("All");
     const navigate = useNavigate();
+    const { user } = useSelector((state) => state.auth);
+
+    // Fetch appointments from API
+    const fetchAppointments = useCallback(async () => {
+        if (!user?._id) {
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("appointments"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        page: 1,
+                        limit: 1000, // Get all appointments for now
+                        // userId is automatically used if user is Doctor (handled in backend)
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                // Transform API response to match frontend table structure
+                const appointments = response.data.data || [];
+                
+                // Check for examinations for each appointment
+                const consultationsWithExamination = await Promise.all(
+                    appointments.map(async (appointment) => {
+                        let hasExamination = false;
+                        let examinationId = null;
+                        
+                        try {
+                            const examResponse = await axios.get(
+                                getApiUrl(`examinations/by-appointment/${appointment._id}`),
+                                { headers: getAuthHeaders() }
+                            );
+                            if (examResponse.data.success && examResponse.data.data) {
+                                hasExamination = true;
+                                examinationId = examResponse.data.data._id;
+                            }
+                        } catch (error) {
+                            // No examination found (404) is expected, not an error
+                            if (error.response?.status !== 404) {
+                                console.error("Error checking examination:", error);
+                            }
+                        }
+                        
+                        return {
+                            _id: appointment._id,
+                            patientName: appointment.patient?.user?.name || "N/A",
+                            patientId: appointment.patient?.user?.uhid || appointment.patient?.patientId || appointment.patient?._id || "N/A",
+                            appointmentDate: appointment.appointmentDate
+                                ? new Date(appointment.appointmentDate).toISOString().split("T")[0]
+                                : "N/A",
+                            appointmentTime: appointment.appointmentTime || "N/A",
+                            phoneNumber: appointment.patient?.user?.phone || appointment.receptionPatient?.contactNumber || "N/A",
+                            chiefComplaint: appointment.notes || appointment.receptionPatient?.complaints || "N/A", // Keep for search functionality
+                            status: appointment.status || "Scheduled",
+                            contact: appointment.patient?.user?.phone || appointment.receptionPatient?.contactNumber || "N/A",
+                            patientUserId: appointment.patient?.user?._id || null, // For navigation to examination
+                            hasExamination, // Flag indicating if examination exists
+                            examinationId, // Examination ID if exists
+                            // Store full appointment object for navigation
+                            fullAppointment: appointment,
+                        };
+                    })
+                );
+                
+                setConsultations(consultationsWithExamination);
+            } else {
+                toast.error(response.data.message || "Failed to fetch appointments");
+            }
+        } catch (error) {
+            console.error("Error fetching appointments:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch appointments");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchAppointments();
+    }, [fetchAppointments]);
 
     // Filter consultations
     const filteredConsultations = useMemo(() => {
@@ -80,23 +138,111 @@ function OPConsultation_View() {
 
     const columns = [
         { field: "patientName", header: "Patient Name" },
-        { field: "patientId", header: "Patient ID" },
+        { field: "patientId", header: "UHID" },
         { field: "appointmentDate", header: "Date" },
         { field: "appointmentTime", header: "Time" },
-        { field: "chiefComplaint", header: "Chief Complaint" },
+        { field: "phoneNumber", header: "Phone Number" },
         { field: "status", header: "Status" },
     ];
 
-    const actions = [
-        {
-            icon: <PersonIcon fontSize="small" />,
-            color: "var(--color-primary)",
-            label: "Patient Calendar",
-            onClick: (row) => {
-                navigate(`/doctor/examination/${row.patientId}`);
+    // Dynamic actions based on whether examination exists
+    const getActions = (row) => {
+        const actionsList = [
+            {
+                icon: <VisibilityIcon fontSize="small" />,
+                color: "var(--color-info)",
+                label: "View Details",
+                onClick: (row) => {
+                    // Use patientUserId if available, otherwise use patientId
+                    const patientId = row.patientUserId || row.patientId;
+                    if (!patientId) {
+                        toast.error("Patient ID not found. Cannot navigate to examination.");
+                        return;
+                    }
+                    // Use full appointment object if available, otherwise create minimal object
+                    const appointmentData = row.fullAppointment || {
+                        _id: row._id,
+                        appointmentDate: row.appointmentDate,
+                        appointmentTime: row.appointmentTime,
+                        notes: row.chiefComplaint,
+                        status: row.status,
+                    };
+                    // Navigate to examination details page to view all patient details
+                    navigate(`/doctor/examination-details/${patientId}`, {
+                        state: {
+                            appointment: appointmentData,
+                            appointmentId: row._id
+                        }
+                    });
+                },
             },
-        },
-    ];
+        ];
+
+        // Add Edit or Add Examination button based on whether examination exists
+        if (row.hasExamination) {
+            // Examination exists - show Edit button
+            actionsList.push({
+                icon: <EditIcon fontSize="small" />,
+                color: "var(--color-warning)",
+                label: "Edit Examination",
+                onClick: (row) => {
+                    // Use patientUserId if available, otherwise use patientId
+                    const patientId = row.patientUserId || row.patientId;
+                    if (!patientId) {
+                        toast.error("Patient ID not found. Cannot navigate to examination.");
+                        return;
+                    }
+                    // Use full appointment object if available, otherwise create minimal object
+                    const appointmentData = row.fullAppointment || {
+                        _id: row._id,
+                        appointmentDate: row.appointmentDate,
+                        appointmentTime: row.appointmentTime,
+                        notes: row.chiefComplaint,
+                        status: row.status,
+                    };
+                    // Navigate to edit examination page
+                    navigate(`/doctor/edit-examination/${patientId}`, {
+                        state: {
+                            examinationId: row.examinationId, // Pass examination ID for editing
+                            appointment: appointmentData,
+                        }
+                    });
+                },
+            });
+        } else {
+            // No examination - show Add Examination button
+            actionsList.push({
+                icon: <PersonIcon fontSize="small" />,
+                color: "var(--color-primary)",
+                label: "Add Examination",
+                onClick: (row) => {
+                    // Use patientUserId if available, otherwise use patientId
+                    const patientId = row.patientUserId || row.patientId;
+                    if (!patientId) {
+                        toast.error("Patient ID not found. Cannot navigate to examination.");
+                        return;
+                    }
+                    // Use full appointment object if available, otherwise create minimal object
+                    const appointmentData = row.fullAppointment || {
+                        _id: row._id,
+                        appointmentDate: row.appointmentDate,
+                        appointmentTime: row.appointmentTime,
+                        notes: row.chiefComplaint,
+                        status: row.status,
+                    };
+                    // Navigate directly to examination form with appointment data
+                    navigate(`/doctor/add-examination/${patientId}`, {
+                        state: {
+                            appointment: appointmentData,
+                            appointmentId: row._id
+                        }
+                    });
+                },
+            });
+        }
+
+        return actionsList;
+    };
 
     const getStatusBadge = (status) => {
         const colors = {
@@ -165,7 +311,7 @@ function OPConsultation_View() {
 
             {/* Filter Buttons */}
             <Stack direction="row" spacing={2} mb={3}>
-                {["All", "Scheduled", "Completed", "Cancelled", "Ongoing"].map((btn) => (
+                {["All", "Scheduled", "Completed"].map((btn) => (
                     <Button
                         key={btn}
                         onClick={() => setFilter(btn)}
@@ -190,20 +336,27 @@ function OPConsultation_View() {
             </Stack>
 
             {/* Table */}
-            <TableComponent
-                title="OP Consultations"
-                columns={columns}
-                rows={filteredConsultations.map((row) => ({
-                    ...row,
-                    status: getStatusBadge(row.status),
-                }))}
-                actions={actions}
-                showView={false}
-                showEdit={false}
-                showDelete={false}
-                showAddButton={false}
-                showExportButton={false}
-            />
+            {isLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <TableComponent
+                    title="OP Consultations"
+                    columns={columns}
+                    rows={filteredConsultations.map((row) => ({
+                        ...row,
+                        status: getStatusBadge(row.status),
+                    }))}
+                    actions={getActions}
+                    showView={false}
+                    showEdit={false}
+                    showDelete={false}
+                    showAddButton={false}
+                    showExportButton={false}
+                    showCheckbox={false}
+                />
+            )}
         </Box>
     );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Box, Grid, Card, CardContent, Typography, Button } from "@mui/material";
+import { useSelector } from "react-redux";
 
 import GreetingBanner from "../../components/card/GreetingCard";
 import DashboardCard from "../../components/card/DashboardCard";
@@ -14,20 +15,21 @@ import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import GreetingsImg from "../../assets/greeting/nurse.png";
 
 function Nurse_Dashboard() {
+    const { user } = useSelector((state) => state.auth);
+    const nurseName = user?.name || "Nurse";
+    
     const [summary] = useState({
         admittedPatients: 8,
         pendingAdmissions: 3,
         readyForDischarge: 2,
     });
 
-    const [nurseName] = useState("Nurse Priya");
-
     return (
         <Box sx={{ paddingBottom: 3 }}>
 
             {/* ⭐ Greeting Banner */}
             <GreetingBanner
-                title="Welcome"
+                title="Namaste"
                 name={nurseName}
                 subtitle="Here is a summary of your current workload. Review admissions, monitor patients, and prepare discharges with confidence."
                 image={GreetingsImg}

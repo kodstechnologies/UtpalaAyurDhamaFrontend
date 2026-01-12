@@ -1,81 +1,189 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import adminUserService from "../../../../services/adminUserService";
 import {
-    Mail, Phone, Calendar, User, Home, Stethoscope, FileBadge,
+    Mail, Phone, Calendar, User, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
     ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
     X, Save, AlertCircle, CheckCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
+import InputDialogModal from "../../../../components/modal/InputDialogModal";
 
 function Edit_Pharmacists() {
+    const { pharmacistId } = useParams();
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
+    const [languageModal, setLanguageModal] = useState(false);
+    const [certificationModal, setCertificationModal] = useState(false);
 
-    // Fake nurse data
-    const [nurse, setNurse] = useState({
+    // Pharmacist data
+    const [pharmacist, setPharmacist] = useState({
         // Personal Info
-        name: "Sarah Johnson, RN",
-        email: "sarah.j@hospital.com",
-        phone: "+1 (555) 123-4567",
-        dob: "1990-05-15",
-        gender: "Female",
-        address: "456 Health Ave, Medical City, New York 10001",
-        emergencyContact: "+1 (555) 987-6543",
-        languages: ["English", "Spanish"],
+        name: "",
+        email: "",
+        phone: "",
+        dob: "",
+        gender: "",
+        address: "",
+        emergencyContact: "",
+        languages: [],
+        profilePicture: "",
 
         // Professional Info
-        specialty: "Emergency Nursing",
-        unit: "Emergency Department",
-        licenseNumber: "RN-NY-45678",
-        joiningDate: "2015-03-10",
-        experience: "8",
-        qualifications: "BSN, RN License",
+        specialization: "",
+        department: "",
+        licenseNumber: "",
+        joiningDate: "",
+        experience: "",
+        qualifications: "",
         status: "Active",
-        hourlyRate: "35",
-        shiftAvailability: "Rotating shifts, including nights",
+        salary: "",
+        workingHours: "",
 
         // Additional Info
-        bio: "Sarah Johnson is an experienced Emergency Nurse with 8 years in high-pressure environments. She excels in triage and patient stabilization.",
-        certifications: ["BLS Certified", "ACLS Certified", "PALS Certified"]
+        bio: "",
+        certifications: []
     });
+
+    // Format date to YYYY-MM-DD for date inputs
+    const formatDateForInput = (dateStr) => {
+        if (!dateStr) return "";
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return "";
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return "";
+        }
+    };
+
+    // Handle Image Upload
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) { // 2MB
+            toast.error("File size should be less than 2MB");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await adminUserService.uploadImage(file);
+            if (response.success) {
+                setPharmacist(prev => ({ ...prev, profilePicture: response.data.url }));
+                toast.success("Image uploaded successfully!");
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            const errorMessage = error?.message || error?.response?.data?.message || "Failed to upload image";
+            toast.error(errorMessage);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Fetch pharmacist data
+    const fetchPharmacistDetails = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await adminUserService.getUserById("Pharmacist", pharmacistId);
+            if (response.success && response.data) {
+                const data = response.data;
+                setPharmacist({
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    dob: formatDateForInput(data.dob),
+                    gender: data.gender || "",
+                    address: data.address || "",
+                    emergencyContact: data.emergencyContact || "",
+                    languages: Array.isArray(data.languages) ? data.languages : [],
+                    profilePicture: data.profilePicture || "",
+                    specialization: data.specialization || "",
+                    department: data.department || "",
+                    licenseNumber: data.licenseNumber || "",
+                    joiningDate: formatDateForInput(data.joiningDate),
+                    experience: data.experience ? String(data.experience) : "",
+                    qualifications: data.qualifications || "",
+                    status: data.status || "Active",
+                    salary: data.salary ? String(data.salary) : "",
+                    workingHours: data.workingHours || "",
+                    bio: data.bio || "",
+                    certifications: Array.isArray(data.certifications) ? data.certifications : []
+                });
+            } else {
+                toast.error(response.message || "Failed to fetch pharmacist details");
+                navigate('/admin/pharmacists');
+            }
+        } catch (error) {
+            console.error("Error fetching pharmacist:", error);
+            toast.error(error.message || "Error fetching pharmacist details");
+            navigate('/admin/pharmacists');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [pharmacistId, navigate]);
+
+    useEffect(() => {
+        if (pharmacistId) {
+            fetchPharmacistDetails();
+        }
+    }, [pharmacistId, fetchPharmacistDetails]);
 
     // Handle Input Change
     const updateField = (field, value) => {
-        setNurse((prev) => ({ ...prev, [field]: value }));
+        setPharmacist((prev) => ({ ...prev, [field]: value }));
     };
 
     const handleAddLanguage = () => {
-        const newLang = prompt("Enter a new language:");
-        if (newLang && !nurse.languages.includes(newLang)) {
-            setNurse(prev => ({
+        setLanguageModal(true);
+    };
+
+    const handleLanguageConfirm = (language) => {
+        if (language && !pharmacist.languages.includes(language)) {
+            setPharmacist(prev => ({
                 ...prev,
-                languages: [...prev.languages, newLang]
+                languages: [...prev.languages, language]
             }));
+            toast.success("Language added successfully!");
+        } else if (pharmacist.languages.includes(language)) {
+            toast.error("This language is already added");
         }
     };
 
     const handleRemoveLanguage = (index) => {
-        setNurse(prev => ({
+        setPharmacist(prev => ({
             ...prev,
             languages: prev.languages.filter((_, i) => i !== index)
         }));
     };
 
     const handleAddCertification = () => {
-        const newCert = prompt("Enter new certification:");
-        if (newCert && !nurse.certifications.includes(newCert)) {
-            setNurse(prev => ({
+        setCertificationModal(true);
+    };
+
+    const handleCertificationConfirm = (certification) => {
+        if (certification && !pharmacist.certifications.includes(certification)) {
+            setPharmacist(prev => ({
                 ...prev,
-                certifications: [...prev.certifications, newCert]
+                certifications: [...prev.certifications, certification]
             }));
+            toast.success("Certification added successfully!");
+        } else if (pharmacist.certifications.includes(certification)) {
+            toast.error("This certification is already added");
         }
     };
 
     const handleRemoveCertification = (index) => {
-        setNurse(prev => ({
+        setPharmacist(prev => ({
             ...prev,
             certifications: prev.certifications.filter((_, i) => i !== index)
         }));
@@ -84,17 +192,36 @@ function Edit_Pharmacists() {
     const handleSave = async () => {
         setIsSaving(true);
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            // Prepare data - convert strings to numbers and dates where needed
+            const updateData = {
+                ...pharmacist,
+                experience: pharmacist.experience ? Number(pharmacist.experience) : undefined,
+                salary: pharmacist.salary ? Number(pharmacist.salary) : undefined,
+                dateOfBirth: pharmacist.dob ? new Date(pharmacist.dob).toISOString() : undefined,
+                joiningDate: pharmacist.joiningDate ? new Date(pharmacist.joiningDate).toISOString() : undefined
+            };
+            // Remove the temporary fields
+            delete updateData.dob;
 
-        console.log("Updated Nurse Data:", nurse);
-        setIsSaving(false);
-        setShowSuccess(true);
+            const response = await adminUserService.updateUser("Pharmacist", pharmacistId, updateData);
 
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate(-1);
-        }, 2000);
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Pharmacist updated successfully!");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate(`/admin/pharmacists/view/${pharmacistId}`);
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to update pharmacist");
+                setIsSaving(false);
+            }
+        } catch (error) {
+            console.error("Error updating pharmacist:", error);
+            toast.error(error.message || "Error updating pharmacist");
+            setIsSaving(false);
+        }
     };
 
     const sections = [
@@ -105,17 +232,25 @@ function Edit_Pharmacists() {
 
     const breadcrumbItems = [
         { label: "Dashboard", url: "/admin/dashboard" },
-        { label: "Nurses", url: "/admin/nurses" },
-        { label: "Sarah Johnson" }
-    ]
+        { label: "Pharmacists", url: "/admin/pharmacists" },
+        { label: pharmacist.name || "Edit Pharmacist" }
+    ];
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-bg-a)" }}>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: "var(--color-bg-a)" }}>
             {/* Success Notification */}
             {showSuccess && (
-                <div className="fixed top-4 right-4 z-50" style={{ animation: 'slideInRight 0.3s ease-out' }}>
+                <div className="fixed top-4 right-4 z-50 animate-slide-in">
                     <div
-                        className="flex items-center gap-3 p-4 rounded-xl shadow-[var(--shadow-medium)]"
+                        className="flex items-center gap-3 p-4 rounded-xl shadow-lg"
                         style={{
                             backgroundColor: "var(--color-bg-card)",
                             border: "2px solid var(--color-btn-b)"
@@ -124,22 +259,23 @@ function Edit_Pharmacists() {
                         <CheckCircle size={24} style={{ color: "var(--color-btn-b)" }} />
                         <div>
                             <p className="font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                Profile Updated Successfully
+                                Pharmacist Updated Successfully
                             </p>
                             <p className="text-sm" style={{ color: "var(--color-text)" }}>
-                                Redirecting to nurse profile...
+                                Redirecting to pharmacist profile...
                             </p>
                         </div>
                     </div>
                 </div>
             )}
 
+            <HeadingCard
+                breadcrumbItems={breadcrumbItems}
+                title="Edit Pharmacist Profile"
+                subtitle="Update pharmacist information and credentials"
+            />
+
             <div className="max-w-7xl mx-auto p-4 md:p-6">
-                <HeadingCard
-                    breadcrumbItems={breadcrumbItems}
-                    title="Edit Nurse Profile"
-                    subtitle="Update nurse information and credentials"
-                />
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     {/* Left Sidebar - Navigation */}
                     <div className="lg:col-span-1">
@@ -151,7 +287,7 @@ function Edit_Pharmacists() {
                                     <button
                                         key={section.id}
                                         onClick={() => setActiveSection(section.id)}
-                                        className={`w-full flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-300 ease-in-out group hover:scale-[1.02] ${isActive ? "shadow-[var(--shadow-medium)]" : "hover:shadow-sm"}`}
+                                        className={`w-full flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-200 ease-in-out group ${isActive ? "shadow-md" : "hover:shadow-sm"}`}
                                         style={{
                                             backgroundColor: isActive ? "var(--color-bg-card)" : "var(--color-bg-hover)",
                                             border: `1px solid ${isActive ? "var(--color-btn-b)" : "var(--color-text)"}`,
@@ -159,11 +295,11 @@ function Edit_Pharmacists() {
                                         }}
                                     >
                                         <Icon size={20} style={{ color: isActive ? "var(--color-btn-b)" : "var(--color-text)" }} />
-                                        <span className="font-medium group-hover:translate-x-1 transition-transform duration-300">
+                                        <span className="font-medium group-hover:translate-x-1 transition-transform duration-200">
                                             {section.label}
                                         </span>
                                         <div
-                                            className={`ml-auto w-2 h-2 rounded-full transition-all duration-300 ${isActive ? "opacity-100 scale-100" : "opacity-0 scale-0"}`}
+                                            className={`ml-auto w-2 h-2 rounded-full transition-all duration-200 ${isActive ? "opacity-100 scale-100" : "opacity-0 scale-0"}`}
                                             style={{ backgroundColor: "var(--color-btn-b)" }}
                                         />
                                     </button>
@@ -172,7 +308,7 @@ function Edit_Pharmacists() {
 
                             {/* Profile Preview */}
                             <div
-                                className="p-4 rounded-xl mt-6 border hover:shadow-[var(--shadow-medium)] transition-all duration-300"
+                                className="p-4 rounded-xl mt-6 border"
                                 style={{
                                     backgroundColor: "var(--color-bg-card)",
                                     borderColor: "var(--color-text)"
@@ -180,23 +316,27 @@ function Edit_Pharmacists() {
                             >
                                 <div className="flex items-center gap-3 mb-4">
                                     <div
-                                        className="w-12 h-12 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+                                        className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
                                         style={{ backgroundColor: "var(--color-icon-2-light)" }}
                                     >
-                                        <User size={24} style={{ color: "var(--color-icon-2)" }} />
+                                        {pharmacist.profilePicture ? (
+                                            <img src={pharmacist.profilePicture} alt={pharmacist.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <User size={24} style={{ color: "var(--color-icon-2)" }} />
+                                        )}
                                     </div>
                                     <div>
-                                        <p className="font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                            {nurse.name}
+                                        <p className="font-semibold text-sm" style={{ color: "var(--color-text)" }}>
+                                            {pharmacist.name || "Pharmacist"}
                                         </p>
-                                        <p className="text-sm" style={{ color: "var(--color-text)" }}>
-                                            {nurse.specialty}
+                                        <p className="text-xs" style={{ color: "var(--color-text)" }}>
+                                            {pharmacist.specialization || "Specialization"}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="space-y-2 text-sm">
-                                    <p style={{ color: "var(--color-text)" }}>License: {nurse.licenseNumber}</p>
-                                    <p style={{ color: "var(--color-text)" }}>Joined: {nurse.joiningDate}</p>
+                                <div className="space-y-2 text-xs">
+                                    <p style={{ color: "var(--color-text)" }}>License: {pharmacist.licenseNumber || "N/A"}</p>
+                                    <p style={{ color: "var(--color-text)" }}>Joined: {pharmacist.joiningDate || "N/A"}</p>
                                 </div>
                             </div>
                         </div>
@@ -205,7 +345,7 @@ function Edit_Pharmacists() {
                     {/* Main Form */}
                     <div className="lg:col-span-3">
                         <div
-                            className="rounded-2xl shadow-lg overflow-hidden border hover:shadow-[var(--shadow-medium)] transition-all duration-300"
+                            className="rounded-2xl shadow-lg overflow-hidden border"
                             style={{
                                 backgroundColor: "var(--color-bg-card)",
                                 borderColor: "var(--color-text)"
@@ -233,7 +373,7 @@ function Edit_Pharmacists() {
                             <div className="p-6">
                                 {activeSection === "personal" && (
                                     <div className="space-y-6">
-                                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 hover:scale-105 transition-all duration-200" style={{ color: "var(--color-text-dark)" }}>
+                                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--color-text-dark)" }}>
                                             <User size={18} style={{ color: "var(--color-icon-2)" }} />
                                             Basic Information
                                         </h3>
@@ -241,7 +381,7 @@ function Edit_Pharmacists() {
                                             <FormInput
                                                 label="Full Name"
                                                 icon={User}
-                                                value={nurse.name}
+                                                value={pharmacist.name}
                                                 onChange={(e) => updateField("name", e.target.value)}
                                                 required
                                             />
@@ -249,7 +389,7 @@ function Edit_Pharmacists() {
                                                 label="Email Address"
                                                 icon={Mail}
                                                 type="email"
-                                                value={nurse.email}
+                                                value={pharmacist.email}
                                                 onChange={(e) => updateField("email", e.target.value)}
                                                 required
                                             />
@@ -257,41 +397,43 @@ function Edit_Pharmacists() {
                                                 label="Phone Number"
                                                 icon={Phone}
                                                 type="tel"
-                                                value={nurse.phone}
+                                                value={pharmacist.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Emergency Contact"
                                                 icon={Phone}
                                                 type="tel"
-                                                value={nurse.emergencyContact}
+                                                value={pharmacist.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                maxLength={10}
                                             />
                                             <FormInput
                                                 label="Date of Birth"
                                                 icon={Calendar}
                                                 type="date"
-                                                value={nurse.dob}
+                                                value={pharmacist.dob}
                                                 onChange={(e) => updateField("dob", e.target.value)}
                                             />
                                             <FormSelect
                                                 label="Gender"
                                                 icon={User}
-                                                value={nurse.gender}
+                                                value={pharmacist.gender}
                                                 onChange={(e) => updateField("gender", e.target.value)}
                                                 options={["Male", "Female", "Other", "Prefer not to say"]}
                                             />
                                         </div>
 
                                         <div>
-                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 hover:scale-105 transition-all duration-200" style={{ color: "var(--color-text-dark)" }}>
+                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--color-text-dark)" }}>
                                                 <MapPin size={18} style={{ color: "var(--color-icon-3)" }} />
                                                 Address
                                             </h3>
                                             <FormTextArea
                                                 label="Full Address"
                                                 icon={MapPin}
-                                                value={nurse.address}
+                                                value={pharmacist.address}
                                                 onChange={(e) => updateField("address", e.target.value)}
                                                 rows={3}
                                             />
@@ -306,21 +448,20 @@ function Edit_Pharmacists() {
                                                 <button
                                                     type="button"
                                                     onClick={handleAddLanguage}
-                                                    className="text-sm font-medium flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 shadow-sm"
+                                                    className="text-sm font-medium flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105"
                                                     style={{
                                                         color: "var(--color-text-light)",
-                                                        backgroundColor: "var(--color-icon-2-light)",
-                                                        border: "1px solid var(--color-icon-2-light)"
+                                                        backgroundColor: "var(--color-icon-2-light)"
                                                     }}
                                                 >
                                                     + Add Language
                                                 </button>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
-                                                {nurse.languages.map((lang, index) => (
+                                                {pharmacist.languages.map((lang, index) => (
                                                     <div
                                                         key={index}
-                                                        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 shadow-sm"
+                                                        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105"
                                                         style={{
                                                             backgroundColor: "var(--color-icon-6-light)",
                                                             border: "1px solid var(--color-icon-6)"
@@ -346,24 +487,24 @@ function Edit_Pharmacists() {
                                     <div className="space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <FormInput
-                                                label="Nursing Specialty"
+                                                label="Pharmacy Specialization"
                                                 icon={Stethoscope}
-                                                value={nurse.specialty}
-                                                onChange={(e) => updateField("specialty", e.target.value)}
+                                                value={pharmacist.specialization}
+                                                onChange={(e) => updateField("specialization", e.target.value)}
                                                 required
-                                                placeholder="e.g., Emergency, ICU, Pediatrics"
+                                                placeholder="e.g., Clinical, Community, Hospital"
                                             />
                                             <FormInput
-                                                label="Assigned Unit/Ward"
+                                                label="Department"
                                                 icon={Building}
-                                                value={nurse.unit}
-                                                onChange={(e) => updateField("unit", e.target.value)}
-                                                placeholder="e.g., General Ward, Surgery"
+                                                value={pharmacist.department}
+                                                onChange={(e) => updateField("department", e.target.value)}
+                                                placeholder="e.g., Inpatient Pharmacy, Outpatient"
                                             />
                                             <FormInput
-                                                label="Nursing License Number"
+                                                label="License Number"
                                                 icon={FileBadge}
-                                                value={nurse.licenseNumber}
+                                                value={pharmacist.licenseNumber}
                                                 onChange={(e) => updateField("licenseNumber", e.target.value)}
                                                 required
                                             />
@@ -371,51 +512,51 @@ function Edit_Pharmacists() {
                                                 label="Years of Experience"
                                                 icon={Award}
                                                 type="number"
-                                                value={nurse.experience}
+                                                value={pharmacist.experience}
                                                 onChange={(e) => updateField("experience", e.target.value)}
                                             />
                                             <FormInput
                                                 label="Joining Date"
                                                 icon={Calendar}
                                                 type="date"
-                                                value={nurse.joiningDate}
+                                                value={pharmacist.joiningDate}
                                                 onChange={(e) => updateField("joiningDate", e.target.value)}
                                             />
                                             <FormSelect
                                                 label="Status"
                                                 icon={ShieldCheck}
-                                                value={nurse.status}
+                                                value={pharmacist.status}
                                                 onChange={(e) => updateField("status", e.target.value)}
                                                 options={["Active", "On Leave", "Inactive", "Retired"]}
                                             />
                                             <FormInput
-                                                label="Hourly Rate ($)"
+                                                label="Monthly Salary ($)"
                                                 icon={BookOpen}
                                                 type="number"
-                                                value={nurse.hourlyRate}
-                                                onChange={(e) => updateField("hourlyRate", e.target.value)}
+                                                value={pharmacist.salary}
+                                                onChange={(e) => updateField("salary", e.target.value)}
                                             />
                                             <FormInput
-                                                label="Shift Availability"
+                                                label="Working Hours"
                                                 icon={Clock}
-                                                value={nurse.shiftAvailability}
-                                                onChange={(e) => updateField("shiftAvailability", e.target.value)}
-                                                placeholder="e.g., Nights: 7PM-7AM, Weekends"
+                                                value={pharmacist.workingHours}
+                                                onChange={(e) => updateField("workingHours", e.target.value)}
+                                                placeholder="e.g., Mon-Fri: 9AM-6PM"
                                             />
                                         </div>
 
                                         <div>
-                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 hover:scale-105 transition-all duration-200" style={{ color: "var(--color-text-dark)" }}>
+                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--color-text-dark)" }}>
                                                 <GraduationCap size={18} style={{ color: "var(--color-icon-3)" }} />
                                                 Qualifications
                                             </h3>
                                             <FormTextArea
-                                                label="Nursing Degrees & Training"
+                                                label="Pharmacy Degrees & Training"
                                                 icon={GraduationCap}
-                                                value={nurse.qualifications}
+                                                value={pharmacist.qualifications}
                                                 onChange={(e) => updateField("qualifications", e.target.value)}
                                                 rows={3}
-                                                placeholder="Enter degrees and training separated by commas, e.g., BSN, RN Certification"
+                                                placeholder="Enter degrees and training separated by commas, e.g., PharmD, BPharm, Clinical Pharmacy Certification"
                                             />
                                         </div>
                                     </div>
@@ -424,14 +565,14 @@ function Edit_Pharmacists() {
                                 {activeSection === "additional" && (
                                     <div className="space-y-6">
                                         <div>
-                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 hover:scale-105 transition-all duration-200" style={{ color: "var(--color-text-dark)" }}>
+                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--color-text-dark)" }}>
                                                 <FileText size={18} style={{ color: "var(--color-icon-4)" }} />
                                                 Professional Bio
                                             </h3>
                                             <FormTextArea
-                                                label="Nurse Biography"
+                                                label="Pharmacist Biography"
                                                 icon={FileText}
-                                                value={nurse.bio}
+                                                value={pharmacist.bio}
                                                 onChange={(e) => updateField("bio", e.target.value)}
                                                 rows={6}
                                                 placeholder="Write a brief professional biography..."
@@ -447,21 +588,20 @@ function Edit_Pharmacists() {
                                                 <button
                                                     type="button"
                                                     onClick={handleAddCertification}
-                                                    className="text-sm font-medium flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 shadow-sm"
+                                                    className="text-sm font-medium flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105"
                                                     style={{
                                                         color: "var(--color-text-light)",
-                                                        backgroundColor: "var(--color-icon-2-light)",
-                                                        border: "1px solid var(--color-icon-2-light)"
+                                                        backgroundColor: "var(--color-icon-2-light)"
                                                     }}
                                                 >
                                                     + Add Certification
                                                 </button>
                                             </div>
                                             <div className="space-y-3">
-                                                {nurse.certifications.map((cert, index) => (
+                                                {pharmacist.certifications.map((cert, index) => (
                                                     <div
                                                         key={index}
-                                                        className="flex items-center justify-between p-3 rounded-lg transition-all duration-200 hover:scale-105 shadow-sm"
+                                                        className="flex items-center justify-between p-3 rounded-lg transition-all duration-200 hover:scale-105"
                                                         style={{
                                                             backgroundColor: "var(--color-icon-6-light)",
                                                             border: "1px solid var(--color-icon-6)"
@@ -485,35 +625,57 @@ function Edit_Pharmacists() {
                                         </div>
 
                                         <div>
-                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 hover:scale-105 transition-all duration-200" style={{ color: "var(--color-text-dark)" }}>
+                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--color-text-dark)" }}>
                                                 <User size={18} style={{ color: "var(--color-icon-5)" }} />
                                                 Profile Picture
                                             </h3>
-                                            <div className="flex items-center gap-4 p-4 rounded-xl border hover:shadow-sm transition-all duration-200" style={{
+                                            <div className="flex items-center gap-4 p-4 rounded-xl border" style={{
                                                 backgroundColor: "var(--color-bg-hover)",
                                                 borderColor: "var(--color-text)"
                                             }}>
                                                 <div
-                                                    className="w-20 h-20 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-200"
+                                                    className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden relative"
                                                     style={{
                                                         backgroundColor: "var(--color-icon-5-light)",
                                                         border: "2px dashed var(--color-icon-5)",
                                                         color: "var(--color-icon-5)"
                                                     }}
                                                 >
-                                                    <User size={32} />
+                                                    {pharmacist.profilePicture ? (
+                                                        <img
+                                                            src={pharmacist.profilePicture}
+                                                            alt="Profile"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <User size={32} />
+                                                    )}
+                                                    {isUploading && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
+                                                    <input
+                                                        type="file"
+                                                        id="profile-upload-pharmacist-edit"
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                    />
                                                     <button
                                                         type="button"
-                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm"
+                                                        onClick={() => document.getElementById('profile-upload-pharmacist-edit').click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50"
                                                         style={{
                                                             backgroundColor: "var(--color-btn-b)",
                                                             color: "var(--color-light)"
                                                         }}
                                                     >
                                                         <Upload size={16} />
-                                                        Upload New Photo
+                                                        {isUploading ? "Uploading..." : "Upload New Photo"}
                                                     </button>
                                                     <p className="text-sm mt-2" style={{ color: "var(--color-text)" }}>
                                                         JPG, PNG or GIF, max 2MB
@@ -530,7 +692,7 @@ function Edit_Pharmacists() {
                                 <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
                                     <button
                                         onClick={() => navigate(-1)}
-                                        className="w-full sm:w-auto px-5 py-3 rounded-lg font-semibold transition-all duration-200 hover:scale-105 shadow-sm"
+                                        className="w-full sm:w-auto px-5 py-3 rounded-lg font-semibold transition-all duration-200 hover:scale-105"
                                         style={{
                                             border: `1px solid var(--color-text)`,
                                             color: "var(--color-text-dark)",
@@ -543,7 +705,7 @@ function Edit_Pharmacists() {
                                     <button
                                         onClick={handleSave}
                                         disabled={isSaving}
-                                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 shadow-sm"
+                                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"
                                         style={{
                                             backgroundColor: "var(--color-btn-b)",
                                             color: "var(--color-light)",
@@ -575,6 +737,40 @@ function Edit_Pharmacists() {
                     </div>
                 </div>
             </div>
+
+            {/* Language Input Modal */}
+            <InputDialogModal
+                isOpen={languageModal}
+                onClose={() => setLanguageModal(false)}
+                onConfirm={handleLanguageConfirm}
+                title="Add Language"
+                label="Language"
+                placeholder="e.g., English, Spanish, French"
+                confirmText="Add Language"
+                validate={(value) => {
+                    if (pharmacist.languages.includes(value)) {
+                        return "This language is already added";
+                    }
+                    return null;
+                }}
+            />
+
+            {/* Certification Input Modal */}
+            <InputDialogModal
+                isOpen={certificationModal}
+                onClose={() => setCertificationModal(false)}
+                onConfirm={handleCertificationConfirm}
+                title="Add Certification"
+                label="Certification"
+                placeholder="e.g., BLS Certified, ACLS Certified"
+                confirmText="Add Certification"
+                validate={(value) => {
+                    if (pharmacist.certifications.includes(value)) {
+                        return "This certification is already added";
+                    }
+                    return null;
+                }}
+            />
         </div>
     );
 }
@@ -591,7 +787,7 @@ function FormInput({ label, icon: Icon, type = "text", value, onChange, required
                 {required && <span style={{ color: "var(--color-icon-1-light)" }}>*</span>}
             </label>
             <div
-                className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ease-in-out hover:shadow-sm focus-within:shadow-md focus-within:border-[var(--color-btn-b)] group"
+                className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ease-in-out hover:shadow-sm focus-within:shadow-md focus-within:border-[var(--color-btn-b)]"
                 style={{
                     backgroundColor: "var(--color-bg-card)",
                     border: "1px solid var(--color-text)",
@@ -603,7 +799,7 @@ function FormInput({ label, icon: Icon, type = "text", value, onChange, required
                     value={value}
                     onChange={onChange}
                     placeholder={placeholder}
-                    className="w-full bg-transparent outline-none placeholder-[var(--color-text)] transition-colors group-focus-within:text-[var(--color-text-dark)]"
+                    className="w-full bg-transparent outline-none placeholder-[var(--color-text)] transition-colors"
                     style={{ color: "var(--color-text-dark)" }}
                     required={required}
                     {...props}
@@ -621,7 +817,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, required = fa
                 {required && <span style={{ color: "var(--color-icon-1-light)" }}>*</span>}
             </label>
             <div
-                className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ease-in-out hover:shadow-sm focus-within:shadow-md focus-within:border-[var(--color-btn-b)] relative group"
+                className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ease-in-out hover:shadow-sm focus-within:shadow-md focus-within:border-[var(--color-btn-b)] relative"
                 style={{
                     backgroundColor: "var(--color-bg-card)",
                     border: "1px solid var(--color-text)",
@@ -631,7 +827,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, required = fa
                 <select
                     value={value}
                     onChange={onChange}
-                    className="w-full bg-transparent outline-none appearance-none cursor-pointer pr-8"
+                    className="w-full bg-transparent outline-none appearance-none cursor-pointer"
                     style={{ color: "var(--color-text-dark)" }}
                     required={required}
                 >
@@ -643,9 +839,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, required = fa
                     ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--color-text)]">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    ▼
                 </div>
             </div>
         </div>
@@ -660,7 +854,7 @@ function FormTextArea({ label, icon: Icon, value, onChange, rows = 4, placeholde
                 {required && <span style={{ color: "var(--color-icon-1-light)" }}>*</span>}
             </label>
             <div
-                className="flex gap-3 p-3 rounded-xl transition-all duration-300 ease-in-out hover:shadow-sm focus-within:shadow-md focus-within:border-[var(--color-btn-b)]"
+                className="flex gap-3 p-3 rounded-xl transition-all duration-200 ease-in-out hover:shadow-sm focus-within:shadow-md focus-within:border-[var(--color-btn-b)]"
                 style={{
                     backgroundColor: "var(--color-bg-card)",
                     border: "1px solid var(--color-text)",

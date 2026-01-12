@@ -1,6 +1,6 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
     Activity,
     User,
@@ -10,58 +10,119 @@ import {
     Save,
     ReceiptIndianRupee
 } from "lucide-react";
-
+import { Box, CircularProgress } from "@mui/material";
 import CardBorder from "../../../../components/card/CardBorder";
 import CancelButton from "../../../../components/buttons/CancelButton";
 import SubmitButton from "../../../../components/buttons/SubmitButton";
+import therapyService from "../../../../services/therapyService";
+import therapistService from "../../../../services/therapistService";
 
 function Add_TherapyAssignment() {
     const navigate = useNavigate();
 
-    const [therapyType, setTherapyType] = useState("");
+    const [therapyId, setTherapyId] = useState("");
     const [cost, setCost] = useState("");
-    const [therapist, setTherapist] = useState("");
+    const [therapistId, setTherapistId] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [showSuccess, setShowSuccess] = useState(false);
     const [errors, setErrors] = useState({});
+    const [therapies, setTherapies] = useState([]);
+    const [therapists, setTherapists] = useState([]);
 
-    // Example dropdown data — replace with API
-    const therapyOptions = ["Abhyanga", "Pizhichil", "Shirodhara", "Nasyam"];
-    const therapistOptions = ["Rahul Verma", "Meera Nair", "Arun Kumar", "Sita Devi"];
+    // Fetch therapies and therapists from backend
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                const [therapiesResponse, therapistsResponse] = await Promise.all([
+                    therapyService.getAllTherapies({ page: 1, limit: 100 }),
+                    therapistService.getAllTherapists({ page: 1, limit: 100 })
+                ]);
+
+                // Handle therapies response
+                if (therapiesResponse.success) {
+                    // Handle different response structures (array or paginated)
+                    const therapiesData = Array.isArray(therapiesResponse.data)
+                        ? therapiesResponse.data
+                        : (therapiesResponse.data?.data || []);
+                    setTherapies(therapiesData);
+                } else {
+                    toast.error(therapiesResponse.message || "Failed to fetch therapies");
+                }
+
+                // Handle therapists response
+                if (therapistsResponse.success) {
+                    // Handle different response structures (array or paginated)
+                    const therapistsData = Array.isArray(therapistsResponse.data)
+                        ? therapistsResponse.data
+                        : (therapistsResponse.data?.data || []);
+                    setTherapists(therapistsData);
+                } else {
+                    toast.error(therapistsResponse.message || "Failed to fetch therapists");
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                toast.error(error.message || "Failed to fetch data");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     const validateForm = () => {
         const newErrors = {};
 
-        if (!therapyType) newErrors.therapyType = "Therapy type is required";
-        if (!cost || cost <= 0) newErrors.cost = "Valid cost is required";
-        if (!therapist) newErrors.therapist = "Therapist is required";
+        if (!therapyId) newErrors.therapyId = "Therapy type is required";
+        if (!cost || parseFloat(cost) <= 0) newErrors.cost = "Valid cost is required";
+        if (!therapistId) newErrors.therapistId = "Therapist is required";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         if (!validateForm()) return;
 
         setIsSubmitting(true);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulated API
+        try {
+            const payload = {
+                therapyId: therapyId,
+                therapistId: therapistId,
+                cost: parseFloat(cost),
+            };
 
-        const payload = {
-            therapyType,
-            cost: parseFloat(cost),
-            therapist,
-        };
-
-        console.log("Submitted:", payload);
-
-        setIsSubmitting(false);
-        setShowSuccess(true);
-
-        setTimeout(() => {
-            setShowSuccess(false);
-            navigate("/admin/treatment-assignments");
-        }, 2000);
+            const response = await therapyService.createAssignment(payload);
+            
+            if (response.success) {
+                setShowSuccess(true);
+                toast.success("Assignment created successfully");
+                setTimeout(() => {
+                    setShowSuccess(false);
+                    navigate("/admin/treatment-assignments", { state: { refresh: true } });
+                }, 2000);
+            } else {
+                toast.error(response.message || "Failed to create assignment");
+            }
+        } catch (error) {
+            console.error("Error creating assignment:", error);
+            const errorMessage = error.message || error.response?.data?.message || "Failed to create assignment";
+            toast.error(errorMessage);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <CardBorder padding="2rem">
@@ -100,6 +161,7 @@ function Add_TherapyAssignment() {
             )}
 
             {/* Form Container */}
+            <form onSubmit={handleSubmit}>
             <div
                 className="rounded-2xl shadow-lg overflow-hidden border hover:shadow-[var(--shadow-medium)] transition-all duration-300"
                 style={{ backgroundColor: "var(--color-bg-card)", borderColor: "var(--color-text)" }}
@@ -120,14 +182,17 @@ function Add_TherapyAssignment() {
                         >
                             <Activity size={18} className="text-[var(--color-icon-2)]" />
                             <select
-                                value={therapyType}
-                                onChange={(e) => setTherapyType(e.target.value)}
+                                value={therapyId}
+                                onChange={(e) => setTherapyId(e.target.value)}
                                 className="w-full bg-transparent outline-none pr-8 cursor-pointer"
                                 style={{ color: "var(--color-text-dark)" }}
+                                required
                             >
                                 <option value="" disabled>Select Therapy Type</option>
-                                {therapyOptions.map((t, i) => (
-                                    <option key={i} value={t}>{t}</option>
+                                {therapies.map((therapy) => (
+                                    <option key={therapy._id} value={therapy._id}>
+                                        {therapy.therapyName}
+                                    </option>
                                 ))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--color-text)]">
@@ -137,10 +202,10 @@ function Add_TherapyAssignment() {
                             </div>
                         </div>
 
-                        {errors.therapyType && (
+                        {errors.therapyId && (
                             <p className="text-xs flex items-center gap-1 text-[var(--color-icon-1)]">
                                 <AlertCircle size={12} />
-                                {errors.therapyType}
+                                {errors.therapyId}
                             </p>
                         )}
                     </div>
@@ -168,6 +233,7 @@ function Add_TherapyAssignment() {
                                 onChange={(e) => setCost(e.target.value)}
                                 className="w-full bg-transparent outline-none"
                                 style={{ color: "var(--color-text-dark)" }}
+                                required
                             />
                         </div>
 
@@ -194,14 +260,17 @@ function Add_TherapyAssignment() {
                         >
                             <User size={18} className="text-[var(--color-icon-2)]" />
                             <select
-                                value={therapist}
-                                onChange={(e) => setTherapist(e.target.value)}
+                                value={therapistId}
+                                onChange={(e) => setTherapistId(e.target.value)}
                                 className="w-full bg-transparent outline-none pr-8 cursor-pointer"
                                 style={{ color: "var(--color-text-dark)" }}
+                                required
                             >
                                 <option value="" disabled>Select Therapist</option>
-                                {therapistOptions.map((t, i) => (
-                                    <option key={i} value={t}>{t}</option>
+                                {therapists.map((therapist) => (
+                                    <option key={therapist._id} value={therapist._id}>
+                                        {therapist.name || therapist.firstName || "Unknown"}
+                                    </option>
                                 ))}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--color-text)]">
@@ -211,10 +280,10 @@ function Add_TherapyAssignment() {
                             </div>
                         </div>
 
-                        {errors.therapist && (
+                        {errors.therapistId && (
                             <p className="text-xs flex items-center gap-1 text-[var(--color-icon-1)]">
                                 <AlertCircle size={12} />
-                                {errors.therapist}
+                                {errors.therapistId}
                             </p>
                         )}
                     </div>
@@ -252,6 +321,7 @@ function Add_TherapyAssignment() {
                     </p>
                 </div>
             </div>
+            </form>
         </CardBorder>
     );
 }

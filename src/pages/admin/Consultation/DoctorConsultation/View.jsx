@@ -1,98 +1,129 @@
-import React, { useState, useMemo } from 'react';
-import { Stack, Box, Typography } from '@mui/material';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Stack, Box, Typography, Chip, CircularProgress } from '@mui/material';
 import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 import HeadingCard from '../../../../components/card/HeadingCard';
 import TableComponent from '../../../../components/table/TableComponent';
-import DashboardCard from '../../../../components/card/DashboardCard'; // Your animated card
+import DashboardCard from '../../../../components/card/DashboardCard';
 import CardBorder from "../../../../components/card/CardBorder";
 import Search from "../../../../components/search/Search";
 import ExportDataButton from "../../../../components/buttons/ExportDataButton";
 import RedirectButton from "../../../../components/buttons/RedirectButton";
-import { useNavigate } from "react-router-dom";
-
-// Form fields
-const fields = [
-    { name: 'doctor', label: 'Doctor Name', type: 'text', required: true },
-    { name: 'fee', label: 'Consultation Fee', type: 'number', required: true },
-    { name: 'currency', label: 'Currency', type: 'text', required: true, placeholder: 'e.g. INR' },
-    {
-        name: 'status',
-        label: 'Status',
-        type: 'select',
-        required: true,
-        options: [
-            { value: 'Active', label: 'Active' },
-            { value: 'Inactive', label: 'Inactive' },
-        ],
-    },
-    { name: 'updated', label: 'Last Updated', type: 'date', required: false },
-];
-
-// Mock APIs
-const createConsultationFeeAPI = async (data) => {
-    const newId = Date.now().toString();
-    const newFee = {
-        _id: newId,
-        ...data,
-        updated: new Date().toISOString().split('T')[0]
-    };
-    console.log('Created:', newFee);
-    return newFee;
-};
-
-const updateConsultationFeeAPI = async (data, id) => {
-    console.log('Updated:', { _id: id, ...data });
-    return { _id: id, ...data, updated: new Date().toISOString().split('T')[0] };
-};
-
-const deleteConsultationFeeAPI = async (id) => {
-    console.log('Deleted:', id);
-};
+import consultationFeeService from '../../../../services/consultationFeeService';
 
 function Consultation_View() {
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            doctor: "Dr. Amit Sharma",
-            fee: 500,
-            currency: "INR",
-            status: "Active",
-            updated: "2025-01-12",
-        },
-        {
-            _id: "2",
-            doctor: "Dr. Neha Gupta",
-            fee: 700,
-            currency: "INR",
-            status: "Inactive",
-            updated: "2025-01-10",
-        },
-        {
-            _id: "3",
-            doctor: "Dr. Rajesh Kumar",
-            fee: 1599,
-            currency: "INR",
-            status: "Active",
-            updated: "2025-01-11",
-        },
-    ]);
-
+    const [rows, setRows] = useState([]);
     const [searchText, setSearchText] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
 
-    const columns = [
-        { field: "doctor", header: "Doctor" },
-        { field: "fee", header: "Consultation Fee" },
-        { field: "currency", header: "Currency" },
-        { field: "status", header: "Status" },     // Auto shows beautiful badge!
-        { field: "updated", header: "Last Updated" },
-    ];
+    // Fetch consultation fees from API
+    useEffect(() => {
+        fetchConsultationFees();
+    }, []);
+
+    const fetchConsultationFees = async () => {
+        try {
+            setIsLoading(true);
+            const response = await consultationFeeService.getAllConsultationFees({ 
+                page: 1, 
+                limit: 100 
+            });
+            
+            if (response.success && response.data) {
+                // Transform data for table display
+                const transformedData = response.data.map((fee, index) => ({
+                    _id: fee._id,
+                    slNo: index + 1,
+                    doctor: fee.doctor?.user?.name || "Unknown",
+                    doctorId: fee.doctor?._id || fee.doctor,
+                    fee: fee.amount || 0,
+                    currency: fee.currency || "INR",
+                    status: fee.isActive ? "Active" : "Inactive",
+                    isActive: fee.isActive,
+                    notes: fee.notes || "",
+                    updated: fee.updatedAt ? new Date(fee.updatedAt).toLocaleDateString() : "N/A",
+                }));
+                setRows(transformedData);
+            } else {
+                toast.error(response.message || "Failed to fetch consultation fees");
+            }
+        } catch (error) {
+            console.error("Error fetching consultation fees:", error);
+            toast.error(error.message || "Failed to fetch consultation fees");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this consultation fee?")) {
+            try {
+                const response = await consultationFeeService.deleteConsultationFee(id);
+                if (response.success) {
+                    toast.success("Consultation fee deleted successfully");
+                    fetchConsultationFees(); // Refresh the list
+                } else {
+                    toast.error(response.message || "Failed to delete consultation fee");
+                }
+            } catch (error) {
+                console.error("Error deleting consultation fee:", error);
+                toast.error(error.message || "Failed to delete consultation fee");
+            }
+        }
+    };
+
+    const handleToggleStatus = async (row) => {
+        try {
+            const newStatus = !row.isActive;
+            const response = await consultationFeeService.updateConsultationFee(row._id, {
+                isActive: newStatus
+            });
+            
+            if (response.success) {
+                toast.success(`Consultation fee ${newStatus ? "activated" : "deactivated"} successfully`);
+                fetchConsultationFees(); // Refresh the list
+            } else {
+                toast.error(response.message || "Failed to update status");
+            }
+        } catch (error) {
+            console.error("Error updating status:", error);
+            toast.error(error.message || "Failed to update status");
+        }
+    };
+
+    const handleDuplicate = async (row) => {
+        if (window.confirm("Are you sure you want to duplicate this consultation fee?")) {
+            try {
+                // Create a new fee with same data but different doctor (if needed)
+                const payload = {
+                    doctor: row.doctorId,
+                    amount: row.fee,
+                    currency: row.currency,
+                    notes: row.notes,
+                    isActive: row.isActive,
+                };
+                
+                const response = await consultationFeeService.createConsultationFee(payload);
+                if (response.success) {
+                    toast.success("Consultation fee duplicated successfully");
+                    fetchConsultationFees(); // Refresh the list
+                } else {
+                    toast.error(response.message || "Failed to duplicate consultation fee");
+                }
+            } catch (error) {
+                console.error("Error duplicating consultation fee:", error);
+                toast.error(error.message || "Failed to duplicate consultation fee");
+            }
+        }
+    };
 
     // Filtered rows based on search
     const filteredRows = useMemo(() => {
@@ -102,7 +133,7 @@ function Consultation_View() {
                 row.fee.toString().includes(searchText) ||
                 row.currency.toLowerCase().includes(searchText.toLowerCase()) ||
                 row.status.toLowerCase().includes(searchText.toLowerCase()) ||
-                row.updated.includes(searchText);
+                row.notes.toLowerCase().includes(searchText.toLowerCase());
             return searchMatch;
         });
     }, [rows, searchText]);
@@ -118,42 +149,22 @@ function Consultation_View() {
         return { active, inactive, highest };
     }, [rows]);
 
-    const handleCreateSubmit = async (data) => {
-        const newFee = await createConsultationFeeAPI(data);
-        setRows(prev => [...prev, newFee]);
-    };
-
-    const handleEditSubmit = async (data, row) => {
-        const updatedFee = await updateConsultationFeeAPI(data, row._id);
-        setRows(prev => prev.map(r => r._id === row._id ? updatedFee : r));
-    };
-
-    const handleDelete = (id) => {
-        if (window.confirm("Are you sure you want to delete this consultation fee?")) {
-            deleteConsultationFeeAPI(id);
-            setRows(prev => prev.filter(r => r._id !== id));
-        }
-    };
-
-    const handleToggleStatus = (id) => {
-        setRows(prev => prev.map(r =>
-            r._id === id
-                ? { ...r, status: r.status === "Active" ? "Inactive" : "Active" }
-                : r
-        ));
-    };
-
-    const handleDuplicate = (row) => {
-        if (window.confirm("Are you sure you want to duplicate this consultation fee?")) {
-            const duplicatedFee = {
-                ...row,
-                _id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // Unique ID
-                updated: new Date().toISOString().split('T')[0]
-            };
-            setRows(prev => [...prev, duplicatedFee]);
-            console.log('Duplicated:', duplicatedFee);
-        }
-    };
+    const columns = [
+        { field: "slNo", header: "Sl. No." },
+        { field: "doctor", header: "Doctor" },
+        { 
+            field: "fee", 
+            header: "Consultation Fee",
+            render: (row) => (
+                <Typography variant="body2" fontWeight="medium">
+                    {row.currency} {row.fee.toLocaleString("en-IN")}
+                </Typography>
+            )
+        },
+        { field: "currency", header: "Currency" },
+        { field: "status", header: "Status" },
+        { field: "updated", header: "Last Updated" },
+    ];
 
     const actions = [
         {
@@ -181,7 +192,7 @@ function Consultation_View() {
                 : "var(--color-success)",
             label: (row) => row.status === "Active" ? "Deactivate" : "Activate",
             onClick: (row) => {
-                handleToggleStatus(row._id);
+                handleToggleStatus(row);
             },
         },
         {
@@ -193,6 +204,14 @@ function Consultation_View() {
             },
         },
     ];
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <Box>
@@ -213,7 +232,7 @@ function Consultation_View() {
                 my={4}
                 justifyContent="flex-start"
                 sx={{
-                    flexWrap: { xs: "wrap", sm: "nowrap" }, // ⬅️ wrap only on mobile
+                    flexWrap: { xs: "wrap", sm: "nowrap" },
                 }}
             >
                 <DashboardCard
@@ -275,13 +294,26 @@ function Consultation_View() {
 
             {/* Table */}
             <TableComponent
+                title="Consultation Fees List"
+                subtitle={`${filteredRows.length} fees found`}
                 columns={columns}
-                rows={filteredRows}
+                rows={filteredRows.map((row) => ({
+                    ...row,
+                    status: (
+                        <Chip
+                            label={row.status}
+                            color={row.status === "Active" ? "success" : "default"}
+                            size="small"
+                        />
+                    )
+                }))}
                 actions={actions}
-                showStatusBadge={true}
-                statusField="status"
+                showView={false}
+                showEdit={false}
+                showDelete={false}
+                showAddButton={false}
+                showStatusBadge={false}
             />
-
         </Box>
     );
 }

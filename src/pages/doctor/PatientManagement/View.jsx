@@ -1,8 +1,13 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ⭐ ADDED for navigation
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { toast } from "react-toastify";
+import { CircularProgress, Box } from "@mui/material";
 import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
-import TableComponent from "../../../components/table/TableComponent"; // Use standard TableComponent
+import TableComponent from "../../../components/table/TableComponent";
 // ICONS
 import PeopleIcon from "@mui/icons-material/People";
 import LocalHospital from "@mui/icons-material/LocalHospital";
@@ -11,11 +16,10 @@ import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from "@mui/icons-material/Delete";
-import { Stethoscope, Pill } from 'lucide-react';
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
-import { TextField, MenuItem, Chip } from "@mui/material"; // ⭐ ADDED Chip for status rendering
+import { TextField, MenuItem, Chip } from "@mui/material";
 // Define fields for the form modals
 const fields = [
     { name: 'patientName', label: 'Patient Name', type: 'text', required: true },
@@ -47,8 +51,16 @@ const updatePatientAPI = async (data, id) => {
     return { _id: id, ...data };
 };
 const deletePatientAPI = async (id) => {
-    // Simulate API call
-    console.log('Deleted patient:', id);
+    try {
+        const response = await axios.delete(
+            getApiUrl(`inpatients/${id}`),
+            { headers: getAuthHeaders() }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error deleting inpatient:', error);
+        throw error;
+    }
 };
 // Modal submit handlers
 const handlePrescriptionSubmit = (data) => {
@@ -64,72 +76,90 @@ const handleTherapyPlanSubmit = (data) => {
     // Implement API call or state update here
 };
 function Patient_Management_View() {
-    const navigate = useNavigate(); // ⭐ ADDED for redirect
-    const [rows, setRows] = useState([
-        {
-            _id: "1",
-            patientName: "Rakesh Mohanty",
-            roomNo: "101",
-            admittedOn: "2025-01-10",
-            reason: "Fever & Weakness",
-            status: "Active"
-        },
-        {
-            _id: "2",
-            patientName: "Priya Sharma",
-            roomNo: "202",
-            admittedOn: "2025-01-12",
-            reason: "Body Pain",
-            status: "Active"
-        },
-        {
-            _id: "3",
-            patientName: "Arun Das",
-            roomNo: "305",
-            admittedOn: "2025-01-14",
-            reason: "Accident Injury",
-            status: "Active"
-        },
-        {
-            _id: "4",
-            patientName: "Sneha Patnaik",
-            roomNo: "115",
-            admittedOn: "2025-01-08",
-            reason: "High BP",
-            status: "Inactive"
-        },
-        {
-            _id: "5",
-            patientName: "John Abraham",
-            roomNo: "410",
-            admittedOn: "2025-01-18",
-            reason: "Chest Pain",
-            status: "Active"
-        }
-    ]);
+    const navigate = useNavigate();
+    const { user } = useSelector((state) => state.auth);
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     // Search and Filter states
     const [searchText, setSearchText] = useState('');
     const [treatmentFilter, setTreatmentFilter] = useState('All Treatment Types');
+
+    // Fetch inpatients from API
+    const fetchInpatients = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("inpatients"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        page: 1,
+                        limit: 1000, // Get all inpatients for now
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                const inpatientsData = response.data.data || [];
+                
+                // Transform API response to match frontend table structure
+                const transformedInpatients = inpatientsData.map((inpatient) => ({
+                    _id: inpatient._id,
+                    patientName: inpatient.patient?.user?.name || "N/A",
+                    roomNo: inpatient.roomNumber || "N/A",
+                    admittedOn: inpatient.admissionDate
+                        ? new Date(inpatient.admissionDate).toISOString().split("T")[0]
+                        : "N/A",
+                    reason: inpatient.reason || "N/A",
+                    status: inpatient.status || "Admitted",
+                    // Store full inpatient object for navigation if needed
+                    fullInpatient: inpatient,
+                }));
+
+                setRows(transformedInpatients);
+            } else {
+                toast.error(response.data.message || "Failed to fetch inpatients");
+            }
+        } catch (error) {
+            console.error("Error fetching inpatients:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to fetch inpatients");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchInpatients();
+    }, [fetchInpatients]);
+
     // Filtered rows
     const filteredRows = rows.filter(row =>
         row.patientName.toLowerCase().includes(searchText.toLowerCase()) &&
-        (treatmentFilter === "All Treatment Types" || row.reason.includes(treatmentFilter))
+        (treatmentFilter === "All Treatment Types" || row.reason.toLowerCase().includes(treatmentFilter.toLowerCase()))
     );
-    // Dynamic dashboard counts based on rows
+
+    // Dynamic dashboard counts based on rows (using backend status values: Admitted, Discharged, Transferred)
     const totalPatients = rows.length;
-    const activeTreatments = rows.filter(row => row.status === 'Active').length;
-    const completed = rows.filter(row => row.status === 'Inactive').length;
-    const pending = 0; // No pending status; adjust as needed
-    // ⭐ UPDATED: Custom render function for status column with color coding
+    const activeTreatments = rows.filter(row => row.status === 'Admitted' || row.status === 'admitted').length;
+    const completed = rows.filter(row => row.status === 'Discharged' || row.status === 'discharged').length;
+    const pending = rows.filter(row => row.status === 'Transferred' || row.status === 'transferred').length;
+    
+    // Custom render function for status column with color coding
     const renderStatusCell = (params) => {
         const colorMap = {
-            'Active': 'success', // Green
-            'Inactive': 'default', // Grey
+            'Admitted': 'success',
+            'admitted': 'success',
+            'Discharged': 'default',
+            'discharged': 'default',
+            'Transferred': 'warning',
+            'transferred': 'warning',
         };
+        const statusValue = params.value || 'Admitted';
+        const normalizedStatus = statusValue.charAt(0).toUpperCase() + statusValue.slice(1).toLowerCase();
         return (
             <Chip
-                label={params.value}
-                color={colorMap[params.value] || 'default'}
+                label={normalizedStatus}
+                color={colorMap[statusValue] || 'success'}
                 size="small"
                 variant="outlined"
             />
@@ -154,52 +184,44 @@ function Patient_Management_View() {
         const updatedPatient = await updatePatientAPI(data, row._id);
         setRows(prev => prev.map(r => r._id === row._id ? updatedPatient : r));
     };
-    const handleDelete = (id) => {
-        if (window.confirm(`Are you sure you want to delete patient ${id}?`)) {
-            deletePatientAPI(id);
-            setRows(prev => prev.filter(r => r._id !== id));
+    const handleDelete = async (id) => {
+        // Find the patient name for the confirmation message
+        const patient = rows.find(r => r._id === id);
+        const patientName = patient?.patientName || "this patient";
+        
+        if (window.confirm(`Are you sure you want to delete ${patientName}? This action cannot be undone.`)) {
+            try {
+                await deletePatientAPI(id);
+                toast.success("Inpatient deleted successfully");
+                // Refresh the list
+                fetchInpatients();
+            } catch (error) {
+                console.error("Error deleting inpatient:", error);
+                toast.error(error.response?.data?.message || "Failed to delete inpatient");
+            }
         }
     };
-    // ⭐ UPDATED HANDLER: Redirect to viewPage on view click
+    // Handler: Redirect to viewPage on view click
     const handleDetails = (row) => {
-        navigate(`/doctor/in-patients/${row._id}`); // ⭐ REDIRECT TO VIEW PAGE (e.g., /patient/1/view)
-        console.log("Redirecting to view page for patient:", row); // For debugging
+        navigate(`/doctor/in-patients/${row._id}`);
     };
     // Custom action handlers (updated to navigate to pages)
-    const handleAssignDoctor = (row) => {
-        navigate(`/doctor/in-patients/add-therapy-plan?patientName=${encodeURIComponent(row.patientName)}`);
-    };
-    const handlePrescribeMedication = (row) => {
-        navigate(`/doctor/in-patients/add-prescription?patientName=${encodeURIComponent(row.patientName)}`);
-    };
     const handleViewRecords = (row) => {
-        navigate(`/doctor/in-patients/add-daily-checkup?patientName=${encodeURIComponent(row.patientName)}`);
+        navigate(`/doctor/in-patients/add-daily-checkup?inpatientId=${row._id}&patientName=${encodeURIComponent(row.patientName)}`);
     };
-    // Custom Actions Array (4 dynamic actions)
+    // Custom Actions Array
     const customActions = [
-        {
-            icon: <VisibilityIcon fontSize="small" />,
-            color: "var(--color-primary)",
-            onClick: handleDetails, // ⭐ NOW REDIRECTS TO VIEW PAGE
-            tooltip: "Patient Details",
-        },
-        {
-            icon: <Stethoscope fontSize="small" />,
-            color: "var(--color-success)",
-            onClick: handleAssignDoctor,
-            tooltip: "Assign Doctor",
-        },
-        {
-            icon: <Pill fontSize="small" />,
-            color: "var(--color-info)",
-            onClick: handlePrescribeMedication,
-            tooltip: "Prescribe Medication",
-        },
         {
             icon: <AssignmentIcon fontSize="small" />,
             color: "var(--color-warning)",
             onClick: handleViewRecords,
             tooltip: "View Records",
+        },
+        {
+            icon: <VisibilityIcon fontSize="small" />,
+            color: "var(--color-primary)",
+            onClick: handleDetails, // ⭐ NOW REDIRECTS TO VIEW PAGE
+            tooltip: "Patient Details",
         },
         {
             icon: <DeleteIcon fontSize="small" />,
@@ -302,13 +324,19 @@ function Patient_Management_View() {
                 </div>
             </CardBorder>
             {/* TABLE SECTION */}
-            <TableComponent
-                columns={columns}
-                rows={filteredRows}
-                showStatusBadge={true}
-                statusField="status"
-                actions={customActions}
-            />
+            {isLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <TableComponent
+                    columns={columns}
+                    rows={filteredRows}
+                    showStatusBadge={true}
+                    statusField="status"
+                    actions={customActions}
+                />
+            )}
         </div>
     );
 }
