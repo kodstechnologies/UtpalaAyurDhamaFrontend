@@ -26,7 +26,7 @@ import Food_Charges_Add from "../../pages/admin/Foodcharges/Add";
 const AdminProfile = lazy(() => import("../../pages/admin/Profile"));
 
 // ================= ADMIN MAIN PAGES =================
-const Dashboard = lazy(() => import("../../pages/admin/dashboard"));
+const Dashboard = lazy(() => import("../../pages/admin/Dashboard"));
 const Doctors = lazy(() => import("../../pages/admin/Doctors"));
 import Nursing from "../../pages/admin/Nursing";
 const Receptionists = lazy(() => import("../../pages/admin/Receptionists"));
@@ -126,7 +126,7 @@ const Ward_Charges_Edit = lazy(() =>
 
 // ================= ANALYTICS =================
 const Admissions_View = lazy(() =>
-    import("../../pages/admin/analytics/admissions")
+    import("../../pages/admin/analytics/Admissions")
 );
 
 const Discharges = lazy(() =>
