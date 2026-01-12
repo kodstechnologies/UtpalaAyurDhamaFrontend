@@ -6,7 +6,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import HeadingCard from "../../../components/card/HeadingCard";
 import invoiceService from "../../../services/invoiceService";
-import logo from "../../../assets/logo/LOGO.WEBP";
+import logo from "../../../assets/logo/logo.webp";
 
 function InvoicePage() {
     const navigate = useNavigate();

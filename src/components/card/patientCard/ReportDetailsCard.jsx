@@ -11,7 +11,7 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import PrintIcon from "@mui/icons-material/Print";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
-import logo from "../../../assets/logo/LOGO.WEBP";
+import logo from "../../../assets/logo/logo.webp";
 function ReportDetailsCard({
     onClose = () => { },
 
