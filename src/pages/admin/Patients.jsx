@@ -11,19 +11,6 @@ import ExportDataButton from "../../components/buttons/ExportDataButton";
 import DeleteConfirmationModal from "../../components/modal/DeleteConfirmationModal";
 import { getApiUrl, getAuthHeaders } from "../../config/api";
 
-// Helper function to calculate age from date of birth
-const calculateAge = (dateOfBirth) => {
-    if (!dateOfBirth) return "N/A";
-    const dob = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const monthDiff = today.getMonth() - dob.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-        age--;
-    }
-    return age;
-};
-
 function Patients() {
     const navigate = useNavigate();
     const [rows, setRows] = useState([]);
@@ -55,7 +42,6 @@ function Patients() {
                 const transformedPatients = data.data.profiles?.map((profile) => ({
                     _id: profile._id,
                     name: profile.user?.name || "N/A",
-                    age: calculateAge(profile.dateOfBirth),
                     mobile: profile.user?.phone || "N/A",
                     email: profile.user?.email || "N/A",
                     status: profile.admissionStatus === "Not Admitted" ? "Active" : profile.admissionStatus || "Active",
@@ -83,7 +69,6 @@ function Patients() {
     // ===== TABLE COLUMNS =====
     const columns = [
         { field: "name", header: "Name" },
-        { field: "age", header: "Age" },
         { field: "mobile", header: "Mobile" },
         { field: "email", header: "Email" },
         { field: "status", header: "Status" },

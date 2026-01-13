@@ -19,7 +19,8 @@ import {
     Phone as PhoneIcon,
     ArrowBack as ArrowBackIcon,
     Healing as HealingIcon,
-    Spa as SpaIcon
+    Spa as SpaIcon,
+    Email as EmailIcon
 } from "@mui/icons-material";
 
 import logo from "../../assets/logo/utpala_logo.png"
@@ -605,17 +606,60 @@ export default function Login() {
                                 pt: 3,
                                 borderTop: "1px solid rgba(139, 90, 43, 0.2)"
                             }}>
-                                <Typography
-                                    variant="body2"
+                                <Box
                                     sx={{
-                                        textAlign: "center",
-                                        color: "#8b5a2b",
-                                        fontSize: "0.8rem",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 1,
                                         mb: 1,
                                     }}
                                 >
-                                    Need help? Contact support@utpalaayurdhama.com
-                                </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            textAlign: "center",
+                                            color: "#8b5a2b",
+                                            fontSize: "0.8rem",
+                                        }}
+                                    >
+                                        Need help? Contact
+                                    </Typography>
+                                    <Box
+                                        component="a"
+                                        href="https://mail.google.com/mail/?view=cm&fs=1&to=support@utpalaayurdhama.com&su=Support%20Request&body=Hello,%20I%20need%20assistance%20with..."
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 0.5,
+                                            color: "#704214",
+                                            textDecoration: "none",
+                                            fontSize: "0.8rem",
+                                            fontWeight: 600,
+                                            cursor: "pointer",
+                                            transition: "all 0.2s ease",
+                                            "&:hover": {
+                                                color: "#8b5a2b",
+                                                textDecoration: "underline",
+                                                transform: "translateY(-1px)",
+                                            },
+                                        }}
+                                    >
+                                        <EmailIcon sx={{ fontSize: "0.9rem" }} />
+                                        <Typography
+                                            component="span"
+                                            sx={{
+                                                color: "inherit",
+                                                fontSize: "inherit",
+                                                fontWeight: "inherit",
+                                            }}
+                                        >
+                                            support@utpalaayurdhama.com
+                                        </Typography>
+                                    </Box>
+                                </Box>
                                 <Typography
                                     variant="caption"
                                     sx={{
