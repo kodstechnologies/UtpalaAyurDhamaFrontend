@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import { toast } from "react-toastify";
 import axios from "axios";
 
@@ -13,6 +13,7 @@ import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import nurseService from "../../../services/nurseService";
 
 function Monitoring() {
     const navigate = useNavigate();
@@ -21,36 +22,94 @@ function Monitoring() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        fetchAdmittedPatients();
+        fetchAllPatients();
     }, []);
 
-    const fetchAdmittedPatients = async () => {
+    const fetchAllPatients = async () => {
         setIsLoading(true);
         try {
-            const response = await axios.get(
-                getApiUrl("inpatients?status=Admitted&limit=100"),
-                { headers: getAuthHeaders() }
-            );
+            // Fetch both inpatients and outpatients in parallel
+            const [inpatientsResponse, outpatientsResponse] = await Promise.all([
+                axios.get(
+                    getApiUrl("inpatients?status=Admitted&limit=100"),
+                    { headers: getAuthHeaders() }
+                ).catch(err => {
+                    console.error("Error fetching inpatients:", err);
+                    return { data: { success: false, data: [] } };
+                }),
+                axios.get(
+                    getApiUrl("patients/nurse/outpatients"),
+                    { headers: getAuthHeaders() }
+                ).catch(err => {
+                    console.error("Error fetching outpatients:", err);
+                    return { data: { success: false, data: [] } };
+                })
+            ]);
 
-            if (response.data.success) {
-                const transformedData = (response.data.data || []).map((inpatient) => ({
-                    _id: inpatient._id,
-                    patientId: inpatient.patient?.user?.uhid || inpatient.patient?.patientId || "N/A",
-                    patientName: inpatient.patient?.user?.name || "Unknown",
-                    wardBed: `${inpatient.wardType || "N/A"} / ${inpatient.bedNumber || "N/A"}`,
-                    admissionDate: inpatient.admissionDate
-                        ? new Date(inpatient.admissionDate).toLocaleDateString("en-GB")
-                        : "N/A",
-                    doctor: inpatient.doctor?.user?.name || "Not Assigned",
-                    rawData: inpatient,
-                }));
-                setPatients(transformedData);
-            } else {
-                toast.error(response.data.message || "Failed to fetch patients");
+            console.log("Inpatients API Response:", inpatientsResponse.data);
+            console.log("Outpatients API Response:", outpatientsResponse.data);
+
+            const allPatients = [];
+
+            // Process inpatients
+            if (inpatientsResponse.data.success) {
+                const inpatientsData = Array.isArray(inpatientsResponse.data.data) 
+                    ? inpatientsResponse.data.data 
+                    : (inpatientsResponse.data.data?.data || []);
+
+                const transformedInpatients = inpatientsData.map((inpatient) => {
+                    const wardCategory = inpatient.wardCategory || "N/A";
+                    const roomNumber = inpatient.roomNumber || "";
+                    const bedNumber = inpatient.bedNumber || "N/A";
+                    const wardBed = roomNumber 
+                        ? `${wardCategory} / Room ${roomNumber} / Bed ${bedNumber}`
+                        : `${wardCategory} / Bed ${bedNumber}`;
+
+                    return {
+                        _id: inpatient._id,
+                        patientId: inpatient.patient?.user?.uhid || inpatient.patient?.patientId || "N/A",
+                        patientName: inpatient.patient?.user?.name || "Unknown",
+                        wardBed: wardBed,
+                        admissionDate: inpatient.admissionDate
+                            ? new Date(inpatient.admissionDate).toLocaleDateString("en-GB")
+                            : "N/A",
+                        doctor: inpatient.doctor?.user?.name || "Not Assigned",
+                        patientType: "Inpatient",
+                        rawData: inpatient,
+                    };
+                });
+                allPatients.push(...transformedInpatients);
             }
+
+            // Process outpatients
+            if (outpatientsResponse.data.success) {
+                const outpatientsData = outpatientsResponse.data.data || [];
+
+                const transformedOutpatients = outpatientsData.map((outpatient) => {
+                    return {
+                        _id: outpatient._id,
+                        patientId: outpatient.user?.uhid || outpatient.patientId || "N/A",
+                        patientName: outpatient.user?.name || "Unknown",
+                        wardBed: "Outpatient",
+                        admissionDate: outpatient.createdAt
+                            ? new Date(outpatient.createdAt).toLocaleDateString("en-GB")
+                            : "N/A",
+                        doctor: outpatient.primaryDoctor?.user?.name || "Not Assigned",
+                        patientType: "Outpatient",
+                        rawData: outpatient,
+                    };
+                });
+                allPatients.push(...transformedOutpatients);
+            }
+            
+            console.log("All patients (inpatients + outpatients):", allPatients);
+            setPatients(allPatients);
         } catch (error) {
-            console.error("Error fetching admitted patients:", error);
-            toast.error(error.response?.data?.message || "Error fetching admitted patients");
+            console.error("Error fetching patients:", error);
+            console.error("Error details:", error.response?.data);
+            const errorMessage = error.response?.data?.message || error.message || "Error fetching patients";
+            toast.error(errorMessage);
+            setPatients([]);
         } finally {
             setIsLoading(false);
         }
@@ -84,34 +143,46 @@ function Monitoring() {
     const columns = [
         { field: "patientId", header: "Patient ID" },
         { field: "patientName", header: "Patient Name" },
+        { field: "patientType", header: "Type" },
         { field: "wardBed", header: "Ward / Bed" },
         { field: "admissionDate", header: "Admission Date" },
         { field: "doctor", header: "Consulting Doctor" },
     ];
 
-    const actions = [
-        {
-            label: "View",
-            icon: <VisibilityIcon />,
-            color: "var(--color-text-b)",
-            variant: "outlined",
-            onClick: (row) => handleOpen("view", row),
-        },
-        {
-            label: "Log Food",
-            icon: <RestaurantIcon />,
-            color: "var(--color-icon-3)",
-            variant: "outlined",
-            onClick: (row) => handleOpen("food", row),
-        },
-        {
-            label: "Update Vitals",
-            icon: <MonitorHeartIcon />,
-            color: "var(--color-success)",
-            variant: "contained",
-            onClick: (row) => handleOpen("vitals", row),
-        },
-    ];
+    // Actions that should be shown for all patients
+    const getActions = (row) => {
+        const baseActions = [
+            {
+                label: "View",
+                icon: <VisibilityIcon />,
+                color: "var(--color-text-b)",
+                variant: "outlined",
+                onClick: () => handleOpen("view", row),
+            },
+        ];
+
+        // Only show food and vitals actions for inpatients
+        if (row.patientType === "Inpatient") {
+            baseActions.push(
+                {
+                    label: "Log Food",
+                    icon: <RestaurantIcon />,
+                    color: "var(--color-icon-3)",
+                    variant: "outlined",
+                    onClick: () => handleOpen("food", row),
+                },
+                {
+                    label: "Update Vitals",
+                    icon: <MonitorHeartIcon />,
+                    color: "var(--color-success)",
+                    variant: "contained",
+                    onClick: () => handleOpen("vitals", row),
+                }
+            );
+        }
+
+        return baseActions;
+    };
 
     if (isLoading) {
         return (
@@ -124,8 +195,8 @@ function Monitoring() {
     return (
         <>
             <HeadingCard
-                title="Admitted Patients"
-                subtitle="Monitor admitted patients, log food intake, and update vital signs."
+                title="Patient Monitoring"
+                subtitle="Monitor inpatients and outpatients, log food intake, and update vital signs."
                 breadcrumbItems={[
                     { label: "Nurse", url: "/nurse/dashboard" },
                     { label: "Monitoring" },
@@ -147,12 +218,30 @@ function Monitoring() {
                     />
                 </div>
             </CardBorder>
-            <TableComponent
-                columns={columns}
-                rows={filteredPatients}
-                actions={actions}
-                showStatusBadge={false}
-            />
+            {filteredPatients.length === 0 && !isLoading ? (
+                <Box sx={{ 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    justifyContent: "center", 
+                    alignItems: "center", 
+                    minHeight: "300px",
+                    p: 4
+                }}>
+                    <Typography variant="h6" sx={{ color: "var(--color-text-muted)", mb: 1 }}>
+                        No patients found
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "var(--color-text-muted)" }}>
+                        {searchText ? "Try adjusting your search criteria" : "There are currently no patients allocated to you"}
+                    </Typography>
+                </Box>
+            ) : (
+                <TableComponent
+                    columns={columns}
+                    rows={filteredPatients}
+                    actions={getActions}
+                    showStatusBadge={false}
+                />
+            )}
         </>
     );
 }

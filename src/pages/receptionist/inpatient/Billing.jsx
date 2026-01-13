@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, SvgIcon } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
@@ -8,15 +8,36 @@ import { toast } from "react-toastify";
 import inpatientService from "../../../services/inpatientService";
 
 // Icons
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import SpaIcon from "@mui/icons-material/Spa";
 import MedicationIcon from "@mui/icons-material/Medication";
 import LocalHotelIcon from "@mui/icons-material/LocalHotel";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DownloadIcon from "@mui/icons-material/Download";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EditIcon from "@mui/icons-material/Edit";
+
+// Custom Rupee Icon Component - styled to match other Material-UI icons
+const RupeeIcon = (props) => {
+    const { sx, ...other } = props;
+    return (
+        <Box
+            component="span"
+            sx={{
+                fontSize: sx?.fontSize || 20,
+                color: sx?.color || 'inherit',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1,
+                ...sx,
+            }}
+            {...other}
+        >
+            ₹
+        </Box>
+    );
+};
 
 const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) => {
     const totalAmount = charges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
@@ -253,7 +274,6 @@ function InpatientBilling() {
     const [discountRate, setDiscountRate] = useState(0);
     const [taxRate, setTaxRate] = useState(5);
     const [isDischarging, setIsDischarging] = useState(false);
-    const [downloadingReport, setDownloadingReport] = useState(false);
     const [patientId, setPatientId] = useState(null);
 
     // First, get patient ID from inpatient if id is an inpatient ID
@@ -452,30 +472,6 @@ function InpatientBilling() {
         }
     };
 
-    const handleDownloadReport = async () => {
-        try {
-            setDownloadingReport(true);
-            const response = await inpatientService.downloadDischargeReport(id);
-
-            // Create blob link to download
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            const fileName = `Discharge_${billingData?.patient?.name || 'Report'}.pdf`;
-            link.href = url;
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-
-            toast.success("Report downloaded successfully!");
-        } catch (error) {
-            console.error("Download error:", error);
-            toast.error("Failed to download discharge report.");
-        } finally {
-            setDownloadingReport(false);
-        }
-    };
-
     // Breadcrumb items
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -533,17 +529,21 @@ function InpatientBilling() {
                                 <span className="badge bg-light text-dark p-2">
                                     <strong className="text-muted me-1">Ward:</strong> {admission.wardCategory || 'N/A'}
                                 </span>
-                                <span className="badge bg-light text-dark p-2">
-                                    <strong className="text-muted me-1">Room:</strong> {admission.roomNumber || 'N/A'}
-                                </span>
+                                {admission.roomNumber && (
+                                    <span className="badge bg-light text-dark p-2">
+                                        <strong className="text-muted me-1">Room:</strong> {admission.roomNumber}
+                                    </span>
+                                )}
+                                {admission.bedNumber && (
+                                    <span className="badge bg-light text-dark p-2">
+                                        <strong className="text-muted me-1">Bed:</strong> {admission.bedNumber}
+                                    </span>
+                                )}
                                 {doctor && (
                                     <span className="badge bg-light text-dark p-2">
                                         <strong className="text-muted me-1">Doctor:</strong> {doctor.name || 'N/A'}
                                     </span>
                                 )}
-                                <span className="badge bg-light text-dark p-2">
-                                    <strong className="text-muted me-1">Gender:</strong> {patient.gender || 'N/A'}
-                                </span>
                                 {patient.uhid && (
                                     <span className="badge bg-light text-dark p-2">
                                         <strong className="text-muted me-1">UHID:</strong> {patient.uhid}
@@ -616,7 +616,7 @@ function InpatientBilling() {
                     marginBottom: 3,
                 }}
             >
-                <DashboardCard title="Food" count={chargeTotals.food} prefix="₹" icon={AttachMoneyIcon} />
+                <DashboardCard title="Food" count={chargeTotals.food} prefix="₹" icon={RupeeIcon} />
                 <DashboardCard title="Consultation" count={chargeTotals.consultation} prefix="₹" icon={LocalHospitalIcon} />
                 <DashboardCard title="Therapy" count={chargeTotals.therapy} prefix="₹" icon={SpaIcon} />
                 <DashboardCard title="Pharmacy" count={chargeTotals.pharmacy} prefix="₹" icon={MedicationIcon} />
@@ -710,24 +710,6 @@ function InpatientBilling() {
                     <ArrowBackIcon className="me-2" />
                     Back to In-Patient List
                 </Link>
-                <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={handleDownloadReport}
-                    disabled={downloadingReport || !id}
-                >
-                    {downloadingReport ? (
-                        <>
-                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            Preparing PDF...
-                        </>
-                    ) : (
-                        <>
-                            <DownloadIcon className="me-2" />
-                            Download Discharge Report
-                        </>
-                    )}
-                </button>
                 {!isDischarged && (
                     <button
                         type="button"

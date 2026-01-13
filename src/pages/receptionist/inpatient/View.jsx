@@ -325,6 +325,7 @@ function Inpatient_View() {
                                             <th style={{ fontSize: "0.875rem" }}>Doctor</th>
                                             <th style={{ fontSize: "0.875rem" }}>Ward</th>
                                             <th style={{ fontSize: "0.875rem" }}>Room No.</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Bed No.</th>
                                             <th style={{ fontSize: "0.875rem" }}>Allocated Nurse</th>
                                             <th style={{ fontSize: "0.875rem" }}>Status</th>
                                             <th style={{ fontSize: "0.875rem" }}>Actions</th>
@@ -360,6 +361,13 @@ function Inpatient_View() {
                                                         <LocalHotelIcon fontSize="small" className="me-1" />
                                                         {patient.roomNo}
                                                     </span>
+                                                ) : (
+                                                    <span className="text-muted">N/A</span>
+                                                )}
+                                            </td>
+                                            <td style={{ fontSize: "0.875rem" }}>
+                                                {patient.bedNumber ? (
+                                                    <span>{patient.bedNumber}</span>
                                                 ) : (
                                                     <span className="text-muted">N/A</span>
                                                 )}

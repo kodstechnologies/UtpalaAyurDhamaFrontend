@@ -44,11 +44,18 @@ function ResponsiveAppBar() {
   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   
-  // Get notifications from hook (only for Receptionist role)
-  const isReceptionist = role?.toLowerCase() === 'receptionist';
+  // Get notifications from hook (for all staff roles)
+  const staffRoles = ['receptionist', 'doctor', 'nurse', 'therapist', 'pharmacist'];
+  const userRole = role?.toLowerCase() || '';
+  const isStaff = userRole && staffRoles.includes(userRole);
+  const isReceptionist = userRole === 'receptionist';
   const { paymentReminders, dobReminders } = useNotifications();
-  const totalNotifications = isReceptionist ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0)) : 0;
-  const hasNotifications = isReceptionist && totalNotifications > 0;
+  
+  // Receptionist gets both payment and DOB reminders, other staff only get DOB reminders
+  const totalNotifications = isReceptionist 
+    ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0))
+    : (dobReminders?.length || 0);
+  const hasNotifications = isStaff && totalNotifications > 0;
   
   // Blinking animation state
   const [isBlinking, setIsBlinking] = React.useState(false);
@@ -267,8 +274,8 @@ function ResponsiveAppBar() {
           {/* RIGHT SIDE SECTION */}
           <Box sx={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
 
-            {/* Notification Bell Icon - Only for Receptionist */}
-            {isReceptionist && (
+            {/* Notification Bell Icon - For all staff roles */}
+            {isStaff && (
               <>
                 <Tooltip title={hasNotifications ? "You have notifications" : "No notifications"}>
                   <IconButton

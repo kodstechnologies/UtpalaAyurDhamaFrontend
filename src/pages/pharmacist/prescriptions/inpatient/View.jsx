@@ -59,7 +59,6 @@ function Inpatient_View_Details() {
                     patientId: patientId,
                     name: prescription.patient?.user?.name || "Unknown",
                     age: prescription.patientAge || 0,
-                    gender: prescription.patientGender || prescription.patient?.gender || "N/A",
                     doctor: prescription.doctor?.user?.name || "Unknown",
                     diagnosis: prescription.examination?.complaints || "N/A",
                     uhid: prescription.patient?.user?.uhid || prescription.patient?.uhid || "N/A",
@@ -114,7 +113,6 @@ function Inpatient_View_Details() {
     const columns = [
         { field: "name", header: "Patient Name" },
         { field: "age", header: "Age" },
-        { field: "gender", header: "Gender" },
         { field: "roomNumber", header: "Room No." },
         { field: "wardCategory", header: "Ward" },
         { field: "doctor", header: "Doctor" },

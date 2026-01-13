@@ -30,7 +30,6 @@ import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import SpaIcon from "@mui/icons-material/Spa";
 import MedicationIcon from "@mui/icons-material/Medication";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/Edit";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloseIcon from "@mui/icons-material/Close";
@@ -186,7 +185,6 @@ function OutpatientBilling() {
     const [billingData, setBillingData] = useState(null);
     const [discountRate, setDiscountRate] = useState(0);
     const [taxRate, setTaxRate] = useState(5);
-    const [downloadingReport, setDownloadingReport] = useState(false);
     const [isFinalizing, setIsFinalizing] = useState(false);
     
     // Edit dialogs state
@@ -434,29 +432,6 @@ function OutpatientBilling() {
         }
     };
 
-    const handleDownloadReport = async () => {
-        try {
-            setDownloadingReport(true);
-            const response = await inpatientService.downloadOutpatientBillingReport(patientId);
-
-            // Create blob link to download
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            const fileName = `Outpatient-Billing-${billingData?.patient?.name || 'Report'}-${Date.now()}.pdf`;
-            link.href = url;
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-
-            toast.success("Report downloaded successfully!");
-        } catch (error) {
-            console.error("Download error:", error);
-            toast.error("Failed to download report.");
-        } finally {
-            setDownloadingReport(false);
-        }
-    };
 
     const handleFinalizeBilling = async () => {
         if (!window.confirm("Finalize outpatient billing and generate the final bill?")) {
@@ -558,11 +533,6 @@ function OutpatientBilling() {
                                 {patient.name}
                             </h3>
                             <div className="d-flex flex-wrap gap-3" style={{ fontSize: "0.875rem" }}>
-                                {patient.gender && (
-                                    <span className="badge bg-light text-dark p-2">
-                                        <strong className="text-muted me-1">Gender:</strong> {patient.gender}
-                                    </span>
-                                )}
                                 {patient.uhid && (
                                     <span className="badge bg-light text-dark p-2">
                                         <strong className="text-muted me-1">UHID:</strong> {patient.uhid}
@@ -864,30 +834,12 @@ function OutpatientBilling() {
                     <ArrowBackIcon className="me-2" />
                     Back to Outpatients
                 </Link>
-                <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={handleDownloadReport}
-                    disabled={downloadingReport || isFinalizing || !patientId}
-                >
-                    {downloadingReport ? (
-                        <>
-                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            Preparing PDF...
-                        </>
-                    ) : (
-                        <>
-                            <DownloadIcon className="me-2" />
-                            Download Report
-                        </>
-                    )}
-                </button>
                 {!isFinalized && (
                 <button
                     type="button"
                     className="btn btn-success"
                     onClick={handleFinalizeBilling}
-                    disabled={isFinalizing || downloadingReport || !patientId || grandTotal === 0}
+                    disabled={isFinalizing || !patientId || grandTotal === 0}
                     style={{
                         backgroundColor: "#4CAF50",
                         borderColor: "#4CAF50",

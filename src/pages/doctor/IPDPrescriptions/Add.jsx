@@ -645,7 +645,7 @@ function IPDPrescriptionsAddPage() {
                                                         {...params}
                                         label="Medicine Name *"
                                                         placeholder="Select medicine"
-                                                        required
+                                                        required={formData.medicines.length === 0}
                                                     />
                                                 )}
                                                 isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
@@ -658,6 +658,7 @@ function IPDPrescriptionsAddPage() {
                                         value={formData.currentMedicine.dosage}
                                         onChange={(e) => handleMedicineFieldChange("dosage", e.target.value)}
                                         size="small"
+                                        required={formData.medicines.length === 0}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={2}>

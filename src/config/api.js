@@ -10,10 +10,27 @@
  *   const response = await fetch(getApiUrl('users/login'), { headers: getAuthHeaders() });
  */
 
-// Get API base URL from environment variable or fallback
-export const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL ||
-    "http://localhost:8000/api/v1";
+// Get API base URL from environment variable or auto-detect based on hostname
+const getApiBaseUrl = () => {
+    // If explicitly set via environment variable, use it
+    if (import.meta.env.VITE_API_BASE_URL) {
+        return import.meta.env.VITE_API_BASE_URL;
+    }
+    
+    // Auto-detect production vs development
+    const hostname = window.location.hostname;
+    
+    // Production domain
+    if (hostname === 'hms.utpalaayurdhama.com' || hostname.includes('utpalaayurdhama.com')) {
+        // Production backend URL
+        return "https://api.utpalaayurdhama.com/api/v1";
+    }
+    
+    // Development/localhost
+    return "http://localhost:8000/api/v1";
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Helper function to get the full API URL for an endpoint

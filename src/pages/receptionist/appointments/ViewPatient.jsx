@@ -113,17 +113,6 @@ function ViewPatientPage() {
                                 variant="outlined"
                             />
                         </Grid>
-                        {patient.gender && (
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    label="Gender"
-                                    fullWidth
-                                    value={patient.gender || ""}
-                                    InputProps={{ readOnly: true }}
-                                    variant="outlined"
-                                />
-                            </Grid>
-                        )}
                         {patient.age && (
                             <Grid item xs={12} md={6}>
                                 <TextField

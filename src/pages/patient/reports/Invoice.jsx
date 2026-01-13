@@ -21,7 +21,6 @@ function InvoicePage() {
         invoiceNumber: searchParams.get("invoiceNumber") || "INVOICE-20251125-0001",
         invoiceDate: searchParams.get("invoiceDate") || "12/09/2025",
         patientName: searchParams.get("patientName") || "Sharavni",
-        dob: searchParams.get("dob") || "11/18/2025",
         patientId: searchParams.get("patientId") || "P-0001",
         service: searchParams.get("service") || "Ashwagandha Tablet",
         serviceDate: searchParams.get("serviceDate") || "12/09/2025",
@@ -46,10 +45,8 @@ function InvoicePage() {
             if (response && response.success && response.data) {
                 const inv = response.data;
                 const patientName = inv.patient?.user?.name || inv.patient?.name || "N/A";
-                const patientId = inv.patient?.patientId || inv.patient?._id || "N/A";
-                const dob = inv.patient?.dateOfBirth 
-                    ? new Date(inv.patient.dateOfBirth).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })
-                    : "N/A";
+                // Use formatted patientId, not MongoDB _id
+                const patientId = inv.patient?.patientId || (inv.patient?.user?.uhid ? `UHID: ${inv.patient.user.uhid}` : "N/A");
                 const invoiceDate = inv.createdAt 
                     ? new Date(inv.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })
                     : new Date().toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
@@ -77,7 +74,6 @@ function InvoicePage() {
                     invoiceNumber: inv.invoiceNumber || "N/A",
                     invoiceDate: invoiceDate,
                     patientName: patientName,
-                    dob: dob,
                     patientId: patientId,
                     items: formattedItems,
                     subtotal: subtotal,
@@ -100,7 +96,7 @@ function InvoicePage() {
     };
     
     // Use invoiceData state (which is either from URL params or fetched from backend)
-    const { invoiceNumber, invoiceDate, patientName, dob, patientId, service, serviceDate, cost, totalDue, instructions, subtotal, discountRate, discountAmount, taxRate, taxAmount } = invoiceData;
+    const { invoiceNumber, invoiceDate, patientName, patientId, service, serviceDate, cost, totalDue, instructions, subtotal, discountRate, discountAmount, taxRate, taxAmount } = invoiceData;
 
     const handlePrint = () => {
         window.print();
@@ -117,7 +113,7 @@ function InvoicePage() {
 
     return (
         <>
-            {/* Print Styles */}
+            {/* Professional Print Styles */}
             <style>
                 {`
                     @media print {
@@ -158,33 +154,57 @@ function InvoicePage() {
                             visibility: hidden !important;
                         }
                         
-                        /* Remove shadows, borders, and padding for clean print */
+                        /* Professional invoice card styling */
                         .invoice-print-container .MuiCard-root {
                             box-shadow: none !important;
-                            border: none !important;
-                            padding: 20px !important;
+                            border: 2px solid #e0e0e0 !important;
+                            padding: 30px !important;
                             margin: 0 !important;
                             background: white !important;
+                            page-break-inside: avoid;
                         }
                         
-                        .invoice-print-container .MuiBox-root {
-                            background: white !important;
+                        /* Professional header styling */
+                        .invoice-header {
+                            background: linear-gradient(135deg, #8B5A3C 0%, #6B4423 100%) !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            color: white !important;
                         }
                         
-                        /* Remove background colors that don't print well */
-                        .invoice-print-container [style*="background"] {
-                            background: white !important;
+                        .invoice-header * {
+                            color: white !important;
                         }
                         
-                        /* Ensure text is black for better print quality */
-                        .invoice-print-container * {
+                        /* Professional table styling */
+                        .invoice-table-header {
+                            background: #f5f5f5 !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            font-weight: 700 !important;
+                        }
+                        
+                        .invoice-table-row {
+                            border-bottom: 1px solid #e0e0e0 !important;
+                        }
+                        
+                        .invoice-table-row:nth-child(even) {
+                            background: #fafafa !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        
+                        /* Professional totals section */
+                        .invoice-totals {
+                            border-top: 2px solid #333 !important;
+                            padding-top: 15px !important;
+                            margin-top: 20px !important;
+                        }
+                        
+                        .invoice-total-amount {
+                            font-size: 1.3rem !important;
+                            font-weight: 700 !important;
                             color: #000 !important;
-                        }
-                        
-                        /* Keep colored elements for important info */
-                        .invoice-print-container [style*="color: var(--color-success)"] {
-                            color: #000 !important;
-                            font-weight: bold !important;
                         }
                         
                         /* Page setup */
@@ -196,7 +216,15 @@ function InvoicePage() {
                         /* Ensure proper page breaks */
                         .invoice-print-container {
                             page-break-after: avoid;
+                        }
+                        
+                        .invoice-table {
+                            page-break-inside: auto;
+                        }
+                        
+                        .invoice-table-row {
                             page-break-inside: avoid;
+                            page-break-after: auto;
                         }
                         
                         /* Print-friendly layout */
@@ -205,12 +233,42 @@ function InvoicePage() {
                             height: auto;
                             margin: 0;
                             padding: 0;
+                            background: white;
                         }
                         
                         /* Ensure images print */
                         img {
                             max-width: 100%;
                             height: auto;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
+                        /* Professional typography */
+                        .invoice-print-container {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+                            color: #000 !important;
+                            line-height: 1.6 !important;
+                        }
+                        
+                        /* Remove all colored backgrounds except header */
+                        .invoice-print-container [style*="background"]:not(.invoice-header) {
+                            background: white !important;
+                        }
+                        
+                        /* Ensure text is readable */
+                        .invoice-print-container * {
+                            color: #000 !important;
+                        }
+                        
+                        .invoice-header * {
+                            color: white !important;
+                        }
+                        
+                        /* Professional divider */
+                        .invoice-divider {
+                            border-color: #ddd !important;
+                            margin: 20px 0 !important;
                         }
                     }
                 `}
@@ -261,28 +319,42 @@ function InvoicePage() {
                                 <Button
                                     onClick={handlePrint}
                                     startIcon={<PrintIcon />}
+                                    variant="contained"
                                     sx={{
                                         textTransform: "none",
                                         borderRadius: 2,
-                                        px: 2,
-                                        bgcolor: "var(--color-primary-light)",
-                                        color: "var(--color-text-dark)",
+                                        px: 3,
+                                        py: 1,
+                                        bgcolor: "var(--color-icon-8)",
+                                        color: "white",
+                                        fontWeight: 600,
+                                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                                         "&:hover": {
-                                            bgcolor: "var(--color-primary)",
-                                            color: "white",
-                                        }
+                                            bgcolor: "var(--color-icon-8-dark)",
+                                            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                                            transform: "translateY(-1px)",
+                                        },
+                                        transition: "all 0.2s ease",
                                     }}
                                 >
-                                    Print
+                                    Print Invoice
                                 </Button>
 
                                 <Button
                                     variant="outlined"
                                     onClick={() => navigate(-1)}
                                     sx={{
-                                        borderRadius: "10px",
+                                        borderRadius: 2,
                                         px: 3,
                                         py: 1,
+                                        fontWeight: 600,
+                                        borderColor: "var(--color-border-dark)",
+                                        color: "var(--color-text-dark)",
+                                        "&:hover": {
+                                            borderColor: "var(--color-icon-8)",
+                                            bgcolor: "var(--color-bg-hover)",
+                                        },
+                                        transition: "all 0.2s ease",
                                     }}
                                 >
                                     Close
@@ -292,111 +364,171 @@ function InvoicePage() {
 
                     {/* MAIN CARD CONTENT */}
                     <CardContent>
-                        {/* INVOICE TOP SECTION */}
+                        {/* PROFESSIONAL INVOICE HEADER */}
                         <Box
+                            className="invoice-header"
                             sx={{
                                 bgcolor: "var(--color-bg-header)",
                                 color: "var(--color-text-header)",
-                                p: 3,
-                                borderRadius: 2,
-                                mb: 2,
+                                p: 4,
+                                borderRadius: 3,
+                                mb: 3,
                                 display: "flex",
                                 justifyContent: "space-between",
-                                alignItems: "center",
+                                alignItems: "flex-start",
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                             }}
                         >
                             {/* LEFT SIDE — LOGO + CLINIC INFO */}
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                {/* Logo - Larger size */}
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                {/* Logo - Professional size */}
                                 <Box
                                     component="img"
                                     src={logo}
-                                    alt="Utpalaayurdhama"
+                                    alt="Utpala Ayurdhama"
                                     sx={{
-                                        height: { xs: "6rem", md: "8rem" },
-                                        width: { xs: "6rem", md: "8rem" },
+                                        height: { xs: "80px", md: "100px" },
+                                        width: { xs: "80px", md: "100px" },
                                         objectFit: "contain",
                                         borderRadius: "50%",
-                                        border: "2px solid rgba(255,255,255,0.3)",
-                                        p: 0.5,
-                                        bgcolor: "var(--color-bg-card)",
+                                        border: "3px solid rgba(255,255,255,0.4)",
+                                        p: 1,
+                                        bgcolor: "rgba(255,255,255,0.1)",
+                                        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
                                     }}
                                 />
 
-                                {/* Contact Info - Text only, no clinic name */}
+                                {/* Clinic Info */}
                                 <Box>
-                                    <Typography sx={{ fontSize: "0.85rem", opacity: 0.9, lineHeight: 1.4 }}>
-                                        contact@utpala.com <br />
-                                        5465647658 • utpalaayurdhama.com
+                                    <Typography 
+                                        sx={{ 
+                                            fontSize: "1.1rem", 
+                                            fontWeight: 700,
+                                            mb: 1,
+                                            letterSpacing: "0.5px"
+                                        }}
+                                    >
+                                        Utpala Ayurdhama
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "0.9rem", opacity: 0.95, lineHeight: 1.6 }}>
+                                        contact@utpala.com<br />
+                                        +91 5465647658<br />
+                                        www.utpalaayurdhama.com
                                     </Typography>
                                 </Box>
                             </Box>
 
                             {/* RIGHT SIDE — INVOICE INFO */}
-                            <Box sx={{ textAlign: "right" }}>
-                                <Typography sx={{ fontWeight: 600, fontSize: "0.9rem" }}>
-                                    Invoice Number:
+                            <Box sx={{ textAlign: "right", minWidth: "200px" }}>
+                                <Typography 
+                                    sx={{ 
+                                        fontSize: "0.75rem", 
+                                        opacity: 0.9,
+                                        textTransform: "uppercase",
+                                        letterSpacing: "1px",
+                                        mb: 0.5
+                                    }}
+                                >
+                                    Invoice Number
                                 </Typography>
-                                <Typography sx={{ fontSize: "1rem", fontWeight: 700 }}>
+                                <Typography 
+                                    sx={{ 
+                                        fontSize: "1.2rem", 
+                                        fontWeight: 700,
+                                        mb: 2,
+                                        letterSpacing: "0.5px"
+                                    }}
+                                >
                                     {invoiceNumber}
                                 </Typography>
 
-                                <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", mt: 1 }}>
-                                    Date:
+                                <Typography 
+                                    sx={{ 
+                                        fontSize: "0.75rem", 
+                                        opacity: 0.9,
+                                        textTransform: "uppercase",
+                                        letterSpacing: "1px",
+                                        mb: 0.5
+                                    }}
+                                >
+                                    Date
                                 </Typography>
-                                <Typography sx={{ fontSize: "1rem" }}>
+                                <Typography sx={{ fontSize: "1rem", fontWeight: 600 }}>
                                     {invoiceDate}
                                 </Typography>
                             </Box>
                         </Box>
 
-                        {/* Invoice Number + Date - Hidden in print (duplicate info) */}
-                        <Box className="no-print" sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                            <Typography sx={{ color: "var(--color-text-dark)" }}>
-                                <b>Invoice Number:</b> {invoiceNumber}
+                        {/* Patient Information Section */}
+                        <Box 
+                            sx={{ 
+                                mb: 3,
+                                p: 2.5,
+                                bgcolor: "var(--color-bg-hover)",
+                                borderRadius: 2,
+                                border: "1px solid var(--color-border)"
+                            }}
+                        >
+                            <Typography 
+                                sx={{ 
+                                    fontSize: "0.85rem",
+                                    fontWeight: 600,
+                                    color: "var(--color-text-muted)",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                    mb: 1.5
+                                }}
+                            >
+                                Patient Information
                             </Typography>
-                            <Typography sx={{ color: "var(--color-text-dark)" }}>
-                                <b>Date:</b> {invoiceDate}
-                            </Typography>
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                <Box sx={{ display: "flex", gap: 2 }}>
+                                    <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 600, minWidth: "120px" }}>
+                                        Name:
+                                    </Typography>
+                                    <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                        {patientName}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: "flex", gap: 2 }}>
+                                    <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 600, minWidth: "120px" }}>
+                                        Patient ID:
+                                    </Typography>
+                                    <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                        {patientId}
+                                    </Typography>
+                                </Box>
+                            </Box>
                         </Box>
 
-                        {/* Patient Information */}
-                        <Divider sx={{ mb: 2 }} />
-
-                        <Box sx={{ mb: 2 }}>
-                            <Typography sx={{ color: "var(--color-text-dark)" }}>
-                                <b>Name:</b> {patientName}
-                            </Typography>
-                            <Typography sx={{ color: "var(--color-text-dark)" }}>
-                                <b>Date of Birth:</b> {dob}
-                            </Typography>
-                            <Typography sx={{ color: "var(--color-text-dark)" }}>
-                                <b>Patient ID:</b> {patientId}
-                            </Typography>
-                        </Box>
-
-                        <Divider sx={{ mb: 2 }} />
-
-                        {/* SERVICES TABLE */}
+                        {/* PROFESSIONAL SERVICES TABLE */}
                         <Box
+                            className="invoice-table"
                             sx={{
                                 border: "1px solid var(--color-border)",
+                                borderRadius: 2,
+                                overflow: "hidden",
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                             }}
                         >
                             {/* HEADER ROW */}
                             <Box
+                                className="invoice-table-header"
                                 sx={{
                                     display: "grid",
-                                    gridTemplateColumns: "1fr 1fr 1fr",
+                                    gridTemplateColumns: "2fr 1fr 1fr",
                                     bgcolor: "var(--color-bg-hover)",
-                                    p: 1.5,
+                                    p: 2,
                                     fontWeight: 700,
                                     color: "var(--color-text-dark)",
+                                    fontSize: "0.9rem",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
                                 }}
                             >
-                                <span>Service Description</span>
-                                <span>Date</span>
-                                <span>Cost (INR)</span>
+                                <Typography sx={{ fontWeight: 700 }}>Service Description</Typography>
+                                <Typography sx={{ fontWeight: 700, textAlign: "center" }}>Date</Typography>
+                                <Typography sx={{ fontWeight: 700, textAlign: "right" }}>Amount (₹)</Typography>
                             </Box>
 
                             {/* DATA ROWS */}
@@ -404,87 +536,165 @@ function InvoicePage() {
                                 invoiceData.items.map((item, index) => (
                                     <Box
                                         key={index}
+                                        className="invoice-table-row"
                                         sx={{
                                             display: "grid",
-                                            gridTemplateColumns: "1fr 1fr 1fr",
-                                            p: 1.5,
+                                            gridTemplateColumns: "2fr 1fr 1fr",
+                                            p: 2,
                                             color: "var(--color-text-dark)",
                                             borderTop: index > 0 ? "1px solid var(--color-border)" : "none",
+                                            bgcolor: index % 2 === 0 ? "white" : "var(--color-bg-a)",
+                                            transition: "background-color 0.2s",
                                         }}
                                     >
-                                        <span>{item.name}</span>
-                                        <span>{item.date}</span>
-                                        <span>{item.cost}</span>
+                                        <Typography sx={{ fontWeight: 500 }}>{item.name}</Typography>
+                                        <Typography sx={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                                            {item.date}
+                                        </Typography>
+                                        <Typography sx={{ textAlign: "right", fontWeight: 600 }}>
+                                            {item.cost}
+                                        </Typography>
                                     </Box>
                                 ))
                             ) : (
                                 <Box
+                                    className="invoice-table-row"
                                     sx={{
                                         display: "grid",
-                                        gridTemplateColumns: "1fr 1fr 1fr",
-                                        p: 1.5,
+                                        gridTemplateColumns: "2fr 1fr 1fr",
+                                        p: 2,
                                         color: "var(--color-text-dark)",
                                     }}
                                 >
-                                    <span>{service}</span>
-                                    <span>{serviceDate}</span>
-                                    <span>{cost}</span>
+                                    <Typography sx={{ fontWeight: 500 }}>{service}</Typography>
+                                    <Typography sx={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                                        {serviceDate}
+                                    </Typography>
+                                    <Typography sx={{ textAlign: "right", fontWeight: 600 }}>{cost}</Typography>
                                 </Box>
                             )}
                         </Box>
 
-                        {/* TOTALS BREAKDOWN */}
-                        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+                        {/* PROFESSIONAL TOTALS BREAKDOWN */}
+                        <Box 
+                            className="invoice-totals"
+                            sx={{ 
+                                mt: 3,
+                                p: 2.5,
+                                bgcolor: "var(--color-bg-hover)",
+                                borderRadius: 2,
+                                border: "1px solid var(--color-border)",
+                            }}
+                        >
                             {subtotal !== undefined && (
                                 <>
-                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                                        <Typography sx={{ color: "var(--color-text-dark)", fontSize: "0.95rem" }}>
                                             Subtotal:
                                         </Typography>
-                                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
+                                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 600, fontSize: "0.95rem" }}>
                                             ₹{subtotal.toFixed(2)}
                                         </Typography>
                                     </Box>
                                     {discountRate > 0 && discountAmount !== undefined && (
-                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                                            <Typography sx={{ color: "var(--color-text-dark)", fontSize: "0.95rem" }}>
                                                 Discount ({discountRate}%):
                                             </Typography>
-                                            <Typography sx={{ color: "var(--color-success)", fontWeight: 500 }}>
+                                            <Typography sx={{ color: "#d32f2f", fontWeight: 600, fontSize: "0.95rem" }}>
                                                 - ₹{discountAmount.toFixed(2)}
                                             </Typography>
                                         </Box>
                                     )}
                                     {taxRate > 0 && taxAmount !== undefined && (
-                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <Typography sx={{ color: "var(--color-text-dark)" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                                            <Typography sx={{ color: "var(--color-text-dark)", fontSize: "0.95rem" }}>
                                                 GST ({taxRate}%):
                                             </Typography>
-                                            <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
+                                            <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 600, fontSize: "0.95rem" }}>
                                                 ₹{taxAmount.toFixed(2)}
                                             </Typography>
                                         </Box>
                                     )}
-                                    <Divider sx={{ my: 1 }} />
+                                    <Divider className="invoice-divider" sx={{ my: 2, borderColor: "var(--color-border-dark)" }} />
                                 </>
                             )}
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <Typography sx={{ fontWeight: 700, color: "var(--color-text-dark)" }}>
+                            <Box 
+                                sx={{ 
+                                    display: "flex", 
+                                    justifyContent: "space-between", 
+                                    alignItems: "center",
+                                    pt: 1
+                                }}
+                            >
+                                <Typography 
+                                    sx={{ 
+                                        fontWeight: 700, 
+                                        color: "var(--color-text-dark)",
+                                        fontSize: "1.1rem",
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.5px"
+                                    }}
+                                >
                                     Total Amount Due:
                                 </Typography>
-                                <Typography sx={{ fontWeight: 700, color: "var(--color-success)", fontSize: "1.1rem" }}>
+                                <Typography 
+                                    className="invoice-total-amount"
+                                    sx={{ 
+                                        fontWeight: 700, 
+                                        color: "var(--color-success)", 
+                                        fontSize: "1.4rem",
+                                        letterSpacing: "0.5px"
+                                    }}
+                                >
                                     {totalDue}
                                 </Typography>
                             </Box>
                         </Box>
 
-                        {/* INSTRUCTIONS */}
-                        <Box sx={{ mt: 3 }}>
-                            <Typography sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
-                                Payment Instructions:
+                        {/* PROFESSIONAL PAYMENT INSTRUCTIONS */}
+                        <Box 
+                            sx={{ 
+                                mt: 3,
+                                p: 2.5,
+                                bgcolor: "var(--color-bg-a)",
+                                borderRadius: 2,
+                                border: "1px solid var(--color-border)",
+                            }}
+                        >
+                            <Typography 
+                                sx={{ 
+                                    fontWeight: 700, 
+                                    color: "var(--color-text-dark)",
+                                    fontSize: "0.95rem",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                    mb: 1.5
+                                }}
+                            >
+                                Payment Instructions
                             </Typography>
-                            <Typography sx={{ color: "var(--color-text-muted)", mt: 0.5 }}>
+                            <Typography 
+                                sx={{ 
+                                    color: "var(--color-text-muted)", 
+                                    fontSize: "0.9rem",
+                                    lineHeight: 1.7
+                                }}
+                            >
                                 {instructions}
+                            </Typography>
+                        </Box>
+                        
+                        {/* Footer Note */}
+                        <Box sx={{ mt: 3, textAlign: "center" }}>
+                            <Typography 
+                                sx={{ 
+                                    color: "var(--color-text-muted)", 
+                                    fontSize: "0.85rem",
+                                    fontStyle: "italic"
+                                }}
+                            >
+                                Thank you for choosing Utpala Ayurdhama
                             </Typography>
                         </Box>
                     </CardContent>

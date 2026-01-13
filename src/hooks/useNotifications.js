@@ -11,7 +11,8 @@ import notificationService from '../services/notificationService';
 import { toast } from 'react-toastify';
 
 export const useNotifications = () => {
-    const { user, role } = useSelector((state) => state.auth);
+    const authState = useSelector((state) => state.auth) || {};
+    const { user, role } = authState;
     const [paymentReminders, setPaymentReminders] = useState([]);
     const [dobReminders, setDobReminders] = useState([]);
     const [showPaymentPopup, setShowPaymentPopup] = useState(false);
@@ -19,45 +20,19 @@ export const useNotifications = () => {
     const [isInitialized, setIsInitialized] = useState(false);
     const [fcmToken, setFcmToken] = useState(null);
     
-    // Only fetch notifications for Receptionist role
-    const shouldFetchNotifications = role?.toLowerCase() === 'receptionist';
+    // Staff roles that can receive notifications
+    const staffRoles = ['receptionist', 'doctor', 'nurse', 'therapist', 'pharmacist'];
+    const userRole = role?.toLowerCase() || '';
+    
+    // Payment reminders: Receptionist only
+    const shouldFetchPaymentReminders = userRole === 'receptionist';
+    
+    // DOB reminders: All staff roles
+    const shouldFetchDOBReminders = userRole && staffRoles.includes(userRole);
 
-    // Initialize Firebase notifications
-    useEffect(() => {
-        const initializeNotifications = async () => {
-            if (!user || isInitialized) return;
-
-            try {
-                // Request notification permission and get token
-                const token = await firebaseService.initializeNotifications();
-                if (token) {
-                    setFcmToken(token);
-                    // Save token to backend
-                    await notificationService.registerToken(token);
-                }
-
-                // Setup foreground message listener
-                const unsubscribe = firebaseService.setupForegroundListener((payload) => {
-                    console.log('Foreground message received:', payload);
-                    handleForegroundMessage(payload);
-                });
-
-                setIsInitialized(true);
-
-                return () => {
-                    if (unsubscribe) unsubscribe();
-                };
-            } catch (error) {
-                console.error('Error initializing notifications:', error);
-            }
-        };
-
-        initializeNotifications();
-    }, [user, isInitialized]);
-
-    // Fetch payment reminders
+    // Fetch payment reminders (Receptionist only)
     const fetchPaymentReminders = useCallback(async () => {
-        if (!shouldFetchNotifications) {
+        if (!shouldFetchPaymentReminders) {
             setPaymentReminders([]);
             return;
         }
@@ -88,11 +63,11 @@ export const useNotifications = () => {
             console.error('❌ Error fetching payment reminders:', error);
             setShowPaymentPopup(false);
         }
-    }, [shouldFetchNotifications]);
+    }, [shouldFetchPaymentReminders]);
 
-    // Fetch DOB reminders
+    // Fetch DOB reminders (All staff roles)
     const fetchDOBReminders = useCallback(async () => {
-        if (!shouldFetchNotifications) {
+        if (!shouldFetchDOBReminders) {
             setDobReminders([]);
             return;
         }
@@ -123,9 +98,9 @@ export const useNotifications = () => {
             console.error('❌ Error fetching DOB reminders:', error);
             setShowDOBPopup(false);
         }
-    }, [shouldFetchNotifications]);
+    }, [shouldFetchDOBReminders]);
 
-    // Handle foreground messages
+    // Handle foreground messages (defined after fetch functions)
     const handleForegroundMessage = useCallback((payload) => {
         const notificationType = payload.data?.type || payload.notification?.data?.type;
 
@@ -143,10 +118,45 @@ export const useNotifications = () => {
         }
     }, [fetchPaymentReminders, fetchDOBReminders]);
 
+    // Initialize Firebase notifications (after handleForegroundMessage is defined)
+    useEffect(() => {
+        const initializeNotifications = async () => {
+            // Only initialize for staff roles
+            if (!user || !userRole || isInitialized || !shouldFetchDOBReminders) return;
+
+            try {
+                // Request notification permission and get token
+                const token = await firebaseService.initializeNotifications();
+                if (token) {
+                    setFcmToken(token);
+                    // Save token to backend
+                    await notificationService.registerToken(token);
+                }
+
+                // Setup foreground message listener
+                const unsubscribe = firebaseService.setupForegroundListener((payload) => {
+                    console.log('Foreground message received:', payload);
+                    handleForegroundMessage(payload);
+                });
+
+                setIsInitialized(true);
+
+                return () => {
+                    if (unsubscribe) unsubscribe();
+                };
+            } catch (error) {
+                console.error('Error initializing notifications:', error);
+                // Don't break the app if Firebase fails
+            }
+        };
+
+        initializeNotifications();
+    }, [user, userRole, isInitialized, shouldFetchDOBReminders, handleForegroundMessage]);
+
     // Fetch reminders on mount and periodically
     // Note: Don't wait for Firebase initialization - popups work independently
     useEffect(() => {
-        if (!user || !shouldFetchNotifications) {
+        if (!user || (!shouldFetchPaymentReminders && !shouldFetchDOBReminders)) {
             console.log('⏸️ No user or not authorized role, skipping notification fetch');
             return;
         }
@@ -155,14 +165,22 @@ export const useNotifications = () => {
         
         // Initial fetch immediately
         console.log('🔄 Initial fetch...');
-        fetchPaymentReminders();
-        fetchDOBReminders();
+        if (shouldFetchPaymentReminders) {
+            fetchPaymentReminders();
+        }
+        if (shouldFetchDOBReminders) {
+            fetchDOBReminders();
+        }
 
         // Set up periodic refresh (every 1 minute)
         const interval = setInterval(() => {
             console.log('🔄 Periodic refresh at', new Date().toLocaleTimeString());
-            fetchPaymentReminders();
-            fetchDOBReminders();
+            if (shouldFetchPaymentReminders) {
+                fetchPaymentReminders();
+            }
+            if (shouldFetchDOBReminders) {
+                fetchDOBReminders();
+            }
         }, 60 * 1000); // 1 minute (60 seconds)
 
         console.log('✅ Notification interval started');
@@ -171,7 +189,7 @@ export const useNotifications = () => {
             console.log('🛑 Clearing notification interval');
             clearInterval(interval);
         };
-    }, [user, shouldFetchNotifications, fetchPaymentReminders, fetchDOBReminders]);
+    }, [user, shouldFetchPaymentReminders, shouldFetchDOBReminders, fetchPaymentReminders, fetchDOBReminders]);
 
     return {
         paymentReminders,

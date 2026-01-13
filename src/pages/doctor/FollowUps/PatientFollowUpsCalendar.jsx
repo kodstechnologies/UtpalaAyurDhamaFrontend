@@ -233,7 +233,7 @@ function PatientFollowUpsCalendar() {
                     <Stack direction="row" spacing={1} mt={0.5}>
                         <Chip
                             icon={<PersonOutlineIcon sx={{ fontSize: "16px !important" }} />}
-                            label={`${patient.age} years • ${patient.gender}`}
+                            label={`${patient.age} years`}
                             size="small"
                             sx={{
                                 bgcolor: "var(--color-bg-hover)",

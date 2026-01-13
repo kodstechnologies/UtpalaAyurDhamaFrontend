@@ -1,10 +1,11 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Card, CardContent, Typography, Divider, Table, TableBody, TableCell, TableHead, TableRow, Paper, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from "@mui/material";
+import { Box, Card, CardContent, Typography, Divider, Table, TableBody, TableCell, TableHead, TableRow, Paper, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress } from "@mui/material";
 import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import invoiceService from "../../../services/invoiceService";
+import inpatientService from "../../../services/inpatientService";
 
 // Icons
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -24,6 +25,8 @@ function InvoiceDetails() {
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState("");
     const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+    const [downloadingReport, setDownloadingReport] = useState(false);
+    const [printingReport, setPrintingReport] = useState(false);
 
     // Breadcrumb items
     const breadcrumbItems = [
@@ -236,8 +239,92 @@ function InvoiceDetails() {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
+    const handlePrint = async () => {
+        if (!invoice.inpatient && !invoice.patient) {
+            toast.error("Unable to determine invoice type for printing discharge report");
+            return;
+        }
+
+        try {
+            setPrintingReport(true);
+            let response;
+
+            // Check if it's an inpatient invoice
+            if (invoice.inpatient) {
+                const inpatientId = invoice.inpatient._id || invoice.inpatient;
+                response = await inpatientService.downloadDischargeReport(inpatientId);
+            } else if (invoice.patient) {
+                // Outpatient invoice
+                const patientId = invoice.patient._id || invoice.patient;
+                response = await inpatientService.downloadOutpatientBillingReport(patientId);
+            }
+
+            // Create blob and open in new window for printing
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const printWindow = window.open(url, '_blank');
+            
+            if (printWindow) {
+                printWindow.onload = () => {
+                    setTimeout(() => {
+                        printWindow.print();
+                        // Clean up the URL after a delay
+                        setTimeout(() => {
+                            window.URL.revokeObjectURL(url);
+                        }, 1000);
+                    }, 500);
+                };
+            } else {
+                toast.error("Please allow popups to print the discharge report");
+                window.URL.revokeObjectURL(url);
+            }
+
+            toast.success("Opening discharge report for printing...");
+        } catch (error) {
+            console.error("Print error:", error);
+            toast.error("Failed to print discharge report.");
+        } finally {
+            setPrintingReport(false);
+        }
+    };
+
+    const handleDownloadDischargeReport = async () => {
+        try {
+            setDownloadingReport(true);
+            let response;
+            let fileName;
+
+            // Check if it's an inpatient invoice
+            if (invoice.inpatient) {
+                const inpatientId = invoice.inpatient._id || invoice.inpatient;
+                response = await inpatientService.downloadDischargeReport(inpatientId);
+                fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
+            } else if (invoice.patient) {
+                // Outpatient invoice
+                const patientId = invoice.patient._id || invoice.patient;
+                response = await inpatientService.downloadOutpatientBillingReport(patientId);
+                fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
+            } else {
+                toast.error("Unable to determine invoice type for report download");
+                return;
+            }
+
+            // Create blob link to download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            toast.success("Discharge report downloaded successfully!");
+        } catch (error) {
+            console.error("Download error:", error);
+            toast.error("Failed to download discharge report.");
+        } finally {
+            setDownloadingReport(false);
+        }
     };
 
     if (loading) {
@@ -323,19 +410,56 @@ function InvoiceDetails() {
                         Download PDF
                     </Button>
                 )}
-                <Button
-                    variant="contained"
-                    startIcon={<PrintIcon />}
-                    onClick={handlePrint}
-                    sx={{
-                        backgroundColor: "#4CAF50",
-                        "&:hover": {
-                            backgroundColor: "#45a049",
-                        },
-                    }}
-                >
-                    Print Invoice
-                </Button>
+                {(invoice.inpatient || invoice.patient) && (
+                    <Button
+                        variant="contained"
+                        startIcon={<DownloadIcon />}
+                        onClick={handleDownloadDischargeReport}
+                        disabled={downloadingReport}
+                        sx={{
+                            backgroundColor: "#1976d2",
+                            "&:hover": {
+                                backgroundColor: "#1565c0",
+                            },
+                        }}
+                    >
+                        {downloadingReport ? (
+                            <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                Preparing PDF...
+                            </>
+                        ) : (
+                            <>
+                                Download Discharge Report
+                            </>
+                        )}
+                    </Button>
+                )}
+                {(invoice.inpatient || invoice.patient) && (
+                    <Button
+                        variant="contained"
+                        startIcon={<PrintIcon />}
+                        onClick={handlePrint}
+                        disabled={printingReport}
+                        sx={{
+                            backgroundColor: "#4CAF50",
+                            "&:hover": {
+                                backgroundColor: "#45a049",
+                            },
+                        }}
+                    >
+                        {printingReport ? (
+                            <>
+                                <CircularProgress size={16} sx={{ mr: 1 }} />
+                                Preparing...
+                            </>
+                        ) : (
+                            <>
+                                Print Discharge Report
+                            </>
+                        )}
+                    </Button>
+                )}
             </Box>
 
             {/* ⭐ Invoice Card */}
@@ -410,7 +534,15 @@ function InvoiceDetails() {
                                 )}
                                 {invoice.prescription && (
                                     <Typography variant="body2">
-                                        <strong>Prescription:</strong> {invoice.prescription._id || invoice.prescription}
+                                        <strong>Prescription:</strong> {
+                                            typeof invoice.prescription === 'object' && invoice.prescription.createdAt
+                                                ? `Prescription dated ${formatDate(invoice.prescription.createdAt)}`
+                                                : typeof invoice.prescription === 'object' && invoice.prescription._id
+                                                ? `Prescription #${invoice.prescription._id.toString().slice(-8).toUpperCase()}`
+                                                : typeof invoice.prescription === 'string'
+                                                ? `Prescription #${invoice.prescription.slice(-8).toUpperCase()}`
+                                                : 'Prescription'
+                                        }
                                     </Typography>
                                 )}
                             </Box>

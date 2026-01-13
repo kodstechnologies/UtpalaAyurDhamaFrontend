@@ -155,8 +155,8 @@ function View_Receptionists() {
                             </div>
 
                             <h1
-                                className="text-2xl font-bold text-center mb-2"
-                                style={{ color: "var(--color-text-dark)" }}
+                                className="text-2xl font-bold text-center mb-2 break-words overflow-wrap-anywhere max-w-full px-2"
+                                style={{ color: "var(--color-text-dark)", wordBreak: "break-word" }}
                             >
                                 {receptionist.name}
                             </h1>

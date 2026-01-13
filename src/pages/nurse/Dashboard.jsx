@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Box, Grid, Card, CardContent, Typography, Button } from "@mui/material";
+import { Box, Grid, Card, CardContent, Typography, Button, CircularProgress } from "@mui/material";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 
 import GreetingBanner from "../../components/card/GreetingCard";
 import DashboardCard from "../../components/card/DashboardCard";
-import RedirectCard from "../../components/card/RedirectCard"; // Assuming path based on context; adjust as needed
+import RedirectCard from "../../components/card/RedirectCard";
+import nurseService from "../../services/nurseService";
 
 import PeopleIcon from "@mui/icons-material/People";
 import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
@@ -16,17 +18,47 @@ import GreetingsImg from "../../assets/greeting/nurse.png";
 
 function Nurse_Dashboard() {
     const { user } = useSelector((state) => state.auth);
-    const nurseName = user?.name || "Nurse";
-    
-    const [summary] = useState({
-        admittedPatients: 8,
-        pendingAdmissions: 3,
-        readyForDischarge: 2,
+    const [isLoading, setIsLoading] = useState(true);
+    const [summary, setSummary] = useState({
+        admittedPatients: 0,
+        pendingAdmissions: 0,
+        readyForDischarge: 0,
     });
+    const [nurseName, setNurseName] = useState(user?.name || "Nurse");
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        setIsLoading(true);
+        try {
+            const response = await nurseService.getDashboardSummary();
+            
+            if (response.success && response.data) {
+                const data = response.data;
+                setSummary({
+                    admittedPatients: data.metrics?.admittedPatients || 0,
+                    pendingAdmissions: data.metrics?.pendingAdmissions || 0,
+                    readyForDischarge: data.metrics?.readyForDischarge || 0,
+                });
+                if (data.nurseName) {
+                    setNurseName(data.nurseName);
+                }
+            } else {
+                toast.error(response.message || "Failed to fetch dashboard data");
+            }
+        } catch (error) {
+            console.error("Error fetching nurse dashboard:", error);
+            const errorMessage = error.response?.data?.message || error.message || "Failed to fetch dashboard data";
+            toast.error(errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <Box sx={{ paddingBottom: 3 }}>
-
             {/* ⭐ Greeting Banner */}
             <GreetingBanner
                 title="Namaste"
@@ -40,31 +72,37 @@ function Nurse_Dashboard() {
             />
 
             {/* ⭐ Summary Cards */}
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6} md={4}>
-                    <DashboardCard
-                        title="Admitted Patients"
-                        count={summary.admittedPatients}
-                        icon={PeopleIcon}
-                    />
-                </Grid>
+            {isLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <Grid container spacing={3} sx={{ mt: 1 }}>
+                    <Grid item xs={12} sm={6} md={4}>
+                        <DashboardCard
+                            title="Admitted Patients"
+                            count={summary.admittedPatients}
+                            icon={PeopleIcon}
+                        />
+                    </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
-                    <DashboardCard
-                        title="Pending Admissions"
-                        count={summary.pendingAdmissions}
-                        icon={PersonAddAlt1Icon}
-                    />
-                </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                        <DashboardCard
+                            title="Pending Admissions"
+                            count={summary.pendingAdmissions}
+                            icon={PersonAddAlt1Icon}
+                        />
+                    </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
-                    <DashboardCard
-                        title="Ready for Discharge"
-                        count={summary.readyForDischarge}
-                        icon={ExitToAppIcon}
-                    />
+                    <Grid item xs={12} sm={6} md={4}>
+                        <DashboardCard
+                            title="Ready for Discharge"
+                            count={summary.readyForDischarge}
+                            icon={ExitToAppIcon}
+                        />
+                    </Grid>
                 </Grid>
-            </Grid>
+            )}
 
             {/* ⭐ Quick Actions Section */}
 

@@ -495,7 +495,7 @@ function OPDTherapiesAddPage() {
                             >
                                 {timelineOptions.map((timeline) => (
                                     <MenuItem key={timeline} value={timeline}>
-                                        {timeline}
+                                        {timeline === "AlternateDay" ? "Alternate Day" : timeline === "Weekly" ? "Weekly" : timeline === "Daily" ? "Daily" : timeline}
                                     </MenuItem>
                                 ))}
                             </Select>

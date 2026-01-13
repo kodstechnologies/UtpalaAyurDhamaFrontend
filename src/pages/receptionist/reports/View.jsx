@@ -236,6 +236,9 @@ function Reports_View() {
         <>
             <style>
                 {`
+                    @page {
+                        margin: 0.5cm 1cm;
+                    }
                     @media print {
                         body * {
                             visibility: hidden;
@@ -248,6 +251,44 @@ function Reports_View() {
                             left: 0;
                             top: 0;
                             width: 100%;
+                            padding: 0 !important;
+                            margin: 0 !important;
+                            margin-top: 0 !important;
+                        }
+                        body {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                        }
+                        #printable-area .card {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            box-shadow: none !important;
+                            border: none !important;
+                        }
+                        #printable-area .card-body {
+                            padding: 10px 0 !important;
+                        }
+                        #printable-area .card-body > div:first-child {
+                            margin-top: 0 !important;
+                            margin-bottom: 10px !important;
+                            padding-bottom: 5px !important;
+                        }
+                        #printable-area .card-body > div:first-child .MuiBox-root {
+                            margin-bottom: 0 !important;
+                            padding-bottom: 0 !important;
+                        }
+                        #printable-area .MuiBox-root[class*="MuiBox-root"] {
+                            margin-top: 0 !important;
+                        }
+                        #printable-area img {
+                            height: 50px !important;
+                        }
+                        #printable-area h4 {
+                            font-size: 1.5rem !important;
+                            margin-bottom: 2px !important;
+                        }
+                        #printable-area h6 {
+                            font-size: 1rem !important;
                         }
                         .no-print {
                             display: none !important;

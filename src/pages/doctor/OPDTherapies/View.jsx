@@ -128,6 +128,7 @@ function OPDTherapies_View() {
             today: therapies.filter((t) => t.therapyDate === today).length,
             alternateDay: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "AlternateDay").length || 0), 0),
             weekly: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "Weekly").length || 0), 0),
+            daily: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "Daily").length || 0), 0),
         };
     }, [therapies]);
 
@@ -234,6 +235,7 @@ function OPDTherapies_View() {
         const colors = {
             AlternateDay: "info",
             Weekly: "success",
+            Daily: "warning",
         };
         return <Chip label={timeline} color={colors[timeline] || "default"} size="small" />;
     };
@@ -272,6 +274,7 @@ function OPDTherapies_View() {
                 <DashboardCard title="Today's Therapies" count={stats.today} icon={EventIcon} />
                 <DashboardCard title="Alternate Day" count={stats.alternateDay} icon={HealingIcon} />
                 <DashboardCard title="Weekly" count={stats.weekly} icon={HealingIcon} />
+                <DashboardCard title="Daily" count={stats.daily} icon={HealingIcon} />
             </Stack>
 
             {/* Search and Actions */}

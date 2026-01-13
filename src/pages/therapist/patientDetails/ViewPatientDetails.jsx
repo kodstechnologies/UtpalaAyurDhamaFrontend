@@ -121,14 +121,6 @@ function ViewPatientDetailsPage() {
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">
-                                    Gender
-                                </Typography>
-                                <Typography variant="body1">
-                                    {session.patient?.user?.gender || "N/A"}
-                                </Typography>
-                            </Box>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary">
                                     Therapy / Diagnosis
                                 </Typography>
                                 <Typography variant="body1">

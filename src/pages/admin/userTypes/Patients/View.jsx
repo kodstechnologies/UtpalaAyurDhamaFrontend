@@ -365,12 +365,6 @@ function View_Patients() {
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard
-                                            icon={User}
-                                            label="Gender"
-                                            value={patientData.personalInfo.gender}
-                                            iconColor="#EC4899"
-                                        />
-                                        <DetailsCard
                                             icon={MapPin}
                                             label="Address"
                                             value={patientData.personalInfo.address}

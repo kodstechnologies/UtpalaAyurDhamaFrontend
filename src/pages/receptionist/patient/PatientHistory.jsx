@@ -192,9 +192,6 @@ function PatientHistory() {
                                     </Typography>
                                 </Box>
                                 <Box>
-                                    <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                                        <Person fontSize="small" /> Gender: {patient.gender}
-                                    </Typography>
                                     {patient.dateOfBirth && (
                                         <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                                             <CalendarToday fontSize="small" /> DOB: {formatDate(patient.dateOfBirth)}
@@ -424,7 +421,7 @@ function PatientHistory() {
                                                                         <strong>Vitals:</strong>
                                                                     </Typography>
                                                                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                                                                        {Object.entries(exam.vitals[0] || {}).filter(([key]) => key !== "recordedAt").map(([key, value]) => (
+                                                                        {Object.entries(exam.vitals[0] || {}).filter(([key]) => key !== "recordedAt" && key !== "_id" && key !== "__v").map(([key, value]) => (
                                                                             value && (
                                                                                 <Chip
                                                                                     key={key}
@@ -560,9 +557,6 @@ function PatientHistory() {
                                                                             {i < session.therapists.length - 1 && ", "}
                                                                         </span>
                                                                     ))}
-                                                                </Typography>
-                                                                <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                    <strong>In Time:</strong> {session.inTime} | <strong>Out Time:</strong> {session.outTime}
                                                                 </Typography>
                                                                 {session.examination && (
                                                                     <Typography variant="body2" sx={{ mb: 1 }}>

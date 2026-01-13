@@ -71,6 +71,9 @@ function DetailsCard({ icon: Icon, label, value }) {
                             color: "#111827", // strong dark
                             fontSize: "1rem",
                             whiteSpace: "pre-line",
+                            wordBreak: "break-word",
+                            overflowWrap: "break-word",
+                            maxWidth: "100%",
                         }}
                     >
                         {value || "N/A"}

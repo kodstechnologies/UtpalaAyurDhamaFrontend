@@ -56,7 +56,6 @@ function Patients() {
                     _id: profile._id,
                     name: profile.user?.name || "N/A",
                     age: calculateAge(profile.dateOfBirth),
-                    gender: profile.user?.gender || "N/A",
                     mobile: profile.user?.phone || "N/A",
                     email: profile.user?.email || "N/A",
                     status: profile.admissionStatus === "Not Admitted" ? "Active" : profile.admissionStatus || "Active",
@@ -85,7 +84,6 @@ function Patients() {
     const columns = [
         { field: "name", header: "Name" },
         { field: "age", header: "Age" },
-        { field: "gender", header: "Gender" },
         { field: "mobile", header: "Mobile" },
         { field: "email", header: "Email" },
         { field: "status", header: "Status" },

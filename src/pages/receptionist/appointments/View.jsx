@@ -120,7 +120,6 @@ function Appointments_View() {
     const [filters, setFilters] = useState({
         search: "",
         appointmentStatus: "",
-        gender: "",
     });
     const [allPatients, setAllPatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -151,7 +150,6 @@ function Appointments_View() {
                     id: patient._id || patient.patientProfile?._id || "",
                     name: patient.patientName || "",
                     contact: patient.contactNumber || "",
-                    gender: patient.gender || "",
                     age: patient.age || "",
                     email: patient.email || "",
                     registeredDate: patient.createdAt
@@ -217,8 +215,7 @@ function Appointments_View() {
                 patient.name.toLowerCase().includes(filters.search.toLowerCase()) ||
                 patient.contact.includes(filters.search) ||
                 patient.id.includes(filters.search);
-            const matchesGender = !filters.gender || patient.gender === filters.gender;
-            return matchesSearch && matchesGender;
+            return matchesSearch;
         });
     }, [allPatients, filters]);
 
@@ -484,19 +481,6 @@ function Appointments_View() {
                                             onChange={handleFilterChange}
                                         />
                                     </div>
-                                    <div className="col-md-4">
-                                        <select
-                                            name="gender"
-                                            className="form-select"
-                                            value={filters.gender}
-                                            onChange={handleFilterChange}
-                                        >
-                                            <option value="">All Genders</option>
-                                            <option value="Male">Male</option>
-                                            <option value="Female">Female</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
                                 </div>
                                 {isLoading ? (
                                     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
@@ -514,7 +498,6 @@ function Appointments_View() {
                                                     <th>Sl. No.</th>
                                                     <th>Name</th>
                                                     <th>Contact</th>
-                                                    <th>Gender</th>
                                                     <th>Age</th>
                                                     <th>Email</th>
                                                     <th>Registered On</th>
@@ -527,7 +510,6 @@ function Appointments_View() {
                                                         <td>{index + 1}</td>
                                                         <td>{patient.name}</td>
                                                         <td>{patient.contact}</td>
-                                                        <td>{patient.gender}</td>
                                                         <td>{patient.age}</td>
                                                         <td>{patient.email}</td>
                                                         <td>{patient.registeredDate}</td>

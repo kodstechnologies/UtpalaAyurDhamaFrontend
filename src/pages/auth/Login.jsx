@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     Box,
     Card,
@@ -19,8 +19,7 @@ import {
     Phone as PhoneIcon,
     ArrowBack as ArrowBackIcon,
     Healing as HealingIcon,
-    Spa as SpaIcon,
-    Verified as VerifiedIcon
+    Spa as SpaIcon
 } from "@mui/icons-material";
 
 import logo from "../../assets/logo/utpala_logo.png"
@@ -442,7 +441,7 @@ export default function Login() {
                                             )}
                                         </Button>
 
-                                        <Typography
+                                        {/* <Typography
                                             variant="body2"
                                             sx={{
                                                 mt: 3,
@@ -452,7 +451,7 @@ export default function Login() {
                                             }}
                                         >
                                             By continuing, you agree to our Terms & Privacy Policy
-                                        </Typography>
+                                        </Typography> */}
                                     </Box>
                                 ) : (
                                     <Box>
@@ -476,7 +475,7 @@ export default function Login() {
                                                 textAlign: "center",
                                             }}
                                         >
-                                            We've sent a 6-digit code to +91 {phone}
+                                            We have sent a 6-digit code to +91 {phone}
                                         </Typography>
 
                                         <Grid container spacing={1.5} sx={{ mb: 3 }}>
@@ -593,7 +592,7 @@ export default function Login() {
                                                 fontSize: "0.8rem",
                                             }}
                                         >
-                                            Didn't receive the code? Check your spam folder
+                                            Did not receive the code? Check your spam folder
                                         </Typography>
                                     </Box>
                                 )}
@@ -615,7 +614,7 @@ export default function Login() {
                                         mb: 1,
                                     }}
                                 >
-                                    Need help? Contact support@utpalAyurdhama.com
+                                    Need help? Contact support@utpalaayurdhama.com
                                 </Typography>
                                 <Typography
                                     variant="caption"
@@ -633,7 +632,7 @@ export default function Login() {
                 </Card>
             </Slide>
 
-            <style jsx global>{`
+            <style>{`
                 @keyframes float {
                     0%, 100% { transform: translate(0, 0) rotate(0deg); }
                     33% { transform: translate(20px, -20px) rotate(120deg); }

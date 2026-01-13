@@ -107,7 +107,7 @@ function View_Pharmacists() {
                 items={[
                     { label: "Dashboard", url: "/admin/dashboard" },
                     { label: "Pharmacists", url: "/admin/pharmacists" },
-                    { label: pharmacist.name }
+                    { label: pharmacist.name || "Pharmacist" }
                 ]}
             />
             <div className="min-h-screen p-4 md:p-6 space-y-6" style={{ backgroundColor: "var(--color-bg-primary)" }}>
@@ -155,8 +155,8 @@ function View_Pharmacists() {
                             </div>
 
                             <h1
-                                className="text-2xl font-bold text-center mb-2"
-                                style={{ color: "var(--color-text-dark)" }}
+                                className="text-2xl font-bold text-center mb-2 break-words overflow-wrap-anywhere max-w-full px-2"
+                                style={{ color: "var(--color-text-dark)", wordBreak: "break-word" }}
                             >
                                 {pharmacist.name}
                             </h1>
@@ -284,7 +284,7 @@ function View_Pharmacists() {
                                         <DetailsCard
                                             icon={Calendar}
                                             label="Date of Birth"
-                                            value={formatDate(pharmacist.dob)}
+                                            value={formatDate(pharmacist.dob || pharmacist.dateOfBirth || pharmacist.user?.dob)}
                                             iconColor="#8B5CF6"
                                         />
                                         <DetailsCard

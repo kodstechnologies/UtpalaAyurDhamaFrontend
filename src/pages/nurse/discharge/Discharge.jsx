@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import { toast } from "react-toastify";
 import axios from "axios";
 
@@ -31,25 +31,49 @@ function Discharge() {
                 { headers: getAuthHeaders() }
             );
 
+            console.log("Discharge API Response:", response.data);
+
             if (response.data.success) {
-                const transformedData = (response.data.data || []).map((inpatient) => ({
-                    _id: inpatient._id,
-                    patientId: inpatient.patient?.user?.uhid || inpatient.patient?.patientId || "N/A",
-                    patientName: inpatient.patient?.user?.name || "Unknown",
-                    wardBed: `${inpatient.wardType || "N/A"} / ${inpatient.bedNumber || "N/A"}`,
-                    admissionDate: inpatient.admissionDate
-                        ? new Date(inpatient.admissionDate).toLocaleDateString("en-GB")
-                        : "N/A",
-                    doctor: inpatient.doctor?.user?.name || "Not Assigned",
-                    rawData: inpatient,
-                }));
+                // Handle both paginated and non-paginated responses
+                const inpatientsData = Array.isArray(response.data.data) 
+                    ? response.data.data 
+                    : (response.data.data?.data || []);
+
+                console.log("Inpatients data for discharge:", inpatientsData);
+
+                const transformedData = inpatientsData.map((inpatient) => {
+                    const wardCategory = inpatient.wardCategory || "N/A";
+                    const roomNumber = inpatient.roomNumber || "";
+                    const bedNumber = inpatient.bedNumber || "N/A";
+                    const wardBed = roomNumber 
+                        ? `${wardCategory} / Room ${roomNumber} / Bed ${bedNumber}`
+                        : `${wardCategory} / Bed ${bedNumber}`;
+
+                    return {
+                        _id: inpatient._id,
+                        patientId: inpatient.patient?.user?.uhid || inpatient.patient?.patientId || "N/A",
+                        patientName: inpatient.patient?.user?.name || "Unknown",
+                        wardBed: wardBed,
+                        admissionDate: inpatient.admissionDate
+                            ? new Date(inpatient.admissionDate).toLocaleDateString("en-GB")
+                            : "N/A",
+                        doctor: inpatient.doctor?.user?.name || "Not Assigned",
+                        rawData: inpatient,
+                    };
+                });
+                
+                console.log("Transformed discharge data:", transformedData);
                 setPatients(transformedData);
             } else {
                 toast.error(response.data.message || "Failed to fetch patients");
+                setPatients([]);
             }
         } catch (error) {
             console.error("Error fetching patients for discharge:", error);
-            toast.error(error.response?.data?.message || "Error fetching patients");
+            console.error("Error details:", error.response?.data);
+            const errorMessage = error.response?.data?.message || error.message || "Error fetching patients";
+            toast.error(errorMessage);
+            setPatients([]);
         } finally {
             setIsLoading(false);
         }
@@ -134,11 +158,29 @@ function Discharge() {
             </CardBorder>
 
             {/* Table */}
-            <TableComponent
-                columns={columns}
-                rows={filteredPatients}
-                actions={actions}
-            />
+            {filteredPatients.length === 0 && !isLoading ? (
+                <Box sx={{ 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    justifyContent: "center", 
+                    alignItems: "center", 
+                    minHeight: "300px",
+                    p: 4
+                }}>
+                    <Typography variant="h6" sx={{ color: "var(--color-text-muted)", mb: 1 }}>
+                        No patients ready for discharge
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "var(--color-text-muted)" }}>
+                        {searchText ? "Try adjusting your search criteria" : "There are currently no admitted patients"}
+                    </Typography>
+                </Box>
+            ) : (
+                <TableComponent
+                    columns={columns}
+                    rows={filteredPatients}
+                    actions={actions}
+                />
+            )}
         </>
     );
 }

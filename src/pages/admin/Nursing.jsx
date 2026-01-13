@@ -43,9 +43,30 @@ function Nursing() {
                     }
                 }
                 
-                // Ensure data is always an array
+                // Ensure data is always an array and normalize the structure
                 const rowsData = Array.isArray(data) ? data : [];
-                setRows(rowsData);
+                
+                // Normalize data structure - ensure _id exists and flatten user data if needed
+                const normalizedRows = rowsData.map((row) => {
+                    // If user data is nested, flatten it
+                    if (row.user && typeof row.user === 'object') {
+                        return {
+                            ...row,
+                            _id: row._id || row.id || row.user._id || row.user.id,
+                            name: row.name || row.user.name || '',
+                            email: row.email || row.user.email || '',
+                            phone: row.phone || row.user.phone || '',
+                            // Keep other fields as they are
+                        };
+                    }
+                    // Ensure _id exists
+                    return {
+                        ...row,
+                        _id: row._id || row.id,
+                    };
+                });
+                
+                setRows(normalizedRows);
             } else {
                 toast.error(response?.message || "Failed to fetch nurses");
                 setRows([]); // Set empty array on error
@@ -81,15 +102,26 @@ function Nursing() {
         fetchNurses();
     }, [fetchNurses]);
 
+    // Helper function to get the ID from row (handles different data structures)
+    const getRowId = useCallback((row) => {
+        return row._id || row.id || row.user?._id || row.user?.id || null;
+    }, []);
+
     // DELETE FUNCTION
     const handleDeleteClick = useCallback((row) => {
+        const id = getRowId(row);
+        if (!id) {
+            toast.error("Unable to find nurse ID");
+            console.error("Row data:", row);
+            return;
+        }
         setDeleteModal({
             isOpen: true,
-            nurseId: row._id,
-            nurseName: row.name || "this nurse",
+            nurseId: id,
+            nurseName: row.name || row.user?.name || "this nurse",
             isDeleting: false
         });
-    }, []);
+    }, [getRowId]);
 
     const handleDeleteConfirm = useCallback(async () => {
         if (!deleteModal.nurseId) return;
@@ -100,7 +132,10 @@ function Nursing() {
             const response = await adminUserService.deleteUser("Nurse", deleteModal.nurseId);
             
             if (response.success) {
-                setRows(prev => prev.filter(row => row._id !== deleteModal.nurseId));
+                setRows(prev => prev.filter(row => {
+                    const rowId = row._id || row.id || row.user?._id || row.user?.id;
+                    return rowId !== deleteModal.nurseId;
+                }));
                 toast.success("Nurse deleted successfully!");
                 setDeleteModal({ isOpen: false, nurseId: null, nurseName: "", isDeleting: false });
             } else {
@@ -136,13 +171,29 @@ function Nursing() {
             label: "View",
             icon: <Eye />,
             color: "var(--color-icon-3)",
-            onClick: (row) => navigate(`/admin/nursing/view/${row._id}`)
+            onClick: (row) => {
+                const id = getRowId(row);
+                if (id) {
+                    navigate(`/admin/nursing/view/${id}`);
+                } else {
+                    toast.error("Unable to find nurse ID");
+                    console.error("Row data:", row);
+                }
+            }
         },
         {
             label: "Edit",
             icon: <Edit />,
             color: "var(--color-icon-2)",
-            onClick: (row) => navigate(`/admin/nursing/edit/${row._id}`)
+            onClick: (row) => {
+                const id = getRowId(row);
+                if (id) {
+                    navigate(`/admin/nursing/edit/${id}`);
+                } else {
+                    toast.error("Unable to find nurse ID");
+                    console.error("Row data:", row);
+                }
+            }
         },
         {
             label: "Delete",

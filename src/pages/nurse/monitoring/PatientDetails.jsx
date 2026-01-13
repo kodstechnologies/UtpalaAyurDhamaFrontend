@@ -274,7 +274,17 @@ function PatientDetails() {
                                         Ward / Bed
                                     </Typography>
                                     <Typography variant="body1" fontWeight={500}>
-                                        {patientData.wardType || "N/A"} / {patientData.bedNumber || "N/A"}
+                                        {(() => {
+                                            const wardCategory = patientData.wardCategory || "N/A";
+                                            const roomNumber = patientData.roomNumber || "";
+                                            const bedNumber = patientData.bedNumber || "N/A";
+                                            
+                                            if (roomNumber) {
+                                                return `${wardCategory} / Room ${roomNumber} / Bed ${bedNumber}`;
+                                            } else {
+                                                return `${wardCategory} / Bed ${bedNumber}`;
+                                            }
+                                        })()}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>

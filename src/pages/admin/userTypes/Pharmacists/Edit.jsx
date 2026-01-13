@@ -101,7 +101,7 @@ function Edit_Pharmacists() {
                     name: data.name || "",
                     email: data.email || "",
                     phone: data.phone || "",
-                    dob: formatDateForInput(data.dob),
+                    dob: formatDateForInput(data.dob || data.dateOfBirth || data.user?.dob),
                     gender: data.gender || "",
                     address: data.address || "",
                     emergencyContact: data.emergencyContact || "",

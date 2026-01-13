@@ -160,7 +160,7 @@ function PatientExamination() {
                                 <Stack direction="row" spacing={2} mt={0.5} flexWrap="wrap">
                                     <Chip
                                         icon={<PersonOutline fontSize="small" />}
-                                        label={`${patient.age} years, ${patient.gender}`}
+                                        label={`${patient.age} years`}
                                         size="small"
                                         sx={{
                                             bgcolor: "var(--color-primary-light)",
