@@ -1,54 +1,48 @@
-name: Deploy Frontend
+name: Deploy Frontend to EC2
 
 on:
   push:
     branches:
-      - main  # Deploy on push to main branch
+      - main  # Deploy when main branch is updated
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repo
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      # 2️⃣ Set up Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'  # or your Node.js version
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20  # Use your node version
 
-      # 3️⃣ Install dependencies
-      - name: Install dependencies
-        run: npm install
+    - name: Install dependencies
+      run: npm install
 
-      # 4️⃣ Build frontend
-      - name: Build frontend
-        run: npm run build
+    - name: Build project
+      run: npm run build
 
-      # 5️⃣ Verify build
-      - name: Verify dist folder
-        run: ls -al dist
+    - name: Deploy to EC2 via SCP
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}         # EC2 public IP or domain
+        username: ${{ secrets.EC2_USER }}     # usually 'ubuntu'
+        key: ${{ secrets.EC2_KEY }}           # your private key
+        port: 22
+        source: "dist/*"
+        target: "/var/www/utpala-frontend"
+        strip_components: 1
+        overwrite: true
 
-      # 6️⃣ Copy build to server via SCP
-      - name: Copy dist to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}          # Your EC2 IP
-          username: ${{ secrets.EC2_USER }}  # Usually 'ubuntu'
-          key: ${{ secrets.EC2_KEY }}        # Private key
-          port: 22
-          source: "dist/*"
-          target: "/var/www/utpala-frontend"
-
-      # 7️⃣ Optional: Restart Nginx (if serving via Nginx)
-      - name: Restart Nginx
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_KEY }}
-          script: |
-            sudo systemctl restart nginx
+    - name: Set permissions on EC2
+      uses: appleboy/ssh-action@v0.1.8
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_KEY }}
+        port: 22
+        script: |
+          sudo chown -R ubuntu:ubuntu /var/www/utpala-frontend
+          sudo chmod -R 755 /var/www/utpala-frontend
