@@ -36,8 +36,8 @@ jobs:
       - name: Copy dist to server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.HOST }}          # Your EC2 IP
-          username: ${{ secrets.USERNAME }}  # Usually 'ubuntu'
+          host: ${{ secrets.EC2_HOST }}          # Your EC2 IP
+          username: ${{ secrets.EC2_USER }}  # Usually 'ubuntu'
           key: ${{ secrets.EC2_KEY }}        # Private key
           port: 22
           source: "dist/*"
@@ -47,8 +47,8 @@ jobs:
       - name: Restart Nginx
         uses: appleboy/ssh-action@v0.1.7
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
             sudo systemctl restart nginx
