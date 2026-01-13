@@ -1,48 +1,50 @@
-name: Deploy Frontend to EC2
+name: Build and Deploy Frontend
 
 on:
   push:
     branches:
-      - main  # Deploy when main branch is updated
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 20  # Use your node version
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
 
-    - name: Install dependencies
-      run: npm install
+      - name: Install dependencies
+        run: npm install
 
-    - name: Build project
-      run: npm run build
+      - name: Prepare public assets
+        run: |
+          mkdir -p public/img/icons
+          # Move all SVG icons from src/assets/icons (adjust path if needed)
+          if [ -d "src/assets/icons" ]; then
+            mv src/assets/icons/* public/img/icons/
+          fi
+          # Move PNG images from src/assets
+          if [ -d "src/assets" ]; then
+            mv src/assets/*.png public/img/
+          fi
 
-    - name: Deploy to EC2 via SCP
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.EC2_HOST }}         # EC2 public IP or domain
-        username: ${{ secrets.EC2_USER }}     # usually 'ubuntu'
-        key: ${{ secrets.EC2_KEY }}           # your private key
-        port: 22
-        source: "dist/*"
-        target: "/var/www/utpala-frontend"
-        strip_components: 1
-        overwrite: true
+      - name: Increase memory limit
+        run: export NODE_OPTIONS="--max-old-space-size=4096"
 
-    - name: Set permissions on EC2
-      uses: appleboy/ssh-action@v0.1.8
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_KEY }}
-        port: 22
-        script: |
-          sudo chown -R ubuntu:ubuntu /var/www/utpala-frontend
-          sudo chmod -R 755 /var/www/utpala-frontend
+      - name: Build frontend
+        run: npm run build
+
+      - name: Copy dist to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          port: 22
+          source: dist/*
+          target: /var/www/utpala-frontend
