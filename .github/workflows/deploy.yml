@@ -9,9 +9,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      ENV_FILE: .env.production
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,17 +16,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
 
       - name: Create environment file
         run: |
-          echo "${{ secrets.ENV_FILE }}" > $ENV_FILE
+          echo "${{ secrets.ENV_FILE }}" > .env.production
 
       - name: Install dependencies
         run: npm install
 
       - name: Build project
         run: npm run build
+
+      - name: Clean target directory on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            sudo rm -rf /var/www/utpala-frontend/*
 
       - name: Copy build to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -48,4 +54,3 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             sudo systemctl restart nginx
-
