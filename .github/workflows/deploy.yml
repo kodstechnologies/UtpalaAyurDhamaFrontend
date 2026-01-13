@@ -1,4 +1,4 @@
-name: Build and Deploy Frontend
+name: Build & Deploy Frontend
 
 on:
   push:
@@ -10,41 +10,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+    # 1️⃣ Checkout code
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
+    # 2️⃣ Use Node.js
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20
 
-      - name: Install dependencies
-        run: npm install
+    # 3️⃣ Install dependencies
+    - name: Install Dependencies
+      run: npm ci
 
-      - name: Prepare public assets
-        run: |
-          mkdir -p public/img/icons
-          # Move all SVG icons from src/assets/icons (adjust path if needed)
-          if [ -d "src/assets/icons" ]; then
-            mv src/assets/icons/* public/img/icons/
-          fi
-          # Move PNG images from src/assets
-          if [ -d "src/assets" ]; then
-            mv src/assets/*.png public/img/
-          fi
+    # 4️⃣ Ensure public/img folders exist
+    - name: Prepare Assets
+      run: |
+        mkdir -p public/img/icons
+        # Move icons if they exist
+        if [ -d "src/assets/icons" ]; then
+          mv src/assets/icons/* public/img/icons/ || true
+        fi
+        # Move PNGs if they exist
+        if [ -d "src/assets" ]; then
+          mv src/assets/*.png public/img/ || true
+        fi
 
-      - name: Increase memory limit
-        run: export NODE_OPTIONS="--max-old-space-size=4096"
+    # 5️⃣ Build Vite (increase memory)
+    - name: Build Frontend
+      run: |
+        export NODE_OPTIONS="--max-old-space-size=4096"
+        npm run build
 
-      - name: Build frontend
-        run: npm run build
+    # 6️⃣ Deploy dist/ to EC2
+    - name: Deploy to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_KEY }}
+        port: 22
+        source: dist/*
+        target: /var/www/utpala-frontend
+        strip_components: 0
+        overwrite: true
 
-      - name: Copy dist to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_KEY }}
-          port: 22
-          source: dist/*
-          target: /var/www/utpala-frontend
+    # Optional: restart Nginx if needed
+    - name: Reload Nginx
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_KEY }}
+        port: 22
+        script: sudo systemctl reload nginx
