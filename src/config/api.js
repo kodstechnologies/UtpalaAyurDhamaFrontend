@@ -32,6 +32,15 @@ const getApiBaseUrl = () => {
 
 export const API_BASE_URL = getApiBaseUrl();
 
+// Debug logging (remove in production if needed)
+if (typeof window !== 'undefined') {
+    console.log('API Configuration:', {
+        hostname: window.location.hostname,
+        apiBaseUrl: API_BASE_URL,
+        envVar: import.meta.env.VITE_API_BASE_URL
+    });
+}
+
 /**
  * Helper function to get the full API URL for an endpoint
  * @param {string} endpoint - The API endpoint (e.g., "/patients/dashboard")

@@ -1,21 +1,54 @@
 import { API_BASE_URL } from '../config/api';
 
 export const sendOtp = async (phone) => {
-    const response = await fetch(`${API_BASE_URL}/users/login/request-otp`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phone }),
-        credentials: 'include',
-    });
+    try {
+        const response = await fetch(`${API_BASE_URL}/users/login/request-otp`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ phone }),
+            credentials: 'include',
+        });
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to send OTP. Please try again.' }));
-        throw new Error(errorData.message);
+        // Check if response is ok
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch {
+                errorData = { message: `Server error: ${response.status} ${response.statusText}` };
+            }
+            throw new Error(errorData.message || `Server error: ${response.status}`);
+        }
+
+        // Check if response has content
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.warn('Non-JSON response:', text);
+            throw new Error('Invalid response format from server');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        // Log the full error for debugging
+        console.error('sendOtp error:', error);
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
+        
+        // If it's already an Error object with a message, rethrow it
+        if (error instanceof Error) {
+            throw error;
+        }
+        
+        // Otherwise, wrap it in an Error
+        throw new Error(error.message || 'Failed to send OTP. Please check your connection and try again.');
     }
-
-    return response.json();
 };
 
 
