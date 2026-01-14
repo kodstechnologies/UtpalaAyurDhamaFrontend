@@ -241,6 +241,11 @@ function Edit_Receptionists() {
     const handleAddLanguage = () => {
         setLanguageModal(true);
     };
+    const getMaxDob = () => {
+        const today = new Date();
+        today.setFullYear(today.getFullYear() - 18);
+        return today.toISOString().split("T")[0]; // yyyy-mm-dd
+    };
 
     const handleLanguageConfirm = (language) => {
         if (language && !receptionist.languages.includes(language)) {
@@ -536,13 +541,22 @@ function Edit_Receptionists() {
                                                 error={errors.emergencyContact}
                                                 maxLength={10}
                                             />
-                                            <FormInput
+                                            {/* <FormInput
                                                 label="Date of Birth"
                                                 icon={Calendar}
                                                 type="date"
                                                 value={receptionist.dob}
                                                 onChange={(e) => updateField("dob", e.target.value)}
+                                            /> */}
+                                            <FormInput
+                                                label="Date of Birth"
+                                                icon={Calendar}
+                                                type="date"
+                                                value={receptionist.dob}
+                                                max={getMaxDob()}   // 👈 IMPORTANT
+                                                onChange={(e) => updateField("dob", e.target.value)}
                                             />
+
                                             <FormSelect
                                                 label="Gender"
                                                 icon={User}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+
 import {
     Box,
     Button,
@@ -84,11 +85,21 @@ function AddEditMedicine() {
         }
     }, [id, isEditMode, navigate]);
 
+    // const handleChange = (e) => {
+    //     const { name, value, type, checked } = e.target;
+    //     setFormData((prev) => ({
+    //         ...prev,
+    //         [name]: type === "checkbox" ? checked : value,
+    //     }));
+    // };
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData((prev) => ({
             ...prev,
-            [name]: type === "checkbox" ? checked : value,
+            [name]: type === "checkbox" ? checked :
+                (['quantity', 'costPrice', 'sellPrice', 'lowStockThreshold'].includes(name) ?
+                    (value === '' ? 0 : parseFloat(value)) : value),  // Parse numbers, default empty to 0
         }));
     };
 
@@ -102,7 +113,6 @@ function AddEditMedicine() {
             unit: formData.unit,
         });
         setIsLoading(true);
-
         // Validation
         if (!formData.medicineName || !formData.manufacturer || !formData.unit) {
             toast.error("Please fill in all required fields");
@@ -116,6 +126,7 @@ function AddEditMedicine() {
             return;
         }
 
+        console.log("fjfj")
         try {
             console.log("Submitting medicine data:", formData);
             if (isEditMode) {
@@ -152,6 +163,7 @@ function AddEditMedicine() {
 
     return (
         <div className="space-y-6 p-6">
+              <ToastContainer />
             <HeadingCard
                 title={isEditMode ? "Edit Medicine" : "Add New Medicine"}
                 subtitle={isEditMode ? "Update medicine information" : "Add a new medicine to the pharmacy inventory"}

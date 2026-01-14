@@ -34,7 +34,7 @@ function PrescriptionsDetailsPage() {
     useEffect(() => {
         const fetchPrescription = async () => {
             if (!id) return;
-            
+
             setIsLoading(true);
             try {
                 const response = await axios.get(
@@ -44,13 +44,13 @@ function PrescriptionsDetailsPage() {
 
                 if (response.data.success) {
                     const data = response.data.data;
-                    
+
                     // Transform the prescription data to match the component structure
                     const transformedPrescription = {
                         _id: data._id,
                         patientName: data.patient?.user?.name || data.examination?.patient?.user?.name || "Unknown",
                         patientId: data.patient?.patientId || data.patient?.user?.uhid || data.examination?.patient?.patientId || data.examination?.patient?.user?.uhid || "N/A",
-                        prescriptionDate: data.createdAt 
+                        prescriptionDate: data.createdAt
                             ? new Date(data.createdAt).toISOString().split("T")[0]
                             : new Date().toISOString().split("T")[0],
                         diagnosis: data.examination?.complaints || data.diagnosis || "",
@@ -62,6 +62,7 @@ function PrescriptionsDetailsPage() {
                             frequency: data.frequency || "",
                             duration: data.duration || "",
                             foodTiming: data.foodTiming || "",
+                            dosageSchedule: data.dosageSchedule || "",
                             remarks: data.remarks || "",
                             instructions: data.notes || "",
                         }] : [],
@@ -70,16 +71,16 @@ function PrescriptionsDetailsPage() {
                     };
 
                     setPrescription(transformedPrescription);
-                    
+
                     // Get patient ID to fetch all prescriptions for this patient
                     const patientId = data.patient?._id || data.patient || data.examination?.patient?._id || data.examination?.patient;
-                    
+
                     // Fetch all OPD prescriptions for this doctor
                     const allPrescriptionsResponse = await axios.get(
                         getApiUrl("examinations/prescriptions/opd/by-doctor"),
                         { headers: getAuthHeaders() }
                     );
-                    
+
                     if (allPrescriptionsResponse.data.success) {
                         // Filter prescriptions by the same patient
                         const allPresc = allPrescriptionsResponse.data.data || [];
@@ -282,9 +283,9 @@ function PrescriptionsDetailsPage() {
                                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                                         All Prescriptions for {prescription.patientName}
                                     </Typography>
-                                    <Chip 
-                                        label={`${allPrescriptions.length} prescriptions`} 
-                                        size="small" 
+                                    <Chip
+                                        label={`${allPrescriptions.length} prescriptions`}
+                                        size="small"
                                         sx={{ ml: 2, backgroundColor: "var(--color-primary)", color: "white" }}
                                     />
                                 </Box>
@@ -297,8 +298,8 @@ function PrescriptionsDetailsPage() {
                                                     p: 2.5,
                                                     borderRadius: 2,
                                                     border: `2px solid ${presc._id === id ? theme.palette.primary.main : alpha(theme.palette.divider, 0.2)}`,
-                                                    backgroundColor: presc._id === id 
-                                                        ? alpha(theme.palette.primary.main, 0.05) 
+                                                    backgroundColor: presc._id === id
+                                                        ? alpha(theme.palette.primary.main, 0.05)
                                                         : alpha(theme.palette.background.paper, 0.5),
                                                 }}
                                             >
@@ -345,17 +346,27 @@ function PrescriptionsDetailsPage() {
                                                             </Typography>
                                                         </Grid>
                                                     )}
+                                                    {presc.dosageSchedule && (
+                                                        <Grid item xs={6}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Dosage Schedule
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.dosageSchedule}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                     <Grid item xs={6}>
                                                         <Typography variant="caption" color="text.secondary" display="block">
                                                             Date
                                                         </Typography>
                                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                            {presc.createdAt 
+                                                            {presc.createdAt
                                                                 ? new Date(presc.createdAt).toLocaleDateString("en-GB", {
-                                                                      day: "2-digit",
-                                                                      month: "short",
-                                                                      year: "numeric",
-                                                                  })
+                                                                    day: "2-digit",
+                                                                    month: "short",
+                                                                    year: "numeric",
+                                                                })
                                                                 : "N/A"}
                                                         </Typography>
                                                     </Grid>
@@ -439,6 +450,16 @@ function PrescriptionsDetailsPage() {
                                                             </Typography>
                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                                 {medicine.foodTiming}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
+                                                    {medicine.dosageSchedule && (
+                                                        <Grid item xs={12} sm={4}>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                Dosage Schedule
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {medicine.dosageSchedule}
                                                             </Typography>
                                                         </Grid>
                                                     )}

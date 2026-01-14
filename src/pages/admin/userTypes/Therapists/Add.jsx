@@ -221,6 +221,11 @@ function Add_Therapists() {
       certifications: prev.certifications.filter((_, i) => i !== index)
     }));
   };
+  const getMaxDob = () => {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - 18);
+    return today.toISOString().split("T")[0]; // yyyy-mm-dd
+  };
 
   const handleSave = async () => {
     // Basic validation
@@ -482,13 +487,22 @@ function Add_Therapists() {
                         error={errors.emergencyContact}
                         maxLength={10}
                       />
-                      <FormInput
+                      {/* <FormInput
                         label="Date of Birth"
                         icon={Calendar}
                         type="date"
                         value={therapist.dob}
                         onChange={(e) => updateField("dob", e.target.value)}
+                      /> */}
+                      <FormInput
+                        label="Date of Birth"
+                        icon={Calendar}
+                        type="date"
+                        value={therapist.dob}
+                        max={getMaxDob()}   // 👈 IMPORTANT
+                        onChange={(e) => updateField("dob", e.target.value)}
                       />
+
                       <FormSelect
                         label="Gender"
                         icon={User}

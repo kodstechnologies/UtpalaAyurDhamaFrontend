@@ -75,6 +75,11 @@ function Add_Pharmacists() {
             setIsUploading(false);
         }
     };
+    const getMaxDob = () => {
+        const today = new Date();
+        today.setFullYear(today.getFullYear() - 18);
+        return today.toISOString().split("T")[0]; // yyyy-mm-dd
+    };
 
     // Handle Input Change
     const updateField = (field, value) => {
@@ -340,13 +345,22 @@ function Add_Pharmacists() {
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
                                                 maxLength={10}
                                             />
-                                            <FormInput
+                                            {/* <FormInput
                                                 label="Date of Birth"
                                                 icon={Calendar}
                                                 type="date"
                                                 value={pharmacist.dob}
                                                 onChange={(e) => updateField("dob", e.target.value)}
+                                            /> */}
+                                            <FormInput
+                                                label="Date of Birth"
+                                                icon={Calendar}
+                                                type="date"
+                                                value={pharmacist.dob}
+                                                max={getMaxDob()}   // 👈 IMPORTANT
+                                                onChange={(e) => updateField("dob", e.target.value)}
                                             />
+
                                             <FormSelect
                                                 label="Gender"
                                                 icon={User}

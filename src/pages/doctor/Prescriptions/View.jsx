@@ -38,41 +38,43 @@ function Prescriptions_View() {
 
             if (response.data.success) {
                 const prescriptionData = response.data.data || [];
-                
+
                 // Group prescriptions by patient (using patient _id or patientId)
                 const groupedByPatient = {};
-                
+
                 prescriptionData.forEach((prescription) => {
                     const patientId = prescription.patient?._id?.toString() || prescription.patient?.toString();
                     const patientUhid = prescription.patient?.user?.uhid || prescription.patient?.patientId || "N/A";
                     const key = patientId || patientUhid;
-                    
+
                     if (!groupedByPatient[key]) {
                         groupedByPatient[key] = {
                             _id: key, // Use patient ID as the row ID
                             patientName: prescription.patient?.user?.name || "Unknown",
                             patientUhid: patientUhid,
                             patientIdRaw: patientId,
-                            prescriptionDate: prescription.createdAt 
+                            prescriptionDate: prescription.createdAt
                                 ? new Date(prescription.createdAt).toISOString().split("T")[0]
                                 : new Date().toISOString().split("T")[0],
                             prescriptions: [], // Array to store all prescriptions for this patient
                             status: "Active", // Default status
                         };
                     }
-                    
+
                     // Add this prescription to the patient's list
                     groupedByPatient[key].prescriptions.push({
                         _id: prescription._id,
                         medication: prescription.medication || "N/A",
-                        dosage: prescription.dosage || "",
+
                         frequency: prescription.frequency || "",
                         duration: prescription.duration || "",
+                        dosage: prescription.dosage || "",
+                        foodTiming: prescription.foodTiming || "",
                         status: prescription.status || "Pending",
                         createdAt: prescription.createdAt,
                         rawData: prescription,
                     });
-                    
+
                     // Update date to the latest prescription date
                     if (prescription.createdAt) {
                         const presDate = new Date(prescription.createdAt).toISOString().split("T")[0];
@@ -80,7 +82,7 @@ function Prescriptions_View() {
                             groupedByPatient[key].prescriptionDate = presDate;
                         }
                     }
-                    
+
                     // Update status - if any prescription is Active, show Active
                     const presStatus = prescription.status === "Pending" ? "Active" : prescription.status === "Dispensed" ? "Completed" : prescription.status;
                     if (presStatus === "Active" || groupedByPatient[key].status === "Active") {
@@ -89,7 +91,7 @@ function Prescriptions_View() {
                         groupedByPatient[key].status = "Completed";
                     }
                 });
-                
+
                 // Convert grouped object to array
                 const groupedPrescriptions = Object.values(groupedByPatient);
 
@@ -122,10 +124,10 @@ function Prescriptions_View() {
     const filteredPrescriptions = useMemo(() => {
         return prescriptions.filter((prescription) => {
             // Check if any medicine in the prescriptions array matches search
-            const medicinesMatch = prescription.prescriptions?.some(p => 
+            const medicinesMatch = prescription.prescriptions?.some(p =>
                 p.medication?.toLowerCase().includes(searchText.toLowerCase())
             ) || false;
-            
+
             const searchMatch =
                 searchText === "" ||
                 prescription.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -157,16 +159,16 @@ function Prescriptions_View() {
         { field: "patientName", header: "Patient Name" },
         { field: "patientUhid", header: "UHID" },
         { field: "prescriptionDate", header: "Date" },
-        { 
-            field: "medicines", 
+        {
+            field: "medicines",
             header: "Medicines",
             render: (row) => {
                 if (!row.prescriptions || row.prescriptions.length === 0) {
                     return "N/A";
                 }
                 return (
-                    <Box sx={{ 
-                        display: "grid", 
+                    <Box sx={{
+                        display: "grid",
                         gridTemplateColumns: "repeat(4, max-content)",
                         gap: 0.5,
                         maxWidth: "100%",

@@ -80,6 +80,11 @@ function Add_Nurs() {
       setIsUploading(false);
     }
   };
+  const getMaxDob = () => {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - 18);
+    return today.toISOString().split("T")[0]; // yyyy-mm-dd
+  };
 
   // Validation functions
   const validateEmail = (email) => {
@@ -512,13 +517,22 @@ function Add_Nurs() {
                         error={errors.emergencyContact}
                         maxLength={10}
                       />
-                      <FormInput
+                      {/* <FormInput
                         label="Date of Birth"
                         icon={Calendar}
                         type="date"
                         value={nurse.dob}
                         onChange={(e) => updateField("dob", e.target.value)}
+                      /> */}
+                      <FormInput
+                        label="Date of Birth"
+                        icon={Calendar}
+                        type="date"
+                        value={nurse.dob}
+                        max={getMaxDob()}   // 👈 IMPORTANT
+                        onChange={(e) => updateField("dob", e.target.value)}
                       />
+
                       <FormSelect
                         label="Gender"
                         icon={User}
@@ -827,7 +841,7 @@ function Add_Nurs() {
           </div>
         </div>
       </div>
-      
+
       {/* Language Input Modal */}
       <InputDialogModal
         isOpen={languageModal}

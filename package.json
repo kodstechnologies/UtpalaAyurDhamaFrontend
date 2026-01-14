@@ -43,6 +43,7 @@
     "framer-motion": "^12.23.26",
     "fs": "^0.0.1-security",
     "fullcalendar": "^6.1.15",
+    "jspdf": "^4.0.0",
     "lucide-react": "^0.556.0",
     "od-hms": "file:",
     "path": "^0.12.7",

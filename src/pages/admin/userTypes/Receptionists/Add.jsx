@@ -179,6 +179,11 @@ function Add_Receptionists() {
   const handleAddLanguage = () => {
     setLanguageModal(true);
   };
+  const getMaxDob = () => {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - 18);
+    return today.toISOString().split("T")[0]; // yyyy-mm-dd
+  };
 
   const handleLanguageConfirm = (language) => {
     if (language && !receptionist.languages.includes(language)) {
@@ -287,12 +292,12 @@ function Add_Receptionists() {
       const response = await adminUserService.createUser("Receptionist", receptionistData);
 
       if (response.success) {
-      setShowSuccess(true);
+        setShowSuccess(true);
         toast.success("Receptionist created successfully!");
-      setTimeout(() => {
-        setShowSuccess(false);
+        setTimeout(() => {
+          setShowSuccess(false);
           navigate("/admin/receptionists");
-      }, 2000);
+        }, 2000);
       } else {
         toast.error(response.message || "Failed to create receptionist");
         setIsSaving(false);
@@ -482,13 +487,22 @@ function Add_Receptionists() {
                         error={errors.emergencyContact}
                         maxLength={10}
                       />
-                      <FormInput
+                      {/* <FormInput
                         label="Date of Birth"
                         icon={Calendar}
                         type="date"
                         value={receptionist.dob}
                         onChange={(e) => updateField("dob", e.target.value)}
+                      /> */}
+                      <FormInput
+                        label="Date of Birth"
+                        icon={Calendar}
+                        type="date"
+                        value={receptionist.dob}
+                        max={getMaxDob()}   // 👈 IMPORTANT
+                        onChange={(e) => updateField("dob", e.target.value)}
                       />
+
                       <FormSelect
                         label="Gender"
                         icon={User}
@@ -721,7 +735,7 @@ function Add_Receptionists() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                          <User size={32} />
+                            <User size={32} />
                           )}
                           {isUploading && (
                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -810,7 +824,7 @@ function Add_Receptionists() {
           </div>
         </div>
       </div>
-      
+
       {/* Language Input Modal */}
       <InputDialogModal
         isOpen={languageModal}

@@ -56,6 +56,11 @@ function Add_Doctors() {
         certifications: [],
         profilePicture: ""
     });
+    const getMaxDob = () => {
+        const today = new Date();
+        today.setFullYear(today.getFullYear() - 18);
+        return today.toISOString().split("T")[0]; // yyyy-mm-dd
+    };
 
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
@@ -213,6 +218,24 @@ function Add_Doctors() {
     const handleAddCertification = () => {
         setCertificationModal(true);
     };
+    const isAtLeast18 = (dob) => {
+        if (!dob) return false;
+
+        const birthDate = new Date(dob);
+        const today = new Date();
+
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+
+        if (
+            monthDiff < 0 ||
+            (monthDiff === 0 && today.getDate() < birthDate.getDate())
+        ) {
+            age--;
+        }
+
+        return age >= 18;
+    };
 
     const handleCertificationConfirm = (certification) => {
         if (certification && !doctor.certifications.includes(certification)) {
@@ -234,7 +257,6 @@ function Add_Doctors() {
     };
 
     const handleSave = async () => {
-        // Basic validation
         if (!doctor.name || !doctor.email || !doctor.specialization || !doctor.licenseNumber) {
             toast.error("Please fill in the required fields (Name, Email, Specialization, License Number).");
             return;
@@ -287,21 +309,19 @@ function Add_Doctors() {
 
         try {
             await adminUserService.createUser("Doctor", doctor);
-
-            console.log("Created Doctor Data:", doctor);
-            setIsSaving(false);
             setShowSuccess(true);
 
             setTimeout(() => {
                 setShowSuccess(false);
-                navigate("/admin/doctors"); // Redirect to doctors list
+                navigate("/admin/doctors");
             }, 2000);
         } catch (error) {
-            console.error("Error creating doctor:", error);
+            toast.error("Failed to create doctor");
+        } finally {
             setIsSaving(false);
-            alert(`Failed to create doctor: ${error.message || "Unknown error"}`);
         }
     };
+
 
     const sections = [
         { id: "personal", label: "Personal Info", icon: User },
@@ -509,13 +529,27 @@ function Add_Doctors() {
                                                 error={errors.emergencyContact}
                                                 maxLength={10}
                                             />
+                                            {/* <FormInput
+                                                label="Date of Birth"
+                                                icon={Calendar}
+                                                type="date"
+                                                value={doctor.dob}
+                                                max={getMaxDob()}   // 👈 prevents selecting < 18 years
+                                                onChange={(e) => updateField("dob", e.target.value)}
+                                            /> */}
+
                                             <FormInput
                                                 label="Date of Birth"
                                                 icon={Calendar}
                                                 type="date"
                                                 value={doctor.dob}
+                                                max={getMaxDob()}   // blocks selecting <18 in calendar
                                                 onChange={(e) => updateField("dob", e.target.value)}
                                             />
+
+
+
+
                                             <FormSelect
                                                 label="Gender"
                                                 icon={User}

@@ -40,6 +40,8 @@ import {
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import axios from "axios";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 import Breadcrumb from "../../../../components/breadcrumb/Breadcrumb";
 import HeadingCard from "../../../../components/card/HeadingCard";
@@ -82,7 +84,7 @@ function OutpatientPrescriptions() {
                         const firstPresc = prescList[0];
                         setPatient(firstPresc.patient);
                         setExamination(firstPresc.examination);
-                        
+
                         // Initialize selected medicines state for all prescriptions (including dispensed ones for display)
                         const initialSelection = {};
                         prescList.forEach((presc) => {
@@ -100,15 +102,15 @@ function OutpatientPrescriptions() {
 
                 // Store available medicines
                 if (medicinesResponse && medicinesResponse.success && medicinesResponse.data) {
-                    const medicines = Array.isArray(medicinesResponse.data.medicines) 
-                        ? medicinesResponse.data.medicines 
-                        : Array.isArray(medicinesResponse.data.data) 
-                        ? medicinesResponse.data.data 
-                        : [];
+                    const medicines = Array.isArray(medicinesResponse.data.medicines)
+                        ? medicinesResponse.data.medicines
+                        : Array.isArray(medicinesResponse.data.data)
+                            ? medicinesResponse.data.data
+                            : [];
                     // Create a map of medicine names (case-insensitive)
                     const medicineNames = medicines.map((med) => med.medicineName?.toLowerCase().trim()).filter(Boolean);
                     setAvailableMedicines(medicineNames);
-                    
+
                     // Create a map of medicine name to medicine object for quick lookup
                     // Use normalized names to handle case and space variations
                     const medicinesMapObj = {};
@@ -164,30 +166,30 @@ function OutpatientPrescriptions() {
     const isMedicineAvailable = (medicineName) => {
         if (!medicineName) return false;
         const normalizedPrescribed = normalizeMedicineName(medicineName);
-        
+
         // Check exact match first
         if (availableMedicines.includes(normalizedPrescribed)) {
             return true;
         }
-        
+
         // Check if any available medicine matches (handles partial matches and variations)
         return availableMedicines.some((availableName) => {
             // Exact match after normalization
             if (normalizedPrescribed === availableName) return true;
-            
+
             // Check if prescribed name contains available name or vice versa (for partial matches)
             // e.g., "Paracetamol 500mg" matches "Paracetamol"
             const prescribedWords = normalizedPrescribed.split(/\s+/);
             const availableWords = availableName.split(/\s+/);
-            
+
             // If one is a subset of the other, consider it a match
-            const allPrescribedWordsInAvailable = prescribedWords.every(word => 
+            const allPrescribedWordsInAvailable = prescribedWords.every(word =>
                 availableWords.some(aw => aw.includes(word) || word.includes(aw))
             );
-            const allAvailableWordsInPrescribed = availableWords.every(word => 
+            const allAvailableWordsInPrescribed = availableWords.every(word =>
                 prescribedWords.some(pw => pw.includes(word) || word.includes(pw))
             );
-            
+
             return allPrescribedWordsInAvailable || allAvailableWordsInPrescribed;
         });
     };
@@ -196,36 +198,36 @@ function OutpatientPrescriptions() {
     const findMedicineInMap = (medicineName) => {
         if (!medicineName) return null;
         const normalizedPrescribed = normalizeMedicineName(medicineName);
-        
+
         // Try exact match first
         if (medicinesMap[normalizedPrescribed]) {
             return medicinesMap[normalizedPrescribed];
         }
-        
+
         // Try to find by matching keys
         for (const [key, medicine] of Object.entries(medicinesMap)) {
             const normalizedKey = normalizeMedicineName(key);
             if (normalizedPrescribed === normalizedKey) {
                 return medicine;
             }
-            
+
             // Check for partial matches
             const prescribedWords = normalizedPrescribed.split(/\s+/);
             const keyWords = normalizedKey.split(/\s+/);
-            
+
             // If medicine name words match, consider it a match
-            const allPrescribedWordsInKey = prescribedWords.every(word => 
+            const allPrescribedWordsInKey = prescribedWords.every(word =>
                 keyWords.some(kw => kw.includes(word) || word.includes(kw))
             );
-            const allKeyWordsInPrescribed = keyWords.every(word => 
+            const allKeyWordsInPrescribed = keyWords.every(word =>
                 prescribedWords.some(pw => pw.includes(word) || word.includes(pw))
             );
-            
+
             if (allPrescribedWordsInKey || allKeyWordsInPrescribed) {
                 return medicine;
             }
         }
-        
+
         return null;
     };
 
@@ -234,7 +236,7 @@ function OutpatientPrescriptions() {
         if (!medicineName || !dispenseQty) return 0;
         const medicine = findMedicineInMap(medicineName);
         if (!medicine || !medicine.sellPrice) return 0;
-        
+
         // Try to parse dispenseQty as number, if it's a string like "10 tablets", extract the number
         let qty = 0;
         if (typeof dispenseQty === 'string') {
@@ -244,8 +246,243 @@ function OutpatientPrescriptions() {
         } else {
             qty = parseFloat(dispenseQty) || 0;
         }
-        
+
         return (medicine.sellPrice * qty).toFixed(2);
+    };
+
+    const handleDownload = async () => {
+        if (!patient || prescriptions.length === 0) {
+            toast.error("No data available to download");
+            return;
+        }
+
+        try {
+            // Create a temporary div for the content
+            const printContent = document.createElement("div");
+            printContent.style.width = "210mm"; // A4 width
+            printContent.style.padding = "20mm";
+            printContent.style.fontFamily = "Arial, sans-serif";
+            printContent.style.fontSize = "12px";
+            printContent.style.color = "#000";
+            printContent.style.backgroundColor = "#fff";
+            printContent.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h2 style="text-align: center; margin-bottom: 10px;">Outpatient Prescription</h2>
+                    <p style="text-align: center; margin: 0;"><strong>Patient: ${patient?.user?.name || "Unknown"}</strong></p>
+                    <p style="text-align: center; margin: 0;">UHID: ${patient?.user?.uhid || "N/A"} | Age: ${calculateAge(patient?.dateOfBirth) || 0} | Gender: ${patient?.gender || "N/A"}</p>
+                    <p style="text-align: center; margin: 5px 0 0 0;">Doctor: ${prescriptions[0]?.doctor?.user?.name || "Unknown"} | Date: ${formatDate(examination?.createdAt || prescriptions[0]?.createdAt)}</p>
+                    <p style="text-align: center; margin: 10px 0 0 0;"><strong>Diagnosis:</strong> ${examination?.complaints || "N/A"}</p>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 10px;">Patient Information</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr><td style="border: 1px solid #000; padding: 8px;"><strong>Full Name</strong></td><td style="border: 1px solid #000; padding: 8px;">${patient?.user?.name || "N/A"}</td></tr>
+                        <tr><td style="border: 1px solid #000; padding: 8px;"><strong>UHID</strong></td><td style="border: 1px solid #000; padding: 8px;">${patient?.user?.uhid || "N/A"}</td></tr>
+                        <tr><td style="border: 1px solid #000; padding: 8px;"><strong>Consulting Doctor</strong></td><td style="border: 1px solid #000; padding: 8px;">${prescriptions[0]?.doctor?.user?.name || "Unknown"}</td></tr>
+                        <tr><td style="border: 1px solid #000; padding: 8px;"><strong>Prescription Date</strong></td><td style="border: 1px solid #000; padding: 8px;">${formatDate(examination?.createdAt || prescriptions[0]?.createdAt)}</td></tr>
+                        <tr><td style="border: 1px solid #000; padding: 8px;"><strong>Diagnosis</strong></td><td style="border: 1px solid #000; padding: 8px;">${examination?.complaints || "N/A"}</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 10px;">Prescribed Medicines</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background-color: #f0f0f0;">
+                                <th style="border: 1px solid #000; padding: 8px;">Medicine</th>
+                                <th style="border: 1px solid #000; padding: 8px;">Dosage</th>
+                                <th style="border: 1px solid #000; padding: 8px;">Frequency</th>
+                                <th style="border: 1px solid #000; padding: 8px;">Duration</th>
+                                
+                                <th style="border: 1px solid #000; padding: 8px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${prescriptions.map((presc) => `
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 8px;">${presc.medication || "N/A"}</td>
+                                    <td style="border: 1px solid #000; padding: 8px;">${presc.dosage || "N/A"}</td>
+                                    <td style="border: 1px solid #000; padding: 8px;">${presc.frequency || "N/A"}</td>
+                                    <td style="border: 1px solid #000; padding: 8px;">${presc.duration || "N/A"}</td>
+                                   
+                                    <td style="border: 1px solid #000; padding: 8px;">${presc.status || "Pending"}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 20px; text-align: center; font-size: 10px; color: #666;">
+                </div>
+            `;
+
+            // Append to body temporarily
+            document.body.appendChild(printContent);
+
+            // Capture with html2canvas
+            const canvas = await html2canvas(printContent, {
+                scale: 2,
+                useCORS: true,
+                width: printContent.scrollWidth,
+                height: printContent.scrollHeight,
+                backgroundColor: "#ffffff",
+            });
+
+            // Create PDF
+            const pdf = new jsPDF("p", "mm", "a4");
+            const imgData = canvas.toDataURL("image/png");
+            const imgWidth = 210;
+            const pageHeight = 295;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            let heightLeft = imgHeight;
+
+            let position = 0;
+
+            // Add first page
+            pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            // If content overflows, add more pages
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            // Download PDF
+            pdf.save(`Prescription_${patient?.user?.uhid || "OUTPATIENT"}.pdf`);
+
+            // Clean up
+            document.body.removeChild(printContent);
+
+            toast.success("Prescription downloaded successfully!");
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            toast.error("Failed to download prescription");
+        }
+    };
+
+    const handlePrint = () => {
+        if (!patient || prescriptions.length === 0) {
+            toast.error("No data available to print");
+            return;
+        }
+
+        // Open a new window for printing
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) {
+            toast.error("Please allow popups to print the prescription");
+            return;
+        }
+
+        const printContent = `
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Prescription Print</title>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            font-size: 12px; 
+                            color: #000; 
+                            background-color: #fff; 
+                            margin: 0; 
+                            padding: 20mm; 
+                            width: 210mm; 
+                        }
+                        h2 { text-align: center; margin-bottom: 10px; }
+                        p { text-align: center; margin: 0; }
+                        table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-bottom: 20px; 
+                        }
+                        th, td { 
+                            border: 1px solid #000; 
+                            padding: 8px; 
+                            text-align: left; 
+                        }
+                        th { 
+                            background-color: #f0f0f0; 
+                        }
+                        .diagnosis { 
+                            margin: 10px 0 0 0; 
+                        }
+                        .footer { 
+                            margin-top: 20px; 
+                            text-align: center; 
+                            font-size: 10px; 
+                            color: #666; 
+                        }
+                        @media print {
+                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div style="margin-bottom: 20px;">
+                        <h2>Outpatient Prescription</h2>
+                        <p><strong>Patient: ${patient?.user?.name || "Unknown"}</strong></p>
+                        <p>UHID: ${patient?.user?.uhid || "N/A"} | Age: ${calculateAge(patient?.dateOfBirth) || 0} | Gender: ${patient?.gender || "N/A"}</p>
+                        <p style="margin: 5px 0 0 0;">Doctor: ${prescriptions[0]?.doctor?.user?.name || "Unknown"} | Date: ${formatDate(examination?.createdAt || prescriptions[0]?.createdAt)}</p>
+                        <p class="diagnosis"><strong>Diagnosis:</strong> ${examination?.complaints || "N/A"}</p>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <h3>Patient Information</h3>
+                        <table>
+                            <tr><td><strong>Full Name</strong></td><td>${patient?.user?.name || "N/A"}</td></tr>
+                            <tr><td><strong>UHID</strong></td><td>${patient?.user?.uhid || "N/A"}</td></tr>
+                            <tr><td><strong>Consulting Doctor</strong></td><td>${prescriptions[0]?.doctor?.user?.name || "Unknown"}</td></tr>
+                            <tr><td><strong>Prescription Date</strong></td><td>${formatDate(examination?.createdAt || prescriptions[0]?.createdAt)}</td></tr>
+                            <tr><td><strong>Diagnosis</strong></td><td>${examination?.complaints || "N/A"}</td></tr>
+                        </table>
+                    </div>
+                    <div>
+                        <h3>Prescribed Medicines</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Dosage</th>
+                                    <th>Frequency</th>
+                                    <th>Duration</th>
+                                    
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${prescriptions.map((presc) => `
+                                    <tr>
+                                        <td>${presc.medication || "N/A"}</td>
+                                        <td>${presc.dosage || "N/A"}</td>
+                                        <td>${presc.frequency || "N/A"}</td>
+                                        <td>${presc.duration || "N/A"}</td>
+                                      
+                                        <td>${presc.status || "Pending"}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="footer">
+                       
+                    </div>
+                </body>
+            </html>
+        `;
+
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+
+        // Trigger print dialog
+        printWindow.focus();
+        printWindow.print();
+
+        // Close the window after printing (optional, user can cancel)
+        printWindow.onafterprint = () => {
+            printWindow.close();
+        };
+
+        toast.success("Print preview opened. Please print the document.");
     };
 
     if (isLoading) {
@@ -343,7 +580,7 @@ function OutpatientPrescriptions() {
             const availablePrescriptions = prescriptions.filter(
                 (p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication)
             );
-            
+
             if (availablePrescriptions.length === 0) {
                 toast.error("No available medicines to dispense");
                 return;
@@ -359,7 +596,7 @@ function OutpatientPrescriptions() {
             });
             setSelectedMedicines(newSelection);
             selectedPrescriptions = availablePrescriptions;
-            
+
             // Continue with dispense after auto-selection
             console.log("Auto-selected all available medicines, proceeding with dispense...");
         }
@@ -377,7 +614,7 @@ function OutpatientPrescriptions() {
         // Ensure all selected prescriptions have quantities (use prescribed quantity if not entered)
         const newSelection = { ...selectedMedicines };
         let hasEmptyQuantity = false;
-        
+
         selectedPrescriptions.forEach((p) => {
             const selected = newSelection[p._id];
             if (!selected.quantity || selected.quantity.trim() === "") {
@@ -393,12 +630,12 @@ function OutpatientPrescriptions() {
                 }
             }
         });
-        
+
         if (hasEmptyQuantity) {
             toast.error("Please enter quantities for all selected medicines");
             return;
         }
-        
+
         // Update selection state if we modified any quantities
         setSelectedMedicines(newSelection);
 
@@ -411,7 +648,7 @@ function OutpatientPrescriptions() {
         setIsDispensing(true);
         try {
             console.log("Starting dispense process...");
-            
+
             // Update selected prescriptions with their quantities
             const updatePromises = selectedPrescriptions.map((presc) => {
                 const selected = selectedMedicines[presc._id];
@@ -437,42 +674,42 @@ function OutpatientPrescriptions() {
             });
 
             await Promise.all(updatePromises);
-            
+
             // Update medicine quantities - deduct dispensed quantities from stock
             const medicineUpdatePromises = [];
             for (const presc of selectedPrescriptions) {
                 const selected = selectedMedicines[presc._id];
                 const dispensedQuantityStr = selected.quantity;
-                
+
                 // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
                 const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
                 const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
-                
+
                 if (dispensedQuantity <= 0) {
                     console.warn(`Invalid dispensed quantity for ${presc.medication}: ${dispensedQuantityStr}`);
                     continue;
                 }
-                
+
                 // Find the medicine using improved matching
                 const medicine = findMedicineInMap(presc.medication);
-                
+
                 if (!medicine) {
                     console.warn(`Medicine not found in collection: ${presc.medication}`);
                     continue;
                 }
-                
+
                 // Calculate new quantity
                 const currentQuantity = medicine.quantity || 0;
-                
+
                 // Warn if insufficient stock
                 if (currentQuantity < dispensedQuantity) {
                     toast.warning(
                         `Insufficient stock for ${presc.medication}. Available: ${currentQuantity}, Dispensing: ${dispensedQuantity}. Stock will be set to 0.`
                     );
                 }
-                
+
                 const newQuantity = Math.max(0, currentQuantity - dispensedQuantity); // Ensure non-negative
-                
+
                 // Update medicine quantity
                 medicineUpdatePromises.push(
                     medicineService.updateMedicine(medicine._id, {
@@ -483,18 +720,18 @@ function OutpatientPrescriptions() {
                     })
                 );
             }
-            
+
             // Wait for all medicine updates to complete
             await Promise.all(medicineUpdatePromises);
-            
+
             toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully! Stock updated.`);
-            
+
             // Refresh the data
             const response = await prescriptionService.getPrescriptionsByExamination(id);
             if (response && response.success && response.data) {
                 const prescList = Array.isArray(response.data) ? response.data : [];
                 setPrescriptions(prescList);
-                
+
                 // Reset selections
                 const newSelection = {};
                 prescList.forEach((presc) => {
@@ -515,22 +752,13 @@ function OutpatientPrescriptions() {
                 status: error?.response?.status,
             });
             toast.error(
-                error?.response?.data?.message || 
-                error?.message || 
+                error?.response?.data?.message ||
+                error?.message ||
                 "Failed to dispense medicines. Please try again."
             );
         } finally {
             setIsDispensing(false);
         }
-    };
-
-    const handlePrint = () => {
-        window.print();
-    };
-
-    const handleDownload = () => {
-        // TODO: Implement download logic
-        toast.info("Download functionality will be implemented");
     };
 
     return (
@@ -636,10 +864,10 @@ function OutpatientPrescriptions() {
                                 </Grid>
                                 <Grid item xs={12}>
                                     <Box
-                                    sx={{
+                                        sx={{
                                             p: 1.5,
                                             borderRadius: 1,
-                                        backgroundColor: alpha(theme.palette.warning.main, 0.05),
+                                            backgroundColor: alpha(theme.palette.warning.main, 0.05),
                                             borderLeft: `3px solid ${theme.palette.warning.main}`,
                                         }}
                                     >
@@ -657,8 +885,8 @@ function OutpatientPrescriptions() {
                                             }}
                                         >
                                             {diagnosis || "N/A"}
-                                    </Typography>
-                                </Box>
+                                        </Typography>
+                                    </Box>
                                 </Grid>
                             </Grid>
                         </CardContent>
@@ -687,8 +915,8 @@ function OutpatientPrescriptions() {
                                     stickyHeader
                                     sx={{
                                         "& .MuiTableCell-head": {
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.03),
-                                    fontWeight: 600,
+                                            backgroundColor: alpha(theme.palette.primary.main, 0.03),
+                                            fontWeight: 600,
                                             fontSize: "0.875rem",
                                             whiteSpace: "nowrap",
                                         },
@@ -699,12 +927,12 @@ function OutpatientPrescriptions() {
                                             maxWidth: "200px",
                                         },
                                         "& .MuiTableRow-root:hover": {
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                                            backgroundColor: alpha(theme.palette.primary.main, 0.02),
                                         },
                                     }}
                                 >
-                                <TableHead>
-                                    <TableRow>
+                                    <TableHead>
+                                        <TableRow>
                                             <TableCell sx={{ minWidth: 50 }} padding="checkbox">
                                                 <Checkbox
                                                     indeterminate={
@@ -746,8 +974,8 @@ function OutpatientPrescriptions() {
                                             <TableCell sx={{ minWidth: 150 }}>Notes</TableCell>
                                             <TableCell sx={{ minWidth: 130 }} align="center">Availability</TableCell>
                                             <TableCell sx={{ minWidth: 100 }} align="center">Status</TableCell>
-                                    </TableRow>
-                                </TableHead>
+                                        </TableRow>
+                                    </TableHead>
                                     <TableBody>
                                         {prescriptions.map((presc, idx) => {
                                             const isDispensed = presc.status === "Dispensed";
@@ -756,7 +984,7 @@ function OutpatientPrescriptions() {
                                             const prescribedQuantity = presc.quantity || 1;
 
                                             return (
-                                        <TableRow
+                                                <TableRow
                                                     key={presc._id || idx}
                                                     sx={{
                                                         "&:last-child td": { borderBottom: 0 },
@@ -771,7 +999,7 @@ function OutpatientPrescriptions() {
                                                             title={!isMedicineAvailable(presc.medication) ? "This medicine is not available in the collection" : ""}
                                                         />
                                                     </TableCell>
-                                            <TableCell>
+                                                    <TableCell>
                                                         <Tooltip title={presc.medication || "N/A"} arrow>
                                                             <Typography
                                                                 fontWeight={500}
@@ -787,17 +1015,17 @@ function OutpatientPrescriptions() {
                                                         {presc.medicineType && (
                                                             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                                                                 {presc.medicineType}
-                                                </Typography>
+                                                            </Typography>
                                                         )}
-                                            </TableCell>
-                                            <TableCell>
+                                                    </TableCell>
+                                                    <TableCell>
                                                         <Tooltip title={presc.dosage || "N/A"} arrow>
                                                             <Box>
-                                                <Chip
+                                                                <Chip
                                                                     label={presc.dosage || "N/A"}
-                                                    size="small"
-                                                    variant="outlined"
-                                                    color="primary"
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    color="primary"
                                                                     sx={{
                                                                         maxWidth: "100px",
                                                                         "& .MuiChip-label": {
@@ -860,8 +1088,8 @@ function OutpatientPrescriptions() {
                                                                 },
                                                             }}
                                                             placeholder="Enter qty"
-                                                />
-                                            </TableCell>
+                                                        />
+                                                    </TableCell>
                                                     <TableCell align="center">
                                                         <Typography
                                                             fontWeight={600}
@@ -869,9 +1097,9 @@ function OutpatientPrescriptions() {
                                                             sx={{ fontSize: "0.875rem" }}
                                                         >
                                                             ₹{calculateAmount(presc.medication, dispenseQuantity)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
                                                         <Tooltip title={presc.notes || "-"} arrow>
                                                             <Typography
                                                                 variant="caption"
@@ -884,19 +1112,19 @@ function OutpatientPrescriptions() {
                                                                 }}
                                                             >
                                                                 {presc.notes || "-"}
-                                                </Typography>
+                                                            </Typography>
                                                         </Tooltip>
-                                            </TableCell>
-                                            <TableCell align="center">
+                                                    </TableCell>
+                                                    <TableCell align="center">
                                                         {isMedicineAvailable(presc.medication) ? (
-                                                <Chip
+                                                            <Chip
                                                                 label="Available"
-                                                    size="small"
-                                                    color="success"
-                                                    variant="filled"
-                                                    sx={{
-                                                        backgroundColor: alpha(theme.palette.success.main, 0.1),
-                                                        color: theme.palette.success.dark,
+                                                                size="small"
+                                                                color="success"
+                                                                variant="filled"
+                                                                sx={{
+                                                                    backgroundColor: alpha(theme.palette.success.main, 0.1),
+                                                                    color: theme.palette.success.dark,
                                                                     fontWeight: 500,
                                                                 }}
                                                             />
@@ -927,23 +1155,23 @@ function OutpatientPrescriptions() {
                                                                 ),
                                                                 color: presc.status === "Dispensed" ? theme.palette.success.dark : theme.palette.warning.dark,
                                                                 fontWeight: 500,
-                                                    }}
-                                                />
-                                            </TableCell>
-                                        </TableRow>
+                                                            }}
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
                                             );
                                         })}
-                                </TableBody>
-                            </Table>
+                                    </TableBody>
+                                </Table>
                             </TableContainer>
 
                             {status !== "Dispensed" && (
                                 <Box
                                     sx={{
-                                    mt: 3,
-                                    p: 2,
-                                    borderRadius: 2,
-                                    backgroundColor: alpha(theme.palette.warning.main, 0.05),
+                                        mt: 3,
+                                        p: 2,
+                                        borderRadius: 2,
+                                        backgroundColor: alpha(theme.palette.warning.main, 0.05),
                                         border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
                                     }}
                                 >
@@ -978,10 +1206,10 @@ function OutpatientPrescriptions() {
                             {status === "Dispensed" && (
                                 <Box
                                     sx={{
-                                    mt: 3,
-                                    p: 2,
-                                    borderRadius: 2,
-                                    backgroundColor: alpha(theme.palette.success.main, 0.05),
+                                        mt: 3,
+                                        p: 2,
+                                        borderRadius: 2,
+                                        backgroundColor: alpha(theme.palette.success.main, 0.05),
                                         border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
                                     }}
                                 >
@@ -1008,9 +1236,9 @@ const DetailCard = ({ label, value, icon, sx = {}, fullWidth = false }) => (
     <Box
         sx={{
             p: 1,
-        borderRadius: 1,
+            borderRadius: 1,
             backgroundColor: "background.default",
-        border: `1px solid ${alpha(useTheme().palette.divider, 0.1)}`,
+            border: `1px solid ${alpha(useTheme().palette.divider, 0.1)}`,
             width: fullWidth ? "100%" : "auto",
             height: "100%",
             ...sx,
@@ -1036,4 +1264,3 @@ const DetailCard = ({ label, value, icon, sx = {}, fullWidth = false }) => (
 );
 
 export default OutpatientPrescriptions;
-

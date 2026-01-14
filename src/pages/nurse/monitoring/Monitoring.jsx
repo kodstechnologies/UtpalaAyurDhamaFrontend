@@ -53,15 +53,15 @@ function Monitoring() {
 
             // Process inpatients
             if (inpatientsResponse.data.success) {
-                const inpatientsData = Array.isArray(inpatientsResponse.data.data) 
-                    ? inpatientsResponse.data.data 
+                const inpatientsData = Array.isArray(inpatientsResponse.data.data)
+                    ? inpatientsResponse.data.data
                     : (inpatientsResponse.data.data?.data || []);
 
                 const transformedInpatients = inpatientsData.map((inpatient) => {
                     const wardCategory = inpatient.wardCategory || "N/A";
                     const roomNumber = inpatient.roomNumber || "";
                     const bedNumber = inpatient.bedNumber || "N/A";
-                    const wardBed = roomNumber 
+                    const wardBed = roomNumber
                         ? `${wardCategory} / Room ${roomNumber} / Bed ${bedNumber}`
                         : `${wardCategory} / Bed ${bedNumber}`;
 
@@ -101,7 +101,7 @@ function Monitoring() {
                 });
                 allPatients.push(...transformedOutpatients);
             }
-            
+
             console.log("All patients (inpatients + outpatients):", allPatients);
             setPatients(allPatients);
         } catch (error) {
@@ -214,16 +214,16 @@ function Monitoring() {
                     <ExportDataButton
                         rows={filteredPatients}
                         columns={columns}
-                        fileName="admitted-patients.xlsx"
+                        fileName="Patient-Monitoring.xlsx"
                     />
                 </div>
             </CardBorder>
             {filteredPatients.length === 0 && !isLoading ? (
-                <Box sx={{ 
-                    display: "flex", 
-                    flexDirection: "column", 
-                    justifyContent: "center", 
-                    alignItems: "center", 
+                <Box sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
                     minHeight: "300px",
                     p: 4
                 }}>

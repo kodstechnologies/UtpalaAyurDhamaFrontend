@@ -277,6 +277,11 @@ function Edit_Doctors() {
     const handleAddCertification = () => {
         setCertificationModal(true);
     };
+    const getMaxDob = () => {
+        const today = new Date();
+        today.setFullYear(today.getFullYear() - 18);
+        return today.toISOString().split("T")[0]; // yyyy-mm-dd
+    };
 
     const handleCertificationConfirm = (certification) => {
         if (certification && !doctor.certifications.includes(certification)) {
@@ -563,13 +568,22 @@ function Edit_Doctors() {
                                                 error={errors.emergencyContact}
                                                 maxLength={10}
                                             />
-                                            <FormInput
+                                            {/* <FormInput
                                                 label="Date of Birth"
                                                 icon={Calendar}
                                                 type="date"
                                                 value={doctor.dob}
                                                 onChange={(e) => updateField("dob", e.target.value)}
+                                            /> */}
+                                            <FormInput
+                                                label="Date of Birth"
+                                                icon={Calendar}
+                                                type="date"
+                                                value={doctor.dob}
+                                                max={getMaxDob()}   // 👈 IMPORTANT
+                                                onChange={(e) => updateField("dob", e.target.value)}
                                             />
+
                                             <FormSelect
                                                 label="Gender"
                                                 icon={User}
