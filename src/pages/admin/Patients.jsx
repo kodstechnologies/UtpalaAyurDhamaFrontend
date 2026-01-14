@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Eye, Trash2 } from "lucide-react";
@@ -138,17 +138,17 @@ function Patients() {
         }
     ];
 
-    // Filter rows based on search text
-    const filteredRows = rows.filter((row) => {
-        if (!searchText) return true;
+    // Filter rows based on search text (client-side filtering)
+    const filteredRows = useMemo(() => {
+        if (!searchText) return rows;
         const searchLower = searchText.toLowerCase();
-        return (
+        return rows.filter((row) => 
             row.name?.toLowerCase().includes(searchLower) ||
             row.email?.toLowerCase().includes(searchLower) ||
             row.mobile?.toLowerCase().includes(searchLower) ||
             row.patientId?.toLowerCase().includes(searchLower)
         );
-    });
+    }, [rows, searchText]);
 
     return (
         <div className="space-y-6 p-6">

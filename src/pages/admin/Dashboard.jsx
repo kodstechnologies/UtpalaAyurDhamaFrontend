@@ -17,6 +17,7 @@ import EventIcon from "@mui/icons-material/Event";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import LocalPharmacyIcon from "@mui/icons-material/LocalPharmacy";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
 import WarningIcon from "@mui/icons-material/Warning";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import AssignmentIcon from "@mui/icons-material/Assignment";
@@ -30,6 +31,7 @@ function Admin_Dashboard() {
     const [isLoading, setIsLoading] = useState(true);
     const [dashboardData, setDashboardData] = useState(null);
     const [additionalStats, setAdditionalStats] = useState(null);
+    const [monthlyRevenue, setMonthlyRevenue] = useState(null);
 
     useEffect(() => {
         fetchDashboardData();
@@ -38,15 +40,19 @@ function Admin_Dashboard() {
     const fetchDashboardData = async () => {
         setIsLoading(true);
         try {
-            const [overview, stats] = await Promise.all([
+            const [overview, stats, revenue] = await Promise.all([
                 dashboardService.getDashboardOverview(),
                 dashboardService.getAdditionalStats(),
+                dashboardService.getMonthlyRevenue(),
             ]);
 
             if (overview.success) {
                 setDashboardData(overview.data);
             }
             setAdditionalStats(stats);
+            if (revenue.success) {
+                setMonthlyRevenue(revenue.data);
+            }
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
             toast.error("Failed to load dashboard data");
@@ -143,19 +149,12 @@ function Admin_Dashboard() {
         },
     };
 
-    // Monthly revenue chart (simulated - you can enhance this with real monthly data)
+    // Monthly revenue chart with real data
     const revenueChartData = {
         series: [
             {
                 name: "Revenue",
-                data: [
-                    stats.invoices?.totalRevenue * 0.8 || 0,
-                    stats.invoices?.totalRevenue * 0.9 || 0,
-                    stats.invoices?.totalRevenue * 1.0 || 0,
-                    stats.invoices?.totalRevenue * 1.1 || 0,
-                    stats.invoices?.totalRevenue * 1.2 || 0,
-                    stats.invoices?.totalRevenue * 1.15 || 0,
-                ],
+                data: monthlyRevenue?.revenues || [0, 0, 0, 0, 0, 0],
             },
         ],
         options: {
@@ -174,7 +173,7 @@ function Admin_Dashboard() {
                 width: 2,
             },
             xaxis: {
-                categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+                categories: monthlyRevenue?.months || ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
             },
             fill: {
                 type: "gradient",
@@ -313,7 +312,7 @@ function Admin_Dashboard() {
         {
             title: "Total Revenue",
             count: `₹${(stats.invoices?.totalRevenue || 0).toLocaleString("en-IN")}`,
-            icon: AttachMoneyIcon,
+            icon: CurrencyRupeeIcon,
             iconColor: "#43a047",
             subtitle: `Invoices: ${stats.invoices?.total || 0}`,
         },
@@ -564,40 +563,6 @@ function Admin_Dashboard() {
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
                                         Pending Invoices
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 2,
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                            background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.1)} 0%, ${alpha(theme.palette.info.main, 0.05)} 100%)`,
-                        }}
-                    >
-                        <CardContent>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <Box
-                                    sx={{
-                                        p: 2,
-                                        borderRadius: 2,
-                                        backgroundColor: alpha(theme.palette.info.main, 0.2),
-                                        color: theme.palette.info.main,
-                                    }}
-                                >
-                                    <LocalPharmacyIcon fontSize="large" />
-                                </Box>
-                                <Box>
-                                    <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.info.main }}>
-                                        {medicineStock.total || 0}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Total Medicine Stock
                                     </Typography>
                                 </Box>
                             </Box>

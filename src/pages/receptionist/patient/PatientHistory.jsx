@@ -20,6 +20,17 @@ import {
     CardContent,
     Grid,
     Stack,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    MenuItem,
+    IconButton,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemSecondaryAction,
 } from "@mui/material";
 import {
     ExpandMore,
@@ -36,11 +47,17 @@ import {
     Email,
     Home,
     ArrowBack,
+    CloudUpload,
+    PictureAsPdf,
+    Visibility,
+    Delete,
+    Close,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCard from "../../../components/card/HeadingCard";
 import patientService from "../../../services/patientService";
+import patientDocumentService from "../../../services/patientDocumentService";
 import { Button } from "@mui/material";
 
 function PatientHistory() {
@@ -48,6 +65,32 @@ function PatientHistory() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [historyData, setHistoryData] = useState(null);
+    const [documents, setDocuments] = useState([]);
+    const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+    const [viewDialogOpen, setViewDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [selectedDocumentUrl, setSelectedDocumentUrl] = useState(null);
+    const [documentToDelete, setDocumentToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [uploadForm, setUploadForm] = useState({
+        file: null,
+        description: '',
+        category: 'other',
+    });
+
+    // Fetch patient documents
+    const fetchDocuments = async () => {
+        if (!patientId) return;
+        try {
+            const response = await patientDocumentService.getPatientDocuments(patientId);
+            if (response && response.success) {
+                setDocuments(response.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching documents:", error);
+        }
+    };
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -76,6 +119,7 @@ function PatientHistory() {
         };
 
         fetchHistory();
+        fetchDocuments();
     }, [patientId, navigate]);
 
     const formatDate = (dateString) => {
@@ -131,6 +175,107 @@ function PatientHistory() {
         return "default";
     };
 
+    // Handle file selection
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            if (file.type !== 'application/pdf') {
+                toast.error('Only PDF files are allowed');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error('File size must be less than 10MB');
+                return;
+            }
+            setUploadForm({ ...uploadForm, file });
+        }
+    };
+
+    // Handle upload
+    const handleUpload = async () => {
+        if (!uploadForm.file) {
+            toast.error('Please select a PDF file');
+            return;
+        }
+
+        try {
+            setUploading(true);
+            const response = await patientDocumentService.uploadDocument(
+                patientId,
+                uploadForm.file,
+                uploadForm.description,
+                uploadForm.category
+            );
+
+            if (response && response.success) {
+                toast.success('Document uploaded successfully');
+                setUploadDialogOpen(false);
+                setUploadForm({ file: null, description: '', category: 'other' });
+                fetchDocuments();
+            } else {
+                toast.error(response?.message || 'Failed to upload document');
+            }
+        } catch (error) {
+            console.error('Error uploading document:', error);
+            toast.error(error?.response?.data?.message || 'Failed to upload document');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // Handle view document
+    const handleViewDocument = async (documentId) => {
+        try {
+            const response = await patientDocumentService.getDocumentViewUrl(documentId);
+            if (response && response.success) {
+                setSelectedDocumentUrl(response.data.url);
+                setViewDialogOpen(true);
+            } else {
+                toast.error('Failed to load document');
+            }
+        } catch (error) {
+            console.error('Error viewing document:', error);
+            toast.error('Failed to load document');
+        }
+    };
+
+    // Handle delete document - open confirmation dialog
+    const handleDeleteDocument = (documentId) => {
+        setDocumentToDelete(documentId);
+        setDeleteDialogOpen(true);
+    };
+
+    // Confirm delete document
+    const confirmDeleteDocument = async () => {
+        if (!documentToDelete) return;
+
+        try {
+            setDeleting(true);
+            const response = await patientDocumentService.deleteDocument(documentToDelete);
+            if (response && response.success) {
+                toast.success('Document deleted successfully');
+                fetchDocuments();
+                setDeleteDialogOpen(false);
+                setDocumentToDelete(null);
+            } else {
+                toast.error(response?.message || 'Failed to delete document');
+            }
+        } catch (error) {
+            console.error('Error deleting document:', error);
+            toast.error(error?.response?.data?.message || 'Failed to delete document');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    };
+
     if (loading) {
         return (
             <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
@@ -175,6 +320,21 @@ function PatientHistory() {
             <HeadingCard
                 title="Complete Patient History"
                 subtitle={`Comprehensive medical history for ${patient.name}`}
+                action={
+                    <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<CloudUpload />}
+                        onClick={() => setUploadDialogOpen(true)}
+                        sx={{ 
+                            fontSize: '0.875rem',
+                            py: 0.75,
+                            px: 1.5,
+                        }}
+                    >
+                        Upload PDF
+                    </Button>
+                }
             />
 
             {/* Patient Info Card */}
@@ -260,6 +420,69 @@ function PatientHistory() {
                             </Stack>
                         </Grid>
                     </Grid>
+                </CardContent>
+            </Card>
+
+            {/* Patient Documents Section */}
+            <Card sx={{ mb: 3, boxShadow: 3 }}>
+                <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6" fontWeight={700}>
+                            Patient Documents ({documents.length})
+                        </Typography>
+                    </Box>
+                    {documents.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                            No documents uploaded yet.
+                        </Typography>
+                    ) : (
+                        <List>
+                            {documents.map((doc) => (
+                                <ListItem
+                                    key={doc._id}
+                                    sx={{
+                                        border: '1px solid #e0e0e0',
+                                        borderRadius: 1,
+                                        mb: 1,
+                                        '&:hover': {
+                                            bgcolor: '#f5f5f5',
+                                        },
+                                    }}
+                                >
+                                    <PictureAsPdf sx={{ color: 'error.main', mr: 2 }} />
+                                    <ListItemText
+                                        primary={doc.originalFileName}
+                                        secondary={
+                                            <Box>
+                                                <Typography variant="caption" display="block">
+                                                    {doc.description || 'No description'}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {formatFileSize(doc.fileSize)} • {formatDateTime(doc.uploadedAt)} • {doc.category}
+                                                </Typography>
+                                            </Box>
+                                        }
+                                    />
+                                    <ListItemSecondaryAction>
+                                        <IconButton
+                                            edge="end"
+                                            onClick={() => handleViewDocument(doc._id)}
+                                            sx={{ mr: 1 }}
+                                        >
+                                            <Visibility />
+                                        </IconButton>
+                                        <IconButton
+                                            edge="end"
+                                            onClick={() => handleDeleteDocument(doc._id)}
+                                            color="error"
+                                        >
+                                            <Delete />
+                                        </IconButton>
+                                    </ListItemSecondaryAction>
+                                </ListItem>
+                            ))}
+                        </List>
+                    )}
                 </CardContent>
             </Card>
 
@@ -798,6 +1021,183 @@ function PatientHistory() {
                     ))}
                 </Box>
             )}
+
+            {/* Upload PDF Dialog */}
+            <Dialog
+                open={uploadDialogOpen}
+                onClose={() => !uploading && setUploadDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6">Upload PDF Document</Typography>
+                        <IconButton
+                            onClick={() => setUploadDialogOpen(false)}
+                            disabled={uploading}
+                        >
+                            <Close />
+                        </IconButton>
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    <Stack spacing={3} sx={{ mt: 1 }}>
+                        <Box>
+                            <input
+                                accept="application/pdf"
+                                style={{ display: 'none' }}
+                                id="pdf-upload-input"
+                                type="file"
+                                onChange={handleFileChange}
+                            />
+                            <label htmlFor="pdf-upload-input">
+                                <Button
+                                    variant="outlined"
+                                    component="span"
+                                    fullWidth
+                                    startIcon={<CloudUpload />}
+                                    disabled={uploading}
+                                    sx={{ py: 2 }}
+                                >
+                                    {uploadForm.file ? uploadForm.file.name : 'Select PDF File'}
+                                </Button>
+                            </label>
+                            {uploadForm.file && (
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                    File size: {formatFileSize(uploadForm.file.size)}
+                                </Typography>
+                            )}
+                        </Box>
+                        <TextField
+                            label="Description"
+                            multiline
+                            rows={3}
+                            value={uploadForm.description}
+                            onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                            disabled={uploading}
+                            fullWidth
+                        />
+                        <TextField
+                            select
+                            label="Category"
+                            value={uploadForm.category}
+                            onChange={(e) => setUploadForm({ ...uploadForm, category: e.target.value })}
+                            disabled={uploading}
+                            fullWidth
+                        >
+                            <MenuItem value="lab_report">Lab Report</MenuItem>
+                            <MenuItem value="scan_report">Scan Report</MenuItem>
+                            <MenuItem value="prescription">Prescription</MenuItem>
+                            <MenuItem value="discharge_summary">Discharge Summary</MenuItem>
+                            <MenuItem value="other">Other</MenuItem>
+                        </TextField>
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => setUploadDialogOpen(false)}
+                        disabled={uploading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleUpload}
+                        disabled={uploading || !uploadForm.file}
+                        startIcon={uploading ? <CircularProgress size={20} /> : <CloudUpload />}
+                    >
+                        {uploading ? 'Uploading...' : 'Upload'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* View PDF Dialog */}
+            <Dialog
+                open={viewDialogOpen}
+                onClose={() => setViewDialogOpen(false)}
+                maxWidth={false}
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        height: '98vh',
+                        width: '98vw',
+                        maxWidth: '98vw',
+                        maxHeight: '98vh',
+                        margin: '1vh 1vw',
+                    },
+                }}
+            >
+                <DialogTitle sx={{ pb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6">View PDF Document</Typography>
+                        <IconButton onClick={() => setViewDialogOpen(false)}>
+                            <Close />
+                        </IconButton>
+                    </Box>
+                </DialogTitle>
+                <DialogContent sx={{ p: 0, height: 'calc(98vh - 64px)', overflow: 'hidden' }}>
+                    {selectedDocumentUrl && (
+                        <iframe
+                            src={selectedDocumentUrl}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                border: 'none',
+                                minHeight: 'calc(98vh - 64px)',
+                            }}
+                            title="PDF Viewer"
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={() => !deleting && setDeleteDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6">Delete Document</Typography>
+                        <IconButton
+                            onClick={() => setDeleteDialogOpen(false)}
+                            disabled={deleting}
+                        >
+                            <Close />
+                        </IconButton>
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ pt: 2 }}>
+                        <Typography variant="body1">
+                            Are you sure you want to delete this document? This action cannot be undone.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => {
+                            setDeleteDialogOpen(false);
+                            setDocumentToDelete(null);
+                        }}
+                        disabled={deleting}
+                        variant="outlined"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={confirmDeleteDocument}
+                        disabled={deleting}
+                        variant="contained"
+                        color="error"
+                        startIcon={deleting ? <CircularProgress size={20} /> : <Delete />}
+                    >
+                        {deleting ? 'Deleting...' : 'Delete'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

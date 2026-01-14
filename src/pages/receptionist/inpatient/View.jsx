@@ -15,7 +15,6 @@ import LocalHotelIcon from "@mui/icons-material/LocalHotel";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import AddIcon from "@mui/icons-material/Add";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import SearchIcon from "@mui/icons-material/Search";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
@@ -223,21 +222,6 @@ function Inpatient_View() {
                 category="INPATIENT MANAGEMENT"
                 title="In-Patient Management"
                 subtitle="Manage patient admissions, room allocations, and resource assignments"
-                action={
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => navigate("/receptionist/inpatient/admit")}
-                        style={{
-                            whiteSpace: "nowrap",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                            backgroundColor: "var(--color-bg-table-button)"
-                        }}
-                    >
-                        <AddIcon className="me-2" />
-                        Admit Patient
-                    </button>
-                }
             />
 
             {/* Statistics Cards */}

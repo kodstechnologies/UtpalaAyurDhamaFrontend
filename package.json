@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.968.0",
+    "@aws-sdk/s3-request-presigner": "^3.968.0",
     "@babel/traverse": "^7.26.9",
     "@ckeditor/ckeditor5-build-classic": "^44.2.1",
     "@ckeditor/ckeditor5-react": "^9.5.0",

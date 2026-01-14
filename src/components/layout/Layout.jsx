@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useMediaQuery, useTheme } from "@mui/material";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Header from "./Header";
 import SidebarLoader from "./SidebarLoader";
 import Footer from "./Footer";
@@ -113,6 +115,20 @@ function Layout() {
 
             {/* FOOTER FIXED AT BOTTOM */}
             <Footer />
+            
+            {/* Toast Container for notifications */}
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
         </>
     );
 }

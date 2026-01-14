@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import adminUserService from "../../../../services/adminUserService";
@@ -6,7 +6,7 @@ import {
     Mail, Phone, Calendar, User, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
     ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
-    X, Save, AlertCircle, CheckCircle, Upload
+    X, Save, AlertCircle, CheckCircle, Upload, IndianRupee
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
 import InputDialogModal from "../../../../components/modal/InputDialogModal";
@@ -21,6 +21,13 @@ function Edit_Therapists() {
     const [activeSection, setActiveSection] = useState("personal");
     const [languageModal, setLanguageModal] = useState(false);
     const [certificationModal, setCertificationModal] = useState(false);
+    const [errors, setErrors] = useState({
+        email: "",
+        phone: "",
+        emergencyContact: ""
+    });
+    const emailCheckTimeoutRef = useRef(null);
+    const phoneCheckTimeoutRef = useRef(null);
 
     // Therapist data
     const [therapist, setTherapist] = useState({
@@ -138,9 +145,97 @@ function Edit_Therapists() {
         }
     }, [therapistsId, fetchTherapistDetails]);
 
-    // Handle Input Change
+    // Validation functions
+    const validateEmail = (email) => {
+        if (!email) return "Email is required";
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return "Please enter a valid email address";
+        }
+        return "";
+    };
+
+    const validatePhone = (phone) => {
+        if (!phone) return "Phone number is required";
+        const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+        const cleanPhone = phone.replace(/[\s-]/g, "");
+        if (!phoneRegex.test(cleanPhone)) {
+            return "Please enter a valid 10-digit mobile number";
+        }
+        return "";
+    };
+
+    // Check phone availability (debounced) - exclude current user
+    const checkPhoneAvailability = async (phone) => {
+        const phoneError = validatePhone(phone);
+        if (!phone || phoneError) return;
+        
+        if (phoneCheckTimeoutRef.current) {
+            clearTimeout(phoneCheckTimeoutRef.current);
+        }
+        
+        phoneCheckTimeoutRef.current = setTimeout(async () => {
+            try {
+                const checkResult = await adminUserService.checkPhoneAvailability(phone, "Therapist", therapistsId);
+                if (checkResult.exists) {
+                    toast.error("This phone number is already registered. Please use a different phone number.");
+                    setErrors((prev) => ({ ...prev, phone: "This phone number is already registered" }));
+                } else {
+                    setErrors((prev) => ({ ...prev, phone: "" }));
+                }
+            } catch (error) {
+                console.error("Error checking phone:", error);
+            }
+        }, 800);
+    };
+
+    // Check email availability (debounced) - exclude current user
+    const checkEmailAvailability = async (email) => {
+        if (!email || !validateEmail(email)) return;
+        
+        if (emailCheckTimeoutRef.current) {
+            clearTimeout(emailCheckTimeoutRef.current);
+        }
+        
+        emailCheckTimeoutRef.current = setTimeout(async () => {
+            try {
+                const checkResult = await adminUserService.checkEmailAvailability(email, "Therapist", therapistsId);
+                if (checkResult.exists) {
+                    toast.error("This email is already registered. Please use a different email.");
+                    setErrors((prev) => ({ ...prev, email: "This email is already registered" }));
+                } else {
+                    setErrors((prev) => ({ ...prev, email: "" }));
+                }
+            } catch (error) {
+                console.error("Error checking email:", error);
+            }
+        }, 800);
+    };
+
+    // Handle Input Change with validation
     const updateField = (field, value) => {
         setTherapist((prev) => ({ ...prev, [field]: value }));
+        
+        if (errors[field]) {
+            setErrors((prev) => ({ ...prev, [field]: "" }));
+        }
+
+        if (field === "email") {
+            const error = validateEmail(value);
+            setErrors((prev) => ({ ...prev, email: error }));
+            if (!error && value) {
+                checkEmailAvailability(value);
+            }
+        } else if (field === "phone") {
+            const error = validatePhone(value);
+            setErrors((prev) => ({ ...prev, phone: error }));
+            if (!error && value) {
+                checkPhoneAvailability(value);
+            }
+        } else if (field === "emergencyContact" && value) {
+            const error = validatePhone(value);
+            setErrors((prev) => ({ ...prev, emergencyContact: error }));
+        }
     };
 
     const handleAddLanguage = () => {
@@ -190,6 +285,49 @@ function Edit_Therapists() {
     };
 
     const handleSave = async () => {
+        // Validate email and phone
+        const emailError = validateEmail(therapist.email);
+        const phoneError = validatePhone(therapist.phone);
+        const emergencyContactError = therapist.emergencyContact ? validatePhone(therapist.emergencyContact) : "";
+
+        // Check email availability before saving (exclude current user)
+        if (!emailError && therapist.email) {
+            try {
+                const checkResult = await adminUserService.checkEmailAvailability(therapist.email, "Therapist", therapistsId);
+                if (checkResult.exists) {
+                    toast.error("This email is already registered. Please use a different email.");
+                    setErrors((prev) => ({ ...prev, email: "This email is already registered" }));
+                    return;
+                }
+            } catch (error) {
+                console.error("Error checking email:", error);
+            }
+        }
+
+        // Check phone availability before saving (exclude current user)
+        if (!phoneError && therapist.phone) {
+            try {
+                const checkResult = await adminUserService.checkPhoneAvailability(therapist.phone, "Therapist", therapistsId);
+                if (checkResult.exists) {
+                    toast.error("This phone number is already registered. Please use a different phone number.");
+                    setErrors((prev) => ({ ...prev, phone: "This phone number is already registered" }));
+                    return;
+                }
+            } catch (error) {
+                console.error("Error checking phone:", error);
+            }
+        }
+
+        if (emailError || phoneError || emergencyContactError) {
+            setErrors({
+                email: emailError,
+                phone: phoneError,
+                emergencyContact: emergencyContactError
+            });
+            toast.error("Please fix the validation errors before saving.");
+            return;
+        }
+
         setIsSaving(true);
 
         try {
@@ -400,6 +538,7 @@ function Edit_Therapists() {
                                                 value={therapist.email}
                                                 onChange={(e) => updateField("email", e.target.value)}
                                                 required
+                                                error={errors.email}
                                             />
                                             <FormInput
                                                 label="Phone Number"
@@ -407,6 +546,8 @@ function Edit_Therapists() {
                                                 type="tel"
                                                 value={therapist.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
+                                                required
+                                                error={errors.phone}
                                                 maxLength={10}
                                             />
                                             <FormInput
@@ -415,6 +556,7 @@ function Edit_Therapists() {
                                                 type="tel"
                                                 value={therapist.emergencyContact}
                                                 onChange={(e) => updateField("emergencyContact", e.target.value)}
+                                                error={errors.emergencyContact}
                                                 maxLength={10}
                                             />
                                             <FormInput
@@ -539,8 +681,8 @@ function Edit_Therapists() {
                                                 options={["Active", "On Leave", "Inactive", "Retired"]}
                                             />
                                             <FormInput
-                                                label="Monthly Salary ($)"
-                                                icon={BookOpen}
+                                                label="Monthly Salary (₹)"
+                                                icon={IndianRupee}
                                                 type="number"
                                                 value={therapist.salary}
                                                 onChange={(e) => updateField("salary", e.target.value)}
@@ -755,7 +897,7 @@ function Edit_Therapists() {
    REUSABLE FORM COMPONENTS
 ------------------------*/
 
-function FormInput({ label, icon: Icon, type = "text", value, onChange, required = false, placeholder = "", ...props }) {
+function FormInput({ label, icon: Icon, type = "text", value, onChange, required = false, placeholder = "", error = "", maxLength, ...props }) {
     return (
         <div className="flex flex-col gap-2">
             <label className="font-medium text-sm flex items-center gap-1" style={{ color: "var(--color-text-dark)" }}>
@@ -763,13 +905,13 @@ function FormInput({ label, icon: Icon, type = "text", value, onChange, required
                 {required && <span style={{ color: "var(--color-icon-1-light)" }}>*</span>}
             </label>
             <div
-                className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ease-in-out hover:shadow-sm focus-within:shadow-md focus-within:border-[var(--color-btn-b)] group"
+                className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ease-in-out hover:shadow-sm focus-within:shadow-md group"
                 style={{
                     backgroundColor: "var(--color-bg-card)",
-                    border: "1px solid var(--color-text)",
+                    border: `1px solid ${error ? "var(--color-icon-1)" : "var(--color-text)"}`,
                 }}
             >
-                {Icon && <Icon size={18} style={{ color: "var(--color-icon-2)" }} />}
+                {Icon && <Icon size={18} style={{ color: error ? "var(--color-icon-1)" : "var(--color-icon-2)" }} />}
                 <input
                     type={type}
                     value={value}
@@ -778,9 +920,16 @@ function FormInput({ label, icon: Icon, type = "text", value, onChange, required
                     className="w-full bg-transparent outline-none placeholder-[var(--color-text)] transition-colors group-focus-within:text-[var(--color-text-dark)]"
                     style={{ color: "var(--color-text-dark)" }}
                     required={required}
+                    maxLength={maxLength}
                     {...props}
                 />
             </div>
+            {error && (
+                <p className="text-xs flex items-center gap-1" style={{ color: "var(--color-icon-1)" }}>
+                    <AlertCircle size={12} />
+                    {error}
+                </p>
+            )}
         </div>
     );
 }

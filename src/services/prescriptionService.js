@@ -64,6 +64,21 @@ const prescriptionService = {
       throw error.response?.data || error.message;
     }
   },
+
+  /**
+   * Get all prescriptions for a patient by user ID
+   */
+  getPrescriptionsByUserId: async (userId) => {
+    try {
+      const response = await axios.get(
+        getApiUrl(`examinations/prescriptions/by-user/${userId}`),
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
 };
 
 export default prescriptionService;

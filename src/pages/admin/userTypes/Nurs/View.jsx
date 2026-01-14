@@ -20,20 +20,58 @@ function View_Nurs() {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchNurseDetails = useCallback(async () => {
+        if (!nurseId) {
+            console.error("[View] No nurseId provided");
+            toast.error("Nurse ID is missing");
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
-        console.log("Fetching nurse details for ID:", nurseId);
+        console.log("[View] Fetching nurse details for ID:", nurseId);
         try {
             const response = await adminUserService.getUserById("Nurse", nurseId);
-            console.log("Nurse API Response:", response);
-            if (response.success) {
-                setNurse(response.data);
+            console.log("[View] Full API Response:", JSON.stringify(response, null, 2));
+            
+            // Handle different response structures
+            let nurseData = null;
+            
+            if (response) {
+                // Standard ApiResponse structure: { success: true, data: {...}, message: "..." }
+                if (response.success !== undefined) {
+                    if (response.success && response.data) {
+                        nurseData = response.data;
+                        console.log("[View] Found nurse data in response.data:", nurseData);
+                    } else {
+                        console.error("[View] API returned success=false:", response);
+                        const errorMsg = response.message || "Failed to fetch nurse details";
+                        toast.error(errorMsg);
+                        setIsLoading(false);
+                        return;
+                    }
+                } 
+                // Check if data is directly in response
+                else if (response._id || response.name || (response.data && (response.data._id || response.data.name))) {
+                    nurseData = response.data || response;
+                    console.log("[View] Found nurse data directly:", nurseData);
+                }
+            }
+
+            if (nurseData && (nurseData._id || nurseData.name)) {
+                console.log("[View] Setting nurse state:", nurseData);
+                setNurse(nurseData);
             } else {
-                console.error("API success false:", response.message);
-                toast.error(response.message || "Failed to fetch nurse details");
+                console.error("[View] No valid nurse data. Full response:", response);
+                toast.error("Nurse data not found");
             }
         } catch (error) {
-            console.error("Error fetching nurse catch block:", error);
-            toast.error(error.message || "Error fetching nurse details");
+            console.error("[View] Error fetching nurse:", error);
+            console.error("[View] Error response:", error.response?.data);
+            const errorMsg = error.response?.data?.message || 
+                           error.response?.data?.error || 
+                           error.message || 
+                           "Error fetching nurse details";
+            toast.error(errorMsg);
         } finally {
             setIsLoading(false);
         }
@@ -55,6 +93,7 @@ function View_Nurs() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ backgroundColor: "var(--color-bg-primary)" }}>
                 <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--color-text-dark)" }}>Nurse Not Found</h2>
+                <p className="text-sm mb-4" style={{ color: "var(--color-text)" }}>ID: {nurseId}</p>
                 <button
                     onClick={() => navigate('/admin/nursing')}
                     className="flex items-center gap-2 px-6 py-2 rounded-xl text-white font-medium transition-all"
@@ -78,16 +117,6 @@ function View_Nurs() {
             });
         } catch (e) {
             return dateStr;
-        }
-    };
-
-    // Format currency
-    const formatCurrency = (amount) => {
-        if (!amount) return "0";
-        try {
-            return new Intl.NumberFormat('en-IN').format(amount);
-        } catch (e) {
-            return amount;
         }
     };
 
@@ -198,15 +227,6 @@ function View_Nurs() {
 
                         {/* Quick Stats */}
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: "var(--color-bg-card-b)" }}>
-                                <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
-                                    Hourly Rate
-                                </span>
-                                <span className="text-lg font-bold" style={{ color: "var(--color-text-dark)" }}>
-                                    ₹{formatCurrency(nurse.hourlyRate)}
-                                </span>
-                            </div>
-
                             <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: "var(--color-bg-card-b)" }}>
                                 <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
                                     Shift Availability
@@ -352,12 +372,6 @@ function View_Nurs() {
                                             value={nurse.specialty}
                                             iconColor="#3B82F6"
                                             highlight
-                                        />
-                                        <DetailsCard
-                                            icon={BriefcaseMedical}
-                                            label="Assigned Unit/Ward"
-                                            value={nurse.unit}
-                                            iconColor="#10B981"
                                         />
                                         <DetailsCard
                                             icon={FileBadge}

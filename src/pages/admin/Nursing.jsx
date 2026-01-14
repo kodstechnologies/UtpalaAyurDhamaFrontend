@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import adminUserService from "../../services/adminUserService";
@@ -56,13 +56,19 @@ function Nursing() {
                             name: row.name || row.user.name || '',
                             email: row.email || row.user.email || '',
                             phone: row.phone || row.user.phone || '',
+                            specialty: row.specialty || row.specialization || '',
+                            unit: row.unit || row.department || '',
+                            status: row.status || row.user?.status || 'Active',
                             // Keep other fields as they are
                         };
                     }
-                    // Ensure _id exists
+                    // Ensure _id exists and map fields correctly
                     return {
                         ...row,
                         _id: row._id || row.id,
+                        specialty: row.specialty || row.specialization || '',
+                        unit: row.unit || row.department || '',
+                        status: row.status || 'Active',
                     };
                 });
                 
@@ -104,7 +110,10 @@ function Nursing() {
 
     // Helper function to get the ID from row (handles different data structures)
     const getRowId = useCallback((row) => {
-        return row._id || row.id || row.user?._id || row.user?.id || null;
+        // Prioritize _id field (should be Nurse User ID from backend)
+        const id = row._id || row.id || row.user?._id || row.user?.id || null;
+        console.log("getRowId - Row:", row, "Extracted ID:", id);
+        return id;
     }, []);
 
     // DELETE FUNCTION
@@ -159,7 +168,7 @@ function Nursing() {
     const columns = [
         { field: "name", header: "Name" },
         { field: "specialty", header: "Specialty" },
-        { field: "department", header: "Unit/Ward" }, // Changed from "unit" to "department"
+        { field: "unit", header: "Unit/Ward" },
         { field: "phone", header: "Phone" },
         { field: "email", header: "Email" },
         { field: "status", header: "Status" },
@@ -203,6 +212,21 @@ function Nursing() {
         }
     ];
     const [searchText, setSearchText] = useState("");
+
+    // Filter rows based on search text (client-side filtering)
+    const filteredRows = useMemo(() => {
+        if (!searchText) return rows;
+        const searchLower = searchText.toLowerCase();
+        return rows.filter(row => 
+            row.name?.toLowerCase().includes(searchLower) ||
+            row.email?.toLowerCase().includes(searchLower) ||
+            row.phone?.toLowerCase().includes(searchLower) ||
+            row.specialty?.toLowerCase().includes(searchLower) ||
+            row.unit?.toLowerCase().includes(searchLower) ||
+            row.status?.toLowerCase().includes(searchLower)
+        );
+    }, [rows, searchText]);
+
     return (
         <div className="space-y-6 p-6">
             <HeadingCard
@@ -224,7 +248,7 @@ function Nursing() {
                 </div>
                 <div style={{ display: "flex", gap: "1rem" }}>
                     <ExportDataButton
-                        rows={rows}
+                        rows={filteredRows}
                         columns={columns}
                         fileName="nursing.xlsx"
                     />
@@ -237,17 +261,17 @@ function Nursing() {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"
                         style={{ borderColor: "var(--color-btn-b)", borderBottomColor: "transparent" }}></div>
                 </div>
-            ) : rows.length === 0 ? (
+            ) : filteredRows.length === 0 ? (
                 <div className="flex flex-col justify-center items-center p-20">
                     <p style={{ fontSize: "1.1rem", color: "var(--color-text-b)", marginBottom: "1rem" }}>
-                        No nurses found
+                        {searchText ? "No nurses found matching your search" : "No nurses found"}
                     </p>
-                    <RedirectButton text="Create First Nurse" link="/admin/nursing/add" />
+                    {!searchText && <RedirectButton text="Create First Nurse" link="/admin/nursing/add" />}
                 </div>
             ) : (
                 <TableComponent
                     columns={columns}
-                    rows={rows}
+                    rows={filteredRows}
                     actions={actions}
                     showStatusBadge={true}
                     statusField="status"

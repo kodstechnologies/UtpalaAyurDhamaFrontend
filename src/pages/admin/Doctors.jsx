@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import adminUserService from "../../services/adminUserService";
@@ -117,6 +117,18 @@ function Doctors() {
 
     const [searchText, setSearchText] = useState("");
 
+    // Filter rows based on search text (client-side filtering)
+    const filteredRows = useMemo(() => {
+        if (!searchText) return rows;
+        const searchLower = searchText.toLowerCase();
+        return rows.filter(row => 
+            row.name?.toLowerCase().includes(searchLower) ||
+            row.email?.toLowerCase().includes(searchLower) ||
+            row.specialization?.toLowerCase().includes(searchLower) ||
+            row.status?.toLowerCase().includes(searchLower)
+        );
+    }, [rows, searchText]);
+
     return (
         <div className="space-y-6 p-6">
             <HeadingCard
@@ -149,7 +161,7 @@ function Doctors() {
                 {/* RIGHT SIDE — Export + Create Buttons */}
                 <div style={{ display: "flex", gap: "1rem" }}>
                     <ExportDataButton
-                        rows={rows}
+                        rows={filteredRows}
                         columns={columns}
                         fileName="doctors.xlsx"
                     />
@@ -167,7 +179,7 @@ function Doctors() {
             ) : (
                 <TableComponent
                     columns={columns}
-                    rows={rows}
+                    rows={filteredRows}
                     actions={actions}
                     showStatusBadge={true}
                     statusField="status"

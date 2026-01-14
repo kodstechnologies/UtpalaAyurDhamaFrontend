@@ -67,19 +67,24 @@ function Treatments_View() {
                     ? (inpatientsResponse.data.data?.data || inpatientsResponse.data.data || [])
                     : [];
 
-                // Create maps for quick lookup
+                // Create maps for quick lookup - collect all therapists for each patient
                 const therapistMap = new Map();
                 therapistSessions.forEach((session) => {
                     const patientId = session.patient?._id?.toString() || session.patient?.toString();
-                    if (patientId && session.therapist?.user?.name) {
-                        // If multiple therapists, keep the most recent one
-                        if (!therapistMap.has(patientId) ||
-                            new Date(session.createdAt) > new Date(therapistMap.get(patientId).createdAt)) {
-                            therapistMap.set(patientId, {
-                                name: session.therapist.user.name,
-                                createdAt: session.createdAt
-                            });
+                    if (patientId) {
+                        // Check if session has multiple therapists (therapists array) or single therapist
+                        const therapists = session.therapists || (session.therapist ? [session.therapist] : []);
+                        
+                        if (!therapistMap.has(patientId)) {
+                            therapistMap.set(patientId, new Set());
                         }
+                        
+                        // Add all therapists from this session
+                        therapists.forEach((therapist) => {
+                            if (therapist?.user?.name) {
+                                therapistMap.get(patientId).add(therapist.user.name);
+                            }
+                        });
                     }
                 });
 
@@ -114,7 +119,9 @@ function Treatments_View() {
                         dateOfBirth: patient.user?.dob || patient.dateOfBirth || "N/A",
                         isInpatient: patient.inpatient || false,
                         allocatedNurse: allocatedNurseName,
-                        therapist: therapistMap.get(patientId)?.name || "N/A",
+                        therapist: therapistMap.has(patientId) 
+                            ? Array.from(therapistMap.get(patientId)).join(", ") 
+                            : "N/A",
                         createdAt: patient.createdAt || new Date(),
                     };
                 });
@@ -278,7 +285,28 @@ function Treatments_View() {
                                                 <td style={{ fontSize: "0.875rem" }}>{patient.email}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>{getTypeBadge(patient.isInpatient)}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>{patient.allocatedNurse}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.therapist}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.therapist !== "N/A" ? (
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                                            {patient.therapist.split(", ").map((therapist, idx) => (
+                                                                <Chip
+                                                                    key={idx}
+                                                                    label={therapist}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        fontSize: "0.75rem",
+                                                                        height: "24px",
+                                                                        backgroundColor: "#E3F2FD",
+                                                                        color: "#1976D2",
+                                                                        fontWeight: 500,
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        "N/A"
+                                                    )}
+                                                </td>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <div style={{ position: "relative", display: "inline-block" }}>
                                                         <button

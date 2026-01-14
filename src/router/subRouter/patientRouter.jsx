@@ -25,6 +25,10 @@ const Prescriptions_View = lazy(() =>
     import("../../pages/patient/prescriptions/View")
 );
 
+const Prescription_Details = lazy(() =>
+    import("../../pages/patient/prescriptions/Details")
+);
+
 const Therapies_View = lazy(() =>
     import("../../pages/patient/therapies/View")
 );
@@ -54,6 +58,7 @@ export const patientRoutes = [
     { path: "/patient/consultations", element: <Consultations_View /> },
     { path: "/patient/consultations/:id", element: <Consultation_Details /> },
     { path: "/patient/prescriptions", element: <Prescriptions_View /> },
+    { path: "/patient/prescriptions/:id", element: <Prescription_Details /> },
     { path: "/patient/therapies", element: <Therapies_View /> },
     { path: "/patient/reports", element: <Reports_View /> },
     { path: "/patient/reports/invoice/:id", element: <InvoicePage /> },

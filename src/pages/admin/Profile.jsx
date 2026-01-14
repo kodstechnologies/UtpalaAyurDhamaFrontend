@@ -1119,11 +1119,13 @@
 
 // export default AdminProfile;
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { updateUser } from "../../redux/slices/authSlice";
 import {
     Box,
     Typography,
-    Grid2, // ← Grid 2
+    Grid2,
     Card,
     CardContent,
     Avatar,
@@ -1136,6 +1138,7 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
+    CircularProgress,
 } from "@mui/material";
 import {
     User,
@@ -1152,34 +1155,127 @@ import {
     Clock,
     Award,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import profileService from "../../services/profileService";
 
 function AdminProfile() {
+    const dispatch = useDispatch();
     const [isEditing, setIsEditing] = useState(false);
     const [openImageDialog, setOpenImageDialog] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     const [profileData, setProfileData] = useState({
-        name: 'Dr. Rajesh Kumar',
-        email: 'rajesh.kumar@ayurveda.com',
-        phone: '+91 98765 43210',
-        role: 'Administrator',
-        department: 'Operations',
-        location: 'Mumbai, Maharashtra',
-        joinDate: 'January 15, 2020',
-        experience: '5 Years',
-        certifications: 'BAMS, MD (Ayurveda)',
-        bio: 'Experienced Ayurvedic practitioner with expertise in traditional medicine and modern healthcare management. Passionate about integrating ancient wisdom with contemporary practices.',
+        name: "",
+        email: "",
+        phone: "",
+        role: "",
+        department: "",
+        address: "",
+        location: "",
+        joinDate: "",
+        experience: "",
+        certifications: "",
+        bio: "",
+        profilePicture: "",
     });
 
     const [editData, setEditData] = useState({ ...profileData });
+
+    const formatDate = (dateString) => {
+        if (!dateString) return "";
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+        } catch {
+            return dateString;
+        }
+    };
+
+    useEffect(() => {
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        setIsLoading(true);
+        try {
+            const response = await profileService.getMyProfile();
+            if (response.success && response.data) {
+                const data = response.data;
+                const formattedData = {
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    role: data.role || "",
+                    department: data.department || "",
+                    address: data.address || "",
+                    location: data.address || "",
+                    joinDate: formatDate(data.joiningDate),
+                    experience: data.experience ? `${data.experience} Years` : "",
+                    certifications: Array.isArray(data.certifications) ? data.certifications.join(", ") : (data.certifications || ""),
+                    bio: data.bio || "",
+                    profilePicture: data.profilePicture || "",
+                };
+                setProfileData(formattedData);
+                setEditData(formattedData);
+            }
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+            toast.error(error.message || "Failed to load profile");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleEdit = () => {
         setIsEditing(true);
         setEditData({ ...profileData });
     };
 
-    const handleSave = () => {
-        setProfileData({ ...editData });
-        setIsEditing(false);
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const updateData = {
+                name: editData.name,
+                phone: editData.phone,
+                address: editData.address || editData.location,
+                department: editData.department,
+                experience: editData.experience ? parseInt(editData.experience) : undefined,
+                certifications: editData.certifications ? editData.certifications.split(",").map(c => c.trim()) : [],
+                bio: editData.bio,
+            };
+
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] === undefined || updateData[key] === "") {
+                    delete updateData[key];
+                }
+            });
+
+            const response = await profileService.updateMyProfile(updateData);
+            if (response.success) {
+                // Update Redux store with new user data
+                if (response.data) {
+                    dispatch(updateUser({
+                        name: response.data.name || editData.name,
+                        phone: response.data.phone || editData.phone,
+                        email: response.data.email || editData.email,
+                        profilePicture: response.data.profilePicture || profileData.profilePicture,
+                    }));
+                }
+                toast.success("Profile updated successfully!");
+                await fetchProfile();
+                setIsEditing(false);
+            } else {
+                toast.error(response.message || "Failed to update profile");
+            }
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast.error(error.message || "Failed to update profile");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleCancel = () => {
@@ -1190,6 +1286,65 @@ function AdminProfile() {
     const handleInputChange = (field) => (e) => {
         setEditData({ ...editData, [field]: e.target.value });
     };
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File size should be less than 5MB");
+                return;
+            }
+            setSelectedFile(file);
+        }
+    };
+
+    const handleUploadPicture = async () => {
+        if (!selectedFile) {
+            toast.error("Please select a file");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await profileService.uploadProfilePicture(selectedFile);
+            if (response.success) {
+                // Update Redux store with new profile picture
+                if (response.data?.url) {
+                    dispatch(updateUser({
+                        profilePicture: response.data.url,
+                    }));
+                }
+                toast.success("Profile picture updated successfully!");
+                await fetchProfile();
+                setOpenImageDialog(false);
+                setSelectedFile(null);
+            } else {
+                toast.error(response.message || "Failed to upload picture");
+            }
+        } catch (error) {
+            console.error("Error uploading picture:", error);
+            toast.error(error.message || "Failed to upload picture");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const getInitials = (name) => {
+        if (!name) return "U";
+        const parts = name.split(" ");
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     const stats = [
         { label: 'Patients Managed', value: '1,250+', icon: User, color: '#556B2F' },
@@ -1228,6 +1383,7 @@ function AdminProfile() {
                         <Stack direction="row" spacing={3} alignItems="center">
                             <Box sx={{ position: 'relative' }}>
                                 <Avatar
+                                    src={profileData.profilePicture}
                                     sx={{
                                         width: 100,
                                         height: 100,
@@ -1238,7 +1394,7 @@ function AdminProfile() {
                                         boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
                                     }}
                                 >
-                                    RK
+                                    {getInitials(profileData.name)}
                                 </Avatar>
                                 <IconButton
                                     onClick={() => setOpenImageDialog(true)}
@@ -1280,8 +1436,9 @@ function AdminProfile() {
                         </Stack>
                         <Button
                             variant="contained"
-                            startIcon={isEditing ? <Save size={18} /> : <Edit size={18} />}
+                            startIcon={isEditing ? (isSaving ? <CircularProgress size={18} color="inherit" /> : <Save size={18} />) : <Edit size={18} />}
                             onClick={isEditing ? handleSave : handleEdit}
+                            disabled={isSaving}
                             sx={{
                                 bgcolor: '#556B2F',
                                 color: '#EFEAD8',
@@ -1292,7 +1449,7 @@ function AdminProfile() {
                                 '&:hover': { bgcolor: '#3F4F23' },
                             }}
                         >
-                            {isEditing ? 'Save Profile' : 'Edit Profile'}
+                            {isEditing ? (isSaving ? 'Saving...' : 'Save Profile') : 'Edit Profile'}
                         </Button>
                     </Stack>
                 </CardContent>
@@ -1471,33 +1628,50 @@ function AdminProfile() {
                 </DialogTitle>
                 <DialogContent sx={{ bgcolor: '#EFE7DA', p: 4 }}>
                     <Stack spacing={3} alignItems="center">
-                        <Box
-                            sx={{
-                                width: '100%',
-                                height: 200,
-                                border: '2px dashed #D6D2C4',
-                                borderRadius: 2,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                bgcolor: '#FFFFFF',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s ease',
-                                '&:hover': { borderColor: '#556B2F', bgcolor: '#F4F0E5' },
-                            }}
-                        >
-                            <Camera size={48} color="#857466" />
-                            <Typography variant="body2" color="#857466" mt={2}>
-                                Click to upload or drag and drop
-                            </Typography>
-                            <Typography variant="caption" color="#857466">
-                                PNG, JPG up to 5MB
-                            </Typography>
-                        </Box>
+                        <input
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            id="profile-picture-upload"
+                            type="file"
+                            onChange={handleFileSelect}
+                        />
+                        <label htmlFor="profile-picture-upload">
+                            <Box
+                                component="span"
+                                sx={{
+                                    width: '100%',
+                                    height: 200,
+                                    border: '2px dashed #D6D2C4',
+                                    borderRadius: 2,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    bgcolor: '#FFFFFF',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': { borderColor: '#556B2F', bgcolor: '#F4F0E5' },
+                                }}
+                            >
+                                <Camera size={48} color="#857466" />
+                                <Typography variant="body2" color="#857466" mt={2}>
+                                    Click to upload or drag and drop
+                                </Typography>
+                                <Typography variant="caption" color="#857466">
+                                    PNG, JPG up to 5MB
+                                </Typography>
+                                {selectedFile && (
+                                    <Typography variant="caption" color="#556B2F" mt={1}>
+                                        Selected: {selectedFile.name}
+                                    </Typography>
+                                )}
+                            </Box>
+                        </label>
                         <Button
                             variant="contained"
                             fullWidth
+                            onClick={handleUploadPicture}
+                            disabled={!selectedFile || isUploading}
                             sx={{
                                 bgcolor: '#5C3D2E',
                                 color: '#EFEAD8',
@@ -1507,7 +1681,7 @@ function AdminProfile() {
                                 '&:hover': { bgcolor: '#3F4F23' },
                             }}
                         >
-                            Upload Image
+                            {isUploading ? "Uploading..." : "Upload Image"}
                         </Button>
                     </Stack>
                 </DialogContent>

@@ -396,11 +396,13 @@
 
 // export default Doctor_Profile;
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { updateUser } from "../../redux/slices/authSlice";
 import {
     Box,
     Typography,
-    Grid,           // ← Fixed: Grid instead of Grid2
+    Grid,
     Card,
     CardContent,
     Avatar,
@@ -413,6 +415,7 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
+    CircularProgress,
 } from "@mui/material";
 import {
     User,
@@ -429,34 +432,154 @@ import {
     Clock,
     Award,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import profileService from "../../services/profileService";
 
 function Doctor_Profile() {
+    const dispatch = useDispatch();
     const [isEditing, setIsEditing] = useState(false);
     const [openImageDialog, setOpenImageDialog] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     const [profileData, setProfileData] = useState({
-        name: "Dr. Rajesh Kumar",
-        email: "rajesh.kumar@ayurveda.com",
-        phone: "+91 98765 43210",
-        role: "Administrator",
-        department: "Operations",
-        location: "Mumbai, Maharashtra",
-        joinDate: "January 15, 2020",
-        experience: "5 Years",
-        certifications: "BAMS, MD (Ayurveda)",
-        bio: "Experienced Ayurvedic practitioner with expertise in traditional medicine and modern healthcare management. Passionate about integrating ancient wisdom with contemporary practices.",
+        name: "",
+        email: "",
+        phone: "",
+        role: "",
+        department: "",
+        address: "",
+        joiningDate: "",
+        experience: "",
+        certifications: "",
+        bio: "",
+        profilePicture: "",
+        specialization: "",
+        licenseNumber: "",
+        consultationFee: "",
+        availability: "",
     });
 
     const [editData, setEditData] = useState({ ...profileData });
+
+    // Format date for display
+    const formatDate = (dateString) => {
+        if (!dateString) return "";
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+        } catch {
+            return dateString;
+        }
+    };
+
+    // Format date for input field
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return "";
+        try {
+            const date = new Date(dateString);
+            return date.toISOString().split("T")[0];
+        } catch {
+            return "";
+        }
+    };
+
+    // Fetch profile data
+    useEffect(() => {
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        setIsLoading(true);
+        try {
+            const response = await profileService.getMyProfile();
+            if (response.success && response.data) {
+                const data = response.data;
+                const formattedData = {
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    role: data.role || "",
+                    department: data.department || "",
+                    address: data.address || "",
+                    location: data.address || "",
+                    joiningDate: formatDate(data.joiningDate),
+                    experience: data.experience ? `${data.experience} Years` : "",
+                    certifications: Array.isArray(data.certifications) ? data.certifications.join(", ") : (data.certifications || ""),
+                    bio: data.bio || "",
+                    profilePicture: data.profilePicture || "",
+                    specialization: data.specialization || "",
+                    licenseNumber: data.licenseNumber || "",
+                    consultationFee: data.consultationFee || "",
+                    availability: data.availability || "",
+                };
+                setProfileData(formattedData);
+                setEditData(formattedData);
+            }
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+            toast.error(error.message || "Failed to load profile");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleEdit = () => {
         setIsEditing(true);
         setEditData({ ...profileData });
     };
 
-    const handleSave = () => {
-        setProfileData({ ...editData });
-        setIsEditing(false);
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            // Prepare update data
+            const updateData = {
+                name: editData.name,
+                phone: editData.phone,
+                address: editData.address || editData.location,
+                department: editData.department,
+                specialization: editData.specialization,
+                licenseNumber: editData.licenseNumber,
+                experience: editData.experience ? parseInt(editData.experience) : undefined,
+                qualifications: editData.certifications,
+                certifications: editData.certifications ? editData.certifications.split(",").map(c => c.trim()) : [],
+                bio: editData.bio,
+                consultationFee: editData.consultationFee ? Number(editData.consultationFee) : undefined,
+                availability: editData.availability,
+            };
+
+            // Remove undefined values
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] === undefined || updateData[key] === "") {
+                    delete updateData[key];
+                }
+            });
+
+            const response = await profileService.updateMyProfile(updateData);
+            if (response.success) {
+                // Update Redux store with new user data
+                if (response.data) {
+                    dispatch(updateUser({
+                        name: response.data.name || editData.name,
+                        phone: response.data.phone || editData.phone,
+                        email: response.data.email || editData.email,
+                        profilePicture: response.data.profilePicture || profileData.profilePicture,
+                    }));
+                }
+                toast.success("Profile updated successfully!");
+                await fetchProfile(); // Refresh profile data
+                setIsEditing(false);
+            } else {
+                toast.error(response.message || "Failed to update profile");
+            }
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast.error(error.message || "Failed to update profile");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleCancel = () => {
@@ -467,6 +590,66 @@ function Doctor_Profile() {
     const handleInputChange = (field) => (e) => {
         setEditData({ ...editData, [field]: e.target.value });
     };
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File size should be less than 5MB");
+                return;
+            }
+            setSelectedFile(file);
+        }
+    };
+
+    const handleUploadPicture = async () => {
+        if (!selectedFile) {
+            toast.error("Please select a file");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await profileService.uploadProfilePicture(selectedFile);
+            if (response.success) {
+                // Update Redux store with new profile picture
+                if (response.data?.url) {
+                    dispatch(updateUser({
+                        profilePicture: response.data.url,
+                    }));
+                }
+                toast.success("Profile picture updated successfully!");
+                await fetchProfile(); // Refresh profile data
+                setOpenImageDialog(false);
+                setSelectedFile(null);
+            } else {
+                toast.error(response.message || "Failed to upload picture");
+            }
+        } catch (error) {
+            console.error("Error uploading picture:", error);
+            toast.error(error.message || "Failed to upload picture");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Get initials for avatar
+    const getInitials = (name) => {
+        if (!name) return "U";
+        const parts = name.split(" ");
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ bgcolor: "#EFE7DA", minHeight: "100vh", p: { xs: 2, md: 4 } }}>
@@ -498,6 +681,7 @@ function Doctor_Profile() {
                         <Stack direction="row" spacing={3} alignItems="center">
                             <Box sx={{ position: "relative" }}>
                                 <Avatar
+                                    src={profileData.profilePicture}
                                     sx={{
                                         width: 100,
                                         height: 100,
@@ -508,7 +692,7 @@ function Doctor_Profile() {
                                         boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
                                     }}
                                 >
-                                    RK
+                                    {getInitials(profileData.name)}
                                 </Avatar>
                                 <IconButton
                                     onClick={() => setOpenImageDialog(true)}
@@ -550,8 +734,9 @@ function Doctor_Profile() {
                         </Stack>
                         <Button
                             variant="contained"
-                            startIcon={isEditing ? <Save size={18} /> : <Edit size={18} />}
+                            startIcon={isEditing ? (isSaving ? <CircularProgress size={18} color="inherit" /> : <Save size={18} />) : <Edit size={18} />}
                             onClick={isEditing ? handleSave : handleEdit}
+                            disabled={isSaving}
                             sx={{
                                 bgcolor: "#556B2F",
                                 color: "#EFEAD8",
@@ -562,7 +747,7 @@ function Doctor_Profile() {
                                 "&:hover": { bgcolor: "#3F4F23" },
                             }}
                         >
-                            {isEditing ? "Save Profile" : "Edit Profile"}
+                            {isEditing ? (isSaving ? "Saving..." : "Save Profile") : "Edit Profile"}
                         </Button>
                     </Stack>
                 </CardContent>
@@ -635,8 +820,10 @@ function Doctor_Profile() {
                             <Stack spacing={3}>
                                 {[
                                     { icon: Briefcase, label: "Department", field: "department" },
+                                    { icon: Briefcase, label: "Specialization", field: "specialization" },
+                                    { icon: Award, label: "License Number", field: "licenseNumber" },
                                     { icon: Calendar, label: "Join Date", field: "joinDate", editable: false },
-                                    { icon: Clock, label: "Experience", field: "experience" },
+                                    { icon: Clock, label: "Experience (Years)", field: "experience" },
                                     { icon: Award, label: "Certifications", field: "certifications" },
                                 ].map(({ icon: Icon, label, field, editable = true }) => (
                                     <Stack key={field} direction="row" spacing={2} alignItems="center">
@@ -740,33 +927,50 @@ function Doctor_Profile() {
                 </DialogTitle>
                 <DialogContent sx={{ bgcolor: "#EFE7DA", p: 4 }}>
                     <Stack spacing={3} alignItems="center">
-                        <Box
-                            sx={{
-                                width: "100%",
-                                height: 200,
-                                border: "2px dashed #D6D2C4",
-                                borderRadius: 2,
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                bgcolor: "#FFFFFF",
-                                cursor: "pointer",
-                                transition: "all 0.3s ease",
-                                "&:hover": { borderColor: "#556B2F", bgcolor: "#F4F0E5" },
-                            }}
-                        >
-                            <Camera size={48} color="#857466" />
-                            <Typography variant="body2" color="#857466" mt={2}>
-                                Click to upload or drag and drop
-                            </Typography>
-                            <Typography variant="caption" color="#857466">
-                                PNG, JPG up to 5MB
-                            </Typography>
-                        </Box>
+                        <input
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            id="profile-picture-upload"
+                            type="file"
+                            onChange={handleFileSelect}
+                        />
+                        <label htmlFor="profile-picture-upload">
+                            <Box
+                                component="span"
+                                sx={{
+                                    width: "100%",
+                                    height: 200,
+                                    border: "2px dashed #D6D2C4",
+                                    borderRadius: 2,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    bgcolor: "#FFFFFF",
+                                    cursor: "pointer",
+                                    transition: "all 0.3s ease",
+                                    "&:hover": { borderColor: "#556B2F", bgcolor: "#F4F0E5" },
+                                }}
+                            >
+                                <Camera size={48} color="#857466" />
+                                <Typography variant="body2" color="#857466" mt={2}>
+                                    Click to upload or drag and drop
+                                </Typography>
+                                <Typography variant="caption" color="#857466">
+                                    PNG, JPG up to 5MB
+                                </Typography>
+                                {selectedFile && (
+                                    <Typography variant="caption" color="#556B2F" mt={1}>
+                                        Selected: {selectedFile.name}
+                                    </Typography>
+                                )}
+                            </Box>
+                        </label>
                         <Button
                             variant="contained"
                             fullWidth
+                            onClick={handleUploadPicture}
+                            disabled={!selectedFile || isUploading}
                             sx={{
                                 bgcolor: "#5C3D2E",
                                 color: "#EFEAD8",
@@ -776,7 +980,7 @@ function Doctor_Profile() {
                                 "&:hover": { bgcolor: "#3F4F23" },
                             }}
                         >
-                            Upload Image
+                            {isUploading ? "Uploading..." : "Upload Image"}
                         </Button>
                     </Stack>
                 </DialogContent>

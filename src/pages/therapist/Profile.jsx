@@ -1,5 +1,7 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { updateUser } from "../../redux/slices/authSlice";
 import {
     Box,
     Typography,
@@ -16,6 +18,7 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
+    CircularProgress,
 } from "@mui/material";
 
 import {
@@ -33,42 +36,143 @@ import {
     Clock,
     Award,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import profileService from "../../services/profileService";
 
 function TherapistProfile() {
+    const dispatch = useDispatch();
     const [isEditing, setIsEditing] = useState(false);
     const [openImageDialog, setOpenImageDialog] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
-    // ⭐ Receptionist REAL-WORLD accurate data
     const [profileData, setProfileData] = useState({
-        name: "Meera Shankar",
-        email: "meera.shankar@utpalaayur.com",
-        phone: "+91 98452 11230",
-        role: "Therapist",
-        department: "Therapy & Wellness",
-        location: "Bengaluru, Karnataka",
-        joinDate: "March 10, 2020",
-        experience: "6.1 Years",
-        shift: "Therapy Shift (8:00 AM - 5:00 PM)",
-        skills:
-            "Abhyanga Massage, Shirodhara, Kizhi Therapy, Panchakarma Assistance, Relaxation Techniques, Pain Relief Therapy, Body Detox Procedures, Stress Management",
-        certifications:
-            "Diploma in Ayurvedic Therapy, Certified Panchakarma Assistant, Wellness & Bodywork Certification",
-        bio:
-            "Dedicated wellness therapist specializing in Ayurvedic body therapies, personalized treatment routines, and patient relaxation techniques. Skilled in Abhyanga, Shirodhara, Kizhi, and Panchakarma support therapies. Focused on improving patient comfort, reducing stress, and promoting natural healing through holistic treatment methods.",
+        name: "",
+        email: "",
+        phone: "",
+        role: "",
+        department: "",
+        specialization: "",
+        address: "",
+        location: "",
+        joinDate: "",
+        experience: "",
+        workingHours: "",
+        shift: "",
+        skills: "",
+        certifications: "",
+        bio: "",
+        profilePicture: "",
+        licenseNumber: "",
+        salary: "",
     });
 
-
-
     const [editData, setEditData] = useState({ ...profileData });
+
+    const formatDate = (dateString) => {
+        if (!dateString) return "";
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+        } catch {
+            return dateString;
+        }
+    };
+
+    useEffect(() => {
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        setIsLoading(true);
+        try {
+            const response = await profileService.getMyProfile();
+            if (response.success && response.data) {
+                const data = response.data;
+                const formattedData = {
+                    name: data.name || "",
+                    email: data.email || "",
+                    phone: data.phone || "",
+                    role: data.role || "",
+                    department: data.department || "",
+                    specialization: data.specialization || "",
+                    address: data.address || "",
+                    location: data.address || "",
+                    joinDate: formatDate(data.joiningDate),
+                    experience: data.experience ? `${data.experience} Years` : "",
+                    workingHours: data.workingHours || "",
+                    shift: data.workingHours || "",
+                    skills: Array.isArray(data.skills) ? data.skills.join(", ") : (data.skills || ""),
+                    certifications: Array.isArray(data.certifications) ? data.certifications.join(", ") : (data.certifications || ""),
+                    bio: data.bio || "",
+                    profilePicture: data.profilePicture || "",
+                    licenseNumber: data.licenseNumber || "",
+                    salary: data.salary || "",
+                };
+                setProfileData(formattedData);
+                setEditData(formattedData);
+            }
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+            toast.error(error.message || "Failed to load profile");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleEdit = () => {
         setIsEditing(true);
         setEditData({ ...profileData });
     };
 
-    const handleSave = () => {
-        setProfileData({ ...editData });
-        setIsEditing(false);
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const updateData = {
+                name: editData.name,
+                phone: editData.phone,
+                address: editData.address || editData.location,
+                department: editData.department,
+                specialization: editData.specialization,
+                licenseNumber: editData.licenseNumber,
+                experience: editData.experience ? parseInt(editData.experience) : undefined,
+                workingHours: editData.workingHours || editData.shift,
+                certifications: editData.certifications ? editData.certifications.split(",").map(c => c.trim()) : [],
+                bio: editData.bio,
+                salary: editData.salary ? Number(editData.salary) : undefined,
+            };
+
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] === undefined || updateData[key] === "") {
+                    delete updateData[key];
+                }
+            });
+
+            const response = await profileService.updateMyProfile(updateData);
+            if (response.success) {
+                // Update Redux store with new user data
+                if (response.data) {
+                    dispatch(updateUser({
+                        name: response.data.name || editData.name,
+                        phone: response.data.phone || editData.phone,
+                        email: response.data.email || editData.email,
+                        profilePicture: response.data.profilePicture || profileData.profilePicture,
+                    }));
+                }
+                toast.success("Profile updated successfully!");
+                await fetchProfile();
+                setIsEditing(false);
+            } else {
+                toast.error(response.message || "Failed to update profile");
+            }
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast.error(error.message || "Failed to update profile");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleCancel = () => {
@@ -79,6 +183,65 @@ function TherapistProfile() {
     const handleInputChange = (field) => (e) => {
         setEditData({ ...editData, [field]: e.target.value });
     };
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File size should be less than 5MB");
+                return;
+            }
+            setSelectedFile(file);
+        }
+    };
+
+    const handleUploadPicture = async () => {
+        if (!selectedFile) {
+            toast.error("Please select a file");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const response = await profileService.uploadProfilePicture(selectedFile);
+            if (response.success) {
+                // Update Redux store with new profile picture
+                if (response.data?.url) {
+                    dispatch(updateUser({
+                        profilePicture: response.data.url,
+                    }));
+                }
+                toast.success("Profile picture updated successfully!");
+                await fetchProfile();
+                setOpenImageDialog(false);
+                setSelectedFile(null);
+            } else {
+                toast.error(response.message || "Failed to upload picture");
+            }
+        } catch (error) {
+            console.error("Error uploading picture:", error);
+            toast.error(error.message || "Failed to upload picture");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const getInitials = (name) => {
+        if (!name) return "U";
+        const parts = name.split(" ");
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
+    if (isLoading) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ bgcolor: "#EFE7DA", minHeight: "100vh", p: { xs: 2, md: 4 } }}>
@@ -100,6 +263,7 @@ function TherapistProfile() {
                         <Stack direction="row" spacing={3}>
                             <Box sx={{ position: "relative" }}>
                                 <Avatar
+                                    src={profileData.profilePicture}
                                     sx={{
                                         width: 100,
                                         height: 100,
@@ -109,7 +273,7 @@ function TherapistProfile() {
                                         border: "4px solid #EFEAD8",
                                     }}
                                 >
-                                    PS
+                                    {getInitials(profileData.name)}
                                 </Avatar>
 
                                 <IconButton
@@ -150,8 +314,9 @@ function TherapistProfile() {
 
                         <Button
                             variant="contained"
-                            startIcon={isEditing ? <Save size={18} /> : <Edit size={18} />}
+                            startIcon={isEditing ? (isSaving ? <CircularProgress size={18} color="inherit" /> : <Save size={18} />) : <Edit size={18} />}
                             onClick={isEditing ? handleSave : handleEdit}
+                            disabled={isSaving}
                             sx={{
                                 bgcolor: "#556B2F",
                                 color: "#EFEAD8",
@@ -160,7 +325,7 @@ function TherapistProfile() {
                                 px: 3,
                             }}
                         >
-                            {isEditing ? "Save Profile" : "Edit Profile"}
+                            {isEditing ? (isSaving ? "Saving..." : "Save Profile") : "Edit Profile"}
                         </Button>
                     </Stack>
                 </CardContent>
@@ -312,22 +477,51 @@ function TherapistProfile() {
                 </DialogTitle>
 
                 <DialogContent sx={{ p: 4 }}>
-                    <Box
-                        sx={{
-                            height: 180,
-                            border: "2px dashed #D6D2C4",
-                            borderRadius: 2,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            bgcolor: "#fff",
-                        }}
-                    >
-                        <Camera size={40} color="#857466" />
-                    </Box>
+                    <input
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        id="profile-picture-upload"
+                        type="file"
+                        onChange={handleFileSelect}
+                    />
+                    <label htmlFor="profile-picture-upload">
+                        <Box
+                            component="span"
+                            sx={{
+                                height: 180,
+                                border: "2px dashed #D6D2C4",
+                                borderRadius: 2,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                bgcolor: "#fff",
+                                cursor: "pointer",
+                                width: "100%",
+                            }}
+                        >
+                            <Camera size={40} color="#857466" />
+                            <Typography variant="body2" color="#857466" mt={2}>
+                                Click to upload or drag and drop
+                            </Typography>
+                            <Typography variant="caption" color="#857466">
+                                PNG, JPG up to 5MB
+                            </Typography>
+                            {selectedFile && (
+                                <Typography variant="caption" color="#556B2F" mt={1}>
+                                    Selected: {selectedFile.name}
+                                </Typography>
+                            )}
+                        </Box>
+                    </label>
 
-                    <Button fullWidth sx={{ mt: 3, bgcolor: "#5C3D2E", color: "#EFEAD8" }}>
-                        Upload Image
+                    <Button 
+                        fullWidth 
+                        onClick={handleUploadPicture}
+                        disabled={!selectedFile || isUploading}
+                        sx={{ mt: 3, bgcolor: "#5C3D2E", color: "#EFEAD8" }}
+                    >
+                        {isUploading ? "Uploading..." : "Upload Image"}
                     </Button>
                 </DialogContent>
             </Dialog>

@@ -5,7 +5,8 @@ import {
     TablePagination, Stack,
     IconButton,
     Chip,
-    Tooltip
+    Tooltip,
+    Box
 } from "@mui/material";
 
 function TableComponent({
@@ -134,15 +135,41 @@ function TableComponent({
                                         <TableCell align="center">
                                             <Stack direction="row" spacing={0.8} justifyContent="center">
                                                 {(typeof actions === 'function' ? actions(row) : actions).map((action, idx) => {
-                                                    const tooltipText = action.tooltip || action.label || "";
+                                                    // If action has a render function, use it directly
+                                                    if (typeof action.render === 'function') {
+                                                        const renderedContent = action.render(row);
+                                                        const tooltipText = typeof action.tooltip === 'function'
+                                                            ? action.tooltip(row)
+                                                            : (action.tooltip || "");
+                                                        
+                                                        return tooltipText ? (
+                                                            <Tooltip key={idx} title={tooltipText} arrow>
+                                                                {renderedContent}
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <Box key={idx}>{renderedContent}</Box>
+                                                        );
+                                                    }
+                                                    
+                                                    // Handle function-based icon and color
+                                                    const iconElement = typeof action.icon === 'function' 
+                                                        ? action.icon(row) 
+                                                        : action.icon;
+                                                    const colorValue = typeof action.color === 'function' 
+                                                        ? action.color(row) 
+                                                        : action.color;
+                                                    const tooltipText = typeof action.label === 'function'
+                                                        ? action.label(row)
+                                                        : (action.tooltip || action.label || "");
+                                                    
                                                     const iconButton = (
                                                     <IconButton
                                                         key={idx}
-                                                        sx={{ color: action.color || "var(--color-primary)" }}
+                                                        sx={{ color: colorValue || "var(--color-primary)" }}
                                                         onClick={() => action.onClick(row)}
-                                                            disabled={action.disabled || false}
+                                                        disabled={action.disabled || false}
                                                     >
-                                                        {action.icon}
+                                                        {iconElement}
                                                     </IconButton>
                                                     );
                                                     

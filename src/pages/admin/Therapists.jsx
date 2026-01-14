@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import adminUserService from "../../services/adminUserService";
@@ -87,6 +87,20 @@ function Therapists() {
 
     const [searchText, setSearchText] = useState("");
 
+    // Filter rows based on search text (client-side filtering)
+    const filteredRows = useMemo(() => {
+        if (!searchText) return rows;
+        const searchLower = searchText.toLowerCase();
+        return rows.filter(row => 
+            row.name?.toLowerCase().includes(searchLower) ||
+            row.email?.toLowerCase().includes(searchLower) ||
+            row.phone?.toLowerCase().includes(searchLower) ||
+            row.specialization?.toLowerCase().includes(searchLower) ||
+            row.department?.toLowerCase().includes(searchLower) ||
+            row.status?.toLowerCase().includes(searchLower)
+        );
+    }, [rows, searchText]);
+
     // ===== TABLE COLUMNS =====
     const columns = [
         { field: "name", header: "Name" },
@@ -140,9 +154,9 @@ function Therapists() {
                 </div>
                 <div style={{ display: "flex", gap: "1rem" }}>
                     <ExportDataButton
-                        rows={rows}
+                        rows={filteredRows}
                         columns={columns}
-                        fileName="receptionists.xlsx"
+                        fileName="therapists.xlsx"
                     />
                     <RedirectButton text="Create" link="/admin/therapists/add" />
                 </div>
@@ -150,7 +164,7 @@ function Therapists() {
 
             <TableComponent
                 columns={columns}
-                rows={rows}
+                rows={filteredRows}
                 actions={actions}
                 showStatusBadge={true}
                 statusField="status"

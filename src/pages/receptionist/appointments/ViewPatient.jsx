@@ -158,7 +158,7 @@ function ViewPatientPage() {
                                 />
                             </Grid>
                         )}
-                        {patient.status && (
+                        {/* {patient.status && (
                             <Grid item xs={12} md={6}>
                                 <TextField
                                     label="Status"
@@ -168,7 +168,7 @@ function ViewPatientPage() {
                                     variant="outlined"
                                 />
                             </Grid>
-                        )}
+                        )} */}
                         {patient.createdAt && (
                             <Grid item xs={12} md={6}>
                                 <TextField

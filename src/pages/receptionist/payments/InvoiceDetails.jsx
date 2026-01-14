@@ -277,7 +277,7 @@ function InvoiceDetails() {
     };
 
     const handlePrint = async () => {
-        if (!invoice.inpatient && !invoice.patient) {
+        if (!invoice || (!invoice.inpatient && !invoice.patient)) {
             toast.error("Unable to determine invoice type for printing discharge report");
             return;
         }
@@ -289,15 +289,32 @@ function InvoiceDetails() {
             // Check if it's an inpatient invoice
             if (invoice.inpatient) {
                 const inpatientId = invoice.inpatient._id || invoice.inpatient;
+                if (!inpatientId) {
+                    toast.error("Invalid inpatient ID");
+                    return;
+                }
                 response = await inpatientService.downloadDischargeReport(inpatientId);
             } else if (invoice.patient) {
                 // Outpatient invoice
                 const patientId = invoice.patient._id || invoice.patient;
+                if (!patientId) {
+                    toast.error("Invalid patient ID");
+                    return;
+                }
                 response = await inpatientService.downloadOutpatientBillingReport(patientId);
+            } else {
+                toast.error("Unable to determine invoice type for printing discharge report");
+                return;
             }
 
-            // Create blob and open in new window for printing
-            const blob = new Blob([response.data], { type: 'application/pdf' });
+            // Check if response is valid
+            if (!response || !response.data) {
+                toast.error("Invalid response from server");
+                return;
+            }
+
+            // response.data is already a Blob when responseType is 'blob'
+            const blob = response.data;
             const url = window.URL.createObjectURL(blob);
             const printWindow = window.open(url, '_blank');
             
@@ -319,13 +336,35 @@ function InvoiceDetails() {
             toast.success("Opening discharge report for printing...");
         } catch (error) {
             console.error("Print error:", error);
-            toast.error("Failed to print discharge report.");
+            let errorMessage = "Failed to print discharge report.";
+            
+            // Handle blob error responses
+            if (error.response && error.response.data instanceof Blob) {
+                try {
+                    const errorText = await error.response.data.text();
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.message || errorMessage;
+                } catch (parseError) {
+                    errorMessage = error.response.statusText || `Server error: ${error.response.status}`;
+                }
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.error(errorMessage);
         } finally {
             setPrintingReport(false);
         }
     };
 
     const handleDownloadDischargeReport = async () => {
+        if (!invoice || (!invoice.inpatient && !invoice.patient)) {
+            toast.error("Unable to determine invoice type for report download");
+            return;
+        }
+
         try {
             setDownloadingReport(true);
             let response;
@@ -334,11 +373,19 @@ function InvoiceDetails() {
             // Check if it's an inpatient invoice
             if (invoice.inpatient) {
                 const inpatientId = invoice.inpatient._id || invoice.inpatient;
+                if (!inpatientId) {
+                    toast.error("Invalid inpatient ID");
+                    return;
+                }
                 response = await inpatientService.downloadDischargeReport(inpatientId);
                 fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
             } else if (invoice.patient) {
                 // Outpatient invoice
                 const patientId = invoice.patient._id || invoice.patient;
+                if (!patientId) {
+                    toast.error("Invalid patient ID");
+                    return;
+                }
                 response = await inpatientService.downloadOutpatientBillingReport(patientId);
                 fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
             } else {
@@ -346,19 +393,48 @@ function InvoiceDetails() {
                 return;
             }
 
-            // Create blob link to download
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            // Check if response is valid
+            if (!response || !response.data) {
+                toast.error("Invalid response from server");
+                return;
+            }
+
+            // response.data is already a Blob when responseType is 'blob'
+            const blob = response.data;
+            const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
-            link.remove();
+            
+            // Clean up
+            setTimeout(() => {
+                link.remove();
+                window.URL.revokeObjectURL(url);
+            }, 100);
 
             toast.success("Discharge report downloaded successfully!");
         } catch (error) {
             console.error("Download error:", error);
-            toast.error("Failed to download discharge report.");
+            let errorMessage = "Failed to download discharge report.";
+            
+            // Handle blob error responses
+            if (error.response && error.response.data instanceof Blob) {
+                try {
+                    const errorText = await error.response.data.text();
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.message || errorMessage;
+                } catch (parseError) {
+                    errorMessage = error.response.statusText || `Server error: ${error.response.status}`;
+                }
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.error(errorMessage);
         } finally {
             setDownloadingReport(false);
         }

@@ -220,16 +220,21 @@ export const sidebarMenus = {
             to: "/receptionist/appointments",
         },
         {
-            key: "inpatients",
-            label: "Inpatients",
-            icon: <HotelIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/receptionist/inpatient",
-        },
-        {
-            key: "outpatients",
-            label: "Outpatients",
-            icon: <LocalHospitalIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/receptionist/outpatient",
+            key: "patient_management",
+            label: "Patient Management",
+            icon: <PeopleIcon style={{ color: "var(--color-icons)" }} />,
+            children: [
+                {
+                    key: "inpatients",
+                    label: "Inpatients",
+                    to: "/receptionist/inpatient",
+                },
+                {
+                    key: "outpatients",
+                    label: "Outpatients",
+                    to: "/receptionist/outpatient",
+                },
+            ],
         },
         {
             key: "treatments",

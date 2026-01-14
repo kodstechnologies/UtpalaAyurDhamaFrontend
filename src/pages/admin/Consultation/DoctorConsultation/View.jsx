@@ -5,7 +5,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -150,7 +149,6 @@ function Consultation_View() {
     }, [rows]);
 
     const columns = [
-        { field: "slNo", header: "Sl. No." },
         { field: "doctor", header: "Doctor" },
         { 
             field: "fee", 
@@ -173,14 +171,6 @@ function Consultation_View() {
             label: "Edit",
             onClick: (row) => {
                 navigate(`/admin/consultation/fees/edit/${row._id}`);
-            },
-        },
-        {
-            icon: <SwapHorizIcon fontSize="small" />,
-            color: "var(--color-info)",
-            label: "Duplicate",
-            onClick: (row) => {
-                handleDuplicate(row);
             },
         },
         {

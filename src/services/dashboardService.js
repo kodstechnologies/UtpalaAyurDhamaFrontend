@@ -121,6 +121,19 @@ const dashboardService = {
             };
         }
     },
+
+    // Get monthly revenue data
+    getMonthlyRevenue: async () => {
+        try {
+            const response = await axios.get(getApiUrl("dashboard/monthly-revenue"), {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching monthly revenue:", error);
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default dashboardService;

@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Box, Stack, Button, CircularProgress, Chip } from "@mui/material";
+import { Box, Stack, Button, CircularProgress, Chip, Checkbox } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import ReplayIcon from "@mui/icons-material/Replay";
-import PersonIcon from "@mui/icons-material/Person";
 import EventIcon from "@mui/icons-material/Event";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import axios from "axios";
 import { toast } from "react-toastify";
+import doctorService from "../../../services/doctorService";
 
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
@@ -60,6 +60,7 @@ function FollowUps_View() {
                     
                     return {
                         _id: fup._id,
+                        followUpId: fup.followUpId || null,
                         patientName: fup.patientName || "Unknown",
                         patientId: fup.patientUhid || fup.patientId || "N/A",
                         followUpDate,
@@ -69,6 +70,7 @@ function FollowUps_View() {
                         daysUntil,
                         examinationId: fup.examinationId,
                         patientIdRaw: fup.patientUserId || fup.patientId,
+                        completed: fup.completed || false,
                     };
                 });
 
@@ -159,18 +161,65 @@ function FollowUps_View() {
         { field: "reason", header: "Reason" },
     ];
 
+    // Handle follow-up completion toggle
+    const handleFollowUpToggle = async (row, event) => {
+        event.stopPropagation(); // Prevent row click
+        
+        if (!row.examinationId || !row.followUpId) {
+            toast.error("Unable to update follow-up. Missing required information.");
+            return;
+        }
+
+        const newCompletedStatus = !row.completed;
+
+        try {
+            await doctorService.markFollowUpCompleted(
+                row.examinationId,
+                row.followUpId,
+                newCompletedStatus
+            );
+
+            // Update local state
+            setFollowUps((prevFollowUps) =>
+                prevFollowUps.map((fup) =>
+                    fup._id === row._id
+                        ? { ...fup, completed: newCompletedStatus }
+                        : fup
+                )
+            );
+
+            toast.success(
+                newCompletedStatus
+                    ? "Follow-up marked as completed"
+                    : "Follow-up marked as incomplete"
+            );
+        } catch (error) {
+            console.error("Error updating follow-up:", error);
+            toast.error(
+                error.response?.data?.message ||
+                error.message ||
+                "Failed to update follow-up status"
+            );
+        }
+    };
+
     const actions = [
         {
-            icon: <PersonIcon fontSize="small" />,
-            color: "var(--color-primary)",
-            tooltip: "Patient Calendar",
-            onClick: (row) => {
-                if (row.patientIdRaw) {
-                    navigate(`/doctor/examination/${row.patientIdRaw}`);
-                } else {
-                    toast.info("Patient information not available");
-                }
-            },
+            render: (row) => (
+                <Checkbox
+                    checked={row.completed || false}
+                    onChange={(e) => handleFollowUpToggle(row, e)}
+                    color="primary"
+                    size="small"
+                    sx={{
+                        padding: "4px",
+                        "& .MuiSvgIcon-root": {
+                            fontSize: "1.2rem",
+                        },
+                    }}
+                />
+            ),
+            tooltip: (row) => (row.completed ? "Mark as incomplete" : "Mark as completed"),
         },
     ];
 

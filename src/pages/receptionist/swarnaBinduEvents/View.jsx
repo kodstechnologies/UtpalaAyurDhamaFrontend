@@ -116,8 +116,10 @@ function SwarnaBinduEvents_Calendar() {
                             startTime: event.startTime,
                             endTime: event.endTime,
                         },
-                        backgroundColor: event.isActive ? '#1976d2' : '#9e9e9e',
-                        borderColor: event.isActive ? '#1565c0' : '#757575',
+                        backgroundColor: 'transparent',
+                        borderColor: 'transparent',
+                        textColor: '#000',
+                        classNames: ['swarna-bindu-event'],
                     };
                 });
                 
@@ -395,7 +397,31 @@ function SwarnaBinduEvents_Calendar() {
                             borderRadius: 1.5,
                             p: 0.5,
                             border: "none",
-                            cursor: "pointer"
+                            cursor: "pointer",
+                            backgroundColor: "transparent !important",
+                            color: "#000 !important",
+                            fontWeight: "600 !important"
+                        },
+                        // Style days with Swarna Bindu events - golden background for entire date box
+                        "& .fc-daygrid-day.swarna-bindu-day": {
+                            backgroundColor: "#FFD700 !important",
+                            background: "linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important",
+                            border: "2px solid #FFA500 !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-number": {
+                            color: "#000 !important",
+                            fontWeight: "700 !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-frame": {
+                            backgroundColor: "transparent !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-events": {
+                            backgroundColor: "transparent !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-event": {
+                            backgroundColor: "transparent !important",
+                            color: "#000 !important",
+                            fontWeight: "600 !important"
                         }
                     }}>
                         <FullCalendar
@@ -404,7 +430,7 @@ function SwarnaBinduEvents_Calendar() {
                             initialView="dayGridMonth"
                             headerToolbar={false}
                             events={events}
-                            eventClick={handleEventClick}
+                            // eventClick={handleEventClick} // Commented out to disable dialog
                             datesSet={handleDatesSet}
                             viewDidMount={handleViewChange}
                             height="auto"
@@ -422,6 +448,14 @@ function SwarnaBinduEvents_Calendar() {
                             dayMaxEvents={true}
                             moreLinkClick="popover"
                             lazyFetching={false}
+                            dayCellClassNames={(dateInfo) => {
+                                // Check if this day has any Swarna Bindu events
+                                const dayEvents = events.filter(event => {
+                                    const eventDate = new Date(event.start);
+                                    return eventDate.toDateString() === dateInfo.date.toDateString();
+                                });
+                                return dayEvents.length > 0 ? ['swarna-bindu-day'] : [];
+                            }}
                             eventContent={(eventInfo) => {
                                 return (
                                     <div
@@ -444,393 +478,7 @@ function SwarnaBinduEvents_Calendar() {
                 )}
             </Paper>
 
-            {/* Event Details Dialog */}
-            <Dialog
-                open={eventDialog.open}
-                onClose={handleCloseEventDialog}
-                maxWidth="sm"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: 3,
-                        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)"
-                    }
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        pb: 2.5,
-                        pt: 3,
-                        px: 3,
-                        borderBottom: "2px solid var(--color-icon-8-dark)",
-                        background: "linear-gradient(135deg, var(--color-icon-8-dark) 0%, var(--color-icon-8) 100%)",
-                        color: "white",
-                        borderRadius: "12px 12px 0 0",
-                        boxShadow: "0 4px 12px rgba(74, 57, 42, 0.3)"
-                    }}
-                >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                        <Box
-                            sx={{
-                                p: 1,
-                                borderRadius: 2,
-                                bgcolor: "rgba(255, 255, 255, 0.15)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center"
-                            }}
-                        >
-                            <CelebrationIcon sx={{ fontSize: 28 }} />
-                        </Box>
-                        <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: 0.5 }}>
-                            Event Details
-                        </Typography>
-                    </Box>
-                    <IconButton
-                        onClick={handleCloseEventDialog}
-                        sx={{
-                            color: "white",
-                            bgcolor: "rgba(255, 255, 255, 0.1)",
-                            "&:hover": {
-                                bgcolor: "rgba(255, 255, 255, 0.2)",
-                                transform: "rotate(90deg)",
-                                transition: "all 0.3s ease"
-                            },
-                            transition: "all 0.3s ease"
-                        }}
-                    >
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent sx={{ pt: 4, pb: 3, px: 3 }}>
-                    {eventDialog.event && (
-                        <Stack spacing={3}>
-                            {/* Event Title */}
-                            <Box
-                                sx={{
-                                    p: 2.5,
-                                    borderRadius: 2,
-                                    bgcolor: "var(--color-bg-card-hover)",
-                                    border: "2px solid var(--color-icon-8)",
-                                    borderLeft: "6px solid var(--color-icon-8-dark)"
-                                }}
-                            >
-                                <Typography
-                                    variant="h4"
-                                    sx={{
-                                        fontWeight: 700,
-                                        color: "var(--color-icon-8-dark)",
-                                        mb: 0.5,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 1.5
-                                    }}
-                                >
-                                    <EventIcon sx={{ fontSize: 32, color: "var(--color-icon-8)" }} />
-                                    {eventDialog.event.title}
-                                </Typography>
-                            </Box>
-
-                            {/* Event Date */}
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    alignItems: "flex-start",
-                                    gap: 2.5,
-                                    p: 2,
-                                    borderRadius: 2,
-                                    bgcolor: "var(--color-bg-card-hover)",
-                                    border: "1px solid var(--color-border)",
-                                    transition: "all 0.3s ease",
-                                    "&:hover": {
-                                        bgcolor: "var(--color-bg-card)",
-                                        transform: "translateX(4px)",
-                                        boxShadow: "0 4px 12px rgba(74, 57, 42, 0.1)"
-                                    }
-                                }}
-                            >
-                                <Box
-                                    sx={{
-                                        p: 1.5,
-                                        borderRadius: 2,
-                                        bgcolor: "var(--color-icon-8)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        minWidth: 48,
-                                        height: 48
-                                    }}
-                                >
-                                    <CalendarTodayIcon
-                                        sx={{
-                                            color: "white",
-                                            fontSize: 28
-                                        }}
-                                    />
-                                </Box>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography
-                                        variant="caption"
-                                        sx={{
-                                            color: "var(--color-icon-8-dark)",
-                                            fontSize: "0.75rem",
-                                            fontWeight: 700,
-                                            textTransform: "uppercase",
-                                            letterSpacing: 1,
-                                            mb: 0.5,
-                                            display: "block"
-                                        }}
-                                    >
-                                        Event Date
-                                    </Typography>
-                                    <Typography
-                                        variant="body1"
-                                        sx={{
-                                            color: "var(--color-text-dark)",
-                                            fontWeight: 600,
-                                            fontSize: "1.05rem"
-                                        }}
-                                    >
-                                        {eventDialog.event.date}
-                                    </Typography>
-                                </Box>
-                            </Box>
-
-                            {/* Event Time */}
-                            {(eventDialog.event.startTime || eventDialog.event.endTime) && (
-                                <Box
-                                    sx={{
-                                        display: "flex",
-                                        alignItems: "flex-start",
-                                        gap: 2.5,
-                                        p: 2,
-                                        borderRadius: 2,
-                                        bgcolor: "var(--color-bg-card-hover)",
-                                        border: "1px solid var(--color-border)",
-                                        transition: "all 0.3s ease",
-                                        "&:hover": {
-                                            bgcolor: "var(--color-bg-card)",
-                                            transform: "translateX(4px)",
-                                            boxShadow: "0 4px 12px rgba(74, 57, 42, 0.1)"
-                                        }
-                                    }}
-                                >
-                                    <Box
-                                        sx={{
-                                            p: 1.5,
-                                            borderRadius: 2,
-                                            bgcolor: "var(--color-icon-4)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            minWidth: 48,
-                                            height: 48
-                                        }}
-                                    >
-                                        <ScheduleIcon
-                                            sx={{
-                                                color: "white",
-                                                fontSize: 28
-                                            }}
-                                        />
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography
-                                            variant="caption"
-                                            sx={{
-                                                color: "var(--color-icon-4-dark)",
-                                                fontSize: "0.75rem",
-                                                fontWeight: 700,
-                                                textTransform: "uppercase",
-                                                letterSpacing: 1,
-                                                mb: 0.5,
-                                                display: "block"
-                                            }}
-                                        >
-                                            Time Schedule
-                                        </Typography>
-                                        <Typography
-                                            variant="body1"
-                                            sx={{
-                                                color: "var(--color-text-dark)",
-                                                fontWeight: 600,
-                                                fontSize: "1.05rem"
-                                            }}
-                                        >
-                                            {eventDialog.event.startTime && eventDialog.event.endTime
-                                                ? `${eventDialog.event.startTime} - ${eventDialog.event.endTime}`
-                                                : eventDialog.event.startTime || eventDialog.event.endTime}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            )}
-
-                            {/* Event Location */}
-                            {eventDialog.event.location && (
-                                <Box
-                                    sx={{
-                                        display: "flex",
-                                        alignItems: "flex-start",
-                                        gap: 2.5,
-                                        p: 2,
-                                        borderRadius: 2,
-                                        bgcolor: "var(--color-bg-card-hover)",
-                                        border: "1px solid var(--color-border)",
-                                        transition: "all 0.3s ease",
-                                        "&:hover": {
-                                            bgcolor: "var(--color-bg-card)",
-                                            transform: "translateX(4px)",
-                                            boxShadow: "0 4px 12px rgba(74, 57, 42, 0.1)"
-                                        }
-                                    }}
-                                >
-                                    <Box
-                                        sx={{
-                                            p: 1.5,
-                                            borderRadius: 2,
-                                            bgcolor: "var(--color-icon-5)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            minWidth: 48,
-                                            height: 48
-                                        }}
-                                    >
-                                        <PlaceIcon
-                                            sx={{
-                                                color: "white",
-                                                fontSize: 28
-                                            }}
-                                        />
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography
-                                            variant="caption"
-                                            sx={{
-                                                color: "var(--color-icon-5-dark)",
-                                                fontSize: "0.75rem",
-                                                fontWeight: 700,
-                                                textTransform: "uppercase",
-                                                letterSpacing: 1,
-                                                mb: 0.5,
-                                                display: "block"
-                                            }}
-                                        >
-                                            Venue Location
-                                        </Typography>
-                                        <Typography
-                                            variant="body1"
-                                            sx={{
-                                                color: "var(--color-text-dark)",
-                                                fontWeight: 600,
-                                                fontSize: "1.05rem"
-                                            }}
-                                        >
-                                            {eventDialog.event.location}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            )}
-
-                            {/* Event Description */}
-                            {eventDialog.event.description && (
-                                <Box
-                                    sx={{
-                                        p: 2.5,
-                                        borderRadius: 2,
-                                        bgcolor: "var(--color-bg-card-hover)",
-                                        border: "1px solid var(--color-border)",
-                                        borderLeft: "4px solid var(--color-icon-8-dark)"
-                                    }}
-                                >
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
-                                        <Box
-                                            sx={{
-                                                p: 1,
-                                                borderRadius: 1.5,
-                                                bgcolor: "var(--color-icon-8-dark)",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center"
-                                            }}
-                                        >
-                                            <NotesIcon
-                                                sx={{
-                                                    color: "white",
-                                                    fontSize: 24
-                                                }}
-                                            />
-                                        </Box>
-                                        <Typography
-                                            variant="caption"
-                                            sx={{
-                                                color: "var(--color-icon-8-dark)",
-                                                fontSize: "0.75rem",
-                                                fontWeight: 700,
-                                                textTransform: "uppercase",
-                                                letterSpacing: 1
-                                            }}
-                                        >
-                                            Event Description
-                                        </Typography>
-                                    </Box>
-                                    <Typography
-                                        variant="body1"
-                                        sx={{
-                                            color: "var(--color-text-dark)",
-                                            lineHeight: 1.8,
-                                            whiteSpace: "pre-wrap",
-                                            fontSize: "1rem"
-                                        }}
-                                    >
-                                        {eventDialog.event.description}
-                                    </Typography>
-                                </Box>
-                            )}
-                        </Stack>
-                    )}
-                </DialogContent>
-
-                <DialogActions
-                    sx={{
-                        px: 3,
-                        py: 2.5,
-                        borderTop: "2px solid var(--color-icon-8-dark)",
-                        bgcolor: "var(--color-bg-card-hover)",
-                        borderRadius: "0 0 12px 12px"
-                    }}
-                >
-                    <Button
-                        onClick={handleCloseEventDialog}
-                        variant="contained"
-                        startIcon={<CloseIcon />}
-                        sx={{
-                            borderRadius: 2.5,
-                            textTransform: "none",
-                            fontWeight: 700,
-                            px: 4,
-                            py: 1,
-                            fontSize: "1rem",
-                            bgcolor: "var(--color-icon-8-dark)",
-                            color: "white",
-                            boxShadow: "0 4px 12px rgba(74, 57, 42, 0.3)",
-                            "&:hover": {
-                                bgcolor: "var(--color-icon-8)",
-                                boxShadow: "0 6px 16px rgba(74, 57, 42, 0.4)",
-                                transform: "translateY(-2px)",
-                                transition: "all 0.3s ease"
-                            },
-                            transition: "all 0.3s ease"
-                        }}
-                    >
-                        Close
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {/* Event Details Dialog - Commented out as per user request */}
         </Box>
     );
 }
