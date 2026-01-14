@@ -128,23 +128,43 @@ function InvoiceDetails() {
         });
     };
 
-    // Categorize invoice items by their names
-    const categorizeItem = (itemName) => {
+    // Categorize invoice items - use category field if available, otherwise use name-based categorization
+    const categorizeItem = (item) => {
+        // If item has a category field, use it (with proper formatting)
+        if (item.category) {
+            const categoryMap = {
+                "consultation": "Doctor Consultation",
+                "therapy": "Therapy",
+                "pharmacy": "Medicines",
+                "food": "Food Charges",
+                "ward": "Bed Charges",
+            };
+            return categoryMap[item.category] || item.category.charAt(0).toUpperCase() + item.category.slice(1);
+        }
+        
+        // Fallback to name-based categorization
+        const itemName = item.name || "";
         if (!itemName) return "Other";
         const name = itemName.toLowerCase().trim();
         
         // Doctor Consultation - Check FIRST (most specific patterns first)
+        // Also check if it has doctor-related fields or is from consultation charges
         if (name.includes("consultation") || 
             name.includes("opd consultation") || 
             name.includes("ipd consultation") ||
             name.includes("consultation charge") ||
             name.includes("examination") ||
             (name.includes("doctor") && (name.includes("fee") || name.includes("charge"))) ||
-            name === "opd consultation") {
+            name === "opd consultation" ||
+            // Check if item has consultation-related metadata (for old invoices)
+            (item.description && (item.description.toLowerCase().includes("consultation") || item.description.toLowerCase().includes("examination"))) ||
+            // If it's a single item with high amount and no medicine details, likely consultation
+            (!item.dosage && !item.frequency && !item.duration && item.quantity === 1 && item.unitPrice > 100)) {
             return "Doctor Consultation";
         }
         
         // Therapy - Check before medicine (specific therapy patterns)
+        // Check common therapy names like Cardiology, Physiotherapy, etc.
         if (name.includes("therapy") || 
             name.includes("therapy charge") ||
             name.includes("opd therapy") || 
@@ -153,11 +173,27 @@ function InvoiceDetails() {
             name.includes("treatment session") ||
             (name.includes("treatment") && (name.includes("charge") || name.includes("session"))) ||
             name === "opd therapy charge" ||
-            name === "therapy charge") {
+            name === "therapy charge" ||
+            // Common therapy names
+            name.includes("cardiology") ||
+            name.includes("physiotherapy") ||
+            name.includes("acupuncture") ||
+            name.includes("massage") ||
+            name.includes("yoga") ||
+            name.includes("panchakarma") ||
+            name.includes("shirodhara") ||
+            name.includes("abhyanga") ||
+            // Check if item has therapy-related metadata
+            (item.description && item.description.toLowerCase().includes("therapy"))) {
             return "Therapy";
         }
         
         // Medicine/Pharmacy - Check after therapy/consultation
+        // If it has medicine details (dosage, frequency, etc.), it's definitely a medicine
+        if (item.dosage || item.frequency || item.duration || item.foodTiming) {
+            return "Medicines";
+        }
+        
         if (name.includes("medicine") || 
             name.includes("medication") || 
             name.includes("tablet") || 
@@ -189,7 +225,8 @@ function InvoiceDetails() {
             name.includes("bed") || 
             name.includes("bed charge") || 
             name.includes("room charge") ||
-            name.includes("accommodation")) {
+            name.includes("accommodation") ||
+            name.includes("one bed")) {
             return "Bed Charges";
         }
         
@@ -203,7 +240,7 @@ function InvoiceDetails() {
         
         const grouped = {};
         items.forEach((item, index) => {
-            const category = categorizeItem(item.name);
+            const category = categorizeItem(item); // Pass the whole item, not just name
             if (!grouped[category]) {
                 grouped[category] = [];
             }
@@ -607,17 +644,87 @@ function InvoiceDetails() {
                                                                 {formatCurrency(categoryTotal)}
                                                             </TableCell>
                                                         </TableRow>
-                                                        {/* Category Items */}
+                                                        {/* Category Items - Show different columns based on category */}
                                                         {categoryItems.map((item) => {
                                                             itemCounter++;
+                                                            const isMedicine = item.category === "pharmacy" || category === "Medicines";
+                                                            
+                                                            // For medicines, show expanded table with medicine details
+                                                            if (isMedicine) {
+                                                                return (
+                                                                    <Fragment key={`${category}-${item.originalIndex}`}>
+                                                                        {/* Medicine row with details */}
+                                                                        <TableRow hover>
+                                                                            <TableCell sx={{ fontSize: "0.875rem" }}>{itemCounter}</TableCell>
+                                                                            <TableCell sx={{ fontSize: "0.875rem", fontWeight: 500, paddingLeft: 3 }}>
+                                                                                {item.name}
+                                                                                {item.remarks && (
+                                                                                    <Typography variant="caption" sx={{ display: "block", color: "#666", fontStyle: "italic", marginTop: 0.5 }}>
+                                                                                        <strong>Remarks:</strong> {item.remarks}
+                                                                                    </Typography>
+                                                                                )}
+                                                                            </TableCell>
+                                                                            <TableCell align="center" sx={{ fontSize: "0.875rem" }}>
+                                                                                {item.dispensedQuantity !== undefined ? item.dispensedQuantity : (item.quantity || 0)}
+                                                                            </TableCell>
+                                                                            <TableCell align="right" sx={{ fontSize: "0.875rem" }}>
+                                                                                {formatCurrency(item.unitPrice)}
+                                                                            </TableCell>
+                                                                            <TableCell align="right" sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                                                                                {formatCurrency(item.total)}
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                        {/* Medicine details row */}
+                                                                        {(item.dosage || item.frequency || item.duration || item.foodTiming) && (
+                                                                            <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
+                                                                                <TableCell></TableCell>
+                                                                                <TableCell colSpan={4} sx={{ fontSize: "0.75rem", paddingLeft: 5, paddingTop: 0.5, paddingBottom: 0.5 }}>
+                                                                                    <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                                                                                        {item.dosage && (
+                                                                                            <Typography component="span" sx={{ fontSize: "0.75rem" }}>
+                                                                                                <strong>Dosage:</strong> {item.dosage}
+                                                                                            </Typography>
+                                                                                        )}
+                                                                                        {item.frequency && (
+                                                                                            <Typography component="span" sx={{ fontSize: "0.75rem" }}>
+                                                                                                <strong>Frequency:</strong> {item.frequency}
+                                                                                            </Typography>
+                                                                                        )}
+                                                                                        {item.duration && (
+                                                                                            <Typography component="span" sx={{ fontSize: "0.75rem" }}>
+                                                                                                <strong>Duration:</strong> {item.duration}
+                                                                                            </Typography>
+                                                                                        )}
+                                                                                        {item.foodTiming && (
+                                                                                            <Chip 
+                                                                                                label={item.foodTiming} 
+                                                                                                size="small" 
+                                                                                                color={item.foodTiming === "Before Food" ? "warning" : "info"}
+                                                                                                sx={{ fontSize: "0.65rem", height: "18px" }}
+                                                                                            />
+                                                                                        )}
+                                                                                    </Box>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                        )}
+                                                                    </Fragment>
+                                                                );
+                                                            }
+                                                            
+                                                            // For non-medicine items, show simple row
                                                             return (
                                                                 <TableRow key={`${category}-${item.originalIndex}`} hover>
                                                                     <TableCell sx={{ fontSize: "0.875rem" }}>{itemCounter}</TableCell>
                                                                     <TableCell sx={{ fontSize: "0.875rem", fontWeight: 500, paddingLeft: 3 }}>
                                                                         {item.name}
+                                                                        {item.remarks && (
+                                                                            <Typography variant="caption" sx={{ display: "block", color: "#666", fontStyle: "italic", marginTop: 0.5 }}>
+                                                                                <strong>Remarks:</strong> {item.remarks}
+                                                                            </Typography>
+                                                                        )}
                                                                     </TableCell>
                                                                     <TableCell align="center" sx={{ fontSize: "0.875rem" }}>
-                                                                        {item.quantity}
+                                                                        {item.dispensedQuantity !== undefined ? item.dispensedQuantity : (item.quantity || 0)}
                                                                     </TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: "0.875rem" }}>
                                                                         {formatCurrency(item.unitPrice)}

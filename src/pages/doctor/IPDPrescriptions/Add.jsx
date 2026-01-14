@@ -49,6 +49,8 @@ function IPDPrescriptionsAddPage() {
             dosage: "",
             frequency: "",
             duration: "",
+            foodTiming: "",
+            remarks: "",
             instructions: "",
             medicineType: "",
             administration: "",
@@ -209,6 +211,8 @@ function IPDPrescriptionsAddPage() {
                         dosage: prescription.dosage || "",
                         frequency: prescription.frequency || "",
                         duration: prescription.duration || "",
+                        foodTiming: prescription.foodTiming || "",
+                        remarks: prescription.remarks || "",
                         instructions: prescription.notes || "",
                         medicineType: prescription.medicineType || "",
                         administration: prescription.administration || "",
@@ -277,6 +281,8 @@ function IPDPrescriptionsAddPage() {
                 dosage: "",
                 frequency: "",
                 duration: "",
+                foodTiming: "",
+                remarks: "",
                 instructions: "",
             },
         }));
@@ -328,6 +334,8 @@ function IPDPrescriptionsAddPage() {
                     dosage: medicine.dosage,
                     frequency: medicine.frequency || "As needed",
                     duration: medicine.duration || undefined,
+                    foodTiming: medicine.foodTiming || undefined,
+                    remarks: medicine.remarks || undefined,
                     notes: medicine.instructions || formData.notes || undefined,
                     quantity: medicine.quantity ? parseInt(medicine.quantity, 10) : 1,
                     medicineType: medicine.medicineType || undefined,
@@ -402,6 +410,8 @@ function IPDPrescriptionsAddPage() {
                     dosage: medicine.dosage,
                     frequency: medicine.frequency || "As needed",
                     duration: medicine.duration || undefined,
+                    foodTiming: medicine.foodTiming || undefined,
+                    remarks: medicine.remarks || undefined,
                     notes: medicine.instructions || formData.notes || undefined,
                         quantity: medicine.quantity ? parseInt(medicine.quantity, 10) : 1,
                         medicineType: medicine.medicineType || undefined,
@@ -573,7 +583,7 @@ function IPDPrescriptionsAddPage() {
                                                 </Select>
                                             </FormControl>
                                         </Grid>
-                                        <Grid item xs={12} md={4}>
+                                        <Grid item xs={12} md={3}>
                                             <FormControl fullWidth>
                                                 <InputLabel>Duration</InputLabel>
                                                 <Select
@@ -593,7 +603,25 @@ function IPDPrescriptionsAddPage() {
                                                 </Select>
                                             </FormControl>
                                         </Grid>
-                                        <Grid item xs={12} md={4}>
+                                        <Grid item xs={12} md={3}>
+                                            <FormControl fullWidth>
+                                                <InputLabel>Food Timing</InputLabel>
+                                                <Select
+                                                    value={formData.medicines[0].foodTiming || ""}
+                                                    onChange={(e) => {
+                                                        const updatedMedicines = [...formData.medicines];
+                                                        updatedMedicines[0].foodTiming = e.target.value;
+                                                        setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
+                                                    }}
+                                                    label="Food Timing"
+                                                >
+                                                    <MenuItem value="">Select</MenuItem>
+                                                    <MenuItem value="Before Food">Before Food</MenuItem>
+                                                    <MenuItem value="After Food">After Food</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                        <Grid item xs={12} md={3}>
                                             <TextField
                                                 fullWidth
                                                 label="Quantity"
@@ -604,6 +632,19 @@ function IPDPrescriptionsAddPage() {
                                                     updatedMedicines[0].quantity = e.target.value;
                                                     setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
                                                 }}
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} md={3}>
+                                            <TextField
+                                                fullWidth
+                                                label="Remarks"
+                                                value={formData.medicines[0].remarks || ""}
+                                                onChange={(e) => {
+                                                    const updatedMedicines = [...formData.medicines];
+                                                    updatedMedicines[0].remarks = e.target.value;
+                                                    setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
+                                                }}
+                                                placeholder="Enter remarks"
                                             />
                                         </Grid>
                                         <Grid item xs={12}>
@@ -630,25 +671,26 @@ function IPDPrescriptionsAddPage() {
                                 <>
                             {/* Current Medicine Form */}
                             <Grid container spacing={2} sx={{ mb: 2 }}>
+                                {/* First Row: Medicine Name, Dosage, Frequency, Duration, Food Timing, Add Button */}
                                 <Grid item xs={12} md={3}>
-                                            <Autocomplete
-                                                options={medicines}
-                                                getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
-                                                value={medicines.find(m => m.medicineName === formData.currentMedicine.name) || null}
-                                                onChange={(event, newValue) => {
-                                                    handleMedicineFieldChange("name", newValue ? newValue.medicineName : "");
-                                                }}
-                                                loading={isLoadingMedicines}
-                                                size="small"
-                                                renderInput={(params) => (
-                                    <TextField
-                                                        {...params}
-                                        label="Medicine Name *"
-                                                        placeholder="Select medicine"
-                                                        required={formData.medicines.length === 0}
-                                                    />
-                                                )}
-                                                isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
+                                    <Autocomplete
+                                        options={medicines}
+                                        getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
+                                        value={medicines.find(m => m.medicineName === formData.currentMedicine.name) || null}
+                                        onChange={(event, newValue) => {
+                                            handleMedicineFieldChange("name", newValue ? newValue.medicineName : "");
+                                        }}
+                                        loading={isLoadingMedicines}
+                                        size="small"
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Medicine Name *"
+                                                placeholder="Select medicine"
+                                                required={formData.medicines.length === 0}
+                                            />
+                                        )}
+                                        isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
                                     />
                                 </Grid>
                                 <Grid item xs={12} md={2}>
@@ -694,14 +736,42 @@ function IPDPrescriptionsAddPage() {
                                     </FormControl>
                                 </Grid>
                                 <Grid item xs={12} md={2}>
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel>Food Timing</InputLabel>
+                                        <Select
+                                            value={formData.currentMedicine.foodTiming}
+                                            onChange={(e) => handleMedicineFieldChange("foodTiming", e.target.value)}
+                                            label="Food Timing"
+                                        >
+                                            <MenuItem value="">Select</MenuItem>
+                                            <MenuItem value="Before Food">Before Food</MenuItem>
+                                            <MenuItem value="After Food">After Food</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid item xs={12} md={1}>
                                     <Button
                                         fullWidth
-                                        variant="outlined"
+                                        variant="contained"
                                         onClick={handleAddMedicine}
                                         size="small"
+                                        sx={{ height: "40px" }}
                                     >
-                                        Add Medicine
+                                        Add
                                     </Button>
+                                </Grid>
+                            </Grid>
+
+                            {/* Remarks and Special Instructions - Outside the box, stacked vertically */}
+                            <Grid container spacing={2} sx={{ mt: 2 }}>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Remarks"
+                                        value={formData.currentMedicine.remarks}
+                                        onChange={(e) => handleMedicineFieldChange("remarks", e.target.value)}
+                                        placeholder="Enter remarks (optional)"
+                                    />
                                 </Grid>
                                 <Grid item xs={12}>
                                     <TextField
@@ -709,9 +779,9 @@ function IPDPrescriptionsAddPage() {
                                         label="Special Instructions"
                                         value={formData.currentMedicine.instructions}
                                         onChange={(e) => handleMedicineFieldChange("instructions", e.target.value)}
-                                        size="small"
+                                        placeholder="Special instructions (optional)"
                                         multiline
-                                        rows={2}
+                                        rows={3}
                                     />
                                 </Grid>
                             </Grid>
@@ -741,7 +811,13 @@ function IPDPrescriptionsAddPage() {
                                                 </Typography>
                                                 <Typography variant="body2" color="text.secondary">
                                                     {medicine.dosage} - {medicine.frequency} - {medicine.duration}
+                                                    {medicine.foodTiming && ` - ${medicine.foodTiming}`}
                                                 </Typography>
+                                                {medicine.remarks && (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        Remarks: {medicine.remarks}
+                                                    </Typography>
+                                                )}
                                                 {medicine.instructions && (
                                                     <Typography variant="body2" color="text.secondary">
                                                         Instructions: {medicine.instructions}

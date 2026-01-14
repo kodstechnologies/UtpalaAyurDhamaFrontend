@@ -84,6 +84,7 @@ export const getAuthHeaders = (additionalHeaders = {}) => {
         headers["Authorization"] = `Bearer ${token}`;
     } else {
         console.warn("No auth token found in localStorage for request headers");
+        console.warn("Available localStorage keys:", Object.keys(localStorage));
     }
 
     return headers;

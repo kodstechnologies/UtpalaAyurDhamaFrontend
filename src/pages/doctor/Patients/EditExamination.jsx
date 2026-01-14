@@ -200,11 +200,14 @@ function EditExamination() {
                     isEditMode={true}
                     onSubmitSuccess={() => {
                         toast.success("Examination updated successfully!");
+                        // Add timestamp to force refetch
                         navigate(`/doctor/examination-details/${userId}`, {
                             state: {
                                 examinationId: examinationId,
                                 appointment: examination.appointment,
-                            }
+                                refresh: Date.now(), // Force refresh
+                            },
+                            replace: false, // Don't replace history to allow back navigation
                         });
                     }}
                 />

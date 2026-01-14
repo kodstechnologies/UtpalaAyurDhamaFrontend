@@ -161,7 +161,7 @@ export const useNotifications = () => {
             return;
         }
 
-        console.log('🚀 Starting notification interval (1 minute)');
+        console.log('🚀 Starting notification interval (once per day)');
         
         // Initial fetch immediately
         console.log('🔄 Initial fetch...');
@@ -172,7 +172,7 @@ export const useNotifications = () => {
             fetchDOBReminders();
         }
 
-        // Set up periodic refresh (every 1 minute)
+        // Set up periodic refresh (once per day)
         const interval = setInterval(() => {
             console.log('🔄 Periodic refresh at', new Date().toLocaleTimeString());
             if (shouldFetchPaymentReminders) {
@@ -181,7 +181,7 @@ export const useNotifications = () => {
             if (shouldFetchDOBReminders) {
                 fetchDOBReminders();
             }
-        }, 60 * 1000); // 1 minute (60 seconds)
+        }, 24 * 60 * 60 * 1000); // Once per day (24 hours)
 
         console.log('✅ Notification interval started');
 

@@ -61,6 +61,8 @@ function PrescriptionsDetailsPage() {
                             dosage: data.dosage || "",
                             frequency: data.frequency || "",
                             duration: data.duration || "",
+                            foodTiming: data.foodTiming || "",
+                            remarks: data.remarks || "",
                             instructions: data.notes || "",
                         }] : [],
                         notes: data.notes || "",
@@ -333,6 +335,16 @@ function PrescriptionsDetailsPage() {
                                                             {presc.duration || "N/A"}
                                                         </Typography>
                                                     </Grid>
+                                                    {presc.foodTiming && (
+                                                        <Grid item xs={6}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Food Timing
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.foodTiming}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                     <Grid item xs={6}>
                                                         <Typography variant="caption" color="text.secondary" display="block">
                                                             Date
@@ -347,6 +359,16 @@ function PrescriptionsDetailsPage() {
                                                                 : "N/A"}
                                                         </Typography>
                                                     </Grid>
+                                                    {presc.remarks && (
+                                                        <Grid item xs={12}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Remarks
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.remarks}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                 </Grid>
                                             </Box>
                                         </Grid>
@@ -410,8 +432,28 @@ function PrescriptionsDetailsPage() {
                                                             {medicine.duration}
                                                         </Typography>
                                                     </Grid>
-                                                    {medicine.instructions && (
+                                                    {medicine.foodTiming && (
                                                         <Grid item xs={12} sm={4}>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                Food Timing
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {medicine.foodTiming}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
+                                                    {medicine.remarks && (
+                                                        <Grid item xs={12} sm={6}>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                Remarks
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {medicine.remarks}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
+                                                    {medicine.instructions && (
+                                                        <Grid item xs={12} sm={6}>
                                                             <Typography variant="caption" color="text.secondary">
                                                                 Instructions
                                                             </Typography>

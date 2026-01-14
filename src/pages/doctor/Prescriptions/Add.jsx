@@ -48,6 +48,8 @@ function PrescriptionsAddPage() {
             dosage: "",
             frequency: "",
             duration: "",
+            foodTiming: "",
+            remarks: "",
             instructions: "",
         },
         diagnosis: "",
@@ -172,6 +174,8 @@ function PrescriptionsAddPage() {
                         dosage: data.dosage || "",
                         frequency: data.frequency || "",
                         duration: data.duration || "",
+                        foodTiming: data.foodTiming || "",
+                        remarks: data.remarks || "",
                         instructions: data.notes || "",
                     } : null;
 
@@ -246,6 +250,8 @@ function PrescriptionsAddPage() {
                 dosage: "",
                 frequency: "",
                 duration: "",
+                foodTiming: "",
+                remarks: "",
                 instructions: "",
             },
         }));
@@ -313,6 +319,8 @@ function PrescriptionsAddPage() {
                     dosage: medicine.dosage,
                     frequency: medicine.frequency || "As needed",
                     duration: medicine.duration || undefined,
+                    foodTiming: medicine.foodTiming || undefined,
+                    remarks: medicine.remarks || undefined,
                     notes: medicine.instructions || formData.notes || undefined,
                     diagnosis: formData.diagnosis, // Include diagnosis for backend to update examination
                     quantity: 1,
@@ -362,6 +370,8 @@ function PrescriptionsAddPage() {
                         dosage: medicine.dosage,
                         frequency: medicine.frequency || "As needed",
                         duration: medicine.duration || undefined,
+                        foodTiming: medicine.foodTiming || undefined,
+                        remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
                         quantity: 1, // Default quantity
                     };
@@ -538,7 +548,8 @@ function PrescriptionsAddPage() {
                             }}
                         >
                             <Grid container spacing={2}>
-                                <Grid item xs={12} md={4}>
+                                {/* First Row: Medicine Name, Dosage, Frequency, Duration, Food Timing, Add Button */}
+                                <Grid item xs={12} sm={6} md={3}>
                                     <Autocomplete
                                         options={medicines}
                                         getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
@@ -558,7 +569,7 @@ function PrescriptionsAddPage() {
                                         isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                <Grid item xs={12} sm={6} md={2}>
                                     <TextField
                                         fullWidth
                                         label="Dosage"
@@ -568,7 +579,7 @@ function PrescriptionsAddPage() {
                                         size="small"
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                <Grid item xs={12} sm={6} md={2}>
                                     <FormControl fullWidth size="small">
                                         <InputLabel>Frequency</InputLabel>
                                         <Select
@@ -585,7 +596,7 @@ function PrescriptionsAddPage() {
                                         </Select>
                                     </FormControl>
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                <Grid item xs={12} sm={6} md={2}>
                                     <FormControl fullWidth size="small">
                                         <InputLabel>Duration</InputLabel>
                                         <Select
@@ -602,7 +613,21 @@ function PrescriptionsAddPage() {
                                         </Select>
                                     </FormControl>
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                <Grid item xs={12} sm={6} md={2}>
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel>Food Timing</InputLabel>
+                                        <Select
+                                            value={formData.currentMedicine.foodTiming}
+                                            onChange={(e) => handleMedicineFieldChange("foodTiming", e.target.value)}
+                                            label="Food Timing"
+                                        >
+                                            <MenuItem value="">Select</MenuItem>
+                                            <MenuItem value="Before Food">Before Food</MenuItem>
+                                            <MenuItem value="After Food">After Food</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={1}>
                                     <Button
                                         variant="contained"
                                         onClick={handleAddMedicine}
@@ -613,19 +638,31 @@ function PrescriptionsAddPage() {
                                     </Button>
                                 </Grid>
                             </Grid>
-                            <Grid item xs={12} sx={{ mt: 2 }}>
+                        </Box>
+
+                        {/* Remarks and Instructions - Outside the box, stacked vertically */}
+                        <Grid container spacing={2} sx={{ mt: 2 }}>
+                            <Grid item xs={12}>
                                 <TextField
                                     fullWidth
-                                    label="Instructions"
+                                    label="Remarks"
+                                    value={formData.currentMedicine.remarks}
+                                    onChange={(e) => handleMedicineFieldChange("remarks", e.target.value)}
+                                    placeholder="Enter remarks (optional)"
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Special Instructions"
                                     value={formData.currentMedicine.instructions}
                                     onChange={(e) => handleMedicineFieldChange("instructions", e.target.value)}
                                     placeholder="Special instructions (optional)"
-                                    size="small"
                                     multiline
-                                    rows={2}
+                                    rows={3}
                                 />
                             </Grid>
-                        </Box>
+                        </Grid>
 
                         {/* Added Medicines List */}
                         {formData.medicines.length > 0 && (
@@ -653,6 +690,8 @@ function PrescriptionsAddPage() {
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
                                                 {medicine.frequency} • {medicine.duration}
+                                                {medicine.foodTiming && ` • ${medicine.foodTiming}`}
+                                                {medicine.remarks && ` • Remarks: ${medicine.remarks}`}
                                                 {medicine.instructions && ` • ${medicine.instructions}`}
                                             </Typography>
                                         </Box>

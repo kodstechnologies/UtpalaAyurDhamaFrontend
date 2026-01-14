@@ -1,11 +1,30 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Box, SvgIcon } from "@mui/material";
+import { 
+    Box, 
+    SvgIcon, 
+    Dialog, 
+    DialogTitle, 
+    DialogContent, 
+    DialogActions, 
+    Button, 
+    FormControl, 
+    InputLabel, 
+    Select, 
+    MenuItem, 
+    TextField,
+    CircularProgress,
+    Typography,
+    Divider
+} from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
 import inpatientService from "../../../services/inpatientService";
+import doctorService from "../../../services/doctorService";
+import axios from "axios";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 // Icons
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
@@ -15,6 +34,7 @@ import LocalHotelIcon from "@mui/icons-material/LocalHotel";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EditIcon from "@mui/icons-material/Edit";
+import CloseIcon from "@mui/icons-material/Close";
 
 // Custom Rupee Icon Component - styled to match other Material-UI icons
 const RupeeIcon = (props) => {
@@ -74,7 +94,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
         return "badge bg-secondary";
     };
 
-    const columnCount = category === "therapy" ? 8 : category === "pharmacy" ? 7 : category === "consultation" ? 4 : category === "ward" ? 3 : 3;
+    const columnCount = category === "therapy" ? 8 : category === "pharmacy" ? 9 : category === "consultation" ? 4 : category === "ward" ? 3 : 3;
 
     return (
         <div className="card shadow-sm mb-4">
@@ -107,7 +127,9 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                         <th style={{ fontSize: "0.875rem" }}>Medicine Name</th>
                                         <th style={{ fontSize: "0.875rem" }}>Dosage</th>
                                         <th style={{ fontSize: "0.875rem" }}>Frequency</th>
-                                        <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Qty</th>
+                                        <th style={{ fontSize: "0.875rem" }}>Duration</th>
+                                        <th style={{ fontSize: "0.875rem" }}>Food Timing</th>
+                                        <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Dispensed Qty</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Unit Price</th>
                                     </>
                                 ) : category === "ward" ? (
@@ -156,10 +178,25 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                                         {charge.type === "inpatient" ? "IPD" : "OPD"}
                                                     </span>
                                                 )}
+                                                {charge.remarks && (
+                                                    <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "4px", fontStyle: "italic" }}>
+                                                        <strong>Remarks:</strong> {charge.remarks}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.dosage || "N/A"}</td>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.frequency || "N/A"}</td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.quantity || 0}</td>
+                                            <td style={{ fontSize: "0.875rem" }}>{charge.duration || "N/A"}</td>
+                                            <td style={{ fontSize: "0.875rem" }}>
+                                                {charge.foodTiming ? (
+                                                    <span className={`badge ${charge.foodTiming === "Before Food" ? "bg-warning" : "bg-info"}`} style={{ fontSize: "0.7rem" }}>
+                                                        {charge.foodTiming}
+                                                    </span>
+                                                ) : (
+                                                    "N/A"
+                                                )}
+                                            </td>
+                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.dispensedQuantity !== undefined ? charge.dispensedQuantity : (charge.quantity || 0)}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "right" }}>{formatCurrency(charge.unitPrice || 0)}</td>
                                         </>
                                     ) : category === "ward" ? (
@@ -275,6 +312,16 @@ function InpatientBilling() {
     const [taxRate, setTaxRate] = useState(5);
     const [isDischarging, setIsDischarging] = useState(false);
     const [patientId, setPatientId] = useState(null);
+    
+    // Edit consultation dialog state
+    const [editConsultationDialog, setEditConsultationDialog] = useState({ open: false, charge: null });
+    const [doctors, setDoctors] = useState([]);
+    const [selectedDoctor, setSelectedDoctor] = useState("");
+    const [consultationAmount, setConsultationAmount] = useState("");
+    const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
+    const [isUpdatingConsultation, setIsUpdatingConsultation] = useState(false);
+    const [inpatientId, setInpatientId] = useState(null);
+    const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
 
     // First, get patient ID from inpatient if id is an inpatient ID
     useEffect(() => {
@@ -286,6 +333,7 @@ function InpatientBilling() {
                         const inpatient = response.data;
                         const pid = inpatient.patient?._id || inpatient.patient;
                         setPatientId(pid);
+                        setInpatientId(id); // Store inpatient ID for consultation updates
                     } else {
                         // If not an inpatient ID, assume it's a patient ID
                         setPatientId(id);
@@ -410,7 +458,99 @@ function InpatientBilling() {
         setDiscountRate(sanitized);
     };
 
+    // Fetch doctors for edit dialog
+    const fetchDoctors = async () => {
+        setIsLoadingDoctors(true);
+        try {
+            const response = await doctorService.getAllDoctorProfiles({ page: 1, limit: 1000 });
+            if (response && response.success) {
+                setDoctors(response.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching doctors:", error);
+            toast.error("Failed to load doctors");
+        } finally {
+            setIsLoadingDoctors(false);
+        }
+    };
+
+    // Handle edit consultation charge
+    const handleEditConsultation = (charge) => {
+        setEditConsultationDialog({ open: true, charge });
+        setSelectedDoctor(charge.doctorId || "");
+        setConsultationAmount((charge.amount || 0).toString());
+        if (!doctors.length) {
+            fetchDoctors();
+        }
+    };
+
+    // Update consultation charge
+    const handleUpdateConsultation = async () => {
+        if (!consultationAmount || parseFloat(consultationAmount) < 0) {
+            toast.error("Please enter a valid consultation amount");
+            return;
+        }
+
+        const charge = editConsultationDialog.charge;
+        if (!charge?.id || !inpatientId) {
+            toast.error("Invalid consultation record");
+            return;
+        }
+
+        // Extract checkupId from charge.id (format: inpatientId-checkupId or just checkupId)
+        const checkupId = charge.id.includes('-') ? charge.id.split('-')[1] : charge.id;
+
+        setIsUpdatingConsultation(true);
+        try {
+            const response = await axios.patch(
+                getApiUrl(`inpatients/${inpatientId}/checkups/${checkupId}/consultation`),
+                {
+                    doctorId: selectedDoctor || null,
+                    price: parseFloat(consultationAmount),
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data && response.data.success) {
+                toast.success("Consultation charge updated successfully!");
+                setEditConsultationDialog({ open: false, charge: null });
+                setSelectedDoctor("");
+                setConsultationAmount("");
+                
+                // Refresh billing data
+                if (patientId) {
+                    const billingResponse = await inpatientService.getUnifiedBillingSummary(patientId);
+                    if (billingResponse && billingResponse.success && billingResponse.data) {
+                        const data = billingResponse.data;
+                        const charges = {
+                            food: Array.isArray(data.charges?.food) ? data.charges.food : [],
+                            consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
+                            therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
+                            pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
+                            ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
+                        };
+                        setBillingData({ ...data, charges });
+                    }
+                }
+            } else {
+                toast.error(response.data?.message || "Failed to update consultation charge");
+            }
+        } catch (error) {
+            console.error("Error updating consultation charge:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to update consultation charge");
+        } finally {
+            setIsUpdatingConsultation(false);
+        }
+    };
+
     const handleEditCharge = (charge) => {
+        // For consultation charges, use the dialog
+        if (charge.category === "consultation" || charge.type === "consultation") {
+            handleEditConsultation(charge);
+            return;
+        }
+        
+        // For other charges, navigate to edit page
         const params = new URLSearchParams({
             chargeId: charge.id || "",
             chargeName: charge.description || charge.medication || "",
@@ -419,10 +559,12 @@ function InpatientBilling() {
         navigate(`/receptionist/inpatient-billing/edit-charge?${params.toString()}`);
     };
 
-    const handleFinalizeDischarge = async () => {
-        if (!window.confirm("Finalize discharge and generate the final bill?")) {
-            return;
-        }
+    const handleFinalizeDischarge = () => {
+        setFinalizeDialogOpen(true);
+    };
+
+    const handleConfirmFinalize = async () => {
+        setFinalizeDialogOpen(false);
         try {
             setIsDischarging(true);
             const response = await inpatientService.finalizeDischarge(id, {
@@ -671,7 +813,7 @@ function InpatientBilling() {
                 <div className="col-12 mb-4">
                     <ChargesPanel
                         title="Doctor Consultation"
-                        charges={charges.consultation}
+                        charges={charges.consultation.map(ch => ({ ...ch, category: "consultation" }))}
                         category="consultation"
                         isEditable={!isDischarged}
                         onEdit={handleEditCharge}
@@ -731,6 +873,157 @@ function InpatientBilling() {
                     </button>
                 )}
             </div>
+
+            {/* Edit Consultation Dialog */}
+            <Dialog
+                open={editConsultationDialog.open}
+                onClose={() => !isUpdatingConsultation && setEditConsultationDialog({ open: false, charge: null })}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Edit Consultation Charge
+                    </Typography>
+                    <Button
+                        onClick={() => setEditConsultationDialog({ open: false, charge: null })}
+                        disabled={isUpdatingConsultation}
+                        sx={{ minWidth: "auto", p: 0.5 }}
+                    >
+                        <CloseIcon />
+                    </Button>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ mt: 2 }}>
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Consultation: <strong>{editConsultationDialog.charge?.description || "N/A"}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Current Doctor: <strong>{editConsultationDialog.charge?.doctorName || "N/A"}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Current Amount: <strong>{formatCurrency(editConsultationDialog.charge?.amount || 0)}</strong>
+                        </Typography>
+                    </Box>
+                    <FormControl fullWidth sx={{ mb: 2 }}>
+                        <InputLabel id="doctor-select-label">Select Doctor</InputLabel>
+                        <Select
+                            labelId="doctor-select-label"
+                            value={selectedDoctor}
+                            onChange={(e) => setSelectedDoctor(e.target.value)}
+                            label="Select Doctor"
+                            disabled={isLoadingDoctors || isUpdatingConsultation}
+                        >
+                            <MenuItem value="">
+                                {isLoadingDoctors ? "Loading doctors..." : "No Change"}
+                            </MenuItem>
+                            {doctors.map((doctor) => {
+                                const doctorName = doctor.user?.name || 
+                                    `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || 
+                                    "Doctor";
+                                const displayName = doctor.specialization 
+                                    ? `${doctorName} - ${doctor.specialization}`
+                                    : doctorName;
+                                return (
+                                    <MenuItem key={doctor._id || doctor.id} value={doctor._id || doctor.id}>
+                                        {displayName}
+                                    </MenuItem>
+                                );
+                            })}
+                        </Select>
+                    </FormControl>
+                    <TextField
+                        fullWidth
+                        label="Consultation Amount (INR) *"
+                        type="number"
+                        value={consultationAmount}
+                        onChange={(e) => setConsultationAmount(e.target.value)}
+                        variant="outlined"
+                        inputProps={{ min: 0, step: 0.01 }}
+                        required
+                        disabled={isUpdatingConsultation}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => setEditConsultationDialog({ open: false, charge: null })}
+                        disabled={isUpdatingConsultation}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleUpdateConsultation}
+                        disabled={!consultationAmount || isUpdatingConsultation}
+                        sx={{ backgroundColor: "#8B4513" }}
+                        startIcon={isUpdatingConsultation ? <CircularProgress size={20} sx={{ color: "white" }} /> : null}
+                    >
+                        {isUpdatingConsultation ? "Updating..." : "Update Consultation"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Finalize Discharge Confirmation Dialog */}
+            <Dialog
+                open={finalizeDialogOpen}
+                onClose={() => !isDischarging && setFinalizeDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Finalize Discharge
+                    </Typography>
+                    <Button
+                        onClick={() => setFinalizeDialogOpen(false)}
+                        disabled={isDischarging}
+                        sx={{ minWidth: "auto", p: 0.5 }}
+                    >
+                        <CloseIcon />
+                    </Button>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ mt: 2 }}>
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="body1" sx={{ mb: 2 }}>
+                            Are you sure you want to finalize the discharge and generate the final bill?
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            This action will:
+                        </Typography>
+                        <Box component="ul" sx={{ mt: 1, mb: 0, pl: 3 }}>
+                            <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Generate the final invoice for all charges
+                            </Typography>
+                            <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Mark the patient as discharged
+                            </Typography>
+                            <Typography component="li" variant="body2" color="text.secondary">
+                                Make the bill final and uneditable
+                            </Typography>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => setFinalizeDialogOpen(false)}
+                        disabled={isDischarging}
+                        variant="outlined"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleConfirmFinalize}
+                        disabled={isDischarging}
+                        sx={{ backgroundColor: "#4CAF50", "&:hover": { backgroundColor: "#45a049" } }}
+                        startIcon={isDischarging ? <CircularProgress size={20} sx={{ color: "white" }} /> : <CheckCircleIcon />}
+                    >
+                        {isDischarging ? "Finalizing..." : "Confirm & Finalize"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
         </Box>
     );

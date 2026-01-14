@@ -132,6 +132,8 @@ function IPDPrescriptionDetails() {
                   dosage: prescription.dosage || "",
                   frequency: prescription.frequency || "",
                   duration: prescription.duration || "",
+                  foodTiming: prescription.foodTiming || "",
+                  remarks: prescription.remarks || "",
                   instructions: prescription.notes || "",
                   medicineType: prescription.medicineType || "",
                   administration: prescription.administration || "",
@@ -503,6 +505,16 @@ function IPDPrescriptionDetails() {
                                                             {presc.duration || "N/A"}
                                                         </Typography>
                                                     </Grid>
+                                                    {presc.foodTiming && (
+                                                        <Grid item xs={6}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Food Timing
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.foodTiming}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                     <Grid item xs={6}>
                                                         <Typography variant="caption" color="text.secondary" display="block">
                                                             Date
@@ -517,6 +529,16 @@ function IPDPrescriptionDetails() {
                                                                 : "N/A"}
                                                         </Typography>
                                                     </Grid>
+                                                    {presc.remarks && (
+                                                        <Grid item xs={12}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Remarks
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.remarks}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                 </Grid>
                                             </Box>
                                         </Grid>
@@ -595,6 +617,16 @@ function IPDPrescriptionDetails() {
                                                             {medicine.duration || "N/A"}
                                                         </Typography>
                                                     </Grid>
+                                                    {medicine.foodTiming && (
+                                                        <Grid item xs={12} sm={6} md={3}>
+                                                            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                                                Food Timing
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {medicine.foodTiming}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                     {medicine.quantity && (
                                                         <Grid item xs={12} sm={6} md={3}>
                                                             <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
@@ -615,8 +647,18 @@ function IPDPrescriptionDetails() {
                                                             </Typography>
                                                         </Grid>
                                                     )}
+                                                    {medicine.remarks && (
+                                                        <Grid item xs={12} sm={6}>
+                                                            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                                                Remarks
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {medicine.remarks}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                     {medicine.instructions && (
-                                                        <Grid item xs={12}>
+                                                        <Grid item xs={12} sm={6}>
                                                             <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
                                                                 Instructions
                                                             </Typography>
