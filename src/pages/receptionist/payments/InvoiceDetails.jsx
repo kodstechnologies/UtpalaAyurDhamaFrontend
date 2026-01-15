@@ -410,7 +410,7 @@ function InvoiceDetails() {
             
             // Clean up
             setTimeout(() => {
-                link.remove();
+            link.remove();
                 window.URL.revokeObjectURL(url);
             }, 100);
 

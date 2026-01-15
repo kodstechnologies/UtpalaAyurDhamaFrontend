@@ -25,9 +25,10 @@ import logo from "../../assets/logo/logo.webp";
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toggleSidebar } from '../../redux/slices/uiSlice';
-import { logout } from '../../redux/slices/authSlice'; // Adjust path to your authSlice file
+import { logout, updateUser } from '../../redux/slices/authSlice'; // Adjust path to your authSlice file
 import NotificationDrawer from './component/NotificationDrawer'; // Import the separate component here
 import { useNotifications } from '../../hooks/useNotifications'; // Import notification hook
+import profileService from '../../services/profileService';
 
 const settings = [
   { label: 'Profile', icon: <PersonIcon fontSize="small" /> },
@@ -133,6 +134,46 @@ function ResponsiveAppBar() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Fetch profile data to get latest profile picture on mount
+  React.useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!user || !role) return;
+      
+      try {
+        const response = await profileService.getMyProfile();
+        if (response && response.success && response.data) {
+          // Update Redux state with latest profile data including profilePicture
+          const profileData = response.data;
+          // Handle both flat and nested structures
+          const latestProfilePicture = profileData.profilePicture || profileData.user?.profilePicture;
+          
+          // Always update to ensure we have the latest data
+          dispatch(updateUser({
+            profilePicture: latestProfilePicture,
+            name: profileData.name || profileData.user?.name,
+            ...profileData
+          }));
+        }
+      } catch (error) {
+        // Silently fail - don't disrupt user experience
+        console.error("Failed to fetch profile data for header:", error);
+      }
+    };
+
+    // Fetch on mount to get latest profile picture
+    fetchProfileData();
+  }, [dispatch, user?._id, role]); // Re-fetch if user ID or role changes
+  
+  // Get profile picture from user object (handle both flat and nested structures)
+  const profilePicture = user?.profilePicture || user?.user?.profilePicture || null;
+  const userName = user?.name || user?.user?.name || 'User';
+  const userInitials = userName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
   const handleUserClose = () => setAnchorElUser(null);
 
   const handleNotificationToggle = () => {
@@ -325,7 +366,7 @@ function ResponsiveAppBar() {
             {/* USER INFO - Dynamic with Redux State */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, flexDirection: "column", textAlign: "right", lineHeight: "1rem" }}>
               <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                {user?.name || 'User'}
+                {userName}
               </Typography>
               <Typography variant="body2" sx={{ fontSize: "0.75rem", opacity: 0.7 }}>
                 {role || 'Role'}
@@ -343,8 +384,8 @@ function ResponsiveAppBar() {
                 }}
               >
                 <Avatar
-                  alt={user?.name || 'User'}
-                  src={user?.avatar || "/static/images/avatar/2.jpg"}
+                  alt={userName}
+                  src={profilePicture || null}
                   sx={{
                     width: 40,
                     height: 40,
@@ -352,7 +393,10 @@ function ResponsiveAppBar() {
                     border: "1px solid var(--color-light)",
                     bgcolor: "var(--color-bg-profile)",
                   }}
-                />
+                >
+                  {/* Show user initials if no profile picture */}
+                  {!profilePicture && userInitials}
+                </Avatar>
               </IconButton>
             </Tooltip>
 
