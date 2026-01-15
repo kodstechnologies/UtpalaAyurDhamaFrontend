@@ -6,7 +6,7 @@ import CardBorder from '../../../../components/card/CardBorder';
 import Search from '../../../../components/search/Search';
 import ExportDataButton from '../../../../components/buttons/ExportDataButton';
 import RedirectButton from '../../../../components/buttons/RedirectButton';
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Eye } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import therapyService from '../../../../services/therapyService';
 import { Box, CircularProgress } from '@mui/material';
@@ -63,6 +63,43 @@ function TherapyManagement() {
             .includes(searchText.toLowerCase())
     );
 
+    // Function to truncate text to 25 words and add "read more" link
+    const truncateDescription = (text, maxWords = 25, rowId) => {
+        if (!text) return "-";
+        
+        const words = text.trim().split(/\s+/);
+        const shouldTruncate = words.length > maxWords;
+        
+        if (!shouldTruncate) {
+            return text;
+        }
+        
+        const truncatedText = words.slice(0, maxWords).join(" ");
+        
+        return (
+            <span>
+                {truncatedText}{" "}
+                <span
+                    onClick={() => navigate(`/admin/treatment-therapy/view/${rowId}`)}
+                    style={{
+                        color: "#3b82f6",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        fontWeight: 500,
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.color = "#2563eb";
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.color = "#3b82f6";
+                    }}
+                >
+                    ...read more
+                </span>
+            </span>
+        );
+    };
+
     const columns = [
         { field: "therapyName", header: "Therapy Name" },
         { 
@@ -70,10 +107,20 @@ function TherapyManagement() {
             header: "Cost",
             render: (row) => `₹${row.cost || 0}`
         },
-        { field: "description", header: "Description" },
+        { 
+            field: "description", 
+            header: "Description",
+            render: (row) => truncateDescription(row.description, 25, row._id)
+        },
     ];
 
     const actions = [
+        {
+            label: "View",
+            icon: <Eye />,
+            color: "#3b82f6",
+            onClick: (row) => navigate(`/admin/treatment-therapy/view/${row._id}`)
+        },
         {
             label: "Edit",
             icon: <Edit />,

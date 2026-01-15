@@ -9,6 +9,7 @@ function DashboardCard({
     description = "",
     icon: Icon = null,
     prefix = "",
+    onClick = null,     // ⭐ onClick handler for navigation
 }) {
     const [displayValue, setDisplayValue] = useState(0);
 
@@ -31,17 +32,18 @@ function DashboardCard({
 
     return (
         <Card
+            onClick={onClick || undefined}
             sx={{
                 width: "100%",
                 borderRadius: 4,
                 padding: 1.5,
                 background: "var(--color-bg-table)",
                 boxShadow: "0px 4px 18px rgba(0,0,0,0.08)",
-                cursor: "pointer",
+                cursor: onClick ? "pointer" : "default",
                 transition: "0.2s",
                 "&:hover": {
-                    boxShadow: "0px 6px 22px rgba(0,0,0,0.12)",
-                    transform: "translateY(-3px)",
+                    boxShadow: onClick ? "0px 6px 22px rgba(0,0,0,0.12)" : "0px 4px 18px rgba(0,0,0,0.08)",
+                    transform: onClick ? "translateY(-3px)" : "none",
                 },
             }}
         >
@@ -130,6 +132,7 @@ DashboardCard.propTypes = {
     description: PropTypes.string,
     icon: PropTypes.elementType,
     prefix: PropTypes.string,
+    onClick: PropTypes.func,
 };
 
 export default DashboardCard;

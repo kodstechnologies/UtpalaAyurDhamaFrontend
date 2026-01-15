@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box, Grid, Card, CardContent, Typography, CircularProgress, alpha, useTheme } from "@mui/material";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -15,8 +16,6 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import PeopleIcon from "@mui/icons-material/People";
 import EventIcon from "@mui/icons-material/Event";
 import ReceiptIcon from "@mui/icons-material/Receipt";
-import LocalPharmacyIcon from "@mui/icons-material/LocalPharmacy";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
 import WarningIcon from "@mui/icons-material/Warning";
 import InventoryIcon from "@mui/icons-material/Inventory";
@@ -26,6 +25,7 @@ import dashboardService from "../../services/dashboardService";
 
 function Admin_Dashboard() {
     const theme = useTheme();
+    const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
     const adminName = user?.name || "Admin";
     const [isLoading, setIsLoading] = useState(true);
@@ -70,84 +70,84 @@ function Admin_Dashboard() {
     }
 
     const staffCounts = dashboardData?.staffCounts || {};
-    const medicineStock = dashboardData?.medicineStock || { total: 0, breakdown: [] };
+    // const medicineStock = dashboardData?.medicineStock || { total: 0, breakdown: [] }; // Not currently used
     const stats = additionalStats || {};
 
-    // Staff distribution chart data
-    const staffChartData = {
-        series: [
-            staffCounts.doctors || 0,
-            staffCounts.nurses || 0,
-            staffCounts.receptionists || 0,
-            staffCounts.pharmacists || 0,
-            staffCounts.therapists || 0,
-        ],
-        options: {
-            chart: {
-                type: "donut",
-                height: 350,
-            },
-            labels: ["Doctors", "Nurses", "Receptionists", "Pharmacists", "Therapists"],
-            colors: ["#1976d2", "#00897b", "#6a1b9a", "#c62828", "#2e7d32"],
-            legend: {
-                position: "bottom",
-            },
-            dataLabels: {
-                enabled: true,
-                formatter: function (val) {
-                    return val.toFixed(1) + "%";
-                },
-            },
-            plotOptions: {
-                pie: {
-                    donut: {
-                        size: "65%",
-                    },
-                },
-            },
-            title: {
-                text: "Staff Distribution",
-                align: "center",
-                style: {
-                    fontSize: "16px",
-                    fontWeight: 600,
-                },
-            },
-        },
-    };
+    // Staff distribution chart data (commented out - not currently used in UI)
+    // const staffChartData = {
+    //     series: [
+    //         staffCounts.doctors || 0,
+    //         staffCounts.nurses || 0,
+    //         staffCounts.receptionists || 0,
+    //         staffCounts.pharmacists || 0,
+    //         staffCounts.therapists || 0,
+    //     ],
+    //     options: {
+    //         chart: {
+    //             type: "donut",
+    //             height: 350,
+    //         },
+    //         labels: ["Doctors", "Nurses", "Receptionists", "Pharmacists", "Therapists"],
+    //         colors: ["#1976d2", "#00897b", "#6a1b9a", "#c62828", "#2e7d32"],
+    //         legend: {
+    //             position: "bottom",
+    //         },
+    //         dataLabels: {
+    //             enabled: true,
+    //             formatter: function (val) {
+    //                 return val.toFixed(1) + "%";
+    //             },
+    //         },
+    //         plotOptions: {
+    //             pie: {
+    //                 donut: {
+    //                     size: "65%",
+    //                 },
+    //             },
+    //         },
+    //         title: {
+    //             text: "Staff Distribution",
+    //             align: "center",
+    //             style: {
+    //                 fontSize: "16px",
+    //                 fontWeight: 600,
+    //             },
+    //         },
+    //     },
+    // };
 
-    // Medicine stock breakdown chart
-    const medicineChartData = {
-        series: medicineStock.breakdown?.slice(0, 5).map((item) => item.total) || [],
-        options: {
-            chart: {
-                type: "bar",
-                height: 350,
-            },
-            plotOptions: {
-                bar: {
-                    horizontal: false,
-                    columnWidth: "55%",
-                    borderRadius: 4,
-                },
-            },
-            dataLabels: {
-                enabled: true,
-            },
-            xaxis: {
-                categories: medicineStock.breakdown?.slice(0, 5).map((item) => item.category) || [],
-            },
-            colors: ["#1976d2"],
-            title: {
-                text: "Medicine Stock by Category (Top 5)",
-                align: "center",
-                style: {
-                    fontSize: "16px",
-                    fontWeight: 600,
-                },
-            },
-        },
-    };
+    // Medicine stock breakdown chart (commented out - not currently used in UI)
+    // const medicineChartData = {
+    //     series: medicineStock.breakdown?.slice(0, 5).map((item) => item.total) || [],
+    //     options: {
+    //         chart: {
+    //             type: "bar",
+    //             height: 350,
+    //         },
+    //         plotOptions: {
+    //             bar: {
+    //                 horizontal: false,
+    //                 columnWidth: "55%",
+    //                 borderRadius: 4,
+    //             },
+    //         },
+    //         dataLabels: {
+    //             enabled: true,
+    //         },
+    //         xaxis: {
+    //             categories: medicineStock.breakdown?.slice(0, 5).map((item) => item.category) || [],
+    //         },
+    //         colors: ["#1976d2"],
+    //         title: {
+    //             text: "Medicine Stock by Category (Top 5)",
+    //             align: "center",
+    //             style: {
+    //                 fontSize: "16px",
+    //                 fontWeight: 600,
+    //             },
+    //         },
+    //     },
+    // };
 
     // Monthly revenue chart with real data
     const revenueChartData = {
@@ -246,43 +246,49 @@ function Admin_Dashboard() {
         },
     };
 
-    // Main dashboard cards
+    // Main dashboard cards with navigation
     const mainCards = [
         {
             title: "Doctors",
             count: staffCounts.doctors || 0,
             icon: LocalHospitalIcon,
             iconColor: "#1976d2",
+            path: "/admin/doctors",
         },
         {
             title: "Nurses",
             count: staffCounts.nurses || 0,
             icon: HealingIcon,
             iconColor: "#00897b",
+            path: "/admin/nursing",
         },
         {
             title: "Receptionists",
             count: staffCounts.receptionists || 0,
             icon: PersonIcon,
             iconColor: "#6a1b9a",
+            path: "/admin/receptionists",
         },
         {
             title: "Pharmacists",
             count: staffCounts.pharmacists || 0,
             icon: MedicationIcon,
             iconColor: "#c62828",
+            path: "/admin/pharmacists",
         },
         {
             title: "Therapists",
             count: staffCounts.therapists || 0,
             icon: GroupsIcon,
             iconColor: "#2e7d32",
+            path: "/admin/therapists",
         },
         {
             title: "Patients",
             count: staffCounts.patients || 0,
             icon: PeopleIcon,
             iconColor: "#ef6c00",
+            path: "/admin/patients",
         },
     ];
 
@@ -355,6 +361,7 @@ function Admin_Dashboard() {
                         count={item.count}
                         icon={item.icon}
                         iconColor={item.iconColor}
+                        onClick={() => navigate(item.path)}
                     />
                     </Grid>
                 ))}
