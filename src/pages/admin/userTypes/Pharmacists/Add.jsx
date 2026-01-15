@@ -475,7 +475,7 @@ function Add_Pharmacists() {
                                                 options={["Active", "On Leave", "Inactive", "Retired"]}
                                             />
                                             <FormInput
-                                                label="Monthly Salary ($)"
+                                                label="Monthly Salary (₹)"
                                                 icon={BookOpen}
                                                 type="number"
                                                 value={pharmacist.salary}
