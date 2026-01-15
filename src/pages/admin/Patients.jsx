@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Eye, Trash2 } from "lucide-react";
@@ -23,11 +23,13 @@ function Patients() {
         isDeleting: false
     });
 
-    // Fetch patients from backend
+    // Fetch all patients from backend (all types: inpatients, outpatients, etc.)
     const fetchPatients = useCallback(async () => {
         setIsLoading(true);
         try {
-            const response = await fetch(getApiUrl("patients"), {
+            // Fetch all patients with a high limit to get all records
+            // Backend already sorts by createdAt descending (latest first)
+            const response = await fetch(getApiUrl("patients?limit=10000&page=1"), {
                 method: "GET",
                 headers: getAuthHeaders()
             });
@@ -39,7 +41,7 @@ function Patients() {
             const data = await response.json();
             if (data.success && data.data) {
                 // Transform the data to match table structure
-                const transformedPatients = data.data.profiles?.map((profile) => ({
+                let transformedPatients = data.data.profiles?.map((profile) => ({
                     _id: profile._id,
                     name: profile.user?.name || "N/A",
                     mobile: profile.user?.phone || "N/A",
@@ -49,7 +51,17 @@ function Patients() {
                     dateOfBirth: profile.dateOfBirth,
                     admissionStatus: profile.admissionStatus,
                     treatmentStatus: profile.treatmentStatus,
+                    createdAt: profile.createdAt || profile.user?.createdAt || new Date(), // For sorting
+                    updatedAt: profile.updatedAt || profile.user?.updatedAt || new Date(), // For sorting
                 })) || [];
+
+                // Sort by latest first (most recent createdAt/updatedAt)
+                transformedPatients.sort((a, b) => {
+                    const dateA = new Date(a.updatedAt || a.createdAt);
+                    const dateB = new Date(b.updatedAt || b.createdAt);
+                    return dateB - dateA; // Descending order (latest first)
+                });
+
                 setRows(transformedPatients);
             } else {
                 toast.error(data.message || "Failed to fetch patients");

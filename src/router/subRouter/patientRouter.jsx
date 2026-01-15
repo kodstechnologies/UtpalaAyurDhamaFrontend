@@ -1,4 +1,4 @@
-import React, { lazy } from "react";
+import React, { lazy, Suspense } from "react";
 // import PatientProfile from "../../pages/patient/Profile";
 // import Family_Members_View from "../../pages/patient/familyMembers/View";
 // Lazy-loaded components
@@ -48,19 +48,123 @@ const InvoicePage = lazy(() =>
     import("../../pages/patient/reports/Invoice")
 );
 
+const FollowUps_View = lazy(() =>
+    import("../../pages/patient/followUps/View")
+);
 
+// Routes configuration for patient panel
+// eslint-disable-next-line react-refresh/only-export-components
 export const patientRoutes = [
-    { path: "/patient/profile", element: <PatientProfile /> },
-    { path: "/patient/dashboard", element: <Patient_Dashboard /> },
-    { path: "/patient/family", element: < Family_Members_View /> },
-    { path: "/patient/family/add", element: <AddMemberPage /> },
-    { path: "/patient/family/edit/:id", element: <EditMemberPage /> },
-    { path: "/patient/consultations", element: <Consultations_View /> },
-    { path: "/patient/consultations/:id", element: <Consultation_Details /> },
-    { path: "/patient/prescriptions", element: <Prescriptions_View /> },
-    { path: "/patient/prescriptions/:id", element: <Prescription_Details /> },
-    { path: "/patient/therapies", element: <Therapies_View /> },
-    { path: "/patient/reports", element: <Reports_View /> },
-    { path: "/patient/reports/invoice/:id", element: <InvoicePage /> },
-    { path: "/patient/reports/invoice", element: <InvoicePage /> },
+    { 
+        path: "/patient/profile", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <PatientProfile />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/dashboard", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Patient_Dashboard />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/family", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Family_Members_View />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/family/add", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <AddMemberPage />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/family/edit/:id", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <EditMemberPage />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/consultations", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Consultations_View />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/consultations/:id", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Consultation_Details />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/prescriptions", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Prescriptions_View />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/prescriptions/:id", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Prescription_Details />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/therapies", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Therapies_View />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/reports", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Reports_View />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/reports/invoice/:id", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <InvoicePage />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/reports/invoice", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <InvoicePage />
+            </Suspense>
+        )
+    },
+    { 
+        path: "/patient/follow-ups", 
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <FollowUps_View />
+            </Suspense>
+        )
+    },
 ];

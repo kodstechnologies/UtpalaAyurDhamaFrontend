@@ -356,6 +356,12 @@ export const sidebarMenus = {
             to: "/patient/therapies",
         },
         {
+            key: "followUps",
+            label: "My Follow Ups",
+            icon: <ReplayIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/patient/follow-ups",
+        },
+        {
             key: "reports",
             label: "Reports",
             icon: <AssessmentIcon style={{ color: "var(--color-icons)" }} />,
