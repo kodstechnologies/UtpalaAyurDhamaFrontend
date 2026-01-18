@@ -11,6 +11,7 @@ function ScheduleAppointmentPage() {
     const [searchParams] = useSearchParams();
     const patientId = searchParams.get("patientId") || "";
     const patientName = searchParams.get("patientName") || "";
+    const isFamilyMember = searchParams.get("isFamilyMember") === "true";
 
     const [formData, setFormData] = useState({
         doctor: searchParams.get("doctorId") || "",
@@ -89,21 +90,56 @@ function ScheduleAppointmentPage() {
 
         setIsSubmitting(true);
         try {
-            // Step 1: Fetch reception patient to get PatientProfile ID
-            const receptionPatientResponse = await axios.get(
-                getApiUrl(`reception-patients/${patientId}`),
-                { headers: getAuthHeaders() }
-            );
+            let patientProfileId;
 
-            if (!receptionPatientResponse.data.success) {
-                throw new Error(receptionPatientResponse.data.message || "Failed to fetch patient details");
-            }
+            if (isFamilyMember) {
+                // For family members, fetch the family member to get their patient profile
+                // Use the receptionist endpoint which doesn't require Patient role
+                const familyMemberResponse = await axios.get(
+                    getApiUrl(`family-members/${patientId}/receptionist`),
+                    { headers: getAuthHeaders() }
+                );
 
-            const receptionPatient = receptionPatientResponse.data.data;
-            const patientProfileId = receptionPatient.patientProfile?._id;
+                if (!familyMemberResponse.data.success) {
+                    throw new Error(familyMemberResponse.data.message || "Failed to fetch family member details");
+                }
 
-            if (!patientProfileId) {
-                throw new Error("Patient profile not found. Please ensure the patient is properly registered.");
+                const familyMember = familyMemberResponse.data.data;
+                // Get the family member's user ID and find their patient profile
+                const familyMemberUserId = familyMember.user?._id || familyMember.user;
+                
+                if (!familyMemberUserId) {
+                    throw new Error("Family member user not found.");
+                }
+
+                // Fetch the patient profile for the family member
+                const patientProfileResponse = await axios.get(
+                    getApiUrl(`patients/by-user/${familyMemberUserId}`),
+                    { headers: getAuthHeaders() }
+                );
+
+                if (!patientProfileResponse.data.success || !patientProfileResponse.data.data) {
+                    throw new Error("Patient profile not found for family member. Please ensure the family member is properly registered.");
+                }
+
+                patientProfileId = patientProfileResponse.data.data._id;
+            } else {
+                // For regular patients, fetch reception patient to get PatientProfile ID
+                const receptionPatientResponse = await axios.get(
+                    getApiUrl(`reception-patients/${patientId}`),
+                    { headers: getAuthHeaders() }
+                );
+
+                if (!receptionPatientResponse.data.success) {
+                    throw new Error(receptionPatientResponse.data.message || "Failed to fetch patient details");
+                }
+
+                const receptionPatient = receptionPatientResponse.data.data;
+                patientProfileId = receptionPatient.patientProfile?._id;
+
+                if (!patientProfileId) {
+                    throw new Error("Patient profile not found. Please ensure the patient is properly registered.");
+                }
             }
 
             // Step 2: Create the appointment
@@ -123,6 +159,21 @@ function ScheduleAppointmentPage() {
             );
 
             if (appointmentResponse.data.success) {
+                // If it's a family member, also assign the doctor to their patient profile
+                if (isFamilyMember) {
+                    try {
+                        await axios.patch(
+                            getApiUrl(`family-members/${patientId}/assign-doctor`),
+                            { doctorId: formData.doctor },
+                            { headers: getAuthHeaders() }
+                        );
+                    } catch (assignError) {
+                        console.warn("Failed to assign doctor to family member:", assignError);
+                        // Don't fail the whole operation if doctor assignment fails
+                        toast.warning("Appointment scheduled, but failed to assign doctor to family member profile.");
+                    }
+                }
+                
                 toast.success("Appointment scheduled successfully!");
                 navigate(-1); // Go back to previous page
             } else {

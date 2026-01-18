@@ -16,6 +16,7 @@ import AddIcon from "@mui/icons-material/Add";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import MessageIcon from "@mui/icons-material/Message";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 
 // Mock data - will be replaced with API calls later
 const mockPatients = [
@@ -125,7 +126,6 @@ function Appointments_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
     const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
-    const [doctors] = useState(mockDoctors);
 
     const navigate = useNavigate();
 
@@ -162,6 +162,10 @@ function Appointments_View() {
                     address: patient.address || "",
                     patientProfileId: patient.patientProfile?._id || "",
                     alternativeNumber: patient.alternativeNumber || "",
+                    isFamilyMember: patient.isFamilyMember || false,
+                    relation: patient.relation || "",
+                    mainPatient: patient.mainPatient || null,
+                    familyMemberId: patient.isFamilyMember ? patient._id : null,
                 }));
                 setAllPatients(transformedPatients);
             } else {
@@ -330,9 +334,12 @@ function Appointments_View() {
     };
 
     const handleScheduleAppointmentClick = (patient) => {
+        // For family members, use the familyMemberId; for regular patients, use the reception patient id
+        const patientId = patient.isFamilyMember ? (patient.familyMemberId || patient.id) : patient.id;
         const params = new URLSearchParams({
-            patientId: patient.id || "",
+            patientId: patientId || "",
             patientName: patient.name || "",
+            isFamilyMember: patient.isFamilyMember ? "true" : "false",
         });
         navigate(`/receptionist/appointments/schedule?${params.toString()}`);
     };
@@ -508,7 +515,21 @@ function Appointments_View() {
                                                 {filteredPatients.map((patient, index) => (
                                                     <tr key={patient.id}>
                                                         <td>{index + 1}</td>
-                                                        <td>{patient.name}</td>
+                                                        <td>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                                {patient.name}
+                                                                {patient.isFamilyMember && (
+                                                                    <span 
+                                                                        className="badge bg-info"
+                                                                        style={{ fontSize: "10px", padding: "2px 6px" }}
+                                                                        title={`Family Member - ${patient.relation || "Relation"}`}
+                                                                    >
+                                                                        <PersonAddIcon fontSize="small" style={{ fontSize: "12px", marginRight: "2px" }} />
+                                                                        {patient.relation || "Family"}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td>{patient.contact}</td>
                                                         <td>{patient.age}</td>
                                                         <td>{patient.email}</td>
@@ -574,6 +595,7 @@ function Appointments_View() {
                                                                         e.currentTarget.style.transform = "translateY(0)";
                                                                         e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
                                                                     }}
+                                                                    title={patient.isFamilyMember ? "Schedule Appointment & Assign Doctor" : "Schedule Appointment"}
                                                                 >
                                                                     <EventAvailableIcon fontSize="small" />
                                                                 </button>
