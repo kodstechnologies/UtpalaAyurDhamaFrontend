@@ -23,8 +23,7 @@ import ExaminationRecordsFormView from "./Examination";
 function EditExamination() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { userId } = useParams();
-    const examinationId = location.state?.examinationId || null;
+    const { examinationId } = useParams();
     const [examination, setExamination] = useState(null);
     const [patient, setPatient] = useState({
         name: "Loading...",
@@ -58,7 +57,8 @@ function EditExamination() {
                         ? new Date().getFullYear() - new Date(user.dob).getFullYear()
                         : "--";
                     setPatient({
-                        name: user.name || `Patient ${userId}`,
+                        _id: response.data.data.patient?._id,
+                        name: user.name || "Patient",
                         age: age,
                         gender: user.gender || "Unknown",
                         avatar: user.name ? user.name.charAt(0).toUpperCase() : "P",
@@ -78,7 +78,7 @@ function EditExamination() {
         } finally {
             setIsLoading(false);
         }
-    }, [examinationId, userId, navigate]);
+    }, [examinationId, navigate]);
 
     useEffect(() => {
         fetchExaminationDetails();

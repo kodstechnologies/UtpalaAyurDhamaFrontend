@@ -205,7 +205,7 @@ export const doctorRoutes = [
         ),
     },
     {
-        path: "/doctor/edit-examination/:userId",
+        path: "/doctor/edit-examination/:examinationId",
         element: (
             <>
                 <Helmet>

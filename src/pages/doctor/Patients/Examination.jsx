@@ -527,9 +527,12 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
 
             let response;
             let wasUpdate = false;
+            let finalExaminationId = examinationId; // Track the final examination ID to use for navigation
+            
             if (isEditMode) {
                 // Update existing examination using PATCH
                 wasUpdate = true;
+                finalExaminationId = examinationId; // Use the provided examinationId
                 response = await axios.patch(
                     getApiUrl(`examinations/${examinationId}`),
                     examinationData,
@@ -558,7 +561,9 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 if (existingExaminationId) {
                     // Update existing examination instead of creating duplicate
                     console.log("Examination already exists, updating instead of creating duplicate");
+                    console.log("Existing examination ID:", existingExaminationId);
                     wasUpdate = true;
+                    finalExaminationId = existingExaminationId; // Use the existing examination ID
                     response = await axios.patch(
                         getApiUrl(`examinations/${existingExaminationId}`),
                         examinationData,
@@ -572,6 +577,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                             examinationData,
                             { headers: getAuthHeaders() }
                         );
+                        // For new examinations, finalExaminationId will be set from response below
                     } catch (createError) {
                         // Handle duplicate key errors specifically
                         if (createError.response?.status === 409) {
@@ -587,13 +593,14 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
 
             if (response.data.success) {
                 const savedExamination = response.data.data;
-                const newExaminationId = savedExamination?._id;
+                const newExaminationId = savedExamination?._id || finalExaminationId;
 
                 console.log("Examination saved successfully:", savedExamination);
-                console.log("Examination ID:", newExaminationId);
+                console.log("Examination ID from response:", savedExamination?._id);
+                console.log("Final Examination ID to use:", newExaminationId);
                 console.log("User ID from params:", userId);
                 console.log("Appointment ID:", appointmentId);
-                console.log("Appointment Data:", appointmentData);
+                console.log("Was update:", wasUpdate);
                 
                 if (!newExaminationId) {
                     console.error("Warning: Examination saved but no ID returned:", savedExamination);
@@ -613,7 +620,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 }
 
                 // Clear localStorage and mark as saved (only for new examinations)
-                if (!isEditMode && storageKey) {
+                if (!isEditMode && !wasUpdate && storageKey) {
                     try {
                         localStorage.removeItem(storageKey);
                         localStorage.removeItem(`${storageKey}_inpatient`);
@@ -628,27 +635,18 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 setIsSaved(true);
 
                 // Navigate to examination details page after a short delay to show success message
-                if (newExaminationId) {
-                    setTimeout(() => {
-                        console.log("Navigating to examination details page...");
-                        // Navigate with only examination ID in URL
-                        navigate(`/doctor/examination-details/${newExaminationId}`, {
-                            state: {
-                                examinationId: newExaminationId,
-                                appointment: appointmentData || null,
-                            },
-                            replace: true
-                        });
-                    }, 500);
-                } else {
-                    console.warn("Cannot navigate: missing examinationId", {
-                        examinationId: newExaminationId
+                // Use the finalExaminationId which is consistent whether creating or updating
+                setTimeout(() => {
+                    console.log("Navigating to examination details page with ID:", newExaminationId);
+                    // Navigate with only examination ID in URL
+                    navigate(`/doctor/examination-details/${newExaminationId}`, {
+                        state: {
+                            examinationId: newExaminationId,
+                            appointment: appointmentData || null,
+                        },
+                        replace: true
                     });
-                    if (onSubmitSuccess) {
-                        // Fallback to callback if navigation params are missing
-                        onSubmitSuccess(savedExamination);
-                    }
-                }
+                }, 500);
             } else {
                 toast.error(response.data.message || (isEditMode ? "Failed to update examination" : "Failed to save examination"));
             }

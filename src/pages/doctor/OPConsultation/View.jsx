@@ -145,69 +145,39 @@ function OPConsultation_View() {
         { field: "status", header: "Status" },
     ];
 
-    // Dynamic actions based on whether examination exists
+    // Dynamic actions - always show View Details button (like IPD patients)
     const getActions = (row) => {
-        const actionsList = [
-            {
-                icon: <VisibilityIcon fontSize="small" />,
-                color: "var(--color-info)",
-                label: "View Details",
-                onClick: (row) => {
-                    // If examination exists, navigate with examinationId, otherwise navigate to add-examination
-                    if (row.hasExamination && row.examinationId) {
-                        // Examination exists - navigate to examination details
-                        navigate(`/doctor/examination-details/${row.examinationId}`, {
-                            state: {
-                                examinationId: row.examinationId,
-                                appointment: row.fullAppointment || {
-                                    _id: row._id,
-                                    appointmentDate: row.appointmentDate,
-                                    appointmentTime: row.appointmentTime,
-                                    notes: row.chiefComplaint,
-                                    status: row.status,
-                                },
-                            }
-                        });
-                    } else {
-                        // No examination - navigate to add-examination page
-                        const patientId = row.patientUserId || row.patientId;
-                        if (!patientId) {
-                            toast.error("Patient ID not found. Cannot navigate to examination.");
-                            return;
-                        }
-                        const appointmentData = row.fullAppointment || {
-                            _id: row._id,
-                            appointmentDate: row.appointmentDate,
-                            appointmentTime: row.appointmentTime,
-                            notes: row.chiefComplaint,
-                            status: row.status,
-                        };
-                        navigate(`/doctor/add-examination/${patientId}`, {
-                            state: {
-                                appointment: appointmentData,
-                                appointmentId: row._id
-                            }
-                        });
-                    }
-                },
-            },
-        ];
+        const actionsList = [];
 
-        // Add Edit or Add Examination button based on whether examination exists
-        if (row.hasExamination) {
-            // Examination exists - show Edit button
-            actionsList.push({
-                icon: <EditIcon fontSize="small" />,
-                color: "var(--color-warning)",
-                label: "Edit Examination",
-                onClick: (row) => {
-                    // Use patientUserId if available, otherwise use patientId
+        // ALWAYS show "View Details" button first (like IPD patients)
+        actionsList.push({
+            icon: <VisibilityIcon fontSize="small" />,
+            color: "var(--color-info)",
+            label: "View Details",
+            title: row.hasExamination ? "View Examination Details" : "View Appointment Details",
+            onClick: (row) => {
+                if (row.hasExamination && row.examinationId) {
+                    // Examination exists - navigate to examination details page
+                    navigate(`/doctor/examination-details/${row.examinationId}`, {
+                        state: {
+                            examinationId: row.examinationId,
+                            appointment: row.fullAppointment || {
+                                _id: row._id,
+                                appointmentDate: row.appointmentDate,
+                                appointmentTime: row.appointmentTime,
+                                notes: row.chiefComplaint,
+                                status: row.status,
+                            },
+                        },
+                        replace: false
+                    });
+                } else {
+                    // No examination - navigate to add-examination page (which will show form)
                     const patientId = row.patientUserId || row.patientId;
                     if (!patientId) {
                         toast.error("Patient ID not found. Cannot navigate to examination.");
                         return;
                     }
-                    // Use full appointment object if available, otherwise create minimal object
                     const appointmentData = row.fullAppointment || {
                         _id: row._id,
                         appointmentDate: row.appointmentDate,
@@ -215,10 +185,35 @@ function OPConsultation_View() {
                         notes: row.chiefComplaint,
                         status: row.status,
                     };
-                    // Navigate to edit examination page
-                    navigate(`/doctor/edit-examination/${patientId}`, {
+                    navigate(`/doctor/add-examination/${patientId}`, {
                         state: {
-                            examinationId: row.examinationId, // Pass examination ID for editing
+                            appointment: appointmentData,
+                            appointmentId: row._id
+                        }
+                    });
+                }
+            },
+        });
+
+        // Add Edit/Add button based on whether examination exists
+        if (row.hasExamination && row.examinationId) {
+            // Examination exists - show Edit Examination button
+            actionsList.push({
+                icon: <EditIcon fontSize="small" />,
+                color: "var(--color-warning)",
+                label: "Edit Examination",
+                title: "Edit Examination",
+                onClick: (row) => {
+                    const appointmentData = row.fullAppointment || {
+                        _id: row._id,
+                        appointmentDate: row.appointmentDate,
+                        appointmentTime: row.appointmentTime,
+                        notes: row.chiefComplaint,
+                        status: row.status,
+                    };
+                    navigate(`/doctor/edit-examination/${row.examinationId}`, {
+                        state: {
+                            examinationId: row.examinationId,
                             appointment: appointmentData,
                         }
                     });
@@ -230,14 +225,13 @@ function OPConsultation_View() {
                 icon: <PersonIcon fontSize="small" />,
                 color: "var(--color-primary)",
                 label: "Add Examination",
+                title: "Add Examination",
                 onClick: (row) => {
-                    // Use patientUserId if available, otherwise use patientId
                     const patientId = row.patientUserId || row.patientId;
                     if (!patientId) {
                         toast.error("Patient ID not found. Cannot navigate to examination.");
                         return;
                     }
-                    // Use full appointment object if available, otherwise create minimal object
                     const appointmentData = row.fullAppointment || {
                         _id: row._id,
                         appointmentDate: row.appointmentDate,
@@ -245,7 +239,6 @@ function OPConsultation_View() {
                         notes: row.chiefComplaint,
                         status: row.status,
                     };
-                    // Navigate directly to examination form with appointment data
                     navigate(`/doctor/add-examination/${patientId}`, {
                         state: {
                             appointment: appointmentData,

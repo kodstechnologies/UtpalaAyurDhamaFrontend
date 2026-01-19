@@ -658,7 +658,11 @@ function PatientTherapyDetails() {
                             renderValue={(selected) => {
                                 if (selected.length === 0) return "Select therapists";
                                 return selected.map(id => {
-                                    const therapist = therapists.find(t => t._id === id);
+                                    // Find therapist whose user ID matches the selected ID
+                                    const therapist = therapists.find(t => {
+                                        const tUserId = t.user?._id || t.user || t._id;
+                                        return tUserId?.toString() === id.toString();
+                                    });
                                     return therapist ? (therapist.user?.name || therapist.name) : id;
                                 }).join(", ");
                             }}

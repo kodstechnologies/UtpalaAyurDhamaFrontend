@@ -1,16 +1,16 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { 
-    Box, 
-    Dialog, 
-    DialogTitle, 
-    DialogContent, 
-    DialogActions, 
-    Button, 
-    FormControl, 
-    InputLabel, 
-    Select, 
-    MenuItem, 
+import {
+    Box,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
     CircularProgress,
     Typography,
     Divider,
@@ -49,7 +49,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
             </div>
         );
     }
-    
+
     const totalAmount = charges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
 
     const formatDate = (dateString) => {
@@ -221,9 +221,10 @@ function OutpatientBilling() {
     const [billingData, setBillingData] = useState(null);
     const [error, setError] = useState(null);
     const [discountRate, setDiscountRate] = useState(0);
+    const [discountType, setDiscountType] = useState("percentage");
     const [taxRate, setTaxRate] = useState(5);
     const [isFinalizing, setIsFinalizing] = useState(false);
-    
+
     // Edit dialogs state
     const [editDoctorDialog, setEditDoctorDialog] = useState({ open: false, charge: null });
     const [editTherapistDialog, setEditTherapistDialog] = useState({ open: false, charge: null });
@@ -244,17 +245,17 @@ function OutpatientBilling() {
             setLoading(false);
             return;
         }
-        
+
         try {
             setLoading(true);
             setError(null);
             console.log("Fetching outpatient billing details for patient ID:", patientId);
             const response = await inpatientService.getOutpatientBillingSummary(patientId);
             console.log("Outpatient Billing API Response:", response);
-            
+
             if (response && response.success && response.data) {
                 const data = response.data;
-                
+
                 // Ensure patient exists
                 if (!data.patient) {
                     console.error("Patient data missing in response:", data);
@@ -264,26 +265,27 @@ function OutpatientBilling() {
                     setLoading(false);
                     return;
                 }
-                
+
                 // Ensure charges arrays exist
                 const charges = {
                     consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
                     therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
                     pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
                 };
-                
+
                 const billingDataWithCharges = {
                     ...data,
                     charges,
                 };
-                
+
                 console.log("Processed outpatient billing data:", billingDataWithCharges);
                 setBillingData(billingDataWithCharges);
                 setError(null);
 
                 // Set initial values from invoice if available
                 if (data.invoice && data.invoice.id) {
-                    setDiscountRate(data.invoice.discountRate || 0);
+                    setDiscountRate(data.invoice.discountValue !== undefined ? data.invoice.discountValue : (data.invoice.discountRate || 0));
+                    setDiscountType(data.invoice.discountType || "percentage");
                     setTaxRate(data.invoice.taxRate || 5);
                 }
             } else {
@@ -301,7 +303,7 @@ function OutpatientBilling() {
                 status: error.response?.status,
                 data: error.response?.data
             });
-            
+
             // Handle 401 Unauthorized - redirect to login
             if (error.response?.status === 401) {
                 const errorMsg = error.response?.data?.message || "Session expired. Please login again.";
@@ -343,7 +345,13 @@ function OutpatientBilling() {
         return billingData.totals?.grandTotal || Object.values(chargeTotals).reduce((a, b) => a + b, 0);
     }, [billingData, chargeTotals]);
 
-    const discountAmount = useMemo(() => grandTotal * (discountRate / 100), [grandTotal, discountRate]);
+    const discountAmount = useMemo(() => {
+        if (discountType === "percentage") {
+            return grandTotal * (discountRate / 100);
+        } else {
+            return Math.min(discountRate, grandTotal);
+        }
+    }, [grandTotal, discountRate, discountType]);
     const discountedTotal = useMemo(() => Math.max(0, grandTotal - discountAmount), [grandTotal, discountAmount]);
     const taxAmount = useMemo(() => {
         const isFinalized = billingData?.invoice?.id;
@@ -373,7 +381,14 @@ function OutpatientBilling() {
 
     const handleDiscountInput = (value) => {
         if (billingData?.invoice?.id) return; // Don't allow changes if finalized
-        const sanitized = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
+        let sanitized = 0;
+        if (Number.isFinite(value)) {
+            if (discountType === "percentage") {
+                sanitized = Math.min(Math.max(value, 0), 100);
+            } else {
+                sanitized = Math.max(value, 0);
+            }
+        }
         setDiscountRate(sanitized);
     };
 
@@ -462,7 +477,7 @@ function OutpatientBilling() {
                 setEditDoctorDialog({ open: false, charge: null });
                 setSelectedDoctor("");
                 setConsultationAmount("");
-                
+
                 // Refresh billing data
                 await fetchBillingDetails();
             } else {
@@ -486,7 +501,7 @@ function OutpatientBilling() {
         // Get sessionId from charge - for outpatient, id is the sessionId directly
         // For inpatient, it might be in sessionId field or composite id
         const sessionId = editTherapistDialog.charge?.sessionId || editTherapistDialog.charge?.id;
-        
+
         if (!sessionId) {
             toast.error("Invalid therapy session record");
             return;
@@ -505,7 +520,7 @@ function OutpatientBilling() {
                 toast.success("Therapist updated successfully!");
                 setEditTherapistDialog({ open: false, charge: null });
                 setSelectedTherapist("");
-                
+
                 // Refresh billing data
                 await fetchBillingDetails();
             } else {
@@ -527,13 +542,15 @@ function OutpatientBilling() {
         try {
             setIsFinalizing(true);
             const response = await inpatientService.finalizeOutpatientBilling(patientId, {
+                discountType,
+                discountValue: discountRate,
                 discountRate,
                 taxRate
             });
 
             if (response && response.success) {
                 toast.success(`Billing finalized successfully. Invoice #${response.data.invoiceNumber} generated.`);
-                
+
                 // Refresh billing data to show updated invoice information
                 if (patientId) {
                     try {
@@ -546,9 +563,10 @@ function OutpatientBilling() {
                                 pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
                             };
                             setBillingData({ ...data, charges });
-                            
+
                             if (data.invoice && data.invoice.id) {
-                                setDiscountRate(data.invoice.discountRate || 0);
+                                setDiscountRate(data.invoice.discountValue !== undefined ? data.invoice.discountValue : (data.invoice.discountRate || 0));
+                                setDiscountType(data.invoice.discountType || "percentage");
                                 setTaxRate(data.invoice.taxRate || 5);
                             }
                         }
@@ -556,7 +574,7 @@ function OutpatientBilling() {
                         console.error("Error refreshing billing data:", refreshError);
                     }
                 }
-                
+
                 // Navigate to payments page after a short delay
                 setTimeout(() => {
                     navigate("/receptionist/payments");
@@ -742,20 +760,39 @@ function OutpatientBilling() {
                         </div>
                         <div className="col-md-6">
                             <div className="d-flex flex-wrap align-items-center gap-3">
-                                <label className="mb-0" style={{ fontSize: "0.875rem", fontWeight: 500 }}>
-                                    Discount (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    step={0.5}
-                                    className="form-control"
-                                    style={{ width: "100px" }}
-                                    value={discountRate}
-                                    onChange={(e) => handleDiscountInput(parseFloat(e.target.value))}
-                                    disabled={isFinalized}
-                                />
+                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Discount Type</InputLabel>
+                                    <Select
+                                        value={discountType}
+                                        label="Discount Type"
+                                        onChange={(e) => {
+                                            if (billingData?.invoice?.id) return;
+                                            setDiscountType(e.target.value);
+                                            setDiscountRate(0);
+                                        }}
+                                        disabled={!!isFinalized}
+                                    >
+                                        <MenuItem value="percentage">Percentage (%)</MenuItem>
+                                        <MenuItem value="fixed">Fixed Amount (₹)</MenuItem>
+                                    </Select>
+                                </FormControl>
+
+                                <div className="d-flex align-items-center">
+                                    <TextField
+                                        label={discountType === "percentage" ? "Discount (%)" : "Discount (₹)"}
+                                        type="number"
+                                        size="small"
+                                        inputProps={{
+                                            min: 0,
+                                            max: discountType === "percentage" ? 100 : undefined,
+                                            step: discountType === "percentage" ? 0.5 : 1,
+                                        }}
+                                        sx={{ width: 120 }}
+                                        value={discountRate}
+                                        onChange={(e) => handleDiscountInput(parseFloat(e.target.value))}
+                                        disabled={!!isFinalized}
+                                    />
+                                </div>
                                 <span className="text-muted" style={{ fontSize: "0.875rem" }}>
                                     GST ({taxRate}%): <strong>{formatCurrency(taxAmount)}</strong>
                                 </span>
@@ -840,10 +877,10 @@ function OutpatientBilling() {
                                 {isLoadingDoctors ? "Loading doctors..." : "Select Doctor"}
                             </MenuItem>
                             {doctors.map((doctor) => {
-                                const doctorName = doctor.user?.name || 
-                                    `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || 
+                                const doctorName = doctor.user?.name ||
+                                    `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() ||
                                     "Doctor";
-                                const displayName = doctor.specialization 
+                                const displayName = doctor.specialization
                                     ? `${doctorName} - ${doctor.specialization}`
                                     : doctorName;
                                 return (
@@ -928,7 +965,7 @@ function OutpatientBilling() {
                             </MenuItem>
                             {therapists.map((therapist) => {
                                 const therapistName = therapist.user?.name || therapist.name || "Therapist";
-                                const displayName = therapist.speciality 
+                                const displayName = therapist.speciality
                                     ? `${therapistName} - ${therapist.speciality}`
                                     : therapistName;
                                 // Get user ID for therapist (needed for assignment)
@@ -968,33 +1005,33 @@ function OutpatientBilling() {
                     Back to Outpatients
                 </Link>
                 {!isFinalized && (
-                <button
-                    type="button"
-                    className="btn btn-success"
-                    onClick={handleFinalizeBilling}
-                    disabled={isFinalizing || !patientId || grandTotal === 0}
-                    style={{
-                        backgroundColor: "#4CAF50",
-                        borderColor: "#4CAF50",
-                        color: "#FFFFFF",
-                        fontWeight: 600,
-                        padding: "10px 24px",
-                        borderRadius: "8px",
-                        boxShadow: "0 4px 12px rgba(76, 175, 80, 0.3)",
-                    }}
-                >
-                    {isFinalizing ? (
-                        <>
-                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            Finalizing...
-                        </>
-                    ) : (
-                        <>
-                            <CheckCircleIcon className="me-2" />
-                            Finalize Bill
-                        </>
-                    )}
-                </button>
+                    <button
+                        type="button"
+                        className="btn btn-success"
+                        onClick={handleFinalizeBilling}
+                        disabled={isFinalizing || !patientId || grandTotal === 0}
+                        style={{
+                            backgroundColor: "#4CAF50",
+                            borderColor: "#4CAF50",
+                            color: "#FFFFFF",
+                            fontWeight: 600,
+                            padding: "10px 24px",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(76, 175, 80, 0.3)",
+                        }}
+                    >
+                        {isFinalizing ? (
+                            <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                Finalizing...
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircleIcon className="me-2" />
+                                Finalize Bill
+                            </>
+                        )}
+                    </button>
                 )}
             </div>
 

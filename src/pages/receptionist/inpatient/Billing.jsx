@@ -1,17 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { 
-    Box, 
-    SvgIcon, 
-    Dialog, 
-    DialogTitle, 
-    DialogContent, 
-    DialogActions, 
-    Button, 
-    FormControl, 
-    InputLabel, 
-    Select, 
-    MenuItem, 
+import {
+    Box,
+    SvgIcon,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
     TextField,
     CircularProgress,
     Typography,
@@ -230,9 +230,9 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                     )}
                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
                                         {formatCurrency(category === "therapy" ? (
-                                            charge.amount || 
-                                            ((charge.therapyCharge !== undefined ? charge.therapyCharge : charge.amount || 0) + 
-                                             (charge.therapistCharge !== undefined ? charge.therapistCharge : 0))
+                                            charge.amount ||
+                                            ((charge.therapyCharge !== undefined ? charge.therapyCharge : charge.amount || 0) +
+                                                (charge.therapistCharge !== undefined ? charge.therapistCharge : 0))
                                         ) : charge.amount)}
                                     </td>
                                     {isEditable && onEdit && (
@@ -309,10 +309,11 @@ function InpatientBilling() {
     const [loading, setLoading] = useState(true);
     const [billingData, setBillingData] = useState(null);
     const [discountRate, setDiscountRate] = useState(0);
+    const [discountType, setDiscountType] = useState("percentage");
     const [taxRate, setTaxRate] = useState(5);
     const [isDischarging, setIsDischarging] = useState(false);
     const [patientId, setPatientId] = useState(null);
-    
+
     // Edit consultation dialog state
     const [editConsultationDialog, setEditConsultationDialog] = useState({ open: false, charge: null });
     const [doctors, setDoctors] = useState([]);
@@ -350,16 +351,16 @@ function InpatientBilling() {
     useEffect(() => {
         const fetchBillingDetails = async () => {
             if (!patientId) return;
-            
+
             try {
                 setLoading(true);
                 console.log("Fetching unified billing details for patient ID:", patientId);
                 const response = await inpatientService.getUnifiedBillingSummary(patientId);
                 console.log("Billing API Response:", response);
-                
+
                 if (response && response.success && response.data) {
                     const data = response.data;
-                    
+
                     // Ensure charges arrays exist
                     const charges = {
                         food: Array.isArray(data.charges?.food) ? data.charges.food : [],
@@ -368,12 +369,12 @@ function InpatientBilling() {
                         pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
                         ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
                     };
-                    
+
                     const billingDataWithCharges = {
                         ...data,
                         charges,
                     };
-                    
+
                     console.log("Processed billing data:", billingDataWithCharges);
                     console.log("Ward charges count:", charges.ward.length);
                     console.log("Sample ward charge:", charges.ward[0]);
@@ -381,7 +382,8 @@ function InpatientBilling() {
 
                     // Set initial values from invoice if available
                     if (data.invoice && data.invoice.id) {
-                        setDiscountRate(data.invoice.discountRate || 0);
+                        setDiscountRate(data.invoice.discountValue !== undefined ? data.invoice.discountValue : (data.invoice.discountRate || 0));
+                        setDiscountType(data.invoice.discountType || "percentage");
                         setTaxRate(data.invoice.taxRate || 5);
                     }
                 } else {
@@ -421,7 +423,14 @@ function InpatientBilling() {
         return billingData.totals?.grandTotal || Object.values(chargeTotals).reduce((a, b) => a + b, 0);
     }, [billingData, chargeTotals]);
 
-    const discountAmount = useMemo(() => grandTotal * (discountRate / 100), [grandTotal, discountRate]);
+    const discountAmount = useMemo(() => {
+        if (discountType === "percentage") {
+            return grandTotal * (discountRate / 100);
+        } else {
+            return Math.min(discountRate, grandTotal);
+        }
+    }, [grandTotal, discountRate, discountType]);
+
     const discountedTotal = useMemo(() => Math.max(0, grandTotal - discountAmount), [grandTotal, discountAmount]);
     const taxAmount = useMemo(() => {
         const isDischarged = billingData?.admission?.status === "Discharged";
@@ -454,7 +463,15 @@ function InpatientBilling() {
 
     const handleDiscountInput = (value) => {
         if (billingData?.admission?.status === "Discharged") return;
-        const sanitized = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
+        let sanitized = 0;
+        if (Number.isFinite(value)) {
+            if (discountType === "percentage") {
+                sanitized = Math.min(Math.max(value, 0), 100);
+            } else {
+                // Fixed amount
+                sanitized = Math.max(value, 0); // Allow valid positive number, clamp to total at calculation/submit time
+            }
+        }
         setDiscountRate(sanitized);
     };
 
@@ -516,7 +533,7 @@ function InpatientBilling() {
                 setEditConsultationDialog({ open: false, charge: null });
                 setSelectedDoctor("");
                 setConsultationAmount("");
-                
+
                 // Refresh billing data
                 if (patientId) {
                     const billingResponse = await inpatientService.getUnifiedBillingSummary(patientId);
@@ -549,7 +566,7 @@ function InpatientBilling() {
             handleEditConsultation(charge);
             return;
         }
-        
+
         // For other charges, navigate to edit page
         const params = new URLSearchParams({
             chargeId: charge.id || "",
@@ -568,13 +585,15 @@ function InpatientBilling() {
         try {
             setIsDischarging(true);
             const response = await inpatientService.finalizeDischarge(id, {
-                discountRate,
+                discountType,
+                discountValue: discountRate, // State is named "discountRate" but holds the value
+                discountRate, // Kept for backend backward compatibility if needed, though backend should prioritize type/value
                 taxRate
             });
 
             if (response && response.success) {
                 toast.success(`Discharge completed. Invoice #${response.data.invoiceNumber} generated.`);
-                
+
                 // Refresh billing data to show updated invoice information
                 if (patientId) {
                     try {
@@ -589,9 +608,10 @@ function InpatientBilling() {
                                 ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
                             };
                             setBillingData({ ...data, charges });
-                            
+
                             if (data.invoice && data.invoice.id) {
-                                setDiscountRate(data.invoice.discountRate || 0);
+                                setDiscountRate(data.invoice.discountValue !== undefined ? data.invoice.discountValue : (data.invoice.discountRate || 0));
+                                setDiscountType(data.invoice.discountType || "percentage");
                                 setTaxRate(data.invoice.taxRate || 5);
                             }
                         }
@@ -599,7 +619,7 @@ function InpatientBilling() {
                         console.error("Error refreshing billing data:", refreshError);
                     }
                 }
-                
+
                 // Navigate to payments page after a short delay
                 setTimeout(() => {
                     navigate("/receptionist/payments");
@@ -651,11 +671,11 @@ function InpatientBilling() {
             <HeadingCardingCard
                 category="INPATIENT BILLING"
                 title={`Billing Details - ${patient.name}`}
-                subtitle={hasInpatient && hasOutpatient 
+                subtitle={hasInpatient && hasOutpatient
                     ? "View and manage all charges for this patient (Inpatient & Outpatient)."
-                    : hasInpatient 
-                    ? "View and manage all charges for this inpatient."
-                    : "View and manage all charges for this outpatient."
+                    : hasInpatient
+                        ? "View and manage all charges for this inpatient."
+                        : "View and manage all charges for this outpatient."
                 }
             />
 
@@ -777,20 +797,41 @@ function InpatientBilling() {
                         </div>
                         <div className="col-md-6">
                             <div className="d-flex flex-wrap align-items-center gap-3">
-                                <label className="mb-0" style={{ fontSize: "0.875rem", fontWeight: 500 }}>
-                                    Discount (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    step={0.5}
-                                    className="form-control"
-                                    style={{ width: "100px" }}
-                                    value={discountRate}
-                                    onChange={(e) => handleDiscountInput(parseFloat(e.target.value))}
-                                    disabled={isDischarged}
-                                />
+                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Discount Type</InputLabel>
+                                    <Select
+                                        value={discountType}
+                                        label="Discount Type"
+                                        onChange={(e) => {
+                                            if (billingData?.admission?.status === "Discharged") return;
+                                            setDiscountType(e.target.value);
+                                            // Reset value when switching types to avoid confusion or errors
+                                            setDiscountRate(0);
+                                        }}
+                                        disabled={isDischarged}
+                                    >
+                                        <MenuItem value="percentage">Percentage (%)</MenuItem>
+                                        <MenuItem value="fixed">Fixed Amount (₹)</MenuItem>
+                                    </Select>
+                                </FormControl>
+
+                                <div className="d-flex align-items-center">
+                                    <TextField
+                                        label={discountType === "percentage" ? "Discount (%)" : "Discount (₹)"}
+                                        type="number"
+                                        size="small"
+                                        inputProps={{
+                                            min: 0,
+                                            max: discountType === "percentage" ? 100 : undefined,
+                                            step: discountType === "percentage" ? 0.5 : 1,
+                                        }}
+                                        sx={{ width: 120 }}
+                                        value={discountRate}
+                                        onChange={(e) => handleDiscountInput(parseFloat(e.target.value))}
+                                        disabled={isDischarged}
+                                    />
+                                </div>
+
                                 <span className="text-muted" style={{ fontSize: "0.875rem" }}>
                                     GST ({taxRate}%): <strong>{formatCurrency(taxAmount)}</strong>
                                 </span>
@@ -919,10 +960,10 @@ function InpatientBilling() {
                                 {isLoadingDoctors ? "Loading doctors..." : "No Change"}
                             </MenuItem>
                             {doctors.map((doctor) => {
-                                const doctorName = doctor.user?.name || 
-                                    `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || 
+                                const doctorName = doctor.user?.name ||
+                                    `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() ||
                                     "Doctor";
-                                const displayName = doctor.specialization 
+                                const displayName = doctor.specialization
                                     ? `${doctorName} - ${doctor.specialization}`
                                     : doctorName;
                                 return (
