@@ -89,10 +89,11 @@ function PatientExamination() {
 
             if (response.data.success && response.data.data) {
                 // Examination already exists, navigate to examination details page
+                const examinationId = response.data.data._id;
                 toast.info("Examination already recorded. Showing examination details.");
-                navigate(`/doctor/examination-details/${userId}`, {
+                navigate(`/doctor/examination-details/${examinationId}`, {
                     state: {
-                        examinationId: response.data.data._id,
+                        examinationId: examinationId,
                         appointment: appointmentData,
                     }
                 });

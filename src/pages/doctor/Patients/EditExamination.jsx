@@ -200,8 +200,8 @@ function EditExamination() {
                     isEditMode={true}
                     onSubmitSuccess={() => {
                         toast.success("Examination updated successfully!");
-                        // Add timestamp to force refetch
-                        navigate(`/doctor/examination-details/${userId}`, {
+                        // Navigate back to examination details using examinationId in URL
+                        navigate(`/doctor/examination-details/${examinationId}`, {
                             state: {
                                 examinationId: examinationId,
                                 appointment: examination.appointment,

@@ -25,7 +25,7 @@ import { Button } from "@mui/material";
 function ExaminationDetails() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { userId, id } = useParams(); // Get id from URL params if available
+    const { examinationId: examIdFromParams } = useParams(); // Get examinationId from URL params
     const [examination, setExamination] = useState(null);
     const [patient, setPatient] = useState({
         name: "Loading...",
@@ -35,72 +35,44 @@ function ExaminationDetails() {
     });
     const [isLoading, setIsLoading] = useState(true);
     const appointmentData = location.state?.appointment || null;
-    // Prioritize id from URL params, then location state, then null
-    const examinationId = id || location.state?.examinationId || null;
+    // Prioritize examinationId from URL params, then location state
+    const examinationId = examIdFromParams || location.state?.examinationId || null;
 
     // Fetch examination details
     const fetchExaminationDetails = useCallback(async () => {
-        // Get examinationId from URL params, location state, or try to extract from URL
-        const currentExaminationId = id || examinationId || location.state?.examinationId;
-        
-        if (!currentExaminationId && !appointmentData?._id) {
-            // Try to extract examinationId from current URL if it's in the path
-            const pathParts = window.location.pathname.split('/');
-            const examIdIndex = pathParts.findIndex(part => part === 'examination-details');
-            if (examIdIndex !== -1 && pathParts[examIdIndex + 2]) {
-                // If URL is /doctor/examination-details/:userId/:id format
-                const urlExamId = pathParts[examIdIndex + 2];
-                if (urlExamId && urlExamId !== userId) {
-                    // Use the ID from URL
-                    const response = await axios.get(
-                        getApiUrl(`examinations/${urlExamId}`),
-                        { headers: getAuthHeaders() }
-                    );
-                    if (response?.data.success && response.data.data) {
-                        setExamination(response.data.data);
-                        if (response.data.data.patient?.user) {
-                            const user = response.data.data.patient.user;
-                            const age = user.dob
-                                ? new Date().getFullYear() - new Date(user.dob).getFullYear()
-                                : "--";
-                            setPatient({
-                                name: user.name || `Patient ${userId}`,
-                                age: age,
-                                gender: user.gender || "Unknown",
-                                avatar: user.name ? user.name.charAt(0).toUpperCase() : "P",
-                                email: user.email || "",
-                                phone: user.phone || "",
-                                uhid: user.uhid || "",
-                            });
-                        }
-                        setIsLoading(false);
-                        return;
-                    }
-                }
-            }
-            toast.error("Examination ID or Appointment ID is required.");
-            setIsLoading(false);
-            return;
-        }
-
         setIsLoading(true);
+        
+        // Use examinationId from URL params or location state
+        const currentExaminationId = examinationId;
+
         try {
             let response;
+            
+            // First priority: Fetch by examination ID if available
             if (currentExaminationId) {
-                // Fetch by examination ID
+                console.log("Fetching examination by ID:", currentExaminationId);
                 response = await axios.get(
                     getApiUrl(`examinations/${currentExaminationId}`),
                     { headers: getAuthHeaders() }
                 );
-            } else if (appointmentData?._id) {
-                // Fetch by appointment ID
+            } 
+            // Second priority: Fetch by appointment ID if available
+            else if (appointmentData?._id) {
+                console.log("Fetching examination by appointment ID:", appointmentData._id);
                 response = await axios.get(
                     getApiUrl(`examinations/by-appointment/${appointmentData._id}`),
                     { headers: getAuthHeaders() }
                 );
+            } 
+            // No examination ID or appointment ID available
+            else {
+                toast.error("Examination ID or Appointment ID is required.");
+                setIsLoading(false);
+                return;
             }
 
             if (response?.data.success && response.data.data) {
+                console.log("Examination data received:", response.data.data);
                 setExamination(response.data.data);
                 // Set patient info from examination
                 if (response.data.data.patient?.user) {
@@ -109,7 +81,7 @@ function ExaminationDetails() {
                         ? new Date().getFullYear() - new Date(user.dob).getFullYear()
                         : "--";
                     setPatient({
-                        name: user.name || `Patient ${userId}`,
+                        name: user.name || "Patient",
                         age: age,
                         gender: user.gender || "Unknown",
                         avatar: user.name ? user.name.charAt(0).toUpperCase() : "P",
@@ -119,7 +91,9 @@ function ExaminationDetails() {
                     });
                 }
             } else {
-                toast.error("Examination not found.");
+                console.warn("Examination not found. Response:", response?.data);
+                const errorMessage = response?.data?.message || "Examination not found.";
+                toast.error(errorMessage);
             }
         } catch (error) {
             console.error("Error fetching examination details:", error);
@@ -127,15 +101,19 @@ function ExaminationDetails() {
         } finally {
             setIsLoading(false);
         }
-    }, [id, examinationId, appointmentData, userId, location.state]);
+    }, [examinationId, appointmentData, location.state]);
 
-    // Fetch patient info if not in examination
+    // Fetch patient info if not in examination (fallback - patient info should come from examination data)
     const fetchPatientInfo = useCallback(async () => {
-        if (patient.name !== "Loading...") return;
+        // Patient info should already be available from examination data
+        // This is just a fallback if examination doesn't have patient data
+        if (patient.name !== "Loading..." || !examination?.patient?.user?._id) return;
 
         try {
+            // Get patient user ID from examination
+            const patientUserId = examination.patient.user._id;
             const response = await axios.get(
-                getApiUrl(`patients/by-user/${userId}`),
+                getApiUrl(`patients/by-user/${patientUserId}`),
                 { headers: getAuthHeaders() }
             );
 
@@ -147,7 +125,7 @@ function ExaminationDetails() {
                     : "--";
 
                 setPatient({
-                    name: user.name || `Patient ${userId}`,
+                    name: user.name || "Patient",
                     age: age,
                     gender: user.gender || "Unknown",
                     avatar: user.name ? user.name.charAt(0).toUpperCase() : "P",
@@ -159,25 +137,28 @@ function ExaminationDetails() {
         } catch (error) {
             console.error("Error fetching patient info:", error);
         }
-    }, [userId, patient.name]);
+    }, [examination, patient.name]);
 
     useEffect(() => {
         fetchExaminationDetails();
+    }, [fetchExaminationDetails]);
+
+    useEffect(() => {
         fetchPatientInfo();
-    }, [fetchExaminationDetails, fetchPatientInfo]);
+    }, [fetchPatientInfo]);
 
     // Refetch data when page comes into focus (e.g., when returning from edit page)
     useEffect(() => {
         const handleFocus = () => {
             // Refetch examination details when window regains focus
-            if (examinationId || id || appointmentData?._id) {
+            if (examinationId || appointmentData?._id) {
                 fetchExaminationDetails();
             }
         };
 
         window.addEventListener('focus', handleFocus);
         return () => window.removeEventListener('focus', handleFocus);
-    }, [fetchExaminationDetails, examinationId, id, appointmentData]);
+    }, [fetchExaminationDetails, examinationId, appointmentData]);
 
     // Also refetch when location state changes (when navigating back from edit)
     useEffect(() => {

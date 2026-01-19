@@ -249,6 +249,7 @@ function Appointments_View() {
                         ? `${new Date(apt.appointmentDate).toISOString().split("T")[0]} ${apt.appointmentTime}`
                         : apt.appointmentDateTime || "N/A",
                     doctor: apt.doctor?.user?.name || apt.doctorName || "N/A",
+                    doctorId: apt.doctor?._id || apt.doctor || "", // Store doctor ID for rescheduling
                     contact: apt.patient?.user?.phone || apt.contact || "N/A",
                     disease: apt.notes || apt.disease || "N/A",
                     status: apt.status || "Scheduled",
@@ -345,16 +346,20 @@ function Appointments_View() {
     };
 
     const handleRescheduleClick = (appointment) => {
-        const [date, time] = appointment.appointmentDateTime.split(" ");
-        const currentDoctor = doctors.find((d) => d.user.name === appointment.doctor);
-        const params = new URLSearchParams({
-            appointmentId: appointment.id || "",
-            patientName: appointment.patientName || appointment.name || "",
-            doctorId: currentDoctor?._id || "",
-            date: date || "",
-            time: time || "",
-        });
-        navigate(`/receptionist/appointments/reschedule?${params.toString()}`);
+        try {
+            const [date, time] = appointment.appointmentDateTime.split(" ");
+            const params = new URLSearchParams({
+                appointmentId: appointment.id || "",
+                patientName: appointment.name || "",
+                doctorId: appointment.doctorId || "", // Use doctorId from appointment data
+                date: date || "",
+                time: time || "",
+            });
+            navigate(`/receptionist/appointments/reschedule?${params.toString()}`);
+        } catch (error) {
+            console.error("Error handling reschedule click:", error);
+            toast.error("Failed to open reschedule page. Please try again.");
+        }
     };
 
     const handleViewPatientClick = (patient) => {
@@ -540,6 +545,7 @@ function Appointments_View() {
                                                                     type="button"
                                                                     className="btn btn-sm"
                                                                     onClick={() => handleViewPatientClick(patient)}
+                                                                    title="View Patient Details"
                                                                     style={{
                                                                         backgroundColor: "#D4A574",
                                                                         borderColor: "#D4A574",
@@ -603,6 +609,7 @@ function Appointments_View() {
                                                                     type="button"
                                                                     className="btn btn-sm"
                                                                     onClick={() => handleSendMessageClick(patient)}
+                                                                    title="Send WhatsApp Message"
                                                                     style={{
                                                                         backgroundColor: "#FFB347",
                                                                         borderColor: "#FFB347",
@@ -698,6 +705,24 @@ function Appointments_View() {
                                                                 type="button"
                                                                 className="btn btn-sm btn-primary"
                                                                 onClick={() => handleRescheduleClick(appointment)}
+                                                                title="Reschedule Appointment"
+                                                                style={{
+                                                                    borderRadius: "8px",
+                                                                    padding: "8px 12px",
+                                                                    minWidth: "45px",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    transition: "all 0.3s ease",
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.transform = "translateY(-2px)";
+                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.transform = "translateY(0)";
+                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                }}
                                                             >
                                                                 <EditIcon fontSize="small" />
                                                             </button>
@@ -706,6 +731,7 @@ function Appointments_View() {
                                                                     type="button"
                                                                     className="btn btn-sm btn-info"
                                                                     onClick={() => toast.info(`Invoice: ${appointment.invoiceNumber}`)}
+                                                                    title={`View Invoice: ${appointment.invoiceNumber}`}
                                                                 >
                                                                     View Invoice
                                                                 </button>

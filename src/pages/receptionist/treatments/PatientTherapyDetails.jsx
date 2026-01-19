@@ -98,7 +98,13 @@ function PatientTherapyDetails() {
             }
         } catch (error) {
             console.error("Error fetching therapy sessions:", error);
-            toast.error(error.response?.data?.message || "Failed to load therapy sessions");
+            const errorMessage = error.response?.data?.message || error.message || "Failed to load therapy sessions";
+            console.error("Error details:", {
+                message: errorMessage,
+                status: error.response?.status,
+                data: error.response?.data
+            });
+            toast.error(errorMessage);
         }
     }, [patientId]);
 
@@ -488,7 +494,7 @@ function PatientTherapyDetails() {
                                                                 {assignedTherapists.map((therapist, idx) => {
                                                                     const therapistId = therapist._id || therapist;
                                                                     const therapistName = therapist.user?.name || therapist.name || "Unknown";
-                                                                    const therapistSpeciality = therapist.speciality || "";
+                                                                    const therapistSpeciality = therapist.speciality || therapist.specialization || "";
                                                                     // Get user ID for removal - try from populated data or find from therapists list
                                                                     let therapistUserId = therapist.user?._id || therapist.user;
                                                                     if (!therapistUserId && therapist._id) {
@@ -665,7 +671,7 @@ function PatientTherapyDetails() {
                                         <Checkbox checked={reallocateDialog.selectedTherapists.indexOf(therapistUserId.toString()) > -1} />
                                         <ListItemText 
                                             primary={therapist.user?.name || therapist.name}
-                                            secondary={therapist.speciality || "N/A"}
+                                            secondary={therapist.speciality || therapist.specialization || "N/A"}
                                         />
                                     </MenuItem>
                                 );

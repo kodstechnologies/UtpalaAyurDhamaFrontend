@@ -395,11 +395,20 @@ function AssignTherapyAddPage() {
                                 <MenuItem value="">
                                     <em>Select Therapist...</em>
                                 </MenuItem>
-                                {therapists.map((therapist) => (
-                                    <MenuItem key={therapist._id} value={therapist._id}>
-                                        {therapist.name || "Unknown"} - {therapist.specialization || "N/A"}
-                                    </MenuItem>
-                                ))}
+                                {therapists.map((therapist) => {
+                                    // Get therapist name from user object or fallback
+                                    const therapistName = therapist.user?.name || therapist.name || "Unknown";
+                                    // Get speciality (note: backend uses 'speciality', not 'specialization')
+                                    const therapistSpeciality = therapist.speciality || therapist.specialization || "N/A";
+                                    // Use user._id for the value (needed for assignment)
+                                    const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
+                                    
+                                    return (
+                                        <MenuItem key={therapist._id} value={therapistUserId}>
+                                            {therapistName} - {therapistSpeciality}
+                                        </MenuItem>
+                                    );
+                                })}
                             </Select>
                         </FormControl>
                     </Grid>

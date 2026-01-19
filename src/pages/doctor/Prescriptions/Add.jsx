@@ -816,6 +816,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
 import HeadingCard from "../../../components/card/HeadingCard";
 import {
     TextField,
@@ -867,6 +868,7 @@ function PrescriptionsAddPage() {
     const patientId = searchParams.get("patientId") || "";
     const patientName = searchParams.get("patientName") || "";
     const isEditMode = !!prescriptionId;
+    const { user } = useSelector((state) => state.auth);
 
     const [opdPatients, setOpdPatients] = useState([]);
     const [isLoadingPatients, setIsLoadingPatients] = useState(false);
@@ -895,31 +897,93 @@ function PrescriptionsAddPage() {
         notes: "",
     });
 
-    // Fetch OPD patients
+
+    // Fetch OPD patients assigned to this doctor (from appointments, same as OP Consultation)
     useEffect(() => {
         const fetchOPDPatients = async () => {
+            if (!user?._id) return;
+            
             setIsLoadingPatients(true);
             try {
-                const response = await axios.get(
-                    getApiUrl("patients/opd"),
-                    { headers: getAuthHeaders() }
+                // Fetch appointments for this doctor (backend automatically filters by logged-in doctor)
+                const appointmentsResponse = await axios.get(
+                    getApiUrl("appointments"),
+                    { 
+                        headers: getAuthHeaders(),
+                        params: {
+                            page: 1,
+                            limit: 1000 // Get all appointments
+                        }
+                    }
                 );
 
-                if (response.data.success) {
-                    const patients = response.data.data || [];
-                    // Double filter: Remove any patients marked as inpatients or with inpatient flag
-                    const opdOnlyPatients = patients.filter(
-                        p => {
-                            // Check if patient has inpatient flag set to true
-                            const isNotInpatient = !p.inpatient || p.inpatient === false;
-                            return isNotInpatient;
+                // Fetch active inpatients to exclude them
+                let activeInpatientPatientIds = new Set();
+                try {
+                    const inpatientsResponse = await axios.get(
+                        getApiUrl("inpatients"),
+                        {
+                            headers: getAuthHeaders(),
+                            params: {
+                                page: 1,
+                                limit: 1000,
+                                status: "Admitted" // Only get currently admitted patients
+                            }
                         }
                     );
-                    setOpdPatients(opdOnlyPatients);
+                    if (inpatientsResponse.data.success) {
+                        const inpatients = inpatientsResponse.data.data?.inpatients || inpatientsResponse.data.data || [];
+                        activeInpatientPatientIds = new Set(
+                            inpatients
+                                .filter(ip => ip.status === "Admitted" && ip.patient?._id)
+                                .map(ip => ip.patient._id.toString())
+                        );
+                        console.log("Active inpatients to exclude:", activeInpatientPatientIds.size);
+                    }
+                } catch (inpatientError) {
+                    console.warn("Error fetching inpatients (will continue without filtering):", inpatientError);
+                }
+
+                if (appointmentsResponse.data.success) {
+                    const appointments = appointmentsResponse.data.data || [];
+                    console.log("Appointments fetched:", appointments.length);
+                    
+                    // Extract unique patients from appointments
+                    const patientMap = new Map();
+                    appointments.forEach(appointment => {
+                        if (appointment.patient?._id) {
+                            const patientId = appointment.patient._id.toString();
+                            if (!patientMap.has(patientId)) {
+                                // Check if patient is marked as inpatient in profile
+                                const isNotInpatientProfile = !appointment.patient.inpatient || appointment.patient.inpatient === false;
+                                // Check if patient is currently admitted (has active inpatient record)
+                                const isNotCurrentlyAdmitted = !activeInpatientPatientIds.has(patientId);
+                                
+                                // Only include OPD patients (not inpatients)
+                                if (isNotInpatientProfile && isNotCurrentlyAdmitted) {
+                                    patientMap.set(patientId, {
+                                        _id: appointment.patient._id,
+                                        user: appointment.patient.user,
+                                        patientId: appointment.patient.patientId,
+                                        inpatient: appointment.patient.inpatient || false,
+                                    });
+                                }
+                            }
+                        }
+                    });
+                    
+                    const uniquePatients = Array.from(patientMap.values());
+                    console.log("Unique OPD patients from appointments (after filtering IPD):", uniquePatients.length);
+                    setOpdPatients(uniquePatients);
+                    
+                    // If no assigned patients found, show a message
+                    if (uniquePatients.length === 0) {
+                        console.warn("No assigned patients found for this doctor");
+                    }
 
                     // If patientId or patientName is provided in URL, find and select that patient
                     if (patientId || patientName) {
-                        const foundPatient = patients.find(
+                        const foundPatient = uniquePatients.find(
                             (p) => p._id === patientId || p.user?.name === patientName
                         );
                         if (foundPatient) {
@@ -935,7 +999,7 @@ function PrescriptionsAddPage() {
                     toast.error("Failed to fetch patients");
                 }
             } catch (error) {
-                console.error("Error fetching OPD patients:", error);
+                console.error("Error fetching doctor's patients:", error);
                 toast.error(error.response?.data?.message || "Error fetching patients");
             } finally {
                 setIsLoadingPatients(false);
@@ -943,7 +1007,7 @@ function PrescriptionsAddPage() {
         };
 
         fetchOPDPatients();
-    }, [patientId, patientName]);
+    }, [user?._id, patientId, patientName]);
 
     // Fetch available medicines
     useEffect(() => {

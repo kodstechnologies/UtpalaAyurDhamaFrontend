@@ -153,27 +153,42 @@ function OPConsultation_View() {
                 color: "var(--color-info)",
                 label: "View Details",
                 onClick: (row) => {
-                    // Use patientUserId if available, otherwise use patientId
-                    const patientId = row.patientUserId || row.patientId;
-                    if (!patientId) {
-                        toast.error("Patient ID not found. Cannot navigate to examination.");
-                        return;
-                    }
-                    // Use full appointment object if available, otherwise create minimal object
-                    const appointmentData = row.fullAppointment || {
-                        _id: row._id,
-                        appointmentDate: row.appointmentDate,
-                        appointmentTime: row.appointmentTime,
-                        notes: row.chiefComplaint,
-                        status: row.status,
-                    };
-                    // Navigate to examination details page to view all patient details
-                    navigate(`/doctor/examination-details/${patientId}`, {
-                        state: {
-                            appointment: appointmentData,
-                            appointmentId: row._id
+                    // If examination exists, navigate with examinationId, otherwise navigate to add-examination
+                    if (row.hasExamination && row.examinationId) {
+                        // Examination exists - navigate to examination details
+                        navigate(`/doctor/examination-details/${row.examinationId}`, {
+                            state: {
+                                examinationId: row.examinationId,
+                                appointment: row.fullAppointment || {
+                                    _id: row._id,
+                                    appointmentDate: row.appointmentDate,
+                                    appointmentTime: row.appointmentTime,
+                                    notes: row.chiefComplaint,
+                                    status: row.status,
+                                },
+                            }
+                        });
+                    } else {
+                        // No examination - navigate to add-examination page
+                        const patientId = row.patientUserId || row.patientId;
+                        if (!patientId) {
+                            toast.error("Patient ID not found. Cannot navigate to examination.");
+                            return;
                         }
-                    });
+                        const appointmentData = row.fullAppointment || {
+                            _id: row._id,
+                            appointmentDate: row.appointmentDate,
+                            appointmentTime: row.appointmentTime,
+                            notes: row.chiefComplaint,
+                            status: row.status,
+                        };
+                        navigate(`/doctor/add-examination/${patientId}`, {
+                            state: {
+                                appointment: appointmentData,
+                                appointmentId: row._id
+                            }
+                        });
+                    }
                 },
             },
         ];

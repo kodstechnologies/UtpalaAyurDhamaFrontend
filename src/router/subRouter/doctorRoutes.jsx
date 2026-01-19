@@ -190,7 +190,7 @@ export const doctorRoutes = [
         ),
     },
     {
-        path: "/doctor/examination-details/:userId",
+        path: "/doctor/examination-details/:examinationId",
         element: (
             <>
                 <Helmet>
