@@ -71,7 +71,7 @@ function DashboardCard({
                         </Typography>
 
                         {/* IF COUNT EXISTS → SHOW ANIMATED VALUE */}
-                        {count !== null && count !== undefined ? (
+                        {count !== null && count !== undefined && !isNaN(count) ? (
                             <Typography
                                 variant="h5"
                                 sx={{
@@ -87,6 +87,7 @@ function DashboardCard({
                                         minimumFractionDigits: 2,
                                     }).format(displayValue)
                                     : Math.floor(displayValue)}
+                                {description && description.includes("%") ? description : ""}
                             </Typography>
                         ) : (
                             /* ELSE SHOW DESCRIPTION */

@@ -99,6 +99,22 @@ const medicineService = {
       throw error.response?.data || error.message;
     }
   },
+
+  /**
+   * Bulk create medicines
+   */
+  bulkCreateMedicines: async (medicines) => {
+    try {
+      const response = await axios.post(
+        getApiUrl("pharmacists/medicines/bulk"),
+        { medicines },
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
 };
 
 export default medicineService;

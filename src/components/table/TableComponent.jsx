@@ -21,7 +21,7 @@ function TableComponent({
 }) {
     const [selected, setSelected] = useState([]);
     const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(8);
+    const [rowsPerPage, setRowsPerPage] = useState(100);
 
     // Ensure rows is always an array
     const safeRows = Array.isArray(rows) ? rows : [];
@@ -201,6 +201,7 @@ function TableComponent({
                     setRowsPerPage(+e.target.value);
                     setPage(0);
                 }}
+                rowsPerPageOptions={[10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]}
             />
         </Paper>
     );

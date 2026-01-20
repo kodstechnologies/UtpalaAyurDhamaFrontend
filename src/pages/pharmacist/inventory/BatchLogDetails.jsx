@@ -105,12 +105,19 @@ function BatchLogDetailsPage() {
 
     const expiryDate = medicine.expiryDate || searchParams.get("expiryDate");
     const daysUntilExpiry = calculateDaysUntilExpiry(expiryDate);
-    const quantity = medicine.quantity || parseInt(searchParams.get("quantity") || "0");
-    const costPrice = medicine.costPrice || parseFloat(searchParams.get("costPrice") || "0");
-    const sellPrice = medicine.sellPrice || parseFloat(searchParams.get("sellPrice") || "0");
+    
+    // Ensure proper number conversion with fallbacks
+    const quantity = Number(medicine.quantity) || Number(searchParams.get("quantity")) || 0;
+    const costPrice = Number(medicine.costPrice) || Number(searchParams.get("costPrice")) || 0;
+    const sellPrice = Number(medicine.sellPrice) || Number(searchParams.get("sellPrice")) || 0;
+    
+    // Calculate values with proper number handling
     const stockValue = quantity * costPrice;
     const profitPerUnit = sellPrice - costPrice;
-    const profitMargin = costPrice > 0 ? ((profitPerUnit / costPrice) * 100).toFixed(2) : 0;
+    // Markup % = (Profit / Cost Price) × 100
+    const markup = costPrice > 0 ? ((profitPerUnit / costPrice) * 100).toFixed(2) : "0.00";
+    // Profit Margin % = (Profit / Sell Price) × 100
+    const profitMargin = sellPrice > 0 ? ((profitPerUnit / sellPrice) * 100).toFixed(2) : "0.00";
 
     // Get expiry status
     const getExpiryStatus = () => {
@@ -146,7 +153,11 @@ function BatchLogDetailsPage() {
     };
 
     const formatCurrency = (amount) => {
-        return `₹${Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const numAmount = Number(amount);
+        if (isNaN(numAmount) || !isFinite(numAmount)) {
+            return "₹0.00";
+        }
+        return `₹${numAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
     return (
@@ -181,27 +192,130 @@ function BatchLogDetailsPage() {
 
             {/* Statistics Cards */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6} md={2.4}>
                     <DashboardCard title="Total Quantity" count={quantity} icon={InventoryIcon} />
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6} md={2.4}>
                     <DashboardCard
                         title="Stock Value"
-                        count={formatCurrency(stockValue)}
+                        count={stockValue}
+                        prefix="₹"
                         icon={TrendingUpIcon}
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <DashboardCard
-                        title="Profit Margin"
-                        count={`${profitMargin}%`}
-                        icon={TrendingDownIcon}
-                    />
+                <Grid item xs={12} sm={6} md={2.4}>
+                    <Card
+                        sx={{
+                            width: "100%",
+                            borderRadius: 4,
+                            padding: 1.5,
+                            background: "var(--color-bg-table)",
+                            boxShadow: "0px 4px 18px rgba(0,0,0,0.08)",
+                        }}
+                    >
+                        <CardContent sx={{ padding: "12px !important", "&:last-child": { paddingBottom: "12px" } }}>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                            fontWeight: 600,
+                                            color: "var(--color-text-dark)",
+                                            mb: 0.5,
+                                            fontSize: "0.7rem",
+                                        }}
+                                    >
+                                        Markup %
+                                    </Typography>
+                                    <Typography
+                                        variant="h5"
+                                        sx={{
+                                            fontWeight: "bold",
+                                            color: "var(--color-text-dark)",
+                                            fontSize: "1.4rem",
+                                        }}
+                                    >
+                                        {markup}%
+                                    </Typography>
+                                </Box>
+                                <Box
+                                    sx={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 1.5,
+                                        background: "var(--color-bg-header)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        ml: 1.5,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <TrendingDownIcon sx={{ fontSize: 20, color: "var(--color-text-header)" }} />
+                                </Box>
+                            </Box>
+                        </CardContent>
+                    </Card>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6} md={2.4}>
+                    <Card
+                        sx={{
+                            width: "100%",
+                            borderRadius: 4,
+                            padding: 1.5,
+                            background: "var(--color-bg-table)",
+                            boxShadow: "0px 4px 18px rgba(0,0,0,0.08)",
+                        }}
+                    >
+                        <CardContent sx={{ padding: "12px !important", "&:last-child": { paddingBottom: "12px" } }}>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                            fontWeight: 600,
+                                            color: "var(--color-text-dark)",
+                                            mb: 0.5,
+                                            fontSize: "0.7rem",
+                                        }}
+                                    >
+                                        Profit Margin %
+                                    </Typography>
+                                    <Typography
+                                        variant="h5"
+                                        sx={{
+                                            fontWeight: "bold",
+                                            color: "var(--color-text-dark)",
+                                            fontSize: "1.4rem",
+                                        }}
+                                    >
+                                        {profitMargin}%
+                                    </Typography>
+                                </Box>
+                                <Box
+                                    sx={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 1.5,
+                                        background: "var(--color-bg-header)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        ml: 1.5,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <TrendingDownIcon sx={{ fontSize: 20, color: "var(--color-text-header)" }} />
+                                </Box>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.4}>
                     <DashboardCard
                         title="Days Until Expiry"
-                        count={daysUntilExpiry !== null ? (daysUntilExpiry > 0 ? `${daysUntilExpiry}` : "Expired") : "N/A"}
+                        count={daysUntilExpiry !== null && daysUntilExpiry > 0 ? daysUntilExpiry : null}
+                        description={daysUntilExpiry === null ? "N/A" : daysUntilExpiry <= 0 ? "Expired" : ""}
                         icon={CalendarTodayIcon}
                     />
                 </Grid>
@@ -369,6 +483,22 @@ function BatchLogDetailsPage() {
                                 </Box>
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <Typography variant="body2" color="text.secondary">
+                                        Markup %
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                        {markup}%
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Profit Margin %
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                        {profitMargin}%
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <Typography variant="body2" color="text.secondary">
                                         Total Stock Value
                                     </Typography>
                                     <Typography variant="body1" sx={{ fontWeight: 600 }}>
@@ -473,6 +603,23 @@ function BatchLogDetailsPage() {
                                 sx={{
                                     textAlign: "center",
                                     p: 2,
+                                    bgcolor: alpha(theme.palette.warning.main, 0.1),
+                                    borderRadius: 2,
+                                }}
+                            >
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: "warning.main" }}>
+                                    {markup}%
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Markup %
+                                </Typography>
+                            </Box>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Box
+                                sx={{
+                                    textAlign: "center",
+                                    p: 2,
                                     bgcolor: alpha(theme.palette.secondary.main, 0.1),
                                     borderRadius: 2,
                                 }}
@@ -481,7 +628,7 @@ function BatchLogDetailsPage() {
                                     {profitMargin}%
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                    Profit Margin
+                                    Profit Margin %
                                 </Typography>
                             </Box>
                         </Grid>

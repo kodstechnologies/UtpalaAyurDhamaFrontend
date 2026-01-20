@@ -188,6 +188,24 @@ function Inventory_View_Details() {
     }, [medicines, searchText]);
 
     /* Actions */
+    const handleViewBatchLog = (row) => {
+        const params = new URLSearchParams({
+            batchId: row.medicineCode || row._id || "",
+            _id: row._id || "",
+            itemName: row.medicineName || "",
+            medicineName: row.medicineName || "",
+            batchNo: row.medicineCode || "",
+            expiryDate: row.expiryDate || "",
+            quantity: (row.quantity || 0).toString(),
+            unit: row.unit || "",
+            costPrice: (row.costPrice || 0).toString(),
+            sellPrice: (row.sellPrice || 0).toString(),
+            type: row.type || "",
+            stockStatus: row.stockStatus || "",
+        });
+        navigate(`/pharmacist/inventory/batch-log-details?${params.toString()}`);
+    };
+
     const actions = [
         {
             label: "View Details",
@@ -200,7 +218,7 @@ function Inventory_View_Details() {
             label: "Batch Log",
             icon: <LocalPharmacyIcon fontSize="small" />,
             color: "var(--color-primary)",
-            onClick: (row) => navigate(`/pharmacist/batch-log/${row._id}`),
+            onClick: handleViewBatchLog,
             tooltip: "View Batch Log",
         },
     ];

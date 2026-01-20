@@ -67,6 +67,7 @@ const medicineTypes = [
     "Lepa",
     "Moisturizer",
     "Nasal Drop",
+    "Oil",
     "Ointment",
     "Paste",
     "Powder",
