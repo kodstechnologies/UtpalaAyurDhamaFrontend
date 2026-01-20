@@ -28,14 +28,73 @@ function Therapists() {
         setIsLoading(true);
         try {
             const response = await adminUserService.getAllUsers("Therapist");
-            if (response.success) {
-                setRows(response.data || []);
+            
+            if (response && response.success) {
+                // Handle the actual response structure
+                let data = response.data;
+                
+                // If data is an object with a 'therapists' property, extract the therapists array
+                if (data && typeof data === 'object' && !Array.isArray(data)) {
+                    if (data.therapists && Array.isArray(data.therapists)) {
+                        data = data.therapists;
+                    } else if (data.data && Array.isArray(data.data)) {
+                        // Fallback for other paginated structures
+                        data = data.data;
+                    }
+                }
+                
+                // Ensure data is always an array and normalize the structure
+                const rowsData = Array.isArray(data) ? data : [];
+                
+                // Normalize data structure - ensure _id exists and flatten user data if needed
+                const normalizedRows = rowsData.map((row) => {
+                    // If user data is nested, flatten it
+                    if (row.user && typeof row.user === 'object') {
+                        return {
+                            ...row,
+                            _id: row._id || row.id || row.user._id || row.user.id,
+                            name: row.name || row.user.name || '',
+                            email: row.email || row.user.email || '',
+                            phone: row.phone || row.user.phone || '',
+                            specialization: row.specialization || row.speciality || '',
+                            department: row.department || '',
+                            status: row.status || row.user?.status || 'Active',
+                            // Keep other fields as they are
+                        };
+                    }
+                    // Ensure _id exists and map fields correctly
+                    return {
+                        ...row,
+                        _id: row._id || row.id,
+                        name: row.name || '',
+                        email: row.email || '',
+                        phone: row.phone || '',
+                        specialization: row.specialization || row.speciality || '',
+                        department: row.department || '',
+                        status: row.status || 'Active',
+                    };
+                });
+                
+                setRows(normalizedRows);
             } else {
-                toast.error(response.message || "Failed to fetch therapists");
+                toast.error(response?.message || "Failed to fetch therapists");
+                setRows([]); // Set empty array on error
             }
         } catch (error) {
             console.error("Error fetching therapists:", error);
-            toast.error(error.message || "Failed to fetch therapists");
+            
+            // Handle different error structures
+            let errorMessage = "Failed to fetch therapists";
+            if (typeof error === 'string') {
+                errorMessage = error;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            } else if (error?.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            }
+            
+            toast.error(errorMessage);
+            setRows([]); // Set empty array on error
         } finally {
             setIsLoading(false);
         }
