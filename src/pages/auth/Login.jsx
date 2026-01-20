@@ -20,7 +20,15 @@ import {
     ArrowBack as ArrowBackIcon,
     Healing as HealingIcon,
     Spa as SpaIcon,
-    Email as EmailIcon
+    Email as EmailIcon,
+    Person as PersonIcon,
+    LocalHospital as LocalHospitalIcon,
+    MedicalServices as MedicalServicesIcon,
+    SupportAgent as SupportAgentIcon,
+    Medication as MedicationIcon,
+    Psychology as PsychologyIcon,
+    AccessibilityNew as AccessibilityNewIcon,
+    AdminPanelSettings as AdminPanelSettingsIcon
 } from "@mui/icons-material";
 
 import logo from "../../assets/logo/utpala_logo.png"
@@ -33,12 +41,13 @@ import { login } from "../../redux/slices/authSlice";
 export default function Login() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const [step, setStep] = useState(1); // 1: phone, 2: OTP
+    const [step, setStep] = useState(1); // 1: phone, 2: OTP, 3: Role Selection
     const [phone, setPhone] = useState("");
     const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
     const [loading, setLoading] = useState(false);
     const [timer, setTimer] = useState(300);
     const [error, setError] = useState(""); // For error messages
+    const [availableRoles, setAvailableRoles] = useState([]); // For multiple roles
     const otpInputs = useRef([]);
     const timerIntervalRef = useRef(null); // Ref to store interval for cleanup
 
@@ -114,6 +123,16 @@ export default function Login() {
             setError("");
             try {
                 const result = await verifyOtp(phone, fullOtp);
+                
+                // Check if role selection is required
+                if (result.requiresRoleSelection && result.users) {
+                    setAvailableRoles(result.users);
+                    setStep(3); // Move to role selection step
+                    setLoading(false);
+                    return;
+                }
+
+                // Single role - proceed with login
                 dispatch(login({
                     user: result.user,
                     token: result.token,
@@ -129,30 +148,7 @@ export default function Login() {
                 });
 
                 // Role-based redirect (SPA navigation, no reload)
-                const userRole = result.user.role?.toLowerCase();
-                if (userRole === "admin") {
-                    navigate("/admin/dashboard");
-                } else if (userRole === "doctor") {
-                    navigate("/doctor/dashboard");
-                } else if (userRole === "nurse") {
-                    navigate("/nurse/dashboard");
-                } else if (userRole === "receptionist") {
-                    navigate("/receptionist/dashboard");
-                } else if (userRole === "pharmacist") {
-                    navigate("/pharmacist/dashboard");
-                } else if (userRole === "therapist") {
-                    navigate("/therapist/dashboard");
-                } else if (userRole === "patient") {
-                    navigate("/patient/dashboard");
-                } else {
-                    // Fallback: try to get role from localStorage or redirect to login
-                    const storedRole = localStorage.getItem("role")?.toLowerCase();
-                    if (storedRole) {
-                        navigate(`/${storedRole}/dashboard`);
-                    } else {
-                        navigate("/login");
-                    }
-                }
+                redirectToDashboard(result.user.role);
             } catch (err) {
                 setError(err.message || "Invalid OTP or an error occurred.");
             } finally {
@@ -163,9 +159,111 @@ export default function Login() {
         }
     };
 
+    const handleRoleSelection = async (selectedUser) => {
+        setLoading(true);
+        setError("");
+        try {
+            const fullOtp = otpDigits.join('');
+            const result = await verifyOtp(phone, fullOtp, selectedUser.userId);
+            
+            dispatch(login({
+                user: result.user,
+                token: result.token,
+                role: result.user.role,
+            }));
+
+            console.log("✅ Login Successful!", {
+                phone: `+91${phone}`,
+                role: result.user.role,
+                hasToken: !!result.token,
+            });
+
+            redirectToDashboard(result.user.role);
+        } catch (err) {
+            setError(err.message || "Failed to login with selected role.");
+            setLoading(false);
+        }
+    };
+
+    const redirectToDashboard = (role) => {
+        const userRole = role?.toLowerCase();
+        if (userRole === "admin") {
+            navigate("/admin/dashboard");
+        } else if (userRole === "doctor") {
+            navigate("/doctor/dashboard");
+        } else if (userRole === "nurse") {
+            navigate("/nurse/dashboard");
+        } else if (userRole === "receptionist") {
+            navigate("/receptionist/dashboard");
+        } else if (userRole === "pharmacist") {
+            navigate("/pharmacist/dashboard");
+        } else if (userRole === "therapist") {
+            navigate("/therapist/dashboard");
+        } else if (userRole === "patient") {
+            navigate("/patient/dashboard");
+        } else {
+            const storedRole = localStorage.getItem("role")?.toLowerCase();
+            if (storedRole) {
+                navigate(`/${storedRole}/dashboard`);
+            } else {
+                navigate("/login");
+            }
+        }
+    };
+
+    const getRoleIcon = (role) => {
+        const roleLower = role?.toLowerCase();
+        switch (roleLower) {
+            case "admin":
+                return <AdminPanelSettingsIcon />;
+            case "doctor":
+                return <LocalHospitalIcon />;
+            case "nurse":
+                return <MedicalServicesIcon />;
+            case "receptionist":
+                return <SupportAgentIcon />;
+            case "pharmacist":
+                return <MedicationIcon />;
+            case "therapist":
+                return <PsychologyIcon />;
+            case "patient":
+                return <AccessibilityNewIcon />;
+            default:
+                return <PersonIcon />;
+        }
+    };
+
+    const getRoleColor = (role) => {
+        const roleLower = role?.toLowerCase();
+        switch (roleLower) {
+            case "admin":
+                return "#d32f2f";
+            case "doctor":
+                return "#1976d2";
+            case "nurse":
+                return "#388e3c";
+            case "receptionist":
+                return "#f57c00";
+            case "pharmacist":
+                return "#7b1fa2";
+            case "therapist":
+                return "#0288d1";
+            case "patient":
+                return "#455a64";
+            default:
+                return "#704214";
+        }
+    };
+
     const handleBackToPhone = () => {
         setStep(1);
         setOtpDigits(['', '', '', '', '', '']);
+        setError("");
+        setAvailableRoles([]);
+    };
+
+    const handleBackToOtp = () => {
+        setStep(2);
         setError("");
     };
 
@@ -327,10 +425,10 @@ export default function Login() {
                     </Box>
 
                     <CardContent sx={{ p: 4 }}>
-                        {step === 2 && (
-                            <Fade in={step === 2}>
+                        {(step === 2 || step === 3) && (
+                            <Fade in={step === 2 || step === 3}>
                                 <IconButton
-                                    onClick={handleBackToPhone}
+                                    onClick={step === 3 ? handleBackToOtp : handleBackToPhone}
                                     sx={{
                                         mb: 2,
                                         color: "#704214",
@@ -359,6 +457,7 @@ export default function Login() {
                         <Fade in={true} timeout={500}>
                             <Box>
                                 {step === 1 ? (
+                                    // Phone Number Input Step
                                     <Box>
                                         <Typography
                                             variant="h6"
@@ -454,7 +553,8 @@ export default function Login() {
                                             By continuing, you agree to our Terms & Privacy Policy
                                         </Typography> */}
                                     </Box>
-                                ) : (
+                                ) : step === 2 ? (
+                                    // OTP Verification Step
                                     <Box>
                                         <Typography
                                             variant="h6"
@@ -595,6 +695,100 @@ export default function Login() {
                                         >
                                             Did not receive the code? Check your spam folder
                                         </Typography>
+                                    </Box>
+                                ) : (
+                                    // Role Selection Step
+                                    <Box>
+                                        <Typography
+                                            variant="h6"
+                                            sx={{
+                                                mb: 2,
+                                                color: "#704214",
+                                                fontWeight: 600,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            Select Your Role
+                                        </Typography>
+
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                mb: 3,
+                                                color: "#8b5a2b",
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            You have multiple roles associated with this phone number. Please select the role you want to login with.
+                                        </Typography>
+
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            {availableRoles.map((userRole, index) => (
+                                                <Button
+                                                    key={userRole.userId}
+                                                    variant="outlined"
+                                                    fullWidth
+                                                    onClick={() => handleRoleSelection(userRole)}
+                                                    disabled={loading}
+                                                    sx={{
+                                                        py: 2,
+                                                        px: 3,
+                                                        borderRadius: 2,
+                                                        borderColor: getRoleColor(userRole.role),
+                                                        color: getRoleColor(userRole.role),
+                                                        textTransform: 'none',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 2,
+                                                        justifyContent: 'flex-start',
+                                                        '&:hover': {
+                                                            borderColor: getRoleColor(userRole.role),
+                                                            background: `${getRoleColor(userRole.role)}15`,
+                                                            borderWidth: 2,
+                                                        },
+                                                        '&:disabled': {
+                                                            borderColor: "#d0d0d0",
+                                                            color: "#888",
+                                                        }
+                                                    }}
+                                                >
+                                                    <Box
+                                                        sx={{
+                                                            width: 48,
+                                                            height: 48,
+                                                            borderRadius: '50%',
+                                                            background: `${getRoleColor(userRole.role)}20`,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: getRoleColor(userRole.role),
+                                                        }}
+                                                    >
+                                                        {getRoleIcon(userRole.role)}
+                                                    </Box>
+                                                    <Box sx={{ flex: 1, textAlign: 'left' }}>
+                                                        <Typography
+                                                            variant="subtitle1"
+                                                            sx={{
+                                                                fontWeight: 600,
+                                                                color: getRoleColor(userRole.role),
+                                                            }}
+                                                        >
+                                                            {userRole.role}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="body2"
+                                                            sx={{
+                                                                color: "#666",
+                                                                fontSize: '0.85rem',
+                                                            }}
+                                                        >
+                                                            {userRole.name}
+                                                        </Typography>
+                                                    </Box>
+                                                </Button>
+                                            ))}
+                                        </Box>
                                     </Box>
                                 )}
                             </Box>

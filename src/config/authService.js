@@ -52,13 +52,13 @@ export const sendOtp = async (phone) => {
 };
 
 
-export const verifyOtp = async (phone, otp) => {
+export const verifyOtp = async (phone, otp, userId = null) => {
     const response = await fetch(`${API_BASE_URL}/users/login/verify-otp`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone, otp }),
+        body: JSON.stringify({ phone, otp, userId }),
         credentials: 'include',
     });
 
@@ -69,16 +69,26 @@ export const verifyOtp = async (phone, otp) => {
 
     const result = await response.json();
 
+    // Check if role selection is required (multiple roles found)
+    if (result.success && result.data && result.data.requiresRoleSelection) {
+        return {
+            ...result,
+            requiresRoleSelection: true,
+            users: result.data.users,
+        };
+    }
+
     // The API returns the token and user data nested under a `data` property
     if (result.success && result.data && result.data.accessToken) {
         return {
             ...result,
             token: result.data.accessToken, // Extract the token
             user: result.data.user,
+            requiresRoleSelection: false,
         };
     }
     // Return a structure that matches the Promise type on failure
-    return { ...result, token: '', user: { role: '' } };
+    return { ...result, token: '', user: { role: '' }, requiresRoleSelection: false };
 };
 export const logout = async () => {
     const response = await fetch(`${API_BASE_URL}/users/logout`, {
