@@ -26,6 +26,18 @@ const therapistService = {
             throw error.response?.data || error.message;
         }
     },
+
+    // Get therapist sessions for the logged-in therapist
+    getMyTherapistSessions: async () => {
+        try {
+            const response = await axios.get(getApiUrl("therapist-sessions/my-sessions"), {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default therapistService;

@@ -22,7 +22,7 @@ function MedicinesView() {
     const [stockStatusFilter, setStockStatusFilter] = useState("");
     const [pagination, setPagination] = useState({
         page: 1,
-        limit: 10,
+        limit: 500, // Increased to 500 to fetch all medicines at once
         total: 0,
         totalPages: 0,
     });

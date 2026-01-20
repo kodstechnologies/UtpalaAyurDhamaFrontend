@@ -1,9 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import Breadcrumb from "../../components/breadcrumb/Breadcrumb";
 import DashboardCard from "../../components/card/DashboardCard";
+import therapistService from "../../services/therapistService";
 
 // Icons
 import CalendarDaysIcon from "@mui/icons-material/Event";
@@ -20,66 +22,104 @@ function Therapist_Dashboard() {
     const { user } = useSelector((state) => state.auth);
     const therapistName = user?.name || "Therapist";
     
-    // Mock data - will be replaced with API calls later
-    const [summary] = useState({
-        todayAppointments: 8,
-        todayTherapySessions: 12,
-        totalPatients: 28,
+    const [sessions, setSessions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [summary, setSummary] = useState({
+        todayAppointments: 0,
+        todayTherapySessions: 0,
+        totalPatients: 0,
     });
 
-    const [treatments] = useState(() => {
-        // Get today's date
+    // Fetch therapist sessions from API
+    useEffect(() => {
+        const fetchSessions = async () => {
+            setIsLoading(true);
+            try {
+                const response = await therapistService.getMyTherapistSessions();
+                if (response.success && response.data) {
+                    setSessions(response.data);
+                } else {
+                    toast.error(response.message || "Failed to fetch sessions");
+                }
+            } catch (error) {
+                console.error("Error fetching therapist sessions:", error);
+                toast.error(error.message || "Failed to load dashboard data");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchSessions();
+    }, []);
+
+    // Transform sessions data for display
+    const treatments = useMemo(() => {
+        return sessions.map((session) => {
+            // Parse session date and time
+            let sessionDateTime = null;
+            if (session.sessionDate) {
+                const date = new Date(session.sessionDate);
+                if (session.sessionTime) {
+                    const [hours, minutes] = session.sessionTime.split(':');
+                    date.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, 0, 0);
+                }
+                sessionDateTime = date;
+            } else if (session.days && session.days.length > 0) {
+                // Use first day's date if sessionDate is not available
+                const firstDay = session.days[0];
+                if (firstDay.date) {
+                    sessionDateTime = new Date(firstDay.date);
+                    if (firstDay.time) {
+                        const [hours, minutes] = firstDay.time.split(':');
+                        sessionDateTime.setHours(parseInt(hours) || 0, parseInt(minutes) || 0, 0, 0);
+                    }
+                }
+            }
+
+            // Calculate duration - default to 45 mins per session
+            // Note: Actual duration per session may vary, but we'll use a standard estimate
+            const duration = "45 mins"; // Standard therapy session duration
+
+            return {
+                id: session._id,
+                patientName: session.patient?.user?.name || "Unknown Patient",
+                therapyName: session.treatmentName || "Unknown Therapy",
+                date: sessionDateTime || new Date(),
+                duration: duration,
+                status: session.status,
+                patientId: session.patient?.user?._id || session.patient?._id,
+            };
+        });
+    }, [sessions]);
+
+    // Calculate summary statistics
+    useEffect(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-
-        // Create dates for today and next few days
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        const dayAfter = new Date(today);
-        dayAfter.setDate(dayAfter.getDate() + 2);
+        // Filter sessions for today
+        const todaySessions = treatments.filter((t) => {
+            if (!t.date) return false;
+            const sessionDate = new Date(t.date);
+            sessionDate.setHours(0, 0, 0, 0);
+            return sessionDate.getTime() === today.getTime();
+        });
 
-        const dayAfter2 = new Date(today);
-        dayAfter2.setDate(dayAfter2.getDate() + 3);
+        // Count unique patients
+        const uniquePatients = new Set(
+            treatments
+                .filter((t) => t.patientId)
+                .map((t) => t.patientId)
+        );
 
-        return [
-            {
-                id: "1",
-                patientName: "Sumitra Devi",
-                therapyName: "Shirodhara",
-                date: new Date(today.getTime() + 2 * 60 * 60 * 1000), // Today at 10:00 AM
-                duration: "45 mins",
-            },
-            {
-                id: "2",
-                patientName: "Rajesh Kumar",
-                therapyName: "Abhyangam",
-                date: new Date(today.getTime() + 3 * 60 * 60 * 1000), // Today at 11:00 AM
-                duration: "60 mins",
-            },
-            {
-                id: "3",
-                patientName: "Anil Gupta",
-                therapyName: "Pizhichil",
-                date: new Date(today.getTime() + 6 * 60 * 60 * 1000), // Today at 2:00 PM
-                duration: "50 mins",
-            },
-            {
-                id: "4",
-                patientName: "Meera Desai",
-                therapyName: "Shirodhara",
-                date: new Date(tomorrow.getTime() + 9 * 60 * 60 * 1000), // Tomorrow at 9:00 AM
-                duration: "45 mins",
-            },
-            {
-                id: "5",
-                patientName: "Vijay Rathod",
-                therapyName: "Abhyangam",
-                date: new Date(tomorrow.getTime() + 10.5 * 60 * 60 * 1000), // Tomorrow at 10:30 AM
-                duration: "60 mins",
-            }
-        ];
-    });
+        setSummary({
+            todayAppointments: todaySessions.length,
+            todayTherapySessions: todaySessions.length,
+            totalPatients: uniquePatients.size,
+        });
+    }, [treatments]);
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -111,14 +151,24 @@ function Therapist_Dashboard() {
     };
 
 
-    // Upcoming sessions (today and future)
+    // Upcoming sessions (today and future) - filter by status and date
     const upcomingSessions = useMemo(() => {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         return treatments
             .filter((item) => {
+                // Only show scheduled, in progress, or pending sessions
+                const validStatuses = ['Scheduled', 'In Progress', 'Pending'];
+                if (!validStatuses.includes(item.status)) return false;
+                
+                // Check if date is valid and in the future (or today)
+                if (!item.date) return false;
                 const date = new Date(item.date);
-                return !isNaN(date.getTime()) && date >= now;
+                if (isNaN(date.getTime())) return false;
+                
+                const sessionDate = new Date(date);
+                sessionDate.setHours(0, 0, 0, 0);
+                return sessionDate >= now;
             })
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .slice(0, 6);
@@ -137,16 +187,34 @@ function Therapist_Dashboard() {
             .slice(0, 5);
     }, [treatments]);
 
-    // Active patients
+    // Active patients - get most recent session for each patient
     const activePatients = useMemo(() => {
-        const unique = new Map();
+        const patientMap = new Map();
         treatments.forEach((t) => {
-            if (!unique.has(t.patientName)) {
-                unique.set(t.patientName, t);
+            if (!t.patientId) return;
+            const existing = patientMap.get(t.patientId);
+            if (!existing || (t.date && existing.date && new Date(t.date) > new Date(existing.date))) {
+                patientMap.set(t.patientId, t);
             }
         });
-        return Array.from(unique.values()).slice(0, 4);
+        // Sort by most recent date and take top 4
+        return Array.from(patientMap.values())
+            .sort((a, b) => {
+                if (!a.date && !b.date) return 0;
+                if (!a.date) return 1;
+                if (!b.date) return -1;
+                return new Date(b.date) - new Date(a.date);
+            })
+            .slice(0, 4);
     }, [treatments]);
+
+    if (isLoading) {
+        return (
+            <Box sx={{ padding: "20px", display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ padding: "20px" }}>
@@ -428,7 +496,7 @@ function Therapist_Dashboard() {
                                                 </p>
                                             </div>
                                             <Link
-                                                to="/therapist/patient-monitoring"
+                                                to={`/therapist/patient-monitoring?patientId=${session.patientId}`}
                                                 className="btn btn-outline-primary btn-sm"
                                                 style={{ borderRadius: "12px" }}
                                             >
@@ -627,7 +695,7 @@ function Therapist_Dashboard() {
                                             </p>
                                         </div>
                                         <Link
-                                            to="/therapist/therapy-progress"
+                                            to={`/therapist/therapy-progress?patientId=${patient.patientId}`}
                                             style={{
                                                 color: "#059669",
                                                 textDecoration: "none",

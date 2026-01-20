@@ -140,8 +140,11 @@ function InventoryDetails() {
     const calculateProfitMargin = () => {
         if (!medicine.costPrice || !medicine.sellPrice) return null;
         const profit = medicine.sellPrice - medicine.costPrice;
-        const margin = ((profit / medicine.costPrice) * 100).toFixed(2);
-        return { profit, margin };
+        // Markup % = (Profit / Cost Price) × 100
+        const markup = ((profit / medicine.costPrice) * 100).toFixed(2);
+        // Profit Margin % = (Profit / Sell Price) × 100
+        const profitMargin = ((profit / medicine.sellPrice) * 100).toFixed(2);
+        return { profit, markup, profitMargin };
     };
 
     const calculateStockValue = () => {
@@ -470,8 +473,16 @@ function InventoryDetails() {
                                         <Grid item xs={12} sm={6}>
                                             <DetailItem
                                                 icon={<AssessmentIcon fontSize="small" />}
-                                                label="Profit Margin"
-                                                value={`${profitData.margin}%`}
+                                                label="Markup %"
+                                                value={`${profitData.markup}%`}
+                                                highlight
+                                            />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItem
+                                                icon={<AssessmentIcon fontSize="small" />}
+                                                label="Profit Margin %"
+                                                value={`${profitData.profitMargin}%`}
                                                 highlight
                                             />
                                         </Grid>
@@ -640,23 +651,6 @@ function InventoryDetails() {
                                         />
                                     </Grid>
                                 )}
-                                <Grid item xs={12}>
-                                    <Box
-                                        sx={{
-                                            p: 2,
-                                            borderRadius: 2,
-                                            backgroundColor: alpha(theme.palette.grey[50], 0.5),
-                                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                                        }}
-                                    >
-                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                                            Medicine ID
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: "monospace" }}>
-                                            {medicine._id}
-                                        </Typography>
-                                    </Box>
-                                </Grid>
                             </Grid>
                         </CardContent>
                     </Card>
