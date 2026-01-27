@@ -224,11 +224,11 @@ function Receptionist_Dashboard() {
             {/* ⭐ MAIN STATISTICS CARDS */}
             <Grid container spacing={3} sx={{ mt: 2 }}>
                 <Grid item xs={12} sm={6} md={4} lg={3}>
-                <DashboardCard
-                    title="Today's Appointments"
+                    <DashboardCard
+                        title="Today's Appointments"
                         count={dashboardData.todayAppointments || 0}
-                    icon={EventAvailableIcon}
-                />
+                        icon={EventAvailableIcon}
+                    />
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={4} lg={3}>
@@ -240,11 +240,11 @@ function Receptionist_Dashboard() {
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={4} lg={3}>
-                <DashboardCard
-                    title="Total Patients"
+                    <DashboardCard
+                        title="Total Patients"
                         count={dashboardData.totalPatients || 0}
-                    icon={PeopleIcon}
-                />
+                        icon={PeopleIcon}
+                    />
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={4} lg={3}>
@@ -285,7 +285,7 @@ function Receptionist_Dashboard() {
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={4} lg={3}>
-                <DashboardCard
+                    <DashboardCard
                         title="Discharged Today"
                         count={dashboardData.dischargedInpatientsToday || 0}
                         icon={CheckCircleIcon}
@@ -297,75 +297,75 @@ function Receptionist_Dashboard() {
             {(dashboardData.completedAppointmentsToday > 0 ||
                 dashboardData.scheduledAppointmentsToday > 0 ||
                 dashboardData.ongoingAppointmentsToday > 0) && (
-                <Grid container spacing={2} sx={{ mt: 2 }}>
-                    <Grid item xs={12} sm={4}>
-                        <Card
-                            sx={{
-                                bgcolor: alpha(theme.palette.success.main, 0.1),
-                                border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
-                                borderRadius: 2,
-                                p: 2,
-                            }}
-                        >
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <CheckCircleIcon sx={{ color: theme.palette.success.main, fontSize: 32 }} />
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Completed
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.success.main }}>
-                                        {dashboardData.completedAppointmentsToday || 0}
-                                    </Typography>
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                        <Grid item xs={12} sm={4}>
+                            <Card
+                                sx={{
+                                    bgcolor: alpha(theme.palette.success.main, 0.1),
+                                    border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                                    borderRadius: 2,
+                                    p: 2,
+                                }}
+                            >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                    <CheckCircleIcon sx={{ color: theme.palette.success.main, fontSize: 32 }} />
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Completed
+                                        </Typography>
+                                        <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.success.main }}>
+                                            {dashboardData.completedAppointmentsToday || 0}
+                                        </Typography>
+                                    </Box>
                                 </Box>
-                            </Box>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <Card
-                            sx={{
-                                bgcolor: alpha(theme.palette.info.main, 0.1),
-                                border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
-                                borderRadius: 2,
-                                p: 2,
-                            }}
-                        >
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <CalendarTodayIcon sx={{ color: theme.palette.info.main, fontSize: 32 }} />
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Scheduled
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.info.main }}>
-                                        {dashboardData.scheduledAppointmentsToday || 0}
-                                    </Typography>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <Card
+                                sx={{
+                                    bgcolor: alpha(theme.palette.info.main, 0.1),
+                                    border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+                                    borderRadius: 2,
+                                    p: 2,
+                                }}
+                            >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                    <CalendarTodayIcon sx={{ color: theme.palette.info.main, fontSize: 32 }} />
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Scheduled
+                                        </Typography>
+                                        <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.info.main }}>
+                                            {dashboardData.scheduledAppointmentsToday || 0}
+                                        </Typography>
+                                    </Box>
                                 </Box>
-                            </Box>
-                        </Card>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <Card
-                            sx={{
-                                bgcolor: alpha(theme.palette.warning.main, 0.1),
-                                border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
-                                borderRadius: 2,
-                                p: 2,
-                            }}
-                        >
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <AccessTimeIcon sx={{ color: theme.palette.warning.main, fontSize: 32 }} />
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Ongoing
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.warning.main }}>
-                                        {dashboardData.ongoingAppointmentsToday || 0}
-                                    </Typography>
+                            </Card>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <Card
+                                sx={{
+                                    bgcolor: alpha(theme.palette.warning.main, 0.1),
+                                    border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
+                                    borderRadius: 2,
+                                    p: 2,
+                                }}
+                            >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                    <AccessTimeIcon sx={{ color: theme.palette.warning.main, fontSize: 32 }} />
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Ongoing
+                                        </Typography>
+                                        <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.warning.main }}>
+                                            {dashboardData.ongoingAppointmentsToday || 0}
+                                        </Typography>
+                                    </Box>
                                 </Box>
-            </Box>
-                        </Card>
+                            </Card>
+                        </Grid>
                     </Grid>
-                </Grid>
-            )}
+                )}
 
             {/* ⭐ MAIN CONTENT GRID */}
             <Grid container spacing={3} sx={{ mt: 2 }}>
@@ -758,8 +758,8 @@ function Receptionist_Dashboard() {
                                                             {session.inTime
                                                                 ? formatTime(session.inTime)
                                                                 : session.sessionDate
-                                                                ? formatDate(session.sessionDate)
-                                                                : "N/A"}
+                                                                    ? formatDate(session.sessionDate)
+                                                                    : "N/A"}
                                                             {session.outTime && ` - ${formatTime(session.outTime)}`}
                                                         </Typography>
                                                     </Box>
@@ -774,7 +774,7 @@ function Receptionist_Dashboard() {
                                     <Typography variant="body2" color="text.secondary">
                                         No therapy sessions scheduled for today
                                     </Typography>
-            </Box>
+                                </Box>
                             )}
                         </CardContent>
                     </Card>
@@ -782,13 +782,13 @@ function Receptionist_Dashboard() {
             </Grid>
 
             {/* ⭐ QUICK ACTIONS SECTION */}
-                <Box sx={{ marginTop: 4 }}>
+            <Box sx={{ marginTop: 4 }}>
                 <Card sx={{ borderRadius: 3, boxShadow: "var(--shadow-medium)" }}>
                     <CardContent>
                         <Typography variant="h6" sx={{ fontWeight: 700, color: "var(--color-text-dark)", mb: 3 }}>
                             Quick Actions
                         </Typography>
-                        <Grid container spacing={2}>
+                        <Grid container spacing={2} columns={{ xs: 12, sm: 12, md: 12, lg: 15 }}>
                             <Grid item xs={12} sm={6} md={4} lg={3}>
                                 <Link to="/receptionist/appointments" className="text-decoration-none">
                                     <Box
@@ -922,7 +922,7 @@ function Receptionist_Dashboard() {
                         </Grid>
                     </CardContent>
                 </Card>
-                </Box>
+            </Box>
         </Box>
     );
 }

@@ -31,6 +31,7 @@ const RescheduleAppointmentPage = lazy(() => import("../../pages/receptionist/ap
 const ViewPatientPage = lazy(() => import("../../pages/receptionist/appointments/ViewPatient"));
 const WhatsAppPage = lazy(() => import("../../pages/receptionist/appointments/WhatsApp"));
 const ScheduleTherapyPage = lazy(() => import("../../pages/receptionist/appointments/ScheduleTherapy"));
+const WalkInAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/WalkInAppointment"));
 const EditChargePage = lazy(() => import("../../pages/receptionist/inpatient/EditCharge"));
 
 export const receptionRoutes = [
@@ -307,6 +308,17 @@ export const receptionRoutes = [
                     <title>Schedule Therapy | UTPALA</title>
                 </Helmet>
                 <ScheduleTherapyPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/walk-in",
+        element: (
+            <>
+                <Helmet>
+                    <title>Walk-in Appointment | UTPALA</title>
+                </Helmet>
+                <WalkInAppointmentPage />
             </>
         ),
     },

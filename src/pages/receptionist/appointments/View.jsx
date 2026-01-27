@@ -240,7 +240,7 @@ function Appointments_View() {
 
             if (response.data.success) {
                 const appointmentsData = response.data.data?.appointments || response.data.data || [];
-                
+
                 // Transform API response to match frontend structure
                 const transformedAppointments = appointmentsData.map((apt) => ({
                     id: apt._id,
@@ -257,7 +257,7 @@ function Appointments_View() {
                     invoiceId: apt.invoice?._id || apt.invoiceId || null,
                     invoiceNumber: apt.invoice?.invoiceNumber || apt.invoiceNumber || null,
                 }));
-                
+
                 setAppointments(transformedAppointments);
             } else {
                 toast.error(response.data.message || "Failed to fetch appointments");
@@ -284,7 +284,7 @@ function Appointments_View() {
     const filteredAppointments = useMemo(() => {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
-        
+
         // For "Upcoming Appointments" tab, show all future appointments
         if (activeTab === "appointments") {
             if (!filters.appointmentStatus) {
@@ -302,19 +302,19 @@ function Appointments_View() {
                 });
             }
         }
-        
+
         // Apply filters if any
         if (!filters.appointmentStatus) {
             return appointments;
         }
-        
+
         return appointments.filter((apt) => {
             try {
                 const [dateStr] = apt.appointmentDateTime.split(" ");
                 if (!dateStr) return false;
                 const appointmentDate = new Date(dateStr);
                 appointmentDate.setHours(0, 0, 0, 0);
-                
+
                 if (filters.appointmentStatus === "upcoming") {
                     return appointmentDate > now && apt.status !== "Ongoing" && apt.status !== "Completed" && apt.status !== "Cancelled";
                 } else if (filters.appointmentStatus === "ongoing") {
@@ -524,7 +524,7 @@ function Appointments_View() {
                                                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                                                 {patient.name}
                                                                 {patient.isFamilyMember && (
-                                                                    <span 
+                                                                    <span
                                                                         className="badge bg-info"
                                                                         style={{ fontSize: "10px", padding: "2px 6px" }}
                                                                         title={`Family Member - ${patient.relation || "Relation"}`}
@@ -608,6 +608,38 @@ function Appointments_View() {
                                                                 <button
                                                                     type="button"
                                                                     className="btn btn-sm"
+                                                                    onClick={() => navigate(`/receptionist/appointments/walk-in?patientId=${patient.id}&patientName=${patient.name}`)}
+                                                                    style={{
+                                                                        backgroundColor: "#8B4513",
+                                                                        borderColor: "#8B4513",
+                                                                        color: "#fff",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        fontWeight: 500,
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                        transition: "all 0.3s ease",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#5D2E0A";
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#8B4513";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                    title="Walk-in Patient (Assign Therapist Directly)"
+                                                                >
+                                                                    <PersonAddIcon fontSize="small" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
                                                                     onClick={() => handleSendMessageClick(patient)}
                                                                     title="Send WhatsApp Message"
                                                                     style={{
@@ -673,76 +705,76 @@ function Appointments_View() {
                                         No future appointments found
                                     </Box>
                                 ) : (
-                                <div className="table-responsive">
-                                    <table className="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Sl. No.</th>
-                                                <th>Patient Name</th>
-                                                <th>Date & Time</th>
-                                                <th>Doctor</th>
-                                                <th>Contact</th>
-                                                <th>Status</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredAppointments.map((appointment, index) => (
-                                                <tr key={appointment.id}>
-                                                    <td>{index + 1}</td>
-                                                    <td>{appointment.name}</td>
-                                                    <td>{appointment.appointmentDateTime}</td>
-                                                    <td>{appointment.doctor}</td>
-                                                    <td>{appointment.contact}</td>
-                                                    <td>
-                                                        <span className={getStatusBadgeClass(appointment.status)}>
-                                                            {appointment.status}
-                                                        </span>
-                                                    </td>
-                                                    <td>
-                                                        <div className="btn-group" role="group">
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-primary"
-                                                                onClick={() => handleRescheduleClick(appointment)}
-                                                                title="Reschedule Appointment"
-                                                                style={{
-                                                                    borderRadius: "8px",
-                                                                    padding: "8px 12px",
-                                                                    minWidth: "45px",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center",
-                                                                    transition: "all 0.3s ease",
-                                                                }}
-                                                                onMouseEnter={(e) => {
-                                                                    e.currentTarget.style.transform = "translateY(-2px)";
-                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.transform = "translateY(0)";
-                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                }}
-                                                            >
-                                                                <EditIcon fontSize="small" />
-                                                            </button>
-                                                            {appointment.invoiceNumber && (
+                                    <div className="table-responsive">
+                                        <table className="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sl. No.</th>
+                                                    <th>Patient Name</th>
+                                                    <th>Date & Time</th>
+                                                    <th>Doctor</th>
+                                                    <th>Contact</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredAppointments.map((appointment, index) => (
+                                                    <tr key={appointment.id}>
+                                                        <td>{index + 1}</td>
+                                                        <td>{appointment.name}</td>
+                                                        <td>{appointment.appointmentDateTime}</td>
+                                                        <td>{appointment.doctor}</td>
+                                                        <td>{appointment.contact}</td>
+                                                        <td>
+                                                            <span className={getStatusBadgeClass(appointment.status)}>
+                                                                {appointment.status}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <div className="btn-group" role="group">
                                                                 <button
                                                                     type="button"
-                                                                    className="btn btn-sm btn-info"
-                                                                    onClick={() => toast.info(`Invoice: ${appointment.invoiceNumber}`)}
-                                                                    title={`View Invoice: ${appointment.invoiceNumber}`}
+                                                                    className="btn btn-sm btn-primary"
+                                                                    onClick={() => handleRescheduleClick(appointment)}
+                                                                    title="Reschedule Appointment"
+                                                                    style={{
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        transition: "all 0.3s ease",
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
                                                                 >
-                                                                    View Invoice
+                                                                    <EditIcon fontSize="small" />
                                                                 </button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                                {appointment.invoiceNumber && (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm btn-info"
+                                                                        onClick={() => toast.info(`Invoice: ${appointment.invoiceNumber}`)}
+                                                                        title={`View Invoice: ${appointment.invoiceNumber}`}
+                                                                    >
+                                                                        View Invoice
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
                             </>
                         )}

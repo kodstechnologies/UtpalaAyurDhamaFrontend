@@ -22,16 +22,71 @@ function AddPatientPage() {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+
+        // Number only filtering for contact fields
+        if (name === "contactNumber" || name === "alternativeNumber") {
+            const numericValue = value.replace(/\D/g, "");
+            setFormData((prev) => ({ ...prev, [name]: numericValue }));
+            return;
+        }
+
+        // Age validation: Only numbers and one decimal point allowed, max 2 decimal places
+        if (name === "age") {
+            // Allow empty value
+            if (value === "") {
+                setFormData((prev) => ({ ...prev, [name]: value }));
+                return;
+            }
+
+            // Only allow digits and one decimal point
+            if (!/^\d*\.?\d*$/.test(value)) return;
+
+            // Enforce max 2 decimal places
+            if (value.includes(".") && value.split(".")[1].length > 2) return;
+
+            setFormData((prev) => ({ ...prev, [name]: value }));
+            return;
+        }
+
         setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleKeyDown = (e) => {
+        // Prevent scientific notation characters and other symbols in number fields
+        if (e.target.type === "number" || e.target.name === "age") {
+            if (["e", "E", "+", "-"].includes(e.key)) {
+                e.preventDefault();
+            }
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Basic validation
         if (!formData.patientName || !formData.contactNumber || !formData.email) {
             toast.error("Please fill in all required fields (Patient Name, Contact Number, Email)");
             return;
+        }
+
+        // Strict Contact Validation
+        const contactRegex = /^\d{10}$/;
+        if (!contactRegex.test(formData.contactNumber)) {
+            toast.error("Contact number must be exactly 10 digits");
+            return;
+        }
+        if (formData.alternativeNumber && !contactRegex.test(formData.alternativeNumber)) {
+            toast.error("Alternative number must be exactly 10 digits");
+            return;
+        }
+
+        // Strict Age Validation
+        if (formData.age) {
+            const ageNum = parseFloat(formData.age);
+            if (isNaN(ageNum) || ageNum < 0 || ageNum > 150) {
+                toast.error("Please enter a valid age between 0 and 150");
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -111,6 +166,7 @@ function AddPatientPage() {
                                 required
                                 value={formData.contactNumber}
                                 onChange={handleChange}
+                                onKeyDown={handleKeyDown}
                                 inputProps={{ maxLength: 10 }}
                             />
                         </Grid>
@@ -122,6 +178,7 @@ function AddPatientPage() {
                                 fullWidth
                                 value={formData.alternativeNumber}
                                 onChange={handleChange}
+                                onKeyDown={handleKeyDown}
                                 inputProps={{ maxLength: 10 }}
                             />
                         </Grid>
@@ -155,10 +212,11 @@ function AddPatientPage() {
                             <TextField
                                 label="Age"
                                 name="age"
-                                type="number"
                                 fullWidth
                                 value={formData.age}
                                 onChange={handleChange}
+                                onKeyDown={handleKeyDown}
+                                placeholder="e.g. 25.5"
                             />
                         </Grid>
                         <Grid item xs={12}>
@@ -175,16 +233,16 @@ function AddPatientPage() {
                     </Grid>
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button 
-                            variant="outlined" 
+                        <Button
+                            variant="outlined"
                             onClick={() => navigate(-1)}
                             disabled={isSubmitting}
                         >
                             Cancel
                         </Button>
-                        <Button 
-                            type="submit" 
-                            variant="contained" 
+                        <Button
+                            type="submit"
+                            variant="contained"
                             sx={{ backgroundColor: "#8B4513" }}
                             disabled={isSubmitting}
                             startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
