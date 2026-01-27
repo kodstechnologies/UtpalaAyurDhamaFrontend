@@ -35,7 +35,7 @@ function WalkInAppointmentPage() {
             const [therapistsRes, therapiesRes, existingSessionRes] = await Promise.all([
                 axios.get(getApiUrl("therapists"), { headers: getAuthHeaders() }),
                 axios.get(getApiUrl("therapies?limit=100"), { headers: getAuthHeaders() }),
-                patientId ? axios.get(getApiUrl(`therapist-sessions/walk-in/${patientId}`), { headers: getAuthHeaders() }) : Promise.resolve({ data: { success: false } })
+                (patientId && patientId !== "null") ? axios.get(getApiUrl(`therapist-sessions/walk-in/${patientId}`), { headers: getAuthHeaders() }) : Promise.resolve({ data: { success: false } })
             ]);
 
             if (therapistsRes.data.success) {

@@ -4,7 +4,7 @@ import { Box, CircularProgress } from "@mui/material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
-import HeadingCardingCard from "../../../components/card/HeadingCard";
+import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
 
@@ -126,6 +126,8 @@ function Appointments_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
     const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+    const [walkInSessions, setWalkInSessions] = useState([]);
+    const [isLoadingWalkIn, setIsLoadingWalkIn] = useState(false);
 
     const navigate = useNavigate();
 
@@ -274,11 +276,40 @@ function Appointments_View() {
         }
     }, []);
 
+    // Fetch walk-in sessions
+    const fetchWalkInSessions = useCallback(async () => {
+        setIsLoadingWalkIn(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("therapist-sessions/treatment-list"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        type: "WALK_IN",
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                setWalkInSessions(response.data.data || []);
+            } else {
+                toast.error(response.data.message || "Failed to fetch walk-in sessions");
+            }
+        } catch (error) {
+            console.error("Error fetching walk-in sessions:", error);
+            toast.error(error.response?.data?.message || "Failed to fetch walk-in sessions");
+        } finally {
+            setIsLoadingWalkIn(false);
+        }
+    }, []);
+
     useEffect(() => {
         if (activeTab === "appointments") {
             fetchAppointments();
+        } else if (activeTab === "walkIn") {
+            fetchWalkInSessions();
         }
-    }, [activeTab, fetchAppointments]);
+    }, [activeTab, fetchAppointments, fetchWalkInSessions]);
 
     // Filter appointments - Show all future appointments by default in "Upcoming Appointments" tab
     const filteredAppointments = useMemo(() => {
@@ -397,7 +428,7 @@ function Appointments_View() {
             <Breadcrumb items={breadcrumbItems} />
 
             {/* Page Heading */}
-            <HeadingCardingCard
+            <HeadingCard
                 category="APPOINTMENTS"
                 title="Appointment Management"
                 subtitle="Manage appointments, patients, and therapy sessions"
@@ -473,6 +504,15 @@ function Appointments_View() {
                                 >
                                     <EventAvailableIcon className="me-2" />
                                     Upcoming Appointments
+                                </button>
+                            </li>
+                            <li className="nav-item" role="presentation">
+                                <button
+                                    className={`nav-link ${activeTab === "walkIn" ? "active" : ""}`}
+                                    onClick={() => setActiveTab("walkIn")}
+                                >
+                                    <PersonAddIcon className="me-2" />
+                                    Walk-in Patients
                                 </button>
                             </li>
                         </ul>
@@ -608,7 +648,7 @@ function Appointments_View() {
                                                                 <button
                                                                     type="button"
                                                                     className="btn btn-sm"
-                                                                    onClick={() => navigate(`/receptionist/appointments/walk-in?patientId=${patient.id}&patientName=${patient.name}`)}
+                                                                    onClick={() => navigate(`/receptionist/appointments/walk-in?patientId=${patient.patientProfileId}&patientName=${patient.name}`)}
                                                                     style={{
                                                                         backgroundColor: "#8B4513",
                                                                         borderColor: "#8B4513",
@@ -769,6 +809,84 @@ function Appointments_View() {
                                                                     </button>
                                                                 )}
                                                             </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        {/* Walk-in Patients Tab */}
+                        {activeTab === "walkIn" && (
+                            <>
+                                {isLoadingWalkIn ? (
+                                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
+                                        <CircularProgress />
+                                    </Box>
+                                ) : walkInSessions.length === 0 ? (
+                                    <Box sx={{ textAlign: "center", padding: "40px", color: "#666" }}>
+                                        No walk-in patients found
+                                    </Box>
+                                ) : (
+                                    <div className="table-responsive">
+                                        <table className="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sl. No.</th>
+                                                    <th>Patient Name</th>
+                                                    <th>Contact</th>
+                                                    <th>Therapy</th>
+                                                    <th>Therapist</th>
+                                                    <th>Date & Time</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {walkInSessions.map((session, index) => (
+                                                    <tr key={session._id}>
+                                                        <td>{index + 1}</td>
+                                                        <td>{session.patientName}</td>
+                                                        <td>{session.patientPhone}</td>
+                                                        <td>{session.treatmentName}</td>
+                                                        <td>{session.therapistName || "Not Assigned"}</td>
+                                                        <td>
+                                                            {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString("en-GB") : ""} {session.sessionTime}
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm"
+                                                                onClick={() => navigate(`/receptionist/appointments/walk-in?patientId=${(session.patient?._id || session.patient) || ""}&patientName=${session.patientName}`)}
+                                                                title="Edit Walk-in Session"
+                                                                style={{
+                                                                    backgroundColor: "#8B4513",
+                                                                    borderColor: "#8B4513",
+                                                                    color: "#fff",
+                                                                    borderRadius: "8px",
+                                                                    padding: "8px 12px",
+                                                                    fontWeight: 500,
+                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                    transition: "all 0.3s ease",
+                                                                    minWidth: "45px",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center"
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = "#5D2E0A";
+                                                                    e.currentTarget.style.transform = "translateY(-2px)";
+                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = "#8B4513";
+                                                                    e.currentTarget.style.transform = "translateY(0)";
+                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                }}
+                                                            >
+                                                                <EditIcon fontSize="small" />
+                                                            </button>
                                                         </td>
                                                     </tr>
                                                 ))}
