@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 .env
+
+# Archive files
+*.zip
+utpala-new.zip
