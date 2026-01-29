@@ -42,15 +42,3 @@ const therapistService = {
 
 export default therapistService;
 
-
-                headers: getAuthHeaders(),
-            });
-            return response.data;
-        } catch (error) {
-            throw error.response?.data || error.message;
-        }
-    },
-};
-
-export default therapistService;
-

@@ -271,7 +271,6 @@ function ScheduleAppointmentPage() {
                             </p>
                         </Box>
                     )}
-            >
                 <form onSubmit={handleSubmit}>
                     <Box sx={{ mb: 3 }}>
                         <TextField

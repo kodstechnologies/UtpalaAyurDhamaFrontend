@@ -282,21 +282,3 @@ function Inventory_View_Details() {
 
 export default Inventory_View_Details;
 
-
-            {/* Inventory Table */}
-            <Box sx={{ mt: 3 }}>
-                <TableComponent
-                    columns={columns}
-                    rows={filteredMedicines}
-                    actions={actions}
-                    showStatusBadge={true}
-                    statusField="stockStatus"
-                    isLoading={isLoading}
-                />
-            </Box>
-        </Box>
-    );
-}
-
-export default Inventory_View_Details;
-
