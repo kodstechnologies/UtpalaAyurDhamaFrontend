@@ -1,7 +1,8 @@
 // src/router/subRouter/receptionRoutes.jsx
 
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 import { Helmet } from "react-helmet";
+import { CircularProgress, Box } from "@mui/material";
 
 const Appointments_View = lazy(() => import("../../pages/receptionist/appointments/View"));
 const Receptionist_dashboard = lazy(() => import("../../pages/receptionist/dashboard"));
@@ -53,7 +54,13 @@ export const receptionRoutes = [
                 <Helmet>
                     <title>Receptionist Dashboard | UTPALA</title>
                 </Helmet>
-                <Receptionist_dashboard />
+                <Suspense fallback={
+                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+                        <CircularProgress />
+                    </Box>
+                }>
+                    <Receptionist_dashboard />
+                </Suspense>
             </>
         ),
     },
@@ -141,7 +148,13 @@ export const receptionRoutes = [
                 <Helmet>
                     <title>Marketing | UTPALA</title>
                 </Helmet>
-                <Marketing_View />
+                <Suspense fallback={
+                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+                        <CircularProgress />
+                    </Box>
+                }>
+                    <Marketing_View />
+                </Suspense>
             </>
         ),
     },

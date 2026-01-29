@@ -243,3 +243,62 @@ function Therapists() {
 }
 
 export default Therapists;
+
+            label: "Delete",
+            icon: <Trash2 />,
+            color: "var(--color-icon-1)",
+            onClick: (row) => handleDeleteClick(row)
+        }
+    ];
+
+    return (
+        <div className="space-y-6 p-6">
+            <HeadingCard
+                title="Therapists"
+                subtitle="View and manage all therapy specialists across different departments."
+                breadcrumbItems={[
+                    { label: "Admin", url: "/admin/dashboard" },
+                    { label: "Therapists" }
+                ]}
+            />
+
+            <CardBorder justify="between" align="center" wrap={true} padding="2rem">
+                <div style={{ flex: 1, marginRight: "1rem" }}>
+                    <Search
+                        value={searchText}
+                        onChange={setSearchText}
+                        style={{ flex: 1 }}
+                    />
+                </div>
+                <div style={{ display: "flex", gap: "1rem" }}>
+                    <ExportDataButton
+                        rows={filteredRows}
+                        columns={columns}
+                        fileName="therapists.xlsx"
+                    />
+                    <RedirectButton text="Create" link="/admin/therapists/add" />
+                </div>
+            </CardBorder>
+
+            <TableComponent
+                columns={columns}
+                rows={filteredRows}
+                actions={actions}
+                showStatusBadge={true}
+                statusField="status"
+                isLoading={isLoading}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Therapist"
+                message={`Are you sure you want to delete ${deleteModal.therapistName}? This action cannot be undone.`}
+                isDeleting={deleteModal.isDeleting}
+            />
+        </div>
+    );
+}
+
+export default Therapists;

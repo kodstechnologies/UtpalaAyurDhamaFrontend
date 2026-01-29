@@ -119,3 +119,19 @@ const medicineService = {
 
 export default medicineService;
 
+
+    try {
+      const response = await axios.post(
+        getApiUrl("pharmacists/medicines/bulk"),
+        { medicines },
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+};
+
+export default medicineService;
+

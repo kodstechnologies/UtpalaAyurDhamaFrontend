@@ -400,11 +400,38 @@ function Appointments_View() {
         navigate(`/receptionist/appointments/view-patient?${params.toString()}`);
     };
 
-    const handleSendMessageClick = (patient) => {
+    const handleSendMessageClick = (data) => {
+        let date = "";
+        let time = "";
+        let doctorName = "";
+
+        if (data.sessionDate || data.sessionTime) {
+            // It's a walk-in session
+            date = data.sessionDate ? new Date(data.sessionDate).toLocaleDateString("en-GB") : ""; // DD/MM/YYYY
+            time = data.sessionTime || "";
+            doctorName = data.therapistName || "Therapist";
+        } else if (data.appointmentDateTime) {
+            // It's a regular appointment
+            const [d, t] = data.appointmentDateTime.split(" ");
+            date = d; // Already YYYY-MM-DD from transformation earlier, but let's see if we want to format it
+            // Let's reformat to DD/MM/YYYY for consistency if it's YYYY-MM-DD
+            if (date.includes("-")) {
+                const [y, m, day] = date.split("-");
+                if (y.length === 4) {
+                    date = `${day}/${m}/${y}`;
+                }
+            }
+            time = t || "";
+            doctorName = data.doctor || "";
+        }
+
         const params = new URLSearchParams({
-            patientId: patient.id || "",
-            patientName: patient.name || "",
-            contact: patient.contact || "",
+            patientId: data.id || data.patient?._id || data.patient || "",
+            patientName: data.name || data.patientName || "",
+            contact: data.contact || data.patientPhone || "",
+            doctorName: doctorName,
+            date: date,
+            time: time,
         });
         navigate(`/receptionist/appointments/whatsapp?${params.toString()}`);
     };
@@ -798,6 +825,36 @@ function Appointments_View() {
                                                                 >
                                                                     <EditIcon fontSize="small" />
                                                                 </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
+                                                                    onClick={() => handleSendMessageClick(appointment)}
+                                                                    title="Send WhatsApp Reminder"
+                                                                    style={{
+                                                                        backgroundColor: "#FFB347",
+                                                                        borderColor: "#FFB347",
+                                                                        color: "#000",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        transition: "all 0.3s ease",
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#FF9F33";
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#FFB347";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                >
+                                                                    <MessageIcon fontSize="small" />
+                                                                </button>
                                                                 {appointment.invoiceNumber && (
                                                                     <button
                                                                         type="button"
@@ -858,34 +915,32 @@ function Appointments_View() {
                                                             <button
                                                                 type="button"
                                                                 className="btn btn-sm"
-                                                                onClick={() => navigate(`/receptionist/appointments/walk-in?patientId=${(session.patient?._id || session.patient) || ""}&patientName=${session.patientName}`)}
-                                                                title="Edit Walk-in Session"
+                                                                onClick={() => handleSendMessageClick(session)}
+                                                                title="Send WhatsApp Reminder"
                                                                 style={{
-                                                                    backgroundColor: "#8B4513",
-                                                                    borderColor: "#8B4513",
-                                                                    color: "#fff",
+                                                                    backgroundColor: "#FFB347",
+                                                                    borderColor: "#FFB347",
+                                                                    color: "#000",
                                                                     borderRadius: "8px",
                                                                     padding: "8px 12px",
-                                                                    fontWeight: 500,
-                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                    transition: "all 0.3s ease",
                                                                     minWidth: "45px",
                                                                     display: "flex",
                                                                     alignItems: "center",
-                                                                    justifyContent: "center"
+                                                                    justifyContent: "center",
+                                                                    transition: "all 0.3s ease",
                                                                 }}
                                                                 onMouseEnter={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#5D2E0A";
+                                                                    e.currentTarget.style.backgroundColor = "#FF9F33";
                                                                     e.currentTarget.style.transform = "translateY(-2px)";
                                                                     e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
                                                                 }}
                                                                 onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#8B4513";
+                                                                    e.currentTarget.style.backgroundColor = "#FFB347";
                                                                     e.currentTarget.style.transform = "translateY(0)";
                                                                     e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
                                                                 }}
                                                             >
-                                                                <EditIcon fontSize="small" />
+                                                                <MessageIcon fontSize="small" />
                                                             </button>
                                                         </td>
                                                     </tr>

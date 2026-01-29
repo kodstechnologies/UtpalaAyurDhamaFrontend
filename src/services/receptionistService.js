@@ -14,6 +14,22 @@ const receptionistService = {
             throw error.response?.data || error.message;
         }
     },
+
+    // Get patients for marketing
+    getMarketingPatients: async ({ page = 1, limit = 1000 } = {}) => {
+        try {
+            const response = await axios.get(
+                getApiUrl(`marketing/patients?page=${page}&limit=${limit}`),
+                {
+                    headers: getAuthHeaders(),
+                }
+            );
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching marketing patients:", error);
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default receptionistService;

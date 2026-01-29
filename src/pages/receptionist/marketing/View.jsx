@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
-import { Box } from "@mui/material";
-import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
-import HeadingCardingCard from "../../../components/card/HeadingCard";
+import { useState, useMemo, useEffect } from "react";
+import { Box, CircularProgress } from "@mui/material";
+import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
+import receptionistService from "../../../services/receptionistService";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 // Icons
 import PeopleIcon from "@mui/icons-material/People";
@@ -12,94 +13,11 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
 import SearchIcon from "@mui/icons-material/Search";
 import SendIcon from "@mui/icons-material/Send";
-import MessageIcon from "@mui/icons-material/Message";
 import DescriptionIcon from "@mui/icons-material/Description";
-
-// Mock data - will be replaced with API calls later
-const mockPatients = [
-    {
-        id: "pat-1",
-        name: "Amit Kumar",
-        contact: "9876543210",
-        gender: "Male",
-        age: 32,
-        disease: "Arthritis",
-        lastTreatment: "Physiotherapy",
-        doctorName: "Dr. Sharma",
-        appointmentDate: "2025-01-25",
-        appointmentTime: "10:00 AM",
-    },
-    {
-        id: "pat-2",
-        name: "Sita Verma",
-        contact: "8765432109",
-        gender: "Female",
-        age: 28,
-        disease: "Migraine",
-        lastTreatment: "Panchakarma",
-        doctorName: "Dr. Patel",
-        appointmentDate: "2025-01-26",
-        appointmentTime: "2:00 PM",
-    },
-    {
-        id: "pat-3",
-        name: "Rajesh Singh",
-        contact: "9988776655",
-        gender: "Male",
-        age: 45,
-        disease: "Diabetes",
-        lastTreatment: "Diet Plan",
-        doctorName: "Dr. Kumar",
-        appointmentDate: "2025-01-27",
-        appointmentTime: "11:00 AM",
-    },
-    {
-        id: "pat-4",
-        name: "Priya Sharma",
-        contact: "7766554433",
-        gender: "Female",
-        age: 22,
-        disease: "Hypertension",
-        lastTreatment: "Yoga",
-        doctorName: "Dr. Mehta",
-        appointmentDate: "2025-01-28",
-        appointmentTime: "3:00 PM",
-    },
-    {
-        id: "pat-5",
-        name: "Rahul Dravid",
-        contact: "6655443322",
-        gender: "Male",
-        age: 50,
-        disease: "Arthritis",
-        lastTreatment: "Physiotherapy",
-        doctorName: "Dr. Sharma",
-        appointmentDate: "2025-01-29",
-        appointmentTime: "9:00 AM",
-    },
-    {
-        id: "pat-6",
-        name: "Anjali Mehta",
-        contact: "5544332211",
-        gender: "Female",
-        age: 35,
-        disease: "Migraine",
-        lastTreatment: "Panchakarma",
-        doctorName: "Dr. Patel",
-        appointmentDate: "2025-01-30",
-        appointmentTime: "4:00 PM",
-    },
-];
-
-const mockDiseases = ["Arthritis", "Migraine", "Diabetes", "Hypertension"];
-const mockTreatments = ["Physiotherapy", "Panchakarma", "Diet Plan", "Yoga"];
+import ImageIcon from "@mui/icons-material/Image";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 
 const mockTemplates = [
-    {
-        id: "1",
-        title: "Appointment Reminder",
-        content: "Hello {{patientName}}, this is a friendly reminder for your upcoming appointment. We look forward to seeing you!",
-    },
     {
         id: "2",
         title: "Promotional Offer",
@@ -108,12 +26,15 @@ const mockTemplates = [
     {
         id: "3",
         title: "Follow-up Check",
-        content: "Hello {{patientName}}, we hope you are feeling better after your last treatment. Please let us know if you have any questions or need further assistance.",
+        content: "Hello {{1}}, We hope you are feeling better after your recent treatment at Utpala Ayurdhama. Please let us know if you have any questions or require further assistance.",
     },
 ];
 
 function Marketing_View() {
-    const [allPatients] = useState(mockPatients);
+    const [allPatients, setAllPatients] = useState([]);
+    const [diseases, setDiseases] = useState([]);
+    const [treatments, setTreatments] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
         gender: "",
         disease: "",
@@ -123,22 +44,73 @@ function Marketing_View() {
     const [message, setMessage] = useState("");
     const [selectedTemplateId, setSelectedTemplateId] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 15;
+    const [discountText, setDiscountText] = useState("");
+    const [offerDateText, setOfferDateText] = useState("");
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [imageUrl, setImageUrl] = useState(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+    // Fetch patients from backend
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const response = await receptionistService.getMarketingPatients({ page: 1, limit: 1000 });
+                console.log("Marketing API Response:", response);
+                if (response && response.success) {
+                    setAllPatients(response.data || []);
+                    setDiseases(response.meta?.diseases || []);
+                    setTreatments(response.meta?.treatments || []);
+                } else {
+                    console.error("Failed to fetch marketing data:", response);
+                    toast.error("Failed to fetch marketing data");
+                    setAllPatients([]);
+                }
+            } catch (error) {
+                console.error("Marketing Error:", error);
+                toast.error(error?.message || "An error occurred while fetching marketing data");
+                setAllPatients([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     // Filter patients
     const filteredPatients = useMemo(() => {
-        return allPatients.filter((patient) => {
+        const result = allPatients.filter((patient) => {
             const matchesFilters =
                 (filters.gender === "" || patient.gender === filters.gender) &&
                 (filters.disease === "" || patient.disease === filters.disease) &&
                 (filters.treatment === "" || patient.lastTreatment === filters.treatment);
             const matchesSearch =
                 searchQuery === "" ||
-                patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                patient.contact.includes(searchQuery) ||
-                patient.disease.toLowerCase().includes(searchQuery.toLowerCase());
+                (patient.name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (patient.contact?.includes(searchQuery)) ||
+                (patient.uhid?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (patient.disease?.toLowerCase().includes(searchQuery.toLowerCase()));
             return matchesFilters && matchesSearch;
         });
+
+        // Reset to first page whenever filters or search change
+        setCurrentPage(1);
+        return result;
     }, [filters, allPatients, searchQuery]);
+
+    const totalPages = useMemo(
+        () => Math.max(1, Math.ceil(filteredPatients.length / pageSize)),
+        [filteredPatients.length]
+    );
+
+    const paginatedPatients = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredPatients.slice(start, start + pageSize);
+    }, [filteredPatients, currentPage]);
 
     // Calculate stats
     const stats = useMemo(() => {
@@ -181,21 +153,100 @@ function Marketing_View() {
         if (templateId) {
             const template = mockTemplates.find((t) => t.id === templateId);
             if (template) {
-                setMessage(template.content);
+                // For templates that use WhatsApp API (Promotional Offer "2" and Follow-up Check "3"), clear message
+                if (templateId === "2" || templateId === "3") {
+                    setMessage("");
+                } else {
+                    // For other templates, prefill message body
+                    setMessage(template.content);
+                }
             }
         } else {
             setMessage("");
         }
+
+        // Reset promotional inputs when switching away from promotional template
+        if (templateId !== "2") {
+            setDiscountText("");
+            setOfferDateText("");
+            setSelectedImage(null);
+            setImagePreview(null);
+            setImageUrl(null);
+        }
+    };
+
+    // Handle image selection
+    const handleImageSelect = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith("image/")) {
+            toast.error("Please select an image file");
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image size should be less than 5MB");
+            return;
+        }
+
+        setSelectedImage(file);
+        
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+
+        // Upload image immediately
+        setIsUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append("image", file);
+
+            // Get auth token for Authorization header
+            const token = localStorage.getItem("token") || localStorage.getItem("authToken") || 
+                         JSON.parse(localStorage.getItem("user") || "{}")?.token;
+
+            const headers = {};
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+            // Don't set Content-Type - let browser set it with boundary for FormData
+
+            const response = await fetch(getApiUrl("upload"), {
+                method: "POST",
+                headers: headers,
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success && data.data?.url) {
+                setImageUrl(data.data.url);
+                toast.success("Image uploaded successfully");
+            } else {
+                toast.error(data.message || "Failed to upload image");
+                setSelectedImage(null);
+                setImagePreview(null);
+            }
+        } catch (error) {
+            console.error("Image upload error:", error);
+            toast.error("An error occurred while uploading image");
+            setSelectedImage(null);
+            setImagePreview(null);
+        } finally {
+            setIsUploadingImage(false);
+        }
     };
 
     // Handle send message
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
         if (selectedPatientIds.length === 0) {
             toast.error("Please select at least one patient.");
-            return;
-        }
-        if (!message.trim()) {
-            toast.error("Please enter a message to send.");
             return;
         }
 
@@ -209,17 +260,115 @@ function Marketing_View() {
             return;
         }
 
+        // If Promotional Offer template is selected, call WhatsApp API for template campaign
+        if (selectedTemplateId === "2") {
+            if (!discountText.trim()) {
+                toast.error("Please enter discount details (e.g. 20%).");
+                return;
+            }
+            if (!offerDateText.trim()) {
+                toast.error("Please enter the therapy name.");
+                return;
+            }
+            if (!imageUrl) {
+                toast.error("Please upload a promotional image.");
+                return;
+            }
+
+            try {
+                const response = await fetch(getApiUrl("whatsapp/send-therapy-promotional-offer"), {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        patients: validContacts.map((p) => ({
+                            name: p.name,
+                            contact: p.contact,
+                        })),
+                        discountText: discountText.trim(),
+                        dateText: offerDateText.trim(),
+                        imageUrl: imageUrl,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    toast.success(`Promotional WhatsApp sent to ${data.data?.sentTo || validContacts.length} patient(s).`);
+                    setSelectedPatientIds([]);
+                    // Reset promotional inputs after successful send
+                    setDiscountText("");
+                    setOfferDateText("");
+                    setSelectedImage(null);
+                    setImagePreview(null);
+                    setImageUrl(null);
+                } else {
+                    toast.error(data.message || "Failed to send promotional messages via WhatsApp");
+                }
+            } catch (error) {
+                console.error("WhatsApp Promotional Error:", error);
+                toast.error("An error occurred while sending promotional messages");
+            }
+
+            return;
+        }
+
+        // If Follow-up Check template is selected, call WhatsApp API for template campaign
+        if (selectedTemplateId === "3") {
+            try {
+                const response = await fetch(getApiUrl("whatsapp/send-follow-up-appointment"), {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        patients: validContacts.map((p) => ({
+                            name: p.name,
+                            contact: p.contact,
+                        })),
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    toast.success(`Follow-up WhatsApp sent to ${data.data?.sentTo || validContacts.length} patient(s).`);
+                    setSelectedPatientIds([]);
+                    setSelectedTemplateId("");
+                    setMessage("");
+                } else {
+                    toast.error(data.message || "Failed to send follow-up messages via WhatsApp");
+                }
+            } catch (error) {
+                console.error("WhatsApp Follow-up Error:", error);
+                toast.error("An error occurred while sending follow-up messages");
+            }
+
+            return;
+        }
+
+        // Default behaviour: open WhatsApp with custom text
+        if (!message.trim()) {
+            toast.error("Please enter a message to send.");
+            return;
+        }
+
         // For bulk sending, open WhatsApp for each patient
         if (validContacts.length === 1) {
             const phoneNumber = validContacts[0].contact.replace(/\D/g, "");
-            const personalizedMessage = message.replace(/\{\{patientName\}\}/g, validContacts[0].name);
+            const personalizedMessage = message
+                .replace(/\{\{patientName\}\}/g, validContacts[0].name)
+                .replace(/\{\{doctorName\}\}/g, validContacts[0].doctorName || "Dr. Vijay")
+                .replace(/\{\{date\}\}/g, validContacts[0].appointmentDate || "today")
+                .replace(/\{\{time\}\}/g, validContacts[0].appointmentTime || "your scheduled time");
             const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(personalizedMessage)}`;
             window.open(whatsappUrl, "_blank");
             toast.success(`Opening WhatsApp for ${validContacts[0].name}`);
         } else {
             // For multiple patients, open the first one
             const phoneNumber = validContacts[0].contact.replace(/\D/g, "");
-            const personalizedMessage = message.replace(/\{\{patientName\}\}/g, validContacts[0].name);
+            const personalizedMessage = message
+                .replace(/\{\{patientName\}\}/g, validContacts[0].name)
+                .replace(/\{\{doctorName\}\}/g, validContacts[0].doctorName || "Dr. Vijay")
+                .replace(/\{\{date\}\}/g, validContacts[0].appointmentDate || "today")
+                .replace(/\{\{time\}\}/g, validContacts[0].appointmentTime || "your scheduled time");
             const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(personalizedMessage)}`;
             window.open(whatsappUrl, "_blank");
             toast.success(`Opening WhatsApp for ${validContacts[0].name}. ${validContacts.length - 1} more patient(s) selected.`);
@@ -235,16 +384,36 @@ function Marketing_View() {
         { label: "Marketing" },
     ];
 
+    // Debug: Log component render
+    console.log("Marketing_View rendering, loading:", loading, "patients:", allPatients.length);
+
     return (
-        <Box sx={{ padding: "20px" }}>
-            {/* ⭐ Breadcrumb */}
-            <Breadcrumb items={breadcrumbItems} />
+        <Box sx={{ padding: "20px", position: "relative", minHeight: "100vh" }}>
+            {loading && (
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(255, 255, 255, 0.7)",
+                        zIndex: 10,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        minHeight: "400px"
+                    }}
+                >
+                    <CircularProgress sx={{ color: "var(--color-primary)" }} />
+                </Box>
+            )}
 
             {/* ⭐ Page Heading */}
-            <HeadingCardingCard
-                category="WHATSAPP MARKETING"
+            <HeadingCard
                 title="Send Personalized WhatsApp Messages"
-                subtitle="Select patients, compose your message, and send instantly."
+                subtitle="Select patients and send them personalized WhatsApp messages for marketing, follow-ups, and promotional offers."
+                breadcrumbItems={breadcrumbItems}
             />
 
             {/* ⭐ DASHBOARD CARDS */}
@@ -316,7 +485,7 @@ function Marketing_View() {
                                     onChange={handleFilterChange}
                                 >
                                     <option value="">All Diseases</option>
-                                    {mockDiseases.map((d) => (
+                                    {diseases.map((d) => (
                                         <option key={d} value={d}>
                                             {d}
                                         </option>
@@ -332,7 +501,7 @@ function Marketing_View() {
                                     onChange={handleFilterChange}
                                 >
                                     <option value="">All Treatments</option>
-                                    {mockTreatments.map((t) => (
+                                    {treatments.map((t) => (
                                         <option key={t} value={t}>
                                             {t}
                                         </option>
@@ -383,16 +552,15 @@ function Marketing_View() {
                                                     }}
                                                 />
                                             </th>
+                                            <th style={{ fontSize: "0.875rem" }}>UHID</th>
                                             <th style={{ fontSize: "0.875rem" }}>Name</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Age</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Complain</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Appointment Date</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Appointment Time</th>
-                                            <th style={{ fontSize: "0.875rem" }}>Doctor Name</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Contact Number</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Gender</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Last Appointment</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredPatients.map((patient) => (
+                                        {paginatedPatients.map((patient) => (
                                             <tr key={patient.id}>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <input
@@ -402,14 +570,17 @@ function Marketing_View() {
                                                         onChange={() => handleSelectOne(patient.id)}
                                                     />
                                                 </td>
+                                                <td style={{ fontSize: "0.875rem", color: "#666" }}>
+                                                    {patient.uhid}
+                                                </td>
                                                 <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
                                                     {patient.name}
                                                 </td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.age}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.disease}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.appointmentDate}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.appointmentTime}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.doctorName}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>{patient.contact}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>{patient.gender}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.appointmentDate !== "N/A" ? patient.appointmentDate : <span className="text-muted">No appointments</span>}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -422,6 +593,53 @@ function Marketing_View() {
                                 </div>
                                 <h5 className="mb-2">No Patients Found</h5>
                                 <p className="text-muted mb-3">Try adjusting your filters or search query.</p>
+                            </div>
+                        )}
+
+                        {/* Pagination */}
+                        {filteredPatients.length > pageSize && (
+                            <div className="d-flex justify-content-between align-items-center mt-3">
+                                <small className="text-muted">
+                                    Showing{" "}
+                                    {Math.min((currentPage - 1) * pageSize + 1, filteredPatients.length)}-
+                                    {Math.min(currentPage * pageSize, filteredPatients.length)} of {filteredPatients.length} patients
+                                </small>
+                                <nav>
+                                    <ul className="pagination mb-0">
+                                        <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                                            <button
+                                                className="page-link"
+                                                onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+                                            >
+                                                Previous
+                                            </button>
+                                        </li>
+                                        {Array.from({ length: totalPages }).map((_, index) => {
+                                            const page = index + 1;
+                                            return (
+                                                <li
+                                                    key={page}
+                                                    className={`page-item ${currentPage === page ? "active" : ""}`}
+                                                >
+                                                    <button
+                                                        className="page-link"
+                                                        onClick={() => setCurrentPage(page)}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                        <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                                            <button
+                                                className="page-link"
+                                                onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
+                                            >
+                                                Next
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </nav>
                             </div>
                         )}
                     </div>
@@ -457,6 +675,151 @@ function Marketing_View() {
                             </small>
                         </div>
 
+                        {/* Promotional Offer Template Specific Inputs */}
+                        {selectedTemplateId === "2" && (
+                            <>
+                                <div className="row g-3 mb-3">
+                                    <div className="col-md-6">
+                                        <label className="form-label">
+                                            Discount Details
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="e.g. 20%"
+                                            value={discountText}
+                                            onChange={(e) => setDiscountText(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label className="form-label">
+                                            Therapy
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="e.g. Panchakarma, Abhyanga"
+                                            value={offerDateText}
+                                            onChange={(e) => setOfferDateText(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="form-label fw-bold">
+                                        <ImageIcon className="me-2" style={{ verticalAlign: "middle", fontSize: "1.2rem", color: "#D4A574" }} />
+                                        Promotional Image <span className="text-danger">*</span>
+                                    </label>
+                                    <div 
+                                        className="border rounded p-4" 
+                                        style={{ 
+                                            backgroundColor: "#fff",
+                                            border: "2px dashed #D4A574",
+                                            borderColor: imageUrl ? "#28a745" : "#D4A574",
+                                            transition: "all 0.3s ease",
+                                            minHeight: "200px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center"
+                                        }}
+                                    >
+                                        {imagePreview ? (
+                                            <div className="text-center w-100">
+                                                <img
+                                                    src={imagePreview}
+                                                    alt="Preview"
+                                                    style={{
+                                                        maxWidth: "100%",
+                                                        maxHeight: "300px",
+                                                        objectFit: "contain",
+                                                        borderRadius: "8px",
+                                                        marginBottom: "15px",
+                                                        border: "2px solid #28a745",
+                                                        padding: "5px"
+                                                    }}
+                                                />
+                                                <div className="d-flex gap-2 justify-content-center">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-outline-danger"
+                                                        onClick={() => {
+                                                            setSelectedImage(null);
+                                                            setImagePreview(null);
+                                                            setImageUrl(null);
+                                                        }}
+                                                    >
+                                                        Remove Image
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center w-100">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleImageSelect}
+                                                    className="d-none"
+                                                    id="promotional-image-upload"
+                                                    disabled={isUploadingImage}
+                                                />
+                                                <div className="mb-3">
+                                                    <ImageIcon 
+                                                        sx={{ 
+                                                            fontSize: 48, 
+                                                            color: "#D4A574",
+                                                            marginBottom: "10px"
+                                                        }} 
+                                                    />
+                                                </div>
+                                                <label
+                                                    htmlFor="promotional-image-upload"
+                                                    className="btn d-inline-flex align-items-center"
+                                                    style={{ 
+                                                        cursor: isUploadingImage ? "not-allowed" : "pointer",
+                                                        userSelect: "none",
+                                                        backgroundColor: "#D4A574",
+                                                        color: "white",
+                                                        border: "none",
+                                                        padding: "12px 24px",
+                                                        fontSize: "1rem",
+                                                        fontWeight: "600",
+                                                        borderRadius: "8px",
+                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isUploadingImage) {
+                                                            e.target.style.backgroundColor = "#c49563";
+                                                            e.target.style.transform = "scale(1.05)";
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isUploadingImage) {
+                                                            e.target.style.backgroundColor = "#D4A574";
+                                                            e.target.style.transform = "scale(1)";
+                                                        }
+                                                    }}
+                                                >
+                                                    {isUploadingImage ? (
+                                                        <>
+                                                            <CircularProgress size={20} className="me-2" style={{ color: "white" }} />
+                                                            Uploading...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <CloudUploadIcon className="me-2" />
+                                                            Click to Upload Promotional Image
+                                                        </>
+                                                    )}
+                                                </label>
+                                                <p className="text-muted small mt-3 mb-0">
+                                                    <strong>Supported formats:</strong> JPG, PNG, GIF, WebP | <strong>Max size:</strong> 5MB
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
                         {/* Message Input and Send Section */}
                         <div className="row g-4">
                             <div className="col-lg-8">
@@ -464,11 +827,22 @@ function Marketing_View() {
                                 <textarea
                                     className="form-control"
                                     rows={8}
-                                    placeholder="Enter your WhatsApp message here or select a template above..."
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
+                                    placeholder={
+                                        selectedTemplateId === "2" || selectedTemplateId === "3"
+                                            ? "Message will be auto-generated from the WhatsApp template."
+                                            : "Enter your WhatsApp message here or select a template above..."
+                                    }
+                                    value={selectedTemplateId === "2" || selectedTemplateId === "3" ? "" : message}
+                                    onChange={(e) => {
+                                        if (selectedTemplateId !== "2" && selectedTemplateId !== "3") {
+                                            setMessage(e.target.value);
+                                        }
+                                    }}
+                                    disabled={selectedTemplateId === "2" || selectedTemplateId === "3"}
                                 ></textarea>
-                                <small className="form-text text-muted">Character count: {message.length}</small>
+                                <small className="form-text text-muted">
+                                    Character count: {selectedTemplateId === "2" || selectedTemplateId === "3" ? 0 : message.length}
+                                </small>
                             </div>
                             <div className="col-lg-4">
                                 <div className="card bg-primary bg-opacity-10 border-primary mb-3">
@@ -504,7 +878,12 @@ function Marketing_View() {
                                         color: "white"
                                     }}
                                     onClick={handleSendMessage}
-                                    disabled={selectedPatientIds.length === 0 || !message.trim()}
+                                    disabled={
+                                        selectedPatientIds.length === 0 ||
+                                        (selectedTemplateId !== "2" && selectedTemplateId !== "3" && !message.trim()) ||
+                                        (selectedTemplateId === "2" && !imageUrl) ||
+                                        isUploadingImage
+                                    }
                                 >
                                     <SendIcon className="me-2" />
                                     Send to {stats.selected} Patient{stats.selected !== 1 ? "s" : ""}

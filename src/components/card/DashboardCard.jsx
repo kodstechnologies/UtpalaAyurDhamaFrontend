@@ -137,3 +137,4 @@ DashboardCard.propTypes = {
 };
 
 export default DashboardCard;
+

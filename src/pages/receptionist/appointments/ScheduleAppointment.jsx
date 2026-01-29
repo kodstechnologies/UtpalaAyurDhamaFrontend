@@ -22,6 +22,51 @@ function ScheduleAppointmentPage() {
     const [doctors, setDoctors] = useState([]);
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoadingExistingAppointment, setIsLoadingExistingAppointment] = useState(false);
+
+    // Fetch existing appointment data if available
+    const fetchExistingAppointment = useCallback(async () => {
+        if (!patientId) return;
+        
+        setIsLoadingExistingAppointment(true);
+        try {
+            // Fetch appointments for this patient to get existing doctor assignment
+            const response = await axios.get(
+                getApiUrl(`appointments?patientId=${patientId}`),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success && response.data.data && response.data.data.length > 0) {
+                const latestAppointment = response.data.data[0]; // Get the latest appointment
+                
+                if (latestAppointment.doctor) {
+                    const doctorId = latestAppointment.doctor._id || latestAppointment.doctor;
+                    const appointmentDate = latestAppointment.appointmentDate ? 
+                        new Date(latestAppointment.appointmentDate).toISOString().split('T')[0] : 
+                        formData.date;
+                    const appointmentTime = latestAppointment.appointmentTime || formData.time;
+                    
+                    console.log("Pre-filling form with existing appointment data:", {
+                        doctorId,
+                        appointmentDate,
+                        appointmentTime
+                    });
+                    
+                    setFormData((prev) => ({
+                        ...prev,
+                        doctor: doctorId,
+                        date: appointmentDate,
+                        time: appointmentTime,
+                    }));
+                }
+            }
+        } catch (error) {
+            console.log("No existing appointments found or error fetching them:", error.message);
+            // This is not an error - patient just doesn't have appointments yet
+        } finally {
+            setIsLoadingExistingAppointment(false);
+        }
+    }, [patientId, formData.date, formData.time]);
 
     // Fetch all doctors from API
     const fetchDoctors = useCallback(async () => {
@@ -34,12 +79,12 @@ function ScheduleAppointmentPage() {
             );
 
             console.log("Doctors API Response:", response.data);
-            
+
             if (response.data.success) {
                 const doctorsData = response.data.data || [];
                 console.log("Setting doctors:", doctorsData);
                 setDoctors(doctorsData);
-                
+
                 if (doctorsData.length === 0) {
                     console.warn("No doctors found in the database");
                     toast.warning("No doctors available. Please add doctors first.");
@@ -60,7 +105,8 @@ function ScheduleAppointmentPage() {
 
     useEffect(() => {
         fetchDoctors();
-    }, [fetchDoctors]);
+        fetchExistingAppointment();
+    }, [fetchDoctors, fetchExistingAppointment]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -69,7 +115,7 @@ function ScheduleAppointmentPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Validate form
         if (!formData.doctor) {
             toast.error("Please select a doctor");
@@ -107,7 +153,7 @@ function ScheduleAppointmentPage() {
                 const familyMember = familyMemberResponse.data.data;
                 // Get the family member's user ID and find their patient profile
                 const familyMemberUserId = familyMember.user?._id || familyMember.user;
-                
+
                 if (!familyMemberUserId) {
                     throw new Error("Family member user not found.");
                 }
@@ -173,7 +219,7 @@ function ScheduleAppointmentPage() {
                         toast.warning("Appointment scheduled, but failed to assign doctor to family member profile.");
                     }
                 }
-                
+
                 toast.success("Appointment scheduled successfully!");
                 navigate(-1); // Go back to previous page
             } else {
@@ -182,8 +228,8 @@ function ScheduleAppointmentPage() {
         } catch (error) {
             console.error("Error scheduling appointment:", error);
             toast.error(
-                error.response?.data?.message || 
-                error.message || 
+                error.response?.data?.message ||
+                error.message ||
                 "Failed to schedule appointment. Please try again."
             );
         } finally {
@@ -195,7 +241,7 @@ function ScheduleAppointmentPage() {
         <div>
             <HeadingCard
                 title="Schedule Appointment"
-                subtitle={`Patient: ${patientName}`}
+                subtitle={`Patient: ${patientName}${formData.doctor ? " - Edit Mode" : ""}`}
                 breadcrumbItems={[
                     { label: "Receptionist", url: "/receptionist/dashboard" },
                     { label: "Appointments", url: "/receptionist/appointments" },
@@ -203,15 +249,28 @@ function ScheduleAppointmentPage() {
                 ]}
             />
 
-            <Box
-                sx={{
-                    backgroundColor: "var(--color-bg-a)",
-                    borderRadius: "12px",
-                    p: 3,
-                    mt: 2,
-                    maxWidth: "600px",
-                    mx: "auto",
-                }}
+            {isLoadingExistingAppointment ? (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "300px" }}>
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <Box
+                    sx={{
+                        backgroundColor: "var(--color-bg-a)",
+                        borderRadius: "12px",
+                        p: 3,
+                        mt: 2,
+                        maxWidth: "600px",
+                        mx: "auto",
+                    }}
+                >
+                    {formData.doctor && (
+                        <Box sx={{ mb: 3, p: 2, backgroundColor: "#e8f5e9", borderRadius: "8px", border: "1px solid #4caf50" }}>
+                            <p style={{ margin: 0, color: "#2e7d32", fontSize: "14px" }}>
+                                ✓ Doctor already assigned. You can edit the appointment details below.
+                            </p>
+                        </Box>
+                    )}
             >
                 <form onSubmit={handleSubmit}>
                     <Box sx={{ mb: 3 }}>
@@ -245,10 +304,10 @@ function ScheduleAppointmentPage() {
                                 ) : (
                                     doctors.map((doctor) => {
                                         console.log("Rendering doctor:", doctor);
-                                        const doctorName = doctor.user?.name || 
-                                            `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || 
+                                        const doctorName = doctor.user?.name ||
+                                            `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() ||
                                             "Doctor";
-                                        const displayName = doctor.specialization 
+                                        const displayName = doctor.specialization
                                             ? `${doctorName} - ${doctor.specialization}`
                                             : doctorName;
                                         return (
@@ -288,16 +347,16 @@ function ScheduleAppointmentPage() {
                     </Box>
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button 
-                            variant="outlined" 
+                        <Button
+                            variant="outlined"
                             onClick={() => navigate(-1)}
                             disabled={isSubmitting}
                         >
                             Cancel
                         </Button>
-                        <Button 
-                            type="submit" 
-                            variant="contained" 
+                        <Button
+                            type="submit"
+                            variant="contained"
                             sx={{ backgroundColor: "#8B4513" }}
                             disabled={isSubmitting || isLoadingDoctors}
                         >
@@ -307,12 +366,13 @@ function ScheduleAppointmentPage() {
                                     Scheduling...
                                 </>
                             ) : (
-                                "Schedule Appointment"
+                                formData.doctor ? "Update Appointment" : "Schedule Appointment"
                             )}
                         </Button>
                     </Box>
                 </form>
             </Box>
+            )}
         </div>
     );
 }
