@@ -78,15 +78,21 @@ function Doctor_Dashboard() {
             // Process appointments - handle different response formats
             let appointments = [];
             if (appointmentsResponse.data.success) {
+                let rawAppointments = [];
                 if (Array.isArray(appointmentsResponse.data.data)) {
-                    appointments = appointmentsResponse.data.data;
+                    rawAppointments = appointmentsResponse.data.data;
                 } else if (appointmentsResponse.data.data?.appointments) {
-                    appointments = appointmentsResponse.data.data.appointments;
+                    rawAppointments = appointmentsResponse.data.data.appointments;
                 } else if (appointmentsResponse.data.data?.data) {
-                    appointments = appointmentsResponse.data.data.data;
+                    rawAppointments = appointmentsResponse.data.data.data;
                 }
+
+                // Filter out Cancelled and No Show appointments
+                appointments = rawAppointments.filter(
+                    apt => apt.status !== "Cancelled" && apt.status !== "No Show"
+                );
             }
-            
+
             // Extract doctor profile ID from first appointment
             let doctorProfileId = null;
             if (appointments.length > 0 && appointments[0].doctor?._id) {
@@ -180,8 +186,8 @@ function Doctor_Dashboard() {
                 : [];
             const doctorInpatients = doctorProfileId
                 ? inpatients.filter(
-                      (ip) => ip.doctor?._id?.toString() === doctorProfileId.toString()
-                  )
+                    (ip) => ip.doctor?._id?.toString() === doctorProfileId.toString()
+                )
                 : [];
 
             // Add unique inpatients to patient count

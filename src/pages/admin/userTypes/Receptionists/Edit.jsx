@@ -169,11 +169,11 @@ function Edit_Receptionists() {
     const checkPhoneAvailability = async (phone) => {
         const phoneError = validatePhone(phone);
         if (!phone || phoneError) return;
-        
+
         if (phoneCheckTimeoutRef.current) {
             clearTimeout(phoneCheckTimeoutRef.current);
         }
-        
+
         phoneCheckTimeoutRef.current = setTimeout(async () => {
             try {
                 const checkResult = await adminUserService.checkPhoneAvailability(phone, "Receptionist", receptionistId);
@@ -192,11 +192,11 @@ function Edit_Receptionists() {
     // Check email availability (debounced) - exclude current user
     const checkEmailAvailability = async (email) => {
         if (!email || !validateEmail(email)) return;
-        
+
         if (emailCheckTimeoutRef.current) {
             clearTimeout(emailCheckTimeoutRef.current);
         }
-        
+
         emailCheckTimeoutRef.current = setTimeout(async () => {
             try {
                 const checkResult = await adminUserService.checkEmailAvailability(email, "Receptionist", receptionistId);
@@ -215,7 +215,7 @@ function Edit_Receptionists() {
     // Handle Input Change with validation
     const updateField = (field, value) => {
         setReceptionist((prev) => ({ ...prev, [field]: value }));
-        
+
         if (errors[field]) {
             setErrors((prev) => ({ ...prev, [field]: "" }));
         }
@@ -341,7 +341,7 @@ function Edit_Receptionists() {
                 ...receptionist,
                 experience: receptionist.experience ? Number(receptionist.experience) : undefined,
                 salary: receptionist.salary ? Number(receptionist.salary) : undefined,
-                dateOfBirth: receptionist.dob ? new Date(receptionist.dob).toISOString() : undefined,
+                dob: receptionist.dob ? new Date(receptionist.dob).toISOString() : undefined,
                 joiningDate: receptionist.joiningDate ? new Date(receptionist.joiningDate).toISOString() : undefined
             };
 

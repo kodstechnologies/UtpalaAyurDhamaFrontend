@@ -109,6 +109,15 @@ function MedicinesView() {
         { field: "medicineName", header: "Medicine Name" },
         { field: "manufacturer", header: "Manufacturer" },
         { field: "type", header: "Type" },
+        { 
+            field: "sellPrice", 
+            header: "Sell Price",
+            render: (row) => {
+                const price = row.sellPrice;
+                if (price === null || price === undefined) return "-";
+                return `₹${parseFloat(price).toFixed(2)}`;
+            }
+        },
         { field: "quantity", header: "Quantity" },
         { field: "unit", header: "Unit" },
         { field: "stockStatus", header: "Stock Status" },

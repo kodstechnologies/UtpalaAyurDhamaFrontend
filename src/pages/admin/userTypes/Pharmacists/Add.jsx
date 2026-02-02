@@ -134,8 +134,8 @@ function Add_Pharmacists() {
 
     const handleSave = async () => {
         // Basic validation
-        if (!pharmacist.name || !pharmacist.email || !pharmacist.specialization || !pharmacist.licenseNumber) {
-            toast.error("Please fill in the required fields (Name, Email, Specialization, License Number).");
+        if (!pharmacist.name || !pharmacist.email || !pharmacist.specialization || !pharmacist.licenseNumber || !pharmacist.phone) {
+            toast.error("Please fill in the required fields (Name, Email, Phone, Specialization, License Number).");
             return;
         }
 
@@ -336,6 +336,7 @@ function Add_Pharmacists() {
                                                 value={pharmacist.phone}
                                                 onChange={(e) => updateField("phone", e.target.value)}
                                                 maxLength={10}
+                                                required
                                             />
                                             <FormInput
                                                 label="Emergency Contact"

@@ -49,14 +49,16 @@ function OPConsultation_View() {
 
             if (response.data.success) {
                 // Transform API response to match frontend table structure
-                const appointments = response.data.data || [];
-                
+                const appointments = (response.data.data || []).filter(
+                    appt => appt.status !== "Cancelled" && appt.status !== "No Show"
+                );
+
                 // Check for examinations for each appointment
                 const consultationsWithExamination = await Promise.all(
                     appointments.map(async (appointment) => {
                         let hasExamination = false;
                         let examinationId = null;
-                        
+
                         try {
                             const examResponse = await axios.get(
                                 getApiUrl(`examinations/by-appointment/${appointment._id}`),
@@ -72,7 +74,7 @@ function OPConsultation_View() {
                                 console.error("Error checking examination:", error);
                             }
                         }
-                        
+
                         return {
                             _id: appointment._id,
                             patientName: appointment.patient?.user?.name || "N/A",
@@ -93,7 +95,7 @@ function OPConsultation_View() {
                         };
                     })
                 );
-                
+
                 setConsultations(consultationsWithExamination);
             } else {
                 toast.error(response.data.message || "Failed to fetch appointments");
