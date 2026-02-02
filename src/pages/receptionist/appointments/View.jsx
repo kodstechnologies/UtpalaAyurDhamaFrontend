@@ -17,6 +17,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import MessageIcon from "@mui/icons-material/Message";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 
 // Mock data - will be replaced with API calls later
 const mockPatients = [
@@ -400,6 +401,14 @@ function Appointments_View() {
         navigate(`/receptionist/appointments/view-patient?${params.toString()}`);
     };
 
+    const handleWalkInHubClick = (patient) => {
+        const params = new URLSearchParams({
+            patientProfileId: patient.patientProfileId || "",
+            patientName: patient.name || "",
+        });
+        navigate(`/receptionist/walk-in-hub?${params.toString()}`);
+    };
+
     const handleSendMessageClick = (data) => {
         let date = "";
         let time = "";
@@ -675,10 +684,10 @@ function Appointments_View() {
                                                                 <button
                                                                     type="button"
                                                                     className="btn btn-sm"
-                                                                    onClick={() => navigate(`/receptionist/appointments/walk-in?patientId=${patient.patientProfileId}&patientName=${patient.name}`)}
+                                                                    onClick={() => handleWalkInHubClick(patient)}
                                                                     style={{
-                                                                        backgroundColor: "#8B4513",
-                                                                        borderColor: "#8B4513",
+                                                                        backgroundColor: "#1976d2",
+                                                                        borderColor: "#1976d2",
                                                                         color: "#fff",
                                                                         borderRadius: "8px",
                                                                         padding: "8px 12px",
@@ -691,18 +700,18 @@ function Appointments_View() {
                                                                         justifyContent: "center"
                                                                     }}
                                                                     onMouseEnter={(e) => {
-                                                                        e.currentTarget.style.backgroundColor = "#5D2E0A";
+                                                                        e.currentTarget.style.backgroundColor = "#1565c0";
                                                                         e.currentTarget.style.transform = "translateY(-2px)";
                                                                         e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
                                                                     }}
                                                                     onMouseLeave={(e) => {
-                                                                        e.currentTarget.style.backgroundColor = "#8B4513";
+                                                                        e.currentTarget.style.backgroundColor = "#1976d2";
                                                                         e.currentTarget.style.transform = "translateY(0)";
                                                                         e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
                                                                     }}
-                                                                    title="Walk-in Patient (Assign Therapist Directly)"
+                                                                    title="Walk-in Patient Hub (Manage Admission & Assignment)"
                                                                 >
-                                                                    <PersonAddIcon fontSize="small" />
+                                                                    <AssignmentIcon fontSize="small" />
                                                                 </button>
                                                                 <button
                                                                     type="button"

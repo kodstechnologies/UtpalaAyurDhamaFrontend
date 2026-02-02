@@ -53,6 +53,8 @@ function OPConsultation_View() {
                     appt => appt.status !== "Cancelled" && appt.status !== "No Show"
                 );
 
+                console.log("Fetched Appointments:", appointments); // Debug log to inspect structure
+
                 // Check for examinations for each appointment
                 const consultationsWithExamination = await Promise.all(
                     appointments.map(async (appointment) => {
@@ -77,7 +79,7 @@ function OPConsultation_View() {
 
                         return {
                             _id: appointment._id,
-                            patientName: appointment.patient?.user?.name || "N/A",
+                            patientName: appointment.patient?.user?.name || appointment.receptionPatient?.patientName || "N/A",
                             patientId: appointment.patient?.user?.uhid || appointment.patient?.patientId || appointment.patient?._id || "N/A",
                             appointmentDate: appointment.appointmentDate
                                 ? new Date(appointment.appointmentDate).toISOString().split("T")[0]
@@ -139,7 +141,11 @@ function OPConsultation_View() {
     }, [consultations]);
 
     const columns = [
-        { field: "patientName", header: "Patient Name" },
+        {
+            field: "patientName",
+            header: "Patient Name",
+            render: (rowData) => rowData.patientName || rowData.fullAppointment?.patient?.user?.name || "N/A"
+        },
         { field: "patientId", header: "UHID" },
         { field: "appointmentDate", header: "Date" },
         { field: "appointmentTime", header: "Time" },

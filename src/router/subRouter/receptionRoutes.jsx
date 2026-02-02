@@ -19,6 +19,7 @@ const PatientTherapyDetails = lazy(() => import("../../pages/receptionist/treatm
 const ReceptionistProfile = lazy(() => import("../../pages/receptionist/Profile"));
 const SwarnaBinduEvents_Calendar = lazy(() => import("../../pages/receptionist/swarnaBinduEvents/View"));
 const PatientHistory = lazy(() => import("../../pages/receptionist/patient/PatientHistory"));
+const WalkInHub = lazy(() => import("../../pages/receptionist/WalkInPatient/WalkInHub"));
 
 // Modal pages
 const AddEditTransactionPage = lazy(() => import("../../pages/receptionist/payments/AddEditTransaction"));
@@ -365,6 +366,17 @@ export const receptionRoutes = [
                     <title>Patient History | UTPALA</title>
                 </Helmet>
                 <PatientHistory />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/walk-in-hub",
+        element: (
+            <>
+                <Helmet>
+                    <title>Walk-in Hub | UTPALA</title>
+                </Helmet>
+                <WalkInHub />
             </>
         ),
     },

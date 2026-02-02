@@ -69,20 +69,26 @@ function Treatments_View() {
 
                 // Create maps for quick lookup - collect all therapists for each patient
                 const therapistMap = new Map();
+                console.log("Fetched Therapist Sessions:", therapistSessions);
+
                 therapistSessions.forEach((session) => {
                     const patientId = session.patient?._id?.toString() || session.patient?.toString();
                     if (patientId) {
                         // Check if session has multiple therapists (therapists array) or single therapist
-                        const therapists = session.therapists || (session.therapist ? [session.therapist] : []);
-                        
+                        const therapists = (session.therapists && session.therapists.length > 0)
+                            ? session.therapists
+                            : (session.therapist ? [session.therapist] : []);
+
                         if (!therapistMap.has(patientId)) {
                             therapistMap.set(patientId, new Set());
                         }
-                        
+
                         // Add all therapists from this session
                         therapists.forEach((therapist) => {
                             if (therapist?.user?.name) {
                                 therapistMap.get(patientId).add(therapist.user.name);
+                            } else if (therapist?.name) {
+                                therapistMap.get(patientId).add(therapist.name);
                             }
                         });
                     }
@@ -108,7 +114,7 @@ function Treatments_View() {
                         // For inpatients, check the inpatient's allocatedNurse
                         allocatedNurseName = nurseMap.get(patientId) || "N/A";
                     }
-                    
+
                     return {
                         _id: patient._id,
                         patientName: patient.user?.name || "Unknown",
@@ -119,8 +125,8 @@ function Treatments_View() {
                         dateOfBirth: patient.user?.dob || patient.dateOfBirth || "N/A",
                         isInpatient: patient.inpatient || false,
                         allocatedNurse: allocatedNurseName,
-                        therapist: therapistMap.has(patientId) 
-                            ? Array.from(therapistMap.get(patientId)).join(", ") 
+                        therapist: (therapistMap.has(patientId) && therapistMap.get(patientId).size > 0)
+                            ? Array.from(therapistMap.get(patientId)).join(", ")
                             : "N/A",
                         createdAt: patient.createdAt || new Date(),
                     };
