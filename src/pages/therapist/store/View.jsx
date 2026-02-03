@@ -201,9 +201,9 @@ function StoreView() {
             <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
                 <Tabs value={currentTab} onChange={(e, val) => { setCurrentTab(val); setPagination(prev => ({ ...prev, page: 1 })); }}>
                     <Tab label="Store Stock" value="Store Stock" />
-                    <Tab label="Assets" value="Asset" />
-                    <Tab label="Medical Stock" value="Medical Stock" />
+                    <Tab label="Assets 1" value="Assets 1" />
                     <Tab label="Assets 2" value="Assets 2" />
+                    <Tab label="Medical Stock" value="Medical Stock" />
                 </Tabs>
             </Box>
 
@@ -228,6 +228,20 @@ function StoreView() {
                             return <div style={{ textAlign: "center", padding: "20px" }}>No items found</div>;
                         }
 
+                        // If current tab is Store Stock, show a single flat table
+                        if (currentTab === "Store Stock") {
+                            return (
+                                <TableComponent
+                                    columns={columns}
+                                    rows={rows}
+                                    actions={actions}
+                                    showStatusBadge={true}
+                                    statusField="stockStatus"
+                                />
+                            );
+                        }
+
+                        // For other tabs, keep grouping by category
                         return categories.map(cat => (
                             <Box key={cat} sx={{ mb: 4 }}>
                                 <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold", color: "var(--color-text-dark-b)" }}>

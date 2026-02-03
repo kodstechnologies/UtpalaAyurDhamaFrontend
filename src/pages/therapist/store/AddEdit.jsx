@@ -141,7 +141,7 @@ function AddEditStoreItem() {
                             required
                         >
                             <MenuItem value="Store Stock">Store Stock</MenuItem>
-                            <MenuItem value="Asset">Asset</MenuItem>
+                            <MenuItem value="Assets 1">Assets 1</MenuItem>
                             <MenuItem value="Medical Stock">Medical Stock</MenuItem>
                             <MenuItem value="Assets 2">Assets 2</MenuItem>
                         </StyledSelect>
