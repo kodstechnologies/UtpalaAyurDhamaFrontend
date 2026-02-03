@@ -33,6 +33,7 @@
 
 
 import { createRoot } from 'react-dom/client'
+console.log("Frontend application starting...");
 import Approuter from "./router/App.jsx";
 import "./index.css";
 
@@ -50,7 +51,7 @@ import { HelmetProvider } from 'react-helmet-async';
 
 // Import test utilities (only in development)
 if (import.meta.env.DEV) {
-    import('./utils/testNotifications.js');
+  import('./utils/testNotifications.js');
 }
 
 createRoot(document.getElementById('root')).render(
