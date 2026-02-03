@@ -28,6 +28,7 @@ const AdmitPatientPage = lazy(() => import("../../pages/receptionist/inpatient/A
 const AllocateResourcesPage = lazy(() => import("../../pages/receptionist/inpatient/AllocateResources"));
 const OutpatientAllocateResourcesPage = lazy(() => import("../../pages/receptionist/outpatient/AllocateResources"));
 const AddPatientPage = lazy(() => import("../../pages/receptionist/appointments/AddPatient"));
+const EditPatientPage = lazy(() => import("../../pages/receptionist/appointments/EditPatient"));
 const ScheduleAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/ScheduleAppointment"));
 const RescheduleAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/RescheduleAppointment"));
 const ViewPatientPage = lazy(() => import("../../pages/receptionist/appointments/ViewPatient"));
@@ -267,6 +268,17 @@ export const receptionRoutes = [
                     <title>Add Patient | UTPALA</title>
                 </Helmet>
                 <AddPatientPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/edit-patient",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Patient | UTPALA</title>
+                </Helmet>
+                <EditPatientPage />
             </>
         ),
     },

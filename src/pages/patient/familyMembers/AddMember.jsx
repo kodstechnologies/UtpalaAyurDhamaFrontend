@@ -25,8 +25,11 @@ function AddMemberPage() {
         fullName: "",
         relation: "",
         phone: "",
-        dob: "",
+        alternatePhoneNumber: "",
+        email: "",
+        age: "",
         gender: "",
+        address: "",
     });
 
     const handleChange = (e) => {
@@ -36,36 +39,46 @@ function AddMemberPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        // Validation (phone is optional - if not provided or same, will use main patient's phone)
-        if (!formData.fullName || !formData.relation || !formData.dob || !formData.gender) {
-            toast.error("Please fill in all required fields.");
+
+        // Validation
+        if (!formData.fullName || !formData.phone || !formData.gender || !formData.age) {
+            toast.error("Please fill in all required fields (Name, Phone, Gender, Age).");
             return;
         }
 
-        // Phone validation (if provided, must be valid)
-        if (formData.phone && formData.phone.length < 10) {
-            toast.error("Please enter a valid phone number (10 digits).");
+        if (formData.phone.length < 10) {
+            toast.error("Please enter a valid contact number (10 digits).");
+            return;
+        }
+
+        // relation is required by backend. If user didn't fill it (if I hide it), it will fail.
+        // I'll assume I should keep it visible or defaut it.
+        // If the user wants to remove it from UI, I'd need a default.
+        // But for now I'll check if it's empty.
+        if (!formData.relation) {
+            toast.error("Please select a relation.");
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            // Format date for API (ISO format)
-            const dateOfBirth = new Date(formData.dob).toISOString();
+            // Calculate DOB from Age
+            const age = parseInt(formData.age, 10);
+            const today = new Date();
+            const birthYear = today.getFullYear() - age;
+            const dateOfBirth = new Date(birthYear, 0, 1).toISOString(); // Jan 1st of that year
 
             const requestData = {
                 fullName: formData.fullName,
                 relation: formData.relation,
+                phoneNumber: formData.phone,
+                alternatePhoneNumber: formData.alternatePhoneNumber,
+                email: formData.email,
+                address: formData.address,
                 dateOfBirth: dateOfBirth,
                 gender: formData.gender,
             };
-
-            // Include phoneNumber only if provided (optional field)
-            if (formData.phone && formData.phone.trim()) {
-                requestData.phoneNumber = formData.phone.trim();
-            }
 
             const response = await familyMemberService.createFamilyMember(requestData);
 
@@ -112,7 +125,7 @@ function AddMemberPage() {
             >
                 <form onSubmit={handleSubmit}>
                     <Grid container spacing={3}>
-                        {/* Full Name */}
+                        {/* Patient Name */}
                         <Grid item xs={12} md={6}>
                             <Box>
                                 <Typography
@@ -123,10 +136,10 @@ function AddMemberPage() {
                                         mb: 0.5,
                                     }}
                                 >
-                                    Full Name <span style={{ color: "var(--color-error)" }}>*</span>
+                                    Patient Name <span style={{ color: "var(--color-error)" }}>*</span>
                                 </Typography>
                                 <StyledTextField
-                                    placeholder="Enter full name"
+                                    placeholder="Enter patient name"
                                     name="fullName"
                                     value={formData.fullName}
                                     onChange={handleChange}
@@ -135,7 +148,7 @@ function AddMemberPage() {
                             </Box>
                         </Grid>
 
-                        {/* Relation */}
+                        {/* Contact Number */}
                         <Grid item xs={12} md={6}>
                             <Box>
                                 <Typography
@@ -146,19 +159,21 @@ function AddMemberPage() {
                                         mb: 0.5,
                                     }}
                                 >
-                                    Relation <span style={{ color: "var(--color-error)" }}>*</span>
+                                    Contact Number <span style={{ color: "var(--color-error)" }}>*</span>
                                 </Typography>
-                                <StyledSelect
-                                    name="relation"
-                                    value={formData.relation}
+                                <StyledTextField
+                                    placeholder="Enter contact number"
+                                    name="phone"
+                                    type="tel"
+                                    value={formData.phone}
                                     onChange={handleChange}
-                                    options={relationOptions}
-                                    placeholder="Select relation"
+                                    inputProps={{ maxLength: 10 }}
+                                    required
                                 />
                             </Box>
                         </Grid>
 
-                        {/* Phone Number (Optional) */}
+                        {/* Alternative Number */}
                         <Grid item xs={12} md={6}>
                             <Box>
                                 <Typography
@@ -169,20 +184,20 @@ function AddMemberPage() {
                                         mb: 0.5,
                                     }}
                                 >
-                                    Phone Number <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", fontWeight: 400 }}>(Optional - will use your phone if not provided)</span>
+                                    Alternative Number
                                 </Typography>
                                 <StyledTextField
-                                    placeholder="Enter phone number (optional)"
-                                    name="phone"
+                                    placeholder="Enter alternative number"
+                                    name="alternatePhoneNumber"
                                     type="tel"
-                                    value={formData.phone}
+                                    value={formData.alternatePhoneNumber}
                                     onChange={handleChange}
                                     inputProps={{ maxLength: 10 }}
                                 />
                             </Box>
                         </Grid>
 
-                        {/* Date of Birth */}
+                        {/* Email */}
                         <Grid item xs={12} md={6}>
                             <Box>
                                 <Typography
@@ -193,15 +208,14 @@ function AddMemberPage() {
                                         mb: 0.5,
                                     }}
                                 >
-                                    Date of Birth <span style={{ color: "var(--color-error)" }}>*</span>
+                                    Email
                                 </Typography>
                                 <StyledTextField
-                                    name="dob"
-                                    type="date"
-                                    value={formData.dob}
+                                    placeholder="Enter email address"
+                                    name="email"
+                                    type="email"
+                                    value={formData.email}
                                     onChange={handleChange}
-                                    InputLabelProps={{ shrink: true }}
-                                    required
                                 />
                             </Box>
                         </Grid>
@@ -228,6 +242,78 @@ function AddMemberPage() {
                                 />
                             </Box>
                         </Grid>
+
+                        {/* Age */}
+                        <Grid item xs={12} md={6}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Age <span style={{ color: "var(--color-error)" }}>*</span>
+                                </Typography>
+                                <StyledTextField
+                                    placeholder="Enter age"
+                                    name="age"
+                                    type="number"
+                                    value={formData.age}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+                        </Grid>
+
+                        {/* Relation (Keeping it as it's required by backend, but maybe user wants it?) */}
+                        <Grid item xs={12} md={6}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Relation <span style={{ color: "var(--color-error)" }}>*</span>
+                                </Typography>
+                                <StyledSelect
+                                    name="relation"
+                                    value={formData.relation}
+                                    onChange={handleChange}
+                                    options={relationOptions}
+                                    placeholder="Select relation"
+                                />
+                            </Box>
+                        </Grid>
+
+                        {/* Address */}
+                        <Grid item xs={12}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Address
+                                </Typography>
+                                <StyledTextField
+                                    placeholder="Enter address"
+                                    name="address"
+                                    multiline
+                                    rows={3}
+                                    value={formData.address}
+                                    onChange={handleChange}
+                                />
+                            </Box>
+                        </Grid>
+
                     </Grid>
 
                     <Divider sx={{ my: 2, borderColor: "var(--color-border)" }} />

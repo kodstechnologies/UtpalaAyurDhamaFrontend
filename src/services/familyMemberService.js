@@ -61,6 +61,30 @@ const familyMemberService = {
             throw error.response?.data || error.message;
         }
     },
+
+    // Get family member by ID for Receptionist (no ownership check)
+    getFamilyMemberByIdForReceptionist: async (id) => {
+        try {
+            const response = await axios.get(getApiUrl(`family-members/${id}/receptionist`), {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
+
+    // Update family member for Receptionist (no ownership check)
+    updateFamilyMemberForReceptionist: async (id, data) => {
+        try {
+            const response = await axios.patch(getApiUrl(`family-members/${id}/receptionist`), data, {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default familyMemberService;

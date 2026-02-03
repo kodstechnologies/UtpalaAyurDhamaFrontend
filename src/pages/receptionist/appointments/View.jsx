@@ -409,6 +409,27 @@ function Appointments_View() {
         navigate(`/receptionist/walk-in-hub?${params.toString()}`);
     };
 
+    const handleEditPatientClick = (patient) => {
+        // For family members, use the familyMemberId; for regular patients, use the reception patient id
+        // In the transformed data:
+        // id: patient._id || patient.patientProfile?._id || "", (this is reception patient / family member ID)
+        // familyMemberId: patient.isFamilyMember ? patient._id : null,
+
+        // Let's use `patient.id` - checking transformation logic:
+        // family members: id = patient._id
+        // reception patients: id = patient._id (or patientProfile id fallback?)
+
+        // In fetchReceptionPatients:
+        // id: patient._id || patient.patientProfile?._id || "", 
+        // Correct.
+
+        const params = new URLSearchParams({
+            patientId: patient.id || "",
+            isFamilyMember: patient.isFamilyMember ? "true" : "false",
+        });
+        navigate(`/receptionist/appointments/edit-patient?${params.toString()}`);
+    };
+
     const handleSendMessageClick = (data) => {
         let date = "";
         let time = "";
@@ -648,6 +669,38 @@ function Appointments_View() {
                                                                     }}
                                                                 >
                                                                     <VisibilityIcon fontSize="small" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
+                                                                    onClick={() => handleEditPatientClick(patient)}
+                                                                    title="Edit Patient Details"
+                                                                    style={{
+                                                                        backgroundColor: "#87CEEB", // Sky Blue
+                                                                        borderColor: "#87CEEB",
+                                                                        color: "#000",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        fontWeight: 500,
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                        transition: "all 0.3s ease",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#5F9EA0";
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#87CEEB";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                >
+                                                                    <EditIcon fontSize="small" />
                                                                 </button>
                                                                 <button
                                                                     type="button"

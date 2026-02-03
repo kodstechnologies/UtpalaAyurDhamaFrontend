@@ -27,8 +27,11 @@ function EditMemberPage() {
         fullName: "",
         relation: "",
         phone: "",
-        dob: "",
+        alternatePhoneNumber: "",
+        email: "",
+        age: "",
         gender: "",
+        address: "",
     });
 
     // Fetch existing family member data
@@ -43,17 +46,32 @@ function EditMemberPage() {
             setIsLoading(true);
             try {
                 const response = await familyMemberService.getFamilyMemberById(id);
-                
+
                 if (response && response.success && response.data) {
                     const member = response.data;
+
+                    // Calculate Age from DOB
+                    let calculatedAge = "";
+                    if (member.dateOfBirth) {
+                        const dob = new Date(member.dateOfBirth);
+                        const today = new Date();
+                        let age = today.getFullYear() - dob.getFullYear();
+                        const m = today.getMonth() - dob.getMonth();
+                        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+                            age--;
+                        }
+                        calculatedAge = age.toString();
+                    }
+
                     setFormData({
                         fullName: member.fullName || "",
                         relation: member.relation || "",
                         phone: member.phoneNumber || member.user?.phone || "",
-                        dob: member.dateOfBirth 
-                            ? new Date(member.dateOfBirth).toISOString().split('T')[0]
-                            : "",
+                        alternatePhoneNumber: member.alternatePhoneNumber || "",
+                        email: member.email || member.user?.email || "",
+                        age: calculatedAge,
                         gender: member.gender || "",
+                        address: member.address || "",
                     });
                 } else {
                     toast.error(response.message || "Failed to load family member");
@@ -79,36 +97,37 @@ function EditMemberPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Validation
-        if (!formData.fullName || !formData.relation || !formData.dob || !formData.gender) {
-            toast.error("Please fill in all required fields.");
+        if (!formData.fullName || !formData.phone || !formData.gender || !formData.age) {
+            toast.error("Please fill in all required fields (Name, Phone, Gender, Age).");
             return;
         }
 
-        // Phone validation (if provided, must be valid)
-        if (formData.phone && formData.phone.length < 10) {
-            toast.error("Please enter a valid phone number (10 digits).");
+        if (formData.phone.length < 10) {
+            toast.error("Please enter a valid contact number (10 digits).");
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            // Format date for API (ISO format)
-            const dateOfBirth = new Date(formData.dob).toISOString();
+            // Calculate DOB from Age
+            const age = parseInt(formData.age, 10);
+            const today = new Date();
+            const birthYear = today.getFullYear() - age;
+            const dateOfBirth = new Date(birthYear, 0, 1).toISOString(); // Jan 1st of that year
 
             const requestData = {
                 fullName: formData.fullName,
                 relation: formData.relation,
                 dateOfBirth: dateOfBirth,
                 gender: formData.gender,
+                phoneNumber: formData.phone,
+                alternatePhoneNumber: formData.alternatePhoneNumber,
+                email: formData.email,
+                address: formData.address,
             };
-
-            // Include phoneNumber only if provided (optional field)
-            if (formData.phone && formData.phone.trim()) {
-                requestData.phoneNumber = formData.phone.trim();
-            }
 
             const response = await familyMemberService.updateFamilyMember(id, requestData);
 
@@ -175,7 +194,7 @@ function EditMemberPage() {
             >
                 <form onSubmit={handleSubmit}>
                     <Grid container spacing={3}>
-                        {/* Full Name */}
+                        {/* Patient Name */}
                         <Grid item xs={12} md={6}>
                             <Box>
                                 <Typography
@@ -186,12 +205,131 @@ function EditMemberPage() {
                                         mb: 0.5,
                                     }}
                                 >
-                                    Full Name <span style={{ color: "var(--color-error)" }}>*</span>
+                                    Patient Name <span style={{ color: "var(--color-error)" }}>*</span>
                                 </Typography>
                                 <StyledTextField
-                                    placeholder="Enter full name"
+                                    placeholder="Enter patient name"
                                     name="fullName"
                                     value={formData.fullName}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+                        </Grid>
+
+                        {/* Contact Number */}
+                        <Grid item xs={12} md={6}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Contact Number <span style={{ color: "var(--color-error)" }}>*</span>
+                                </Typography>
+                                <StyledTextField
+                                    placeholder="Enter contact number"
+                                    name="phone"
+                                    type="tel"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    inputProps={{ maxLength: 10 }}
+                                    required
+                                />
+                            </Box>
+                        </Grid>
+
+                        {/* Alternative Number */}
+                        <Grid item xs={12} md={6}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Alternative Number
+                                </Typography>
+                                <StyledTextField
+                                    placeholder="Enter alternative number"
+                                    name="alternatePhoneNumber"
+                                    type="tel"
+                                    value={formData.alternatePhoneNumber}
+                                    onChange={handleChange}
+                                    inputProps={{ maxLength: 10 }}
+                                />
+                            </Box>
+                        </Grid>
+
+                        {/* Email */}
+                        <Grid item xs={12} md={6}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Email
+                                </Typography>
+                                <StyledTextField
+                                    placeholder="Enter email address"
+                                    name="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                />
+                            </Box>
+                        </Grid>
+
+                        {/* Gender */}
+                        <Grid item xs={12} md={6}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Gender <span style={{ color: "var(--color-error)" }}>*</span>
+                                </Typography>
+                                <StyledSelect
+                                    name="gender"
+                                    value={formData.gender}
+                                    onChange={handleChange}
+                                    options={genderOptions}
+                                    placeholder="Select gender"
+                                />
+                            </Box>
+                        </Grid>
+
+                        {/* Age */}
+                        <Grid item xs={12} md={6}>
+                            <Box>
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.85rem",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-dark)",
+                                        mb: 0.5,
+                                    }}
+                                >
+                                    Age <span style={{ color: "var(--color-error)" }}>*</span>
+                                </Typography>
+                                <StyledTextField
+                                    placeholder="Enter age"
+                                    name="age"
+                                    type="number"
+                                    value={formData.age}
                                     onChange={handleChange}
                                     required
                                 />
@@ -221,8 +359,8 @@ function EditMemberPage() {
                             </Box>
                         </Grid>
 
-                        {/* Phone Number (Optional) */}
-                        <Grid item xs={12} md={6}>
+                        {/* Address */}
+                        <Grid item xs={12}>
                             <Box>
                                 <Typography
                                     sx={{
@@ -232,62 +370,15 @@ function EditMemberPage() {
                                         mb: 0.5,
                                     }}
                                 >
-                                    Phone Number <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", fontWeight: 400 }}>(Optional - will use your phone if not provided)</span>
+                                    Address
                                 </Typography>
                                 <StyledTextField
-                                    placeholder="Enter phone number (optional)"
-                                    name="phone"
-                                    type="tel"
-                                    value={formData.phone}
+                                    placeholder="Enter address"
+                                    name="address"
+                                    multiline
+                                    rows={3}
+                                    value={formData.address}
                                     onChange={handleChange}
-                                    inputProps={{ maxLength: 10 }}
-                                />
-                            </Box>
-                        </Grid>
-
-                        {/* Date of Birth */}
-                        <Grid item xs={12} md={6}>
-                            <Box>
-                                <Typography
-                                    sx={{
-                                        fontSize: "0.85rem",
-                                        fontWeight: 600,
-                                        color: "var(--color-text-dark)",
-                                        mb: 0.5,
-                                    }}
-                                >
-                                    Date of Birth <span style={{ color: "var(--color-error)" }}>*</span>
-                                </Typography>
-                                <StyledTextField
-                                    name="dob"
-                                    type="date"
-                                    value={formData.dob}
-                                    onChange={handleChange}
-                                    InputLabelProps={{ shrink: true }}
-                                    required
-                                />
-                            </Box>
-                        </Grid>
-
-                        {/* Gender */}
-                        <Grid item xs={12} md={6}>
-                            <Box>
-                                <Typography
-                                    sx={{
-                                        fontSize: "0.85rem",
-                                        fontWeight: 600,
-                                        color: "var(--color-text-dark)",
-                                        mb: 0.5,
-                                    }}
-                                >
-                                    Gender <span style={{ color: "var(--color-error)" }}>*</span>
-                                </Typography>
-                                <StyledSelect
-                                    name="gender"
-                                    value={formData.gender}
-                                    onChange={handleChange}
-                                    options={genderOptions}
-                                    placeholder="Select gender"
                                 />
                             </Box>
                         </Grid>

@@ -33,12 +33,15 @@ function WalkInHub() {
     const [formData, setFormData] = useState({
         doctorProfileId: existingDoctorId,
         nurseProfileId: "",
+        appointmentTime: "",
+        appointmentDate: new Date().toISOString().split("T")[0],
         therapyData: {
             treatmentName: "",
             daysOfTreatment: 1,
             timeline: "Daily",
             specialInstructions: "",
             therapistId: "",
+            startDate: new Date().toISOString().split("T")[0],
         }
     });
 
@@ -112,9 +115,12 @@ function WalkInHub() {
             patientProfileId,
             doctorProfileId: formData.doctorProfileId || undefined,
             nurseProfileId: mode === "IPD" ? (formData.nurseProfileId || undefined) : undefined,
+            appointmentTime: formData.appointmentTime || undefined,
+            appointmentDate: formData.appointmentDate,
             therapyData: formData.therapyData.treatmentName ? {
                 ...formData.therapyData,
-                therapistId: formData.therapyData.therapistId || undefined
+                therapistId: formData.therapyData.therapistId || undefined,
+                startDate: formData.therapyData.startDate || undefined
             } : undefined
         };
 
@@ -246,6 +252,33 @@ function WalkInHub() {
                                     </Select>
                                 </FormControl>
 
+                                <TextField
+                                    label="Appointment Time"
+                                    type="time"
+                                    name="appointmentTime"
+                                    value={formData.appointmentTime}
+                                    onChange={handleChange}
+                                    InputLabelProps={{
+                                        shrink: true,
+                                    }}
+                                    inputProps={{
+                                        step: 300, // 5 min
+                                    }}
+                                    sx={{ flex: 1, minWidth: "250px" }}
+                                />
+
+                                <TextField
+                                    label="Appointment Date"
+                                    type="date"
+                                    name="appointmentDate"
+                                    value={formData.appointmentDate}
+                                    onChange={handleChange}
+                                    InputLabelProps={{
+                                        shrink: true,
+                                    }}
+                                    sx={{ flex: 1, minWidth: "250px" }}
+                                />
+
                                 {mode === "IPD" && (
                                     <FormControl sx={{ flex: 1, minWidth: "250px" }}>
                                         <InputLabel>Assign Nurse</InputLabel>
@@ -344,6 +377,18 @@ function WalkInHub() {
                                         name="therapy.specialInstructions"
                                         value={formData.therapyData.specialInstructions}
                                         onChange={handleChange}
+                                    />
+
+                                    <TextField
+                                        sx={{ flex: 1, minWidth: "250px" }}
+                                        label="Start Date"
+                                        type="date"
+                                        name="therapy.startDate"
+                                        value={formData.therapyData.startDate}
+                                        onChange={handleChange}
+                                        InputLabelProps={{
+                                            shrink: true,
+                                        }}
                                     />
                                 </Box>
                             </Box>

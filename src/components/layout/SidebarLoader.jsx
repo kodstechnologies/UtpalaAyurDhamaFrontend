@@ -323,6 +323,12 @@ export const sidebarMenus = {
             icon: <HealthAndSafetyIcon style={{ color: "var(--color-icons)" }} />,
             to: "/therapist/patient-monitoring",
         },
+        {
+            key: "store",
+            label: "Store Management",
+            icon: <Inventory2Icon style={{ color: "var(--color-icons)" }} />,
+            to: "/therapist/store",
+        },
     ],
     patient: [
         {

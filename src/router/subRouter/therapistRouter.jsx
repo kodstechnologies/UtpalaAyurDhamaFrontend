@@ -38,6 +38,12 @@ const PatientTherapyDetailsPage = lazy(() =>
 const ExecutionPage = lazy(() =>
     import("../../pages/therapist/appointments/Execution")
 );
+const StoreView = lazy(() =>
+    import("../../pages/therapist/store/View")
+);
+const AddEditStoreItem = lazy(() =>
+    import("../../pages/therapist/store/AddEdit")
+);
 
 // 🛣 Routes with Lazy Components
 export const therapistRoutes = [
@@ -142,6 +148,31 @@ export const therapistRoutes = [
         element: (
             <Suspense fallback={<div>Loading...</div>}>
                 <ExecutionPage />
+            </Suspense>
+        ),
+    },
+    /* Store Management */
+    {
+        path: "/therapist/store",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <StoreView />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/store/add",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <AddEditStoreItem />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/store/edit/:id",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <AddEditStoreItem />
             </Suspense>
         ),
     },
