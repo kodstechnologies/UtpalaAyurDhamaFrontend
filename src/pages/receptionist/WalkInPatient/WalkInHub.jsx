@@ -321,7 +321,7 @@ function WalkInHub() {
                                         >
                                             <MenuItem value="">None</MenuItem>
                                             {therapies.map(t => (
-                                                <MenuItem key={t._id} value={t.therapyName}>{t.therapyName}</MenuItem>
+                                                <MenuItem key={t._id} value={t._id}>{t.therapyName}</MenuItem>
                                             ))}
                                         </Select>
                                     </FormControl>
@@ -349,7 +349,7 @@ function WalkInHub() {
                                             label="Timeline"
                                         >
                                             <MenuItem value="Daily">Daily</MenuItem>
-                                            <MenuItem value="AlternateDay">Alternate Day</MenuItem>
+                                            <MenuItem value="Alternate Days">Alternate Days</MenuItem>
                                             <MenuItem value="Weekly">Weekly</MenuItem>
                                         </Select>
                                     </FormControl>
@@ -366,7 +366,9 @@ function WalkInHub() {
                                         >
                                             <MenuItem value="">Unassigned</MenuItem>
                                             {therapists.map(th => (
-                                                <MenuItem key={th._id} value={th.user?._id || th.user}>{th.user?.name || "Therapist"}</MenuItem>
+                                                <MenuItem key={th._id} value={th._id}>
+                                                    {th.user?.name || "Therapist"} ({th.specialization || th.speciality || "General"})
+                                                </MenuItem>
                                             ))}
                                         </Select>
                                     </FormControl>

@@ -99,12 +99,12 @@ function Add_Doctors() {
     // Check email availability (debounced)
     const checkEmailAvailability = async (email) => {
         if (!email || !validateEmail(email)) return;
-        
+
         // Clear previous timeout
         if (emailCheckTimeoutRef.current) {
             clearTimeout(emailCheckTimeoutRef.current);
         }
-        
+
         // Set new timeout for debouncing
         emailCheckTimeoutRef.current = setTimeout(async () => {
             try {
@@ -138,12 +138,12 @@ function Add_Doctors() {
     const checkPhoneAvailability = async (phone) => {
         const phoneError = validatePhone(phone);
         if (!phone || phoneError) return;
-        
+
         // Clear previous timeout
         if (phoneCheckTimeoutRef.current) {
             clearTimeout(phoneCheckTimeoutRef.current);
         }
-        
+
         // Set new timeout for debouncing
         phoneCheckTimeoutRef.current = setTimeout(async () => {
             try {
@@ -165,7 +165,7 @@ function Add_Doctors() {
     // Handle Input Change with validation
     const updateField = (field, value) => {
         setDoctor((prev) => ({ ...prev, [field]: value }));
-        
+
         // Clear error when user starts typing
         if (errors[field]) {
             setErrors((prev) => ({ ...prev, [field]: "" }));
@@ -556,6 +556,7 @@ function Add_Doctors() {
                                                 value={doctor.gender}
                                                 onChange={(e) => updateField("gender", e.target.value)}
                                                 options={["Male", "Female", "Other", "Prefer not to say"]}
+                                                required
                                             />
                                         </div>
 

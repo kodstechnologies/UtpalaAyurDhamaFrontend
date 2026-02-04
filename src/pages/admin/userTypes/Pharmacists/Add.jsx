@@ -368,6 +368,7 @@ function Add_Pharmacists() {
                                                 value={pharmacist.gender}
                                                 onChange={(e) => updateField("gender", e.target.value)}
                                                 options={["Male", "Female", "Other", "Prefer not to say"]}
+                                                required
                                             />
                                         </div>
 

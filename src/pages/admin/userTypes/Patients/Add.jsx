@@ -77,11 +77,11 @@ function Add_Patients() {
   const checkPhoneAvailability = async (phone) => {
     const phoneError = validatePhone(phone);
     if (!phone || phoneError) return;
-    
+
     if (phoneCheckTimeoutRef.current) {
       clearTimeout(phoneCheckTimeoutRef.current);
     }
-    
+
     phoneCheckTimeoutRef.current = setTimeout(async () => {
       try {
         const checkResult = await adminUserService.checkPhoneAvailability(phone, "Patient");
@@ -100,11 +100,11 @@ function Add_Patients() {
   // Check email availability (debounced)
   const checkEmailAvailability = async (email) => {
     if (!email || !validateEmail(email)) return;
-    
+
     if (emailCheckTimeoutRef.current) {
       clearTimeout(emailCheckTimeoutRef.current);
     }
-    
+
     emailCheckTimeoutRef.current = setTimeout(async () => {
       try {
         const checkResult = await adminUserService.checkEmailAvailability(email, "Patient");
@@ -123,7 +123,7 @@ function Add_Patients() {
   // Handle Input Change with validation
   const updateField = (field, value) => {
     setPatient((prev) => ({ ...prev, [field]: value }));
-    
+
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
@@ -440,6 +440,7 @@ function Add_Patients() {
                         value={patient.gender}
                         onChange={(e) => updateField("gender", e.target.value)}
                         options={["Male", "Female", "Other", "Prefer not to say"]}
+                        required
                       />
                     </div>
 

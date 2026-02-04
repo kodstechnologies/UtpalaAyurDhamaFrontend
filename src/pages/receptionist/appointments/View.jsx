@@ -19,6 +19,7 @@ import MessageIcon from "@mui/icons-material/Message";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 
+
 // Mock data - will be replaced with API calls later
 const mockPatients = [
     {
@@ -182,9 +183,7 @@ function Appointments_View() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchReceptionPatients();
-    }, [fetchReceptionPatients]);
+
 
     // Breadcrumb Data
     const breadcrumbItems = [
@@ -208,9 +207,18 @@ function Appointments_View() {
                     apt.status !== "Completed"
                 );
             }).length,
-            upcomingAppointments: appointments.filter(
-                (apt) => apt.status === "Upcoming" || apt.status === "Confirmed" || apt.status === "Scheduled"
-            ).length,
+            upcomingAppointments: appointments.filter((apt) => {
+                const isUpcomingStatus = apt.status === "Upcoming" || apt.status === "Confirmed" || apt.status === "Scheduled";
+                if (!isUpcomingStatus) return false;
+
+                try {
+                    const aptDate = new Date(apt.appointmentDateTime.split(" ")[0]);
+                    aptDate.setHours(0, 0, 0, 0);
+                    return aptDate >= today;
+                } catch (e) {
+                    return false;
+                }
+            }).length,
         };
     }, [allPatients, appointments]);
 
@@ -305,8 +313,13 @@ function Appointments_View() {
     }, []);
 
     useEffect(() => {
+        fetchReceptionPatients();
+        fetchAppointments();
+    }, [fetchReceptionPatients, fetchAppointments]);
+
+    useEffect(() => {
         if (activeTab === "appointments") {
-            fetchAppointments();
+            // Already fetched by initial useEffect, but kept for clarity if tab logic requires re-fetching
         } else if (activeTab === "walkIn") {
             fetchWalkInSessions();
         }
@@ -479,8 +492,15 @@ function Appointments_View() {
         return classes[status] || "badge bg-secondary";
     };
 
+
+    // --------------------------
+
     return (
         <Box sx={{ padding: "20px" }}>
+            {/* ... previous content ... */}
+
+
+
             {/* Breadcrumb */}
             <Breadcrumb items={breadcrumbItems} />
 

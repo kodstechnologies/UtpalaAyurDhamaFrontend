@@ -96,11 +96,11 @@ function Add_Receptionists() {
   // Check email availability (debounced)
   const checkEmailAvailability = async (email) => {
     if (!email || !validateEmail(email)) return;
-    
+
     if (emailCheckTimeoutRef.current) {
       clearTimeout(emailCheckTimeoutRef.current);
     }
-    
+
     emailCheckTimeoutRef.current = setTimeout(async () => {
       try {
         const checkResult = await adminUserService.checkEmailAvailability(email, "Receptionist");
@@ -130,11 +130,11 @@ function Add_Receptionists() {
   const checkPhoneAvailability = async (phone) => {
     const phoneError = validatePhone(phone);
     if (!phone || phoneError) return;
-    
+
     if (phoneCheckTimeoutRef.current) {
       clearTimeout(phoneCheckTimeoutRef.current);
     }
-    
+
     phoneCheckTimeoutRef.current = setTimeout(async () => {
       try {
         const checkResult = await adminUserService.checkPhoneAvailability(phone, "Receptionist");
@@ -153,7 +153,7 @@ function Add_Receptionists() {
   // Handle Input Change with validation
   const updateField = (field, value) => {
     setReceptionist((prev) => ({ ...prev, [field]: value }));
-    
+
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
@@ -509,6 +509,7 @@ function Add_Receptionists() {
                         value={receptionist.gender}
                         onChange={(e) => updateField("gender", e.target.value)}
                         options={["Male", "Female", "Other", "Prefer not to say"]}
+                        required
                       />
                     </div>
 
