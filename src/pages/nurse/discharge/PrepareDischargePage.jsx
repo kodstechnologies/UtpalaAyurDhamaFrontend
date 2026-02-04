@@ -107,7 +107,8 @@ function PrepareDischargePage() {
 
             if (response.data.success) {
                 toast.success("Patient discharge completed successfully!");
-                navigate("/nurse/discharge-preparation");
+                // Navigate back to the list page
+                navigate("/nurse/discharge-preparation", { replace: true });
             } else {
                 toast.error(response.data.message || "Failed to process discharge");
             }

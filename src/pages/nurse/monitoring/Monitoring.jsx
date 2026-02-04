@@ -116,9 +116,22 @@ function Monitoring() {
     };
 
     const handleOpen = (type, row) => {
+        const isInpatient = row.patientType === "Inpatient";
+
+        // For Inpatients: 
+        // row._id is the Inpatient record ID
+        // row.rawData.patient is the PatientProfile object
+
+        // For Outpatients:
+        // row._id is the PatientProfile record ID
+        // There is no Inpatient record ID
+
+        const patientId = isInpatient ? (row.rawData?.patient?._id || row.rawData?.patient) : row._id;
+        const inpatientId = isInpatient ? row._id : "";
+
         const params = new URLSearchParams({
-            patientId: row._id || "",
-            inpatientId: row._id || "",
+            patientId: patientId || "",
+            inpatientId: inpatientId || "",
             patientName: row.patientName || "",
         });
         if (type === "food") {

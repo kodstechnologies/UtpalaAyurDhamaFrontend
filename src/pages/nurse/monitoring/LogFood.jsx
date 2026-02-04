@@ -115,8 +115,7 @@ function LogFoodPage() {
         setIsSaving(true);
         try {
             const backendCategory = categoryMap[mealCategory] || "breakfast";
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const now = new Date();
 
             // Get selected food charge details
             const selectedFoodDetails = foodCharges.filter((charge) =>
@@ -131,7 +130,7 @@ function LogFoodPage() {
 
                 return foodIntakeService.createFoodIntake({
                     inpatientId: inpatientId,
-                    date: today.toISOString(),
+                    date: now.toISOString(),
                     mealType: backendCategory === "juice" ? "extra" : backendCategory,
                     foodDescription: foodDescription,
                     price: food.price !== undefined && food.price !== null ? Number(food.price) : 0,

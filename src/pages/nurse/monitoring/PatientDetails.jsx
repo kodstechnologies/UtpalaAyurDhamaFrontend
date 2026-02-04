@@ -34,22 +34,36 @@ import foodIntakeService from "../../../services/foodIntakeService";
 function PatientDetails() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const inpatientId = searchParams.get("inpatientId") || searchParams.get("patientId");
-    const patientName = searchParams.get("patientName") || "";
+    const inpatientId = searchParams.get("inpatientId");
+    const patientId = searchParams.get("patientId");
+    const patientNameFromQuery = searchParams.get("patientName") || "";
 
     const [isLoading, setIsLoading] = useState(true);
     const [patientData, setPatientData] = useState(null);
+    const [inpatientData, setInpatientData] = useState(null);
     const [foodIntakes, setFoodIntakes] = useState([]);
     const [vitals, setVitals] = useState([]);
 
     useEffect(() => {
-        if (inpatientId) {
-            fetchPatientDetails();
-            fetchFoodIntakes();
-        }
-    }, [inpatientId]);
+        const loadData = async () => {
+            setIsLoading(true);
+            try {
+                if (inpatientId) {
+                    await fetchInpatientDetails();
+                    await fetchFoodIntakes();
+                } else if (patientId) {
+                    await fetchPatientProfile();
+                }
+            } catch (error) {
+                console.error("Error loading data:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadData();
+    }, [inpatientId, patientId]);
 
-    const fetchPatientDetails = async () => {
+    const fetchInpatientDetails = async () => {
         try {
             const response = await axios.get(getApiUrl(`inpatients/${inpatientId}`), {
                 headers: getAuthHeaders(),
@@ -57,8 +71,9 @@ function PatientDetails() {
 
             if (response.data.success) {
                 const data = response.data.data;
-                setPatientData(data);
-                
+                setInpatientData(data);
+                setPatientData(data.patient);
+
                 // Extract vitals from dailyCheckups
                 const checkups = Array.isArray(data.dailyCheckups) ? data.dailyCheckups : [];
                 const sortedVitals = checkups
@@ -70,21 +85,36 @@ function PatientDetails() {
                         pulseRate: checkup.pulseRate || "-",
                         spo2: checkup.spo2 || "-",
                         notes: checkup.notes || "",
-                        recordedBy: typeof checkup.recordedBy === "object" 
+                        recordedBy: typeof checkup.recordedBy === "object"
                             ? (checkup.recordedBy.name || "N/A")
                             : "N/A",
                     }))
                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                
+
                 setVitals(sortedVitals);
             } else {
-                toast.error("Failed to fetch patient details");
+                toast.error("Failed to fetch inpatient details");
             }
         } catch (error) {
-            console.error("Error fetching patient details:", error);
-            toast.error(error.response?.data?.message || "Failed to fetch patient details");
-        } finally {
-            setIsLoading(false);
+            console.error("Error fetching inpatient details:", error);
+            toast.error(error.response?.data?.message || "Failed to fetch inpatient details");
+        }
+    };
+
+    const fetchPatientProfile = async () => {
+        try {
+            const response = await axios.get(getApiUrl(`patients/${patientId}`), {
+                headers: getAuthHeaders(),
+            });
+
+            if (response.data.success) {
+                setPatientData(response.data.data);
+            } else {
+                toast.error("Failed to fetch patient profile");
+            }
+        } catch (error) {
+            console.error("Error fetching patient profile:", error);
+            toast.error(error.response?.data?.message || "Failed to fetch patient profile");
         }
     };
 
@@ -104,15 +134,15 @@ function PatientDetails() {
                 } else if (Array.isArray(response.data)) {
                     intakes = response.data;
                 }
-                
+
                 const sortedIntakes = intakes
                     .map((intake) => ({
                         id: intake._id?.toString() || intake.id || `${inpatientId}-${intake.date}`,
                         date: intake.date || new Date(),
                         mealType: intake.mealType || "-",
                         foodDescription: intake.foodDescription || "-",
-                        price: intake.price !== undefined && intake.price !== null 
-                            ? Number(intake.price) 
+                        price: intake.price !== undefined && intake.price !== null
+                            ? Number(intake.price)
                             : 0,
                         status: intake.status || "logged",
                         loggedBy: typeof intake.loggedBy === "object"
@@ -120,7 +150,7 @@ function PatientDetails() {
                             : "N/A",
                     }))
                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                
+
                 setFoodIntakes(sortedIntakes);
             }
         } catch (error) {
@@ -213,7 +243,7 @@ function PatientDetails() {
         <div>
             <HeadingCard
                 title="Patient Details"
-                subtitle={`Patient: ${patientName || patientData.patient?.user?.name || "Unknown"}`}
+                subtitle={`Patient: ${patientNameFromQuery || (patientData?.user?.name) || "Unknown"}`}
                 breadcrumbItems={[
                     { label: "Nurse", url: "/nurse/dashboard" },
                     { label: "Monitoring", url: "/nurse/monitoring" },
@@ -250,7 +280,7 @@ function PatientDetails() {
                                         Patient ID
                                     </Typography>
                                     <Typography variant="body1" fontWeight={500}>
-                                        {patientData.patient?.uhid || patientData.patient?.patientId || patientData.patient?.user?.uhid || "N/A"}
+                                        {patientData?.uhid || patientData?.patientId || patientData?.user?.uhid || "N/A"}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -258,7 +288,7 @@ function PatientDetails() {
                                         Patient Name
                                     </Typography>
                                     <Typography variant="body1" fontWeight={500}>
-                                        {patientData.patient?.user?.name || "N/A"}
+                                        {patientData?.user?.name || "N/A"}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -266,7 +296,7 @@ function PatientDetails() {
                                         Admission Date
                                     </Typography>
                                     <Typography variant="body1" fontWeight={500}>
-                                        {formatDate(patientData.admissionDate)}
+                                        {formatDate(inpatientData ? inpatientData.admissionDate : patientData?.createdAt)}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -274,17 +304,17 @@ function PatientDetails() {
                                         Ward / Bed
                                     </Typography>
                                     <Typography variant="body1" fontWeight={500}>
-                                        {(() => {
-                                            const wardCategory = patientData.wardCategory || "N/A";
-                                            const roomNumber = patientData.roomNumber || "";
-                                            const bedNumber = patientData.bedNumber || "N/A";
-                                            
+                                        {inpatientData ? (() => {
+                                            const wardCategory = inpatientData.wardCategory || "N/A";
+                                            const roomNumber = inpatientData.roomNumber || "";
+                                            const bedNumber = inpatientData.bedNumber || "N/A";
+
                                             if (roomNumber) {
                                                 return `${wardCategory} / Room ${roomNumber} / Bed ${bedNumber}`;
                                             } else {
                                                 return `${wardCategory} / Bed ${bedNumber}`;
                                             }
-                                        })()}
+                                        })() : "Outpatient"}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -292,7 +322,7 @@ function PatientDetails() {
                                         Consulting Doctor
                                     </Typography>
                                     <Typography variant="body1" fontWeight={500}>
-                                        {patientData.doctor?.user?.name || "Not Assigned"}
+                                        {inpatientData ? (inpatientData.doctor?.user?.name || "Not Assigned") : (patientData?.primaryDoctor?.user?.name || "Not Assigned")}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -300,9 +330,9 @@ function PatientDetails() {
                                         Status
                                     </Typography>
                                     <Chip
-                                        label={patientData.status || "N/A"}
+                                        label={inpatientData ? (inpatientData.status || "N/A") : "Outpatient"}
                                         size="small"
-                                        color={patientData.status === "Admitted" ? "success" : "default"}
+                                        color={inpatientData?.status === "Admitted" ? "success" : "default"}
                                         sx={{ mt: 0.5 }}
                                     />
                                 </Grid>
