@@ -701,7 +701,7 @@ function ReportCard({
                 serviceDate: "12/09/2025",
                 cost: "₹120.00",
                 totalDue: "₹123.60",
-                instructions: "Please make payment by 12/24/2025 via online portal, check, or credit card. For inquiries, contact us at 5465647658. Thank you!",
+                instructions: "Please make payment via online portal, check, or credit card. For inquiries, contact us at +91 72591 95959. Thank you!",
             });
             navigate(`/patient/reports/invoice?${params.toString()}`);
         }

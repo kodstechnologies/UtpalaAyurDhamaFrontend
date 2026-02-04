@@ -209,7 +209,7 @@ function WhatsAppPage() {
                             <Typography variant="body2" sx={{ color: "#333", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
                                 Hello <strong>{patientName}</strong>, your appointment with <strong>{doctorName}</strong> is scheduled on <strong>{appointmentDate}</strong> at <strong>{appointmentTime}</strong>.{"\n"}
                                 Please reach the clinic 10 minutes early.{"\n"}
-                                For any assistance, contact us at <strong>1234567890</strong> anytime.
+                                For any assistance, contact us at <strong>+917259195959</strong> anytime.
                             </Typography>
                         )}
                     </Box>
