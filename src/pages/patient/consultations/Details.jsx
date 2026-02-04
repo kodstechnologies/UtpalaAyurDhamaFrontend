@@ -297,7 +297,11 @@ function ConsultationDetails() {
                             </Box>
                             <Box sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}>
                                 <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                                    <strong>Name:</strong> {appointment.doctor?.user?.name ? `Dr. ${appointment.doctor.user.name}` : "N/A"}
+                                    <strong>Name:</strong> {(() => {
+                                        const rawName = appointment.doctor?.user?.name || "N/A";
+                                        if (rawName === "N/A") return "N/A";
+                                        return rawName.toLowerCase().startsWith("dr.") ? rawName : `Dr. ${rawName}`;
+                                    })()}
                                 </Typography>
                                 <Typography variant="body2" sx={{ marginBottom: 1 }}>
                                     <strong>Email:</strong> {appointment.doctor?.user?.email || "N/A"}

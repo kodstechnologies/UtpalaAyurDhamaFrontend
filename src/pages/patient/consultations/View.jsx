@@ -67,9 +67,10 @@ function Consultations_View() {
                     const patientName = consultation.patient?.user?.name || "N/A";
                     const patientId = consultation.patient?.user?.uhid || consultation.patient?.patientId || "N/A";
 
-                    // Get doctor name
-                    const doctorName = consultation.doctor?.user?.name 
-                        ? `Dr. ${consultation.doctor.user.name}`
+                    // Get doctor name - sanitize to avoid "Dr. Dr."
+                    let rawDoctorName = consultation.doctor?.user?.name || "N/A";
+                    const doctorName = rawDoctorName !== "N/A"
+                        ? (rawDoctorName.toLowerCase().startsWith("dr.") ? rawDoctorName : `Dr. ${rawDoctorName}`)
                         : "N/A";
 
                     // Get chief complaint from examination or appointment notes
@@ -118,11 +119,12 @@ function Consultations_View() {
         { field: "patientName", header: "Patient Name" },
         { field: "patientId", header: "ID" },
         { field: "doctor", header: "Doctor" },
-        { 
-            field: "date", 
+        {
+            field: "date",
             header: "Date",
             render: (row) => formatDate(row.date)
         },
+        { field: "appointmentTime", header: "Time" },
         { field: "complaint", header: "Chief Complaint" },
         { field: "followup", header: "Follow-up" },
     ];

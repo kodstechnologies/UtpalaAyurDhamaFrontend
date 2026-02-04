@@ -13,7 +13,33 @@ const getPatientHistory = async (patientId) => {
     }
 };
 
+const getPatientDashboard = async () => {
+    try {
+        const response = await axios.get(
+            getApiUrl(`patients/dashboard/summary`),
+            { headers: getAuthHeaders() }
+        );
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error.message;
+    }
+};
+
+const getUpcomingReminders = async () => {
+    try {
+        const response = await axios.get(
+            getApiUrl(`patients/reminders/upcoming`),
+            { headers: getAuthHeaders() }
+        );
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error.message;
+    }
+};
+
 export default {
     getPatientHistory,
+    getPatientDashboard,
+    getUpcomingReminders,
 };
 

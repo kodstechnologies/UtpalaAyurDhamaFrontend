@@ -30,21 +30,11 @@ function EditPatientPage() {
         age: "",
         address: "",
         dateOfBirth: "", // Used for age calculation/storage
-        primaryDoctor: "",
-        primaryTherapist: "",
-        doctorAssignedDate: "",
-        therapistAssignedDate: "",
-        assignedTherapy: "",
-        therapyDurationDays: "",
-        therapyTimeline: "Daily",
-        therapyInstructions: "",
-        therapyStartDate: "",
     });
 
     useEffect(() => {
         if (patientId) {
             fetchPatientDetails();
-            fetchProviders();
         } else {
             toast.error("Invalid Patient ID");
             navigate("/receptionist/appointments");
@@ -102,21 +92,6 @@ function EditPatientPage() {
                     age: age,
                     address: data.address || "",
                     dateOfBirth: data.dateOfBirth || "",
-                    primaryDoctor: data.patientProfile?.primaryDoctor?._id || data.patientProfile?.primaryDoctor || "",
-                    primaryTherapist: data.patientProfile?.primaryTherapist?._id || data.patientProfile?.primaryTherapist || "",
-                    doctorAssignedDate: data.patientProfile?.doctorAssignedDate
-                        ? new Date(data.patientProfile.doctorAssignedDate).toISOString().slice(0, 16)
-                        : "",
-                    therapistAssignedDate: data.patientProfile?.therapistAssignedDate
-                        ? new Date(data.patientProfile.therapistAssignedDate).toISOString().slice(0, 16)
-                        : "",
-                    assignedTherapy: data.patientProfile?.assignedTherapy?._id || data.patientProfile?.assignedTherapy || "",
-                    therapyDurationDays: data.patientProfile?.therapyDurationDays || "",
-                    therapyTimeline: data.patientProfile?.therapyTimeline || "Daily",
-                    therapyInstructions: data.patientProfile?.therapyInstructions || "",
-                    therapyStartDate: data.patientProfile?.therapyStartDate
-                        ? new Date(data.patientProfile.therapyStartDate).toISOString().slice(0, 10)
-                        : "",
                 });
 
             } else {
@@ -135,21 +110,6 @@ function EditPatientPage() {
                     age: data.age ? String(data.age) : "",
                     address: data.address || "",
                     dateOfBirth: "", // Reception patients usually store Age directly, but might vary
-                    primaryDoctor: data.patientProfile?.primaryDoctor?._id || data.patientProfile?.primaryDoctor || "",
-                    primaryTherapist: data.patientProfile?.primaryTherapist?._id || data.patientProfile?.primaryTherapist || "",
-                    doctorAssignedDate: data.patientProfile?.doctorAssignedDate
-                        ? new Date(data.patientProfile.doctorAssignedDate).toISOString().slice(0, 16)
-                        : "",
-                    therapistAssignedDate: data.patientProfile?.therapistAssignedDate
-                        ? new Date(data.patientProfile.therapistAssignedDate).toISOString().slice(0, 16)
-                        : "",
-                    assignedTherapy: data.patientProfile?.assignedTherapy?._id || data.patientProfile?.assignedTherapy || "",
-                    therapyDurationDays: data.patientProfile?.therapyDurationDays || "",
-                    therapyTimeline: data.patientProfile?.therapyTimeline || "Daily",
-                    therapyInstructions: data.patientProfile?.therapyInstructions || "",
-                    therapyStartDate: data.patientProfile?.therapyStartDate
-                        ? new Date(data.patientProfile.therapyStartDate).toISOString().slice(0, 10)
-                        : "",
                 });
             }
         } catch (error) {
@@ -181,21 +141,6 @@ function EditPatientPage() {
             // Enforce max 2 decimal places
             if (value.includes(".") && value.split(".")[1].length > 2) return;
             setFormData((prev) => ({ ...prev, [name]: value }));
-            return;
-        }
-
-        if (name === "primaryDoctor") {
-            // Update assigned date to now if doctor changes to a valid ID
-            // If cleared (value === ""), maybe clear date? Or keep it? Let's keep it simple: update to now if selecting.
-            // Actually better to just set it to now if value is truthy.
-            const now = value ? new Date().toISOString().slice(0, 16) : formData.doctorAssignedDate;
-            setFormData((prev) => ({ ...prev, [name]: value, doctorAssignedDate: now }));
-            return;
-        }
-
-        if (name === "primaryTherapist") {
-            const now = value ? new Date().toISOString().slice(0, 16) : formData.therapistAssignedDate;
-            setFormData((prev) => ({ ...prev, [name]: value, therapistAssignedDate: now }));
             return;
         }
 
@@ -266,16 +211,6 @@ function EditPatientPage() {
                     gender: formData.gender,
                     address: formData.address,
                     dateOfBirth: dateOfBirth,
-                    // Including assignment details for family members as well
-                    primaryDoctor: formData.primaryDoctor,
-                    primaryTherapist: formData.primaryTherapist,
-                    doctorAssignedDate: formData.doctorAssignedDate,
-                    therapistAssignedDate: formData.therapistAssignedDate,
-                    assignedTherapy: formData.assignedTherapy,
-                    therapyDurationDays: formData.therapyDurationDays,
-                    therapyTimeline: formData.therapyTimeline,
-                    therapyInstructions: formData.therapyInstructions,
-                    therapyStartDate: formData.therapyStartDate,
                 };
 
                 await familyMemberService.updateFamilyMemberForReceptionist(patientId, updateData);
@@ -290,15 +225,6 @@ function EditPatientPage() {
                     gender: formData.gender,
                     age: formData.age,
                     address: formData.address,
-                    primaryDoctor: formData.primaryDoctor,
-                    primaryTherapist: formData.primaryTherapist,
-                    doctorAssignedDate: formData.doctorAssignedDate,
-                    therapistAssignedDate: formData.therapistAssignedDate,
-                    assignedTherapy: formData.assignedTherapy,
-                    therapyDurationDays: formData.therapyDurationDays,
-                    therapyTimeline: formData.therapyTimeline,
-                    therapyInstructions: formData.therapyInstructions,
-                    therapyStartDate: formData.therapyStartDate,
                 };
 
                 await axios.patch(getApiUrl(`reception-patients/${patientId}`), updateData, {
@@ -434,157 +360,6 @@ function EditPatientPage() {
                                 multiline
                                 rows={2}
                                 value={formData.address}
-                                onChange={handleChange}
-                            />
-                        </Grid>
-
-
-                        {/* Doctor Section */}
-                        <Grid item xs={12} sx={{ mt: 2 }}>
-                            <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, mb: 2 }}>
-                                <strong>Doctor Details</strong>
-                            </Box>
-                        </Grid>
-
-                        {/* Doctor Assignment Section */}
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth>
-                                <InputLabel>Primary Doctor</InputLabel>
-                                <Select
-                                    name="primaryDoctor"
-                                    value={formData.primaryDoctor || ""}
-                                    onChange={handleChange}
-                                    label="Primary Doctor"
-                                >
-                                    <MenuItem value="">Select Doctor</MenuItem>
-                                    {doctors.map((doc) => (
-                                        <MenuItem key={doc._id} value={doc._id}>
-                                            {doc.firstName} {doc.lastName} ({doc.specialization})
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                label="Doctor Assigned Date"
-                                name="doctorAssignedDate"
-                                type="datetime-local"
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                                value={formData.doctorAssignedDate || ""}
-                                onChange={handleChange}
-                            />
-                        </Grid>
-
-                        {/* Therapy Section */}
-                        <Grid item xs={12} sx={{ mt: 2 }}>
-                            <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 1, mb: 2 }}>
-                                <strong>Therapy Details</strong>
-                            </Box>
-                        </Grid>
-
-                        {/* Row 1: Therapy, Days, Timeline */}
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth>
-                                <InputLabel>Select Therapy</InputLabel>
-                                <Select
-                                    name="assignedTherapy"
-                                    value={formData.assignedTherapy || ""}
-                                    onChange={handleChange}
-                                    label="Select Therapy"
-                                >
-                                    <MenuItem value="">Select Therapy</MenuItem>
-                                    {availableTherapies.map((therapy) => (
-                                        <MenuItem key={therapy._id} value={therapy._id}>
-                                            {therapy.therapyName}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth>
-                                <InputLabel>Days</InputLabel>
-                                <Select
-                                    name="therapyDurationDays"
-                                    value={formData.therapyDurationDays || ""}
-                                    onChange={handleChange}
-                                    label="Days"
-                                >
-                                    <MenuItem value="">Select Days</MenuItem>
-                                    {[1, 3, 5, 7, 10, 14, 21, 28, 30].map((day) => (
-                                        <MenuItem key={day} value={day}>{day} Days</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth>
-                                <InputLabel>Timeline</InputLabel>
-                                <Select
-                                    name="therapyTimeline"
-                                    value={formData.therapyTimeline || "Daily"}
-                                    onChange={handleChange}
-                                    label="Timeline"
-                                >
-                                    <MenuItem value="Daily">Daily</MenuItem>
-                                    <MenuItem value="Alternate Days">Alternate Days</MenuItem>
-                                    <MenuItem value="Weekly">Weekly</MenuItem>
-                                    <MenuItem value="Once">Once</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-
-                        {/* Row 2: Therapist and Assigned Date (To match Doctor Row) */}
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth>
-                                <InputLabel>Assign Therapist</InputLabel>
-                                <Select
-                                    name="primaryTherapist"
-                                    value={formData.primaryTherapist || ""}
-                                    onChange={handleChange}
-                                    label="Assign Therapist"
-                                >
-                                    <MenuItem value="">Select Therapist</MenuItem>
-                                    {therapists.map((therapist) => (
-                                        <MenuItem key={therapist._id} value={therapist._id}>
-                                            {therapist.name || (therapist.user?.name) || "Unknown Therapist"} ({therapist.specialization || therapist.speciality || "General"})
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                label="Therapist Assigned Date"
-                                name="therapistAssignedDate"
-                                type="datetime-local"
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                                value={formData.therapistAssignedDate || ""}
-                                onChange={handleChange}
-                            />
-                        </Grid>
-
-                        {/* Row 3: Instructions and Start Date */}
-                        <Grid item xs={12} md={8}>
-                            <TextField
-                                label="Special Instructions"
-                                name="therapyInstructions"
-                                fullWidth
-                                value={formData.therapyInstructions || ""}
-                                onChange={handleChange}
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                label="Start Date"
-                                name="therapyStartDate"
-                                type="date"
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                                value={formData.therapyStartDate || ""}
                                 onChange={handleChange}
                             />
                         </Grid>

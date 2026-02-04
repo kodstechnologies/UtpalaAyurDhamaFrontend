@@ -14,7 +14,7 @@ function RescheduleAppointmentPage() {
 
     const [formData, setFormData] = useState({
         doctor: searchParams.get("doctorId") || "",
-        date: searchParams.get("date") || new Date().toISOString().split("T")[0],
+        date: searchParams.get("date") || new Date().toLocaleDateString("en-CA"),
         time: searchParams.get("time") || "",
     });
 
@@ -34,7 +34,7 @@ function RescheduleAppointmentPage() {
             if (response.data.success) {
                 const doctorsData = response.data.data || [];
                 setDoctors(doctorsData);
-                
+
                 if (doctorsData.length === 0) {
                     toast.warning("No doctors available. Please add doctors first.");
                 }
@@ -51,6 +51,14 @@ function RescheduleAppointmentPage() {
     }, []);
 
     useEffect(() => {
+        setFormData({
+            doctor: searchParams.get("doctorId") || "",
+            date: searchParams.get("date") || new Date().toLocaleDateString("en-CA"),
+            time: searchParams.get("time") || "",
+        });
+    }, [appointmentId, searchParams.get("doctorId"), searchParams.get("date"), searchParams.get("time")]);
+
+    useEffect(() => {
         fetchDoctors();
     }, [fetchDoctors]);
 
@@ -61,7 +69,7 @@ function RescheduleAppointmentPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Validate form
         if (!formData.doctor) {
             toast.error("Please select a doctor");
@@ -86,12 +94,12 @@ function RescheduleAppointmentPage() {
                 appointmentDate: formData.date,
                 appointmentTime: formData.time,
             };
-            
+
             // Only include doctorId if a doctor is selected (optional for reschedule)
             if (formData.doctor) {
                 requestBody.doctorId = formData.doctor;
             }
-            
+
             const response = await axios.patch(
                 getApiUrl(`appointments/${appointmentId}/reschedule`),
                 requestBody,
@@ -194,9 +202,9 @@ function RescheduleAppointmentPage() {
                         <Button variant="outlined" onClick={() => navigate(-1)} disabled={isSubmitting}>
                             Cancel
                         </Button>
-                        <Button 
-                            type="submit" 
-                            variant="contained" 
+                        <Button
+                            type="submit"
+                            variant="contained"
                             sx={{ backgroundColor: "#8B4513" }}
                             disabled={isSubmitting || isLoadingDoctors}
                         >

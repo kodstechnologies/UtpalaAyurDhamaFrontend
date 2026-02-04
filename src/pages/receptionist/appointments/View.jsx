@@ -170,6 +170,7 @@ function Appointments_View() {
                     relation: patient.relation || "",
                     mainPatient: patient.mainPatient || null,
                     familyMemberId: patient.isFamilyMember ? patient._id : null,
+                    primaryDoctorId: patient.patientProfile?.primaryDoctor?._id || patient.patientProfile?.primaryDoctor || "",
                 }));
                 setAllPatients(transformedPatients);
             } else {
@@ -418,6 +419,7 @@ function Appointments_View() {
         const params = new URLSearchParams({
             patientProfileId: patient.patientProfileId || "",
             patientName: patient.name || "",
+            doctorId: patient.primaryDoctorId || "",
         });
         navigate(`/receptionist/walk-in-hub?${params.toString()}`);
     };

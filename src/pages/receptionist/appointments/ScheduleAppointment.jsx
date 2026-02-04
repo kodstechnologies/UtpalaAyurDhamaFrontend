@@ -15,7 +15,7 @@ function ScheduleAppointmentPage() {
 
     const [formData, setFormData] = useState({
         doctor: searchParams.get("doctorId") || "",
-        date: searchParams.get("date") || new Date().toISOString().split("T")[0],
+        date: searchParams.get("date") || new Date().toLocaleDateString("en-CA"),
         time: searchParams.get("time") || "",
     });
 
@@ -27,7 +27,7 @@ function ScheduleAppointmentPage() {
     // Fetch existing appointment data if available
     const fetchExistingAppointment = useCallback(async () => {
         if (!patientId) return;
-        
+
         setIsLoadingExistingAppointment(true);
         try {
             // Fetch appointments for this patient to get existing doctor assignment
@@ -38,20 +38,20 @@ function ScheduleAppointmentPage() {
 
             if (response.data.success && response.data.data && response.data.data.length > 0) {
                 const latestAppointment = response.data.data[0]; // Get the latest appointment
-                
+
                 if (latestAppointment.doctor) {
                     const doctorId = latestAppointment.doctor._id || latestAppointment.doctor;
-                    const appointmentDate = latestAppointment.appointmentDate ? 
-                        new Date(latestAppointment.appointmentDate).toISOString().split('T')[0] : 
+                    const appointmentDate = latestAppointment.appointmentDate ?
+                        new Date(latestAppointment.appointmentDate).toISOString().split('T')[0] :
                         formData.date;
                     const appointmentTime = latestAppointment.appointmentTime || formData.time;
-                    
+
                     console.log("Pre-filling form with existing appointment data:", {
                         doctorId,
                         appointmentDate,
                         appointmentTime
                     });
-                    
+
                     setFormData((prev) => ({
                         ...prev,
                         doctor: doctorId,
@@ -104,9 +104,22 @@ function ScheduleAppointmentPage() {
     }, []);
 
     useEffect(() => {
+        setFormData({
+            doctor: searchParams.get("doctorId") || "",
+            date: searchParams.get("date") || new Date().toLocaleDateString("en-CA"),
+            time: searchParams.get("time") || "",
+        });
+    }, [patientId, searchParams.get("doctorId"), searchParams.get("date"), searchParams.get("time")]);
+
+    useEffect(() => {
         fetchDoctors();
-        fetchExistingAppointment();
-    }, [fetchDoctors, fetchExistingAppointment]);
+    }, [fetchDoctors]);
+
+    useEffect(() => {
+        if (patientId) {
+            fetchExistingAppointment();
+        }
+    }, [patientId, fetchExistingAppointment]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -271,106 +284,106 @@ function ScheduleAppointmentPage() {
                             </p>
                         </Box>
                     )}
-                <form onSubmit={handleSubmit}>
-                    <Box sx={{ mb: 3 }}>
-                        <TextField
-                            label="Patient"
-                            fullWidth
-                            value={patientName}
-                            disabled
-                            sx={{ mb: 2 }}
-                        />
-                        <FormControl fullWidth required sx={{ mb: 2 }}>
-                            <InputLabel id="doctor-select-label" shrink={!!formData.doctor}>Doctor *</InputLabel>
-                            <Select
-                                labelId="doctor-select-label"
-                                name="doctor"
-                                value={formData.doctor}
-                                onChange={handleChange}
-                                label="Doctor *"
-                                disabled={isLoadingDoctors}
-                                displayEmpty={false}
-                                notched={!!formData.doctor}
-                            >
-                                {isLoadingDoctors ? (
-                                    <MenuItem value="" disabled>
-                                        Loading doctors...
-                                    </MenuItem>
-                                ) : doctors.length === 0 ? (
-                                    <MenuItem value="" disabled>
-                                        No doctors available
-                                    </MenuItem>
-                                ) : (
-                                    doctors.map((doctor) => {
-                                        console.log("Rendering doctor:", doctor);
-                                        const doctorName = doctor.user?.name ||
-                                            `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() ||
-                                            "Doctor";
-                                        const displayName = doctor.specialization
-                                            ? `${doctorName} - ${doctor.specialization}`
-                                            : doctorName;
-                                        return (
-                                            <MenuItem key={doctor._id || doctor.id} value={doctor._id || doctor.id}>
-                                                {displayName}
-                                            </MenuItem>
-                                        );
-                                    })
+                    <form onSubmit={handleSubmit}>
+                        <Box sx={{ mb: 3 }}>
+                            <TextField
+                                label="Patient"
+                                fullWidth
+                                value={patientName}
+                                disabled
+                                sx={{ mb: 2 }}
+                            />
+                            <FormControl fullWidth required sx={{ mb: 2 }}>
+                                <InputLabel id="doctor-select-label" shrink={!!formData.doctor}>Doctor *</InputLabel>
+                                <Select
+                                    labelId="doctor-select-label"
+                                    name="doctor"
+                                    value={formData.doctor}
+                                    onChange={handleChange}
+                                    label="Doctor *"
+                                    disabled={isLoadingDoctors}
+                                    displayEmpty={false}
+                                    notched={!!formData.doctor}
+                                >
+                                    {isLoadingDoctors ? (
+                                        <MenuItem value="" disabled>
+                                            Loading doctors...
+                                        </MenuItem>
+                                    ) : doctors.length === 0 ? (
+                                        <MenuItem value="" disabled>
+                                            No doctors available
+                                        </MenuItem>
+                                    ) : (
+                                        doctors.map((doctor) => {
+                                            console.log("Rendering doctor:", doctor);
+                                            const doctorName = doctor.user?.name ||
+                                                `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() ||
+                                                "Doctor";
+                                            const displayName = doctor.specialization
+                                                ? `${doctorName} - ${doctor.specialization}`
+                                                : doctorName;
+                                            return (
+                                                <MenuItem key={doctor._id || doctor.id} value={doctor._id || doctor.id}>
+                                                    {displayName}
+                                                </MenuItem>
+                                            );
+                                        })
+                                    )}
+                                </Select>
+                                {isLoadingDoctors && (
+                                    <CircularProgress size={24} sx={{ position: "absolute", right: 40, top: "50%", transform: "translateY(-50%)" }} />
                                 )}
-                            </Select>
-                            {isLoadingDoctors && (
-                                <CircularProgress size={24} sx={{ position: "absolute", right: 40, top: "50%", transform: "translateY(-50%)" }} />
-                            )}
-                        </FormControl>
-                        <Box sx={{ display: "flex", gap: 2 }}>
-                            <TextField
-                                label="Date *"
-                                name="date"
-                                type="date"
-                                fullWidth
-                                required
-                                value={formData.date}
-                                onChange={handleChange}
-                                InputLabelProps={{ shrink: true }}
-                            />
-                            <TextField
-                                label="Time *"
-                                name="time"
-                                type="time"
-                                fullWidth
-                                required
-                                value={formData.time}
-                                onChange={handleChange}
-                                InputLabelProps={{ shrink: true }}
-                            />
+                            </FormControl>
+                            <Box sx={{ display: "flex", gap: 2 }}>
+                                <TextField
+                                    label="Date *"
+                                    name="date"
+                                    type="date"
+                                    fullWidth
+                                    required
+                                    value={formData.date}
+                                    onChange={handleChange}
+                                    InputLabelProps={{ shrink: true }}
+                                />
+                                <TextField
+                                    label="Time *"
+                                    name="time"
+                                    type="time"
+                                    fullWidth
+                                    required
+                                    value={formData.time}
+                                    onChange={handleChange}
+                                    InputLabelProps={{ shrink: true }}
+                                />
+                            </Box>
                         </Box>
-                    </Box>
 
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                        <Button
-                            variant="outlined"
-                            onClick={() => navigate(-1)}
-                            disabled={isSubmitting}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
-                            sx={{ backgroundColor: "#8B4513" }}
-                            disabled={isSubmitting || isLoadingDoctors}
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <CircularProgress size={20} sx={{ mr: 1, color: "white" }} />
-                                    Scheduling...
-                                </>
-                            ) : (
-                                formData.doctor ? "Update Appointment" : "Schedule Appointment"
-                            )}
-                        </Button>
-                    </Box>
-                </form>
-            </Box>
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+                            <Button
+                                variant="outlined"
+                                onClick={() => navigate(-1)}
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="contained"
+                                sx={{ backgroundColor: "#8B4513" }}
+                                disabled={isSubmitting || isLoadingDoctors}
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <CircularProgress size={20} sx={{ mr: 1, color: "white" }} />
+                                        Scheduling...
+                                    </>
+                                ) : (
+                                    formData.doctor ? "Update Appointment" : "Schedule Appointment"
+                                )}
+                            </Button>
+                        </Box>
+                    </form>
+                </Box>
             )}
         </div>
     );

@@ -1,7 +1,7 @@
+import { useState, useEffect } from "react";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import DescriptionIcon from "@mui/icons-material/Description";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PeopleIcon from "@mui/icons-material/People";
 import MedicationIcon from "@mui/icons-material/Medication";
 
@@ -12,18 +12,68 @@ import PatientDashboardCard from "../../components/card/patientCard/Patient_Dash
 import GreetingsImg from "../../assets/greeting/patient.png";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import patientService from "../../services/patientService";
 
 function Patient_Dashboard() {
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
+    const [dashboardData, setDashboardData] = useState(null);
+    const [reminders, setReminders] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     const patientName = user?.name || "User";
+
+    useEffect(() => {
+        const fetchDashboardInfo = async () => {
+            try {
+                setLoading(true);
+                const [summaryRes, remindersRes] = await Promise.all([
+                    patientService.getPatientDashboard(),
+                    patientService.getUpcomingReminders()
+                ]);
+
+                if (summaryRes.success) {
+                    setDashboardData(summaryRes.data);
+                }
+                if (remindersRes.success) {
+                    setReminders(remindersRes.data.reminders || []);
+                }
+            } catch (error) {
+                console.error("Error fetching patient dashboard data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (user) {
+            fetchDashboardInfo();
+        }
+    }, [user]);
+
+    const formatDate = (dateString) => {
+        if (!dateString) return "";
+        return new Date(dateString).toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
+    };
+
+    const getReminderWindowText = () => {
+        const today = new Date();
+        const threeDaysLater = new Date();
+        threeDaysLater.setDate(today.getDate() + 3);
+
+        return `Upcoming Reminders (${formatDate(today)} - ${formatDate(threeDaysLater)})`;
+    };
+
     return (
         <div style={{ paddingBottom: 50 }}>
 
             {/* ⭐ Greeting + Breadcrumb Inside */}
             <GreetingBanner
                 title="Namaste"
-                name={patientName}
+                name={dashboardData?.patientName || patientName}
                 subtitle="Here's a quick overview of your health updates and upcoming activities."
                 image={GreetingsImg}
                 breadcrumbItems={[
@@ -45,19 +95,27 @@ function Patient_Dashboard() {
             >
                 <DashboardCard
                     title="Upcoming Appointment"
-                    description="No follow-ups scheduled. Your next appointment will appear here."
+                    description={
+                        dashboardData?.upcomingAppointment
+                            ? `${dashboardData.upcomingAppointment.doctorName || "Doctor"} - ${formatDate(dashboardData.upcomingAppointment.date)}${dashboardData.upcomingAppointment.time ? ` at ${dashboardData.upcomingAppointment.time}` : ""}`
+                            : "No follow-ups scheduled. Your next appointment will appear here."
+                    }
                     icon={LocalHospitalIcon}
                 />
 
                 <DashboardCard
                     title="Family Profiles"
-                    count={2}
+                    count={dashboardData?.familyMembers ?? 0}
                     icon={PeopleIcon}
                 />
 
                 <DashboardCard
                     title="Prescriptions"
-                    description="All caught up. No new prescriptions available."
+                    description={
+                        dashboardData?.newPrescriptions > 0
+                            ? `You have ${dashboardData.newPrescriptions} pending prescription(s).`
+                            : "All caught up. No new prescriptions available."
+                    }
                     icon={MedicationIcon}
                 />
             </div>
@@ -75,37 +133,39 @@ function Patient_Dashboard() {
                 <PatientDashboardCard
                     title="Ongoing Therapy"
                     icon={FavoriteBorderIcon}
-                    mainText="Cardiology"
-                    subText="Day 1 of 1 · Scheduled"
+                    mainText={dashboardData?.ongoingTherapy?.name || "No Ongoing Therapy"}
+                    subText={
+                        dashboardData?.ongoingTherapy
+                            ? `Day ${dashboardData.ongoingTherapy.currentDay} of ${dashboardData.ongoingTherapy.totalDays} · ${dashboardData.ongoingTherapy.status}`
+                            : "You don't have any active therapy sessions scheduled."
+                    }
                     showButton={true}
                     buttonText="View All"
                     onButtonClick={() => navigate("/patient/therapies")}
                 />
 
                 <PatientDashboardCard
-                    title="Upcoming Reminders (Dec 9, 2025 - Dec 12, 2025)"
-                    subText="No appointments or therapies scheduled in the next three days."
+                    title={getReminderWindowText()}
+                    subText={
+                        reminders.length > 0
+                            ? `${reminders[0].type}: ${reminders[0].doctorName || reminders[0].treatmentName || ""} on ${formatDate(reminders[0].date)}`
+                            : "No appointments or therapies scheduled in the next three days."
+                    }
                 />
 
                 <PatientDashboardCard
                     title="Recent Reports"
                     icon={DescriptionIcon}
-                    mainText="Clinical Report"
-                    subText="Uploaded on Nov 25, 2025"
+                    mainText={dashboardData?.recentReport?.title || "No Recent Reports"}
+                    subText={
+                        dashboardData?.recentReport
+                            ? `Uploaded on ${formatDate(dashboardData.recentReport.createdAt)}`
+                            : "Your diagnostic and clinical reports will appear here."
+                    }
                     showButton={true}
                     buttonText="View All"
                     onButtonClick={() => navigate("/patient/reports")}
                 />
-
-                {/* <PatientDashboardCard
-                    title="Recent Invoice"
-                    icon={ReceiptLongIcon}
-                    mainText="Invoice #INVOICE-20251125-0002"
-                    subText="Created on Nov 25, 2025 · Amount: ₹126.00"
-                    showButton={true}
-                    buttonText="View All"
-                    onButtonClick={() => navigate("/patient/reports")}
-                /> */}
             </div>
 
         </div>

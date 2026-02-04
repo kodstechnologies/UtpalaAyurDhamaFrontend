@@ -34,14 +34,14 @@ function WalkInHub() {
         doctorProfileId: existingDoctorId,
         nurseProfileId: "",
         appointmentTime: "",
-        appointmentDate: new Date().toISOString().split("T")[0],
+        appointmentDate: new Date().toLocaleDateString("en-CA"),
         therapyData: {
             treatmentName: "",
             daysOfTreatment: 1,
             timeline: "Daily",
             specialInstructions: "",
             therapistId: "",
-            startDate: new Date().toISOString().split("T")[0],
+            startDate: new Date().toLocaleDateString("en-CA"),
         }
     });
 
@@ -80,6 +80,23 @@ function WalkInHub() {
         fetchData();
     }, [fetchData]);
 
+    useEffect(() => {
+        setFormData({
+            doctorProfileId: existingDoctorId,
+            nurseProfileId: "",
+            appointmentTime: "",
+            appointmentDate: new Date().toLocaleDateString("en-CA"),
+            therapyData: {
+                treatmentName: "",
+                daysOfTreatment: 1,
+                timeline: "Daily",
+                specialInstructions: "",
+                therapistId: "",
+                startDate: new Date().toLocaleDateString("en-CA"),
+            }
+        });
+    }, [patientProfileId, existingDoctorId]);
+
     const handleModeChange = (event, newMode) => {
         if (newMode !== null) {
             setMode(newMode);
@@ -107,6 +124,11 @@ function WalkInHub() {
 
         if (!patientProfileId) {
             toast.error("Patient identification is missing");
+            return;
+        }
+
+        if (mode === "OPD" && !formData.doctorProfileId) {
+            toast.error("Please select a doctor for OPD consultation");
             return;
         }
 
