@@ -255,10 +255,13 @@ function OPDTherapiesAddPage() {
         setIsSubmitting(true);
 
         try {
-            const selectedTherapy = therapies.find(t => t._id === formData.therapyType);
+            // Ensure we are sending the name, not the ID
+            const selectedTherapy = therapies.find(t => t._id === formData.therapyType || t.therapyName === formData.therapyType);
+            const treatmentNameToSend = selectedTherapy ? selectedTherapy.therapyName : formData.therapyType;
+
             const requestData = {
                 examinationId: formData.examinationId,
-                treatmentName: selectedTherapy?.therapyName || formData.therapyType,
+                treatmentName: treatmentNameToSend,
                 daysOfTreatment: parseInt(formData.totalSessions, 10),
                 timeline: formData.timeline || "AlternateDay",
                 specialInstructions: formData.notes.trim() || "",

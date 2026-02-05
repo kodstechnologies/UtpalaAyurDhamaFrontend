@@ -326,7 +326,7 @@ function PatientHistory() {
                         size="small"
                         startIcon={<CloudUpload />}
                         onClick={() => setUploadDialogOpen(true)}
-                        sx={{ 
+                        sx={{
                             fontSize: '0.875rem',
                             py: 0.75,
                             px: 1.5,
@@ -765,7 +765,7 @@ function PatientHistory() {
                                                     if (!str || typeof str !== 'string') return false;
                                                     return /^[0-9a-fA-F]{24}$/.test(str);
                                                 };
-                                                
+
                                                 // Get treatment name, ensuring it's not a MongoDB ID
                                                 const getTreatmentName = () => {
                                                     const name = session.treatmentName;
@@ -775,48 +775,48 @@ function PatientHistory() {
                                                     }
                                                     return name;
                                                 };
-                                                
+
                                                 return (
-                                                <Card key={idx} sx={{ mb: 2, border: "1px solid #e0e0e0" }}>
-                                                    <CardContent>
-                                                        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                                                            <Typography variant="h6">{getTreatmentName()}</Typography>
-                                                            <Chip
-                                                                label={session.status || "Pending"}
-                                                                color={getStatusColor(session.status)}
-                                                                size="small"
-                                                            />
-                                                        </Box>
-                                                        <Grid container spacing={2}>
-                                                            <Grid item xs={12} md={6}>
-                                                                <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                    <strong>Therapists:</strong>{" "}
-                                                                    {session.therapists.map((t, i) => (
-                                                                        <span key={i}>
-                                                                            {t.name} ({t.speciality})
-                                                                            {i < session.therapists.length - 1 && ", "}
-                                                                        </span>
-                                                                    ))}
-                                                                </Typography>
-                                                                {session.examination && (
+                                                    <Card key={idx} sx={{ mb: 2, border: "1px solid #e0e0e0" }}>
+                                                        <CardContent>
+                                                            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+                                                                <Typography variant="h6">{getTreatmentName()}</Typography>
+                                                                <Chip
+                                                                    label={session.status || "Pending"}
+                                                                    color={getStatusColor(session.status)}
+                                                                    size="small"
+                                                                />
+                                                            </Box>
+                                                            <Grid container spacing={2}>
+                                                                <Grid item xs={12} md={6}>
                                                                     <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                        <strong>Related Examination:</strong> {session.examination.complaints} (Dr. {session.examination.doctor})
+                                                                        <strong>Therapists:</strong>{" "}
+                                                                        {session.therapists.map((t, i) => (
+                                                                            <span key={i}>
+                                                                                {t.name} ({t.speciality})
+                                                                                {i < session.therapists.length - 1 && ", "}
+                                                                            </span>
+                                                                        ))}
                                                                     </Typography>
-                                                                )}
-                                                            </Grid>
-                                                            <Grid item xs={12} md={6}>
-                                                                {session.inpatient && (
-                                                                    <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                        <strong>IPD:</strong> Room {session.inpatient.roomNumber}, Bed {session.inpatient.bedNumber}
+                                                                    {session.examination && (
+                                                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                                                            <strong>Related Examination:</strong> {session.examination.complaints} (Dr. {session.examination.doctor})
+                                                                        </Typography>
+                                                                    )}
+                                                                </Grid>
+                                                                <Grid item xs={12} md={6}>
+                                                                    {session.inpatient && (
+                                                                        <Typography variant="body2" sx={{ mb: 1 }}>
+                                                                            <strong>IPD:</strong> Room {session.inpatient.roomNumber}, Bed {session.inpatient.bedNumber}
+                                                                        </Typography>
+                                                                    )}
+                                                                    <Typography variant="body2" color="text.secondary">
+                                                                        Created: {formatDateTime(session.createdAt)}
                                                                     </Typography>
-                                                                )}
-                                                                <Typography variant="body2" color="text.secondary">
-                                                                    Created: {formatDateTime(session.createdAt)}
-                                                                </Typography>
+                                                                </Grid>
                                                             </Grid>
-                                                        </Grid>
-                                                    </CardContent>
-                                                </Card>
+                                                        </CardContent>
+                                                    </Card>
                                                 );
                                             })}
                                         </AccordionDetails>
@@ -896,6 +896,11 @@ function PatientHistory() {
                                                                 {invoice.inpatient && (
                                                                     <Typography variant="body2" sx={{ mb: 1 }}>
                                                                         <strong>IPD:</strong> Room {invoice.inpatient.roomNumber}, Bed {invoice.inpatient.bedNumber}
+                                                                    </Typography>
+                                                                )}
+                                                                {invoice.payments && invoice.payments.length > 0 && (
+                                                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                                                        <strong>Payment Method:</strong> {invoice.payments.map(p => p.paymentMethod).join(", ")}
                                                                     </Typography>
                                                                 )}
                                                             </Grid>

@@ -93,7 +93,7 @@ function DashboardCard({
                             /* ELSE SHOW DESCRIPTION */
                             <Typography
                                 sx={{
-                                    color: "var(--color-text-light)",
+                                    color: "var(--color-text-muted)",
                                     fontSize: "0.75rem",
                                     fontWeight: 500,
                                 }}

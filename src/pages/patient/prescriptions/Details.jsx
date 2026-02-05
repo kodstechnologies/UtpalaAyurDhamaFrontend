@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
 import {
     Box,
@@ -39,6 +39,7 @@ import { toast } from "react-toastify";
 function PrescriptionDetailsPage() {
     const navigate = useNavigate();
     const { id } = useParams();
+    const location = useLocation();
     const theme = useTheme();
 
     const [prescription, setPrescription] = useState(null);
@@ -126,20 +127,20 @@ function PrescriptionDetailsPage() {
     useEffect(() => {
         const fetchPrescription = async () => {
             if (!id) return;
-            
+
             setIsLoading(true);
             try {
                 const response = await prescriptionService.getPrescriptionById(id);
 
                 if (response.success) {
                     const data = response.data;
-                    
+
                     // Transform the prescription data
                     const transformedPrescription = {
                         _id: data._id,
                         patientName: data.patient?.user?.name || data.examination?.patient?.user?.name || "Unknown",
                         patientId: data.patient?.patientId || data.patient?.user?.uhid || data.examination?.patient?.patientId || data.examination?.patient?.user?.uhid || "N/A",
-                        prescriptionDate: data.createdAt 
+                        prescriptionDate: data.createdAt
                             ? new Date(data.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                             : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
                         diagnosis: data.examination?.complaints || data.diagnosis || "Not specified",
@@ -225,7 +226,13 @@ function PrescriptionDetailsPage() {
             <Box sx={{ mb: 3 }}>
                 <Button
                     startIcon={<ArrowBackIcon />}
-                    onClick={() => navigate("/patient/prescriptions")}
+                    onClick={() => {
+                        if (location.state?.fromReports) {
+                            navigate("/patient/reports");
+                        } else {
+                            navigate("/patient/prescriptions");
+                        }
+                    }}
                     sx={{
                         color: "var(--color-text-dark)",
                         textTransform: "none",
@@ -349,9 +356,9 @@ function PrescriptionDetailsPage() {
                                                                         }}
                                                                     >
                                                                         <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
-                                                            {timeSlot.icon && (
-                                                                React.createElement(timeSlot.icon, { sx: { fontSize: 32, color: "var(--color-primary)" } })
-                                                            )}
+                                                                            {timeSlot.icon && (
+                                                                                React.createElement(timeSlot.icon, { sx: { fontSize: 32, color: "var(--color-primary)" } })
+                                                                            )}
                                                                         </Box>
                                                                         <Typography
                                                                             variant="body2"
@@ -524,7 +531,7 @@ function PrescriptionDetailsPage() {
                                 )}
 
                                 {/* Administration */}
-                                {prescription.administration && (
+                                {/* {prescription.administration && (
                                     <Grid item xs={12} sm={6} md={4}>
                                         <Box
                                             sx={{
@@ -549,7 +556,7 @@ function PrescriptionDetailsPage() {
                                             />
                                         </Box>
                                     </Grid>
-                                )}
+                                )} */}
                             </Grid>
 
                             {/* Important Instructions Section */}

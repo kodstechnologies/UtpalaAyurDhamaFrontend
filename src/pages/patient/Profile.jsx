@@ -540,6 +540,8 @@ function PatientProfile() {
                 phone: editData.phone,
                 address: editData.address || editData.location,
                 dob: editData.dob ? new Date(editData.dob).toISOString() : undefined,
+                bloodGroup: editData.bloodGroup,
+                allergies: editData.allergies,
                 gender: editData.gender,
                 emergencyContact: editData.emergencyContact,
                 bio: editData.bio,
@@ -765,8 +767,8 @@ function PatientProfile() {
                                     { icon: Mail, label: "Email Address", field: "email" },
                                     { icon: Phone, label: "Phone Number", field: "phone" },
                                     { icon: MapPin, label: "Location", field: "location" },
-                                    { icon: Calendar, label: "Date of Birth", field: "dateOfBirth" },
-                                ].map(({ icon: Icon, label, field }) => (
+                                    { icon: Calendar, label: "Date of Birth", field: "dateOfBirth", editField: "dob", inputType: "date" },
+                                ].map(({ icon: Icon, label, field, editField, inputType }) => (
                                     <Stack key={field} direction="row" spacing={2} alignItems="center">
                                         <Box sx={{ bgcolor: '#F4F0E5', p: 1, borderRadius: 2 }}>
                                             <Icon size={20} color="#556B2F" />
@@ -776,9 +778,11 @@ function PatientProfile() {
                                                 <TextField
                                                     fullWidth
                                                     label={label}
-                                                    value={editData[field]}
-                                                    onChange={handleInputChange(field)}
+                                                    type={inputType || "text"}
+                                                    value={editData[editField || field]}
+                                                    onChange={handleInputChange(editField || field)}
                                                     size="small"
+                                                    InputLabelProps={inputType === "date" ? { shrink: true } : {}}
                                                     inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
@@ -792,7 +796,7 @@ function PatientProfile() {
                                                 <>
                                                     <Typography variant="caption" color="#857466">{label}</Typography>
                                                     <Typography variant="body1" fontWeight={600} color="#5C3D2E">
-                                                        {profileData[field]}
+                                                        {profileData[field] || "Not specified"}
                                                     </Typography>
                                                 </>
                                             )}

@@ -94,12 +94,8 @@ function Patient_Dashboard() {
                 }}
             >
                 <DashboardCard
-                    title="Upcoming Appointment"
-                    description={
-                        dashboardData?.upcomingAppointment
-                            ? `${dashboardData.upcomingAppointment.doctorName || "Doctor"} - ${formatDate(dashboardData.upcomingAppointment.date)}${dashboardData.upcomingAppointment.time ? ` at ${dashboardData.upcomingAppointment.time}` : ""}`
-                            : "No follow-ups scheduled. Your next appointment will appear here."
-                    }
+                    title="Upcoming Appointments"
+                    count={dashboardData?.upcomingAppointmentCount ?? 0}
                     icon={LocalHospitalIcon}
                 />
 
@@ -111,11 +107,7 @@ function Patient_Dashboard() {
 
                 <DashboardCard
                     title="Prescriptions"
-                    description={
-                        dashboardData?.newPrescriptions > 0
-                            ? `You have ${dashboardData.newPrescriptions} pending prescription(s).`
-                            : "All caught up. No new prescriptions available."
-                    }
+                    count={dashboardData?.newPrescriptions ?? 0}
                     icon={MedicationIcon}
                 />
             </div>

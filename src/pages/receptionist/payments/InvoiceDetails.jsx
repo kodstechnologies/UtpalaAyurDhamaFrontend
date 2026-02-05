@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Card, CardContent, Typography, Divider, Table, TableBody, TableCell, TableHead, TableRow, Paper, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress } from "@mui/material";
+import { Box, Card, CardContent, Typography, Divider, Table, TableBody, TableCell, TableHead, TableRow, Paper, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, MenuItem } from "@mui/material";
 import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -24,6 +24,7 @@ function InvoiceDetails() {
     const [invoice, setInvoice] = useState(null);
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("Cash");
     const [isRecordingPayment, setIsRecordingPayment] = useState(false);
     const [downloadingReport, setDownloadingReport] = useState(false);
     const [printingReport, setPrintingReport] = useState(false);
@@ -37,11 +38,11 @@ function InvoiceDetails() {
 
     const fetchInvoiceDetails = async () => {
         if (!id) return;
-        
+
         try {
             setLoading(true);
             const response = await invoiceService.getInvoiceById(id);
-            
+
             if (response && response.success && response.data) {
                 setInvoice(response.data);
             } else {
@@ -70,6 +71,7 @@ function InvoiceDetails() {
     const handleClosePaymentDialog = () => {
         setPaymentDialogOpen(false);
         setPaymentAmount("");
+        setPaymentMethod("Cash");
     };
 
     const handleRecordPayment = async () => {
@@ -88,12 +90,13 @@ function InvoiceDetails() {
 
         try {
             setIsRecordingPayment(true);
-            const response = await invoiceService.recordPayment(id, paymentValue);
-            
+            const response = await invoiceService.recordPayment(id, paymentValue, paymentMethod);
+
             if (response && response.success) {
                 toast.success("Payment recorded successfully!");
                 setPaymentDialogOpen(false);
                 setPaymentAmount("");
+                setPaymentMethod("Cash");
                 // Refresh invoice data
                 await fetchInvoiceDetails();
             } else {
@@ -141,16 +144,16 @@ function InvoiceDetails() {
             };
             return categoryMap[item.category] || item.category.charAt(0).toUpperCase() + item.category.slice(1);
         }
-        
+
         // Fallback to name-based categorization
         const itemName = item.name || "";
         if (!itemName) return "Other";
         const name = itemName.toLowerCase().trim();
-        
+
         // Doctor Consultation - Check FIRST (most specific patterns first)
         // Also check if it has doctor-related fields or is from consultation charges
-        if (name.includes("consultation") || 
-            name.includes("opd consultation") || 
+        if (name.includes("consultation") ||
+            name.includes("opd consultation") ||
             name.includes("ipd consultation") ||
             name.includes("consultation charge") ||
             name.includes("examination") ||
@@ -162,12 +165,12 @@ function InvoiceDetails() {
             (!item.dosage && !item.frequency && !item.duration && item.quantity === 1 && item.unitPrice > 100)) {
             return "Doctor Consultation";
         }
-        
+
         // Therapy - Check before medicine (specific therapy patterns)
         // Check common therapy names like Cardiology, Physiotherapy, etc.
-        if (name.includes("therapy") || 
+        if (name.includes("therapy") ||
             name.includes("therapy charge") ||
-            name.includes("opd therapy") || 
+            name.includes("opd therapy") ||
             name.includes("ipd therapy") ||
             name.includes("therapeutic") ||
             name.includes("treatment session") ||
@@ -187,49 +190,49 @@ function InvoiceDetails() {
             (item.description && item.description.toLowerCase().includes("therapy"))) {
             return "Therapy";
         }
-        
+
         // Medicine/Pharmacy - Check after therapy/consultation
         // If it has medicine details (dosage, frequency, etc.), it's definitely a medicine
         if (item.dosage || item.frequency || item.duration || item.foodTiming) {
             return "Medicines";
         }
-        
-        if (name.includes("medicine") || 
-            name.includes("medication") || 
-            name.includes("tablet") || 
-            name.includes("capsule") || 
-            name.includes("syrup") || 
+
+        if (name.includes("medicine") ||
+            name.includes("medication") ||
+            name.includes("tablet") ||
+            name.includes("capsule") ||
+            name.includes("syrup") ||
             name.includes("injection") ||
-            name.includes("drops") || 
-            name.includes("ointment") || 
+            name.includes("drops") ||
+            name.includes("ointment") ||
             name.includes("cream") ||
-            name.includes("drug") || 
+            name.includes("drug") ||
             name.includes("pill")) {
             return "Medicines";
         }
-        
+
         // Food - Check before ward/bed
-        if (name.includes("food") || 
-            name.includes("food charge") || 
-            name.includes("meal") || 
-            name.includes("breakfast") || 
-            name.includes("lunch") || 
-            name.includes("dinner") || 
+        if (name.includes("food") ||
+            name.includes("food charge") ||
+            name.includes("meal") ||
+            name.includes("breakfast") ||
+            name.includes("lunch") ||
+            name.includes("dinner") ||
             name.includes("snack")) {
             return "Food Charges";
         }
-        
+
         // Ward/Bed - Check last
-        if (name.includes("ward") || 
-            name.includes("ward charge") || 
-            name.includes("bed") || 
-            name.includes("bed charge") || 
+        if (name.includes("ward") ||
+            name.includes("ward charge") ||
+            name.includes("bed") ||
+            name.includes("bed charge") ||
             name.includes("room charge") ||
             name.includes("accommodation") ||
             name.includes("one bed")) {
             return "Bed Charges";
         }
-        
+
         // Default to "Other"
         return "Other";
     };
@@ -237,7 +240,7 @@ function InvoiceDetails() {
     // Group items by category
     const groupItemsByCategory = (items) => {
         if (!items || !Array.isArray(items)) return {};
-        
+
         const grouped = {};
         items.forEach((item, index) => {
             const category = categorizeItem(item); // Pass the whole item, not just name
@@ -246,7 +249,7 @@ function InvoiceDetails() {
             }
             grouped[category].push({ ...item, originalIndex: index });
         });
-        
+
         return grouped;
     };
 
@@ -317,7 +320,7 @@ function InvoiceDetails() {
             const blob = response.data;
             const url = window.URL.createObjectURL(blob);
             const printWindow = window.open(url, '_blank');
-            
+
             if (printWindow) {
                 printWindow.onload = () => {
                     setTimeout(() => {
@@ -337,7 +340,7 @@ function InvoiceDetails() {
         } catch (error) {
             console.error("Print error:", error);
             let errorMessage = "Failed to print discharge report.";
-            
+
             // Handle blob error responses
             if (error.response && error.response.data instanceof Blob) {
                 try {
@@ -352,7 +355,7 @@ function InvoiceDetails() {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             toast.error(errorMessage);
         } finally {
             setPrintingReport(false);
@@ -407,10 +410,10 @@ function InvoiceDetails() {
             link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
-            
+
             // Clean up
             setTimeout(() => {
-            link.remove();
+                link.remove();
                 window.URL.revokeObjectURL(url);
             }, 100);
 
@@ -418,7 +421,7 @@ function InvoiceDetails() {
         } catch (error) {
             console.error("Download error:", error);
             let errorMessage = "Failed to download discharge report.";
-            
+
             // Handle blob error responses
             if (error.response && error.response.data instanceof Blob) {
                 try {
@@ -433,7 +436,7 @@ function InvoiceDetails() {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             toast.error(errorMessage);
         } finally {
             setDownloadingReport(false);
@@ -651,10 +654,10 @@ function InvoiceDetails() {
                                             typeof invoice.prescription === 'object' && invoice.prescription.createdAt
                                                 ? `Prescription dated ${formatDate(invoice.prescription.createdAt)}`
                                                 : typeof invoice.prescription === 'object' && invoice.prescription._id
-                                                ? `Prescription #${invoice.prescription._id.toString().slice(-8).toUpperCase()}`
-                                                : typeof invoice.prescription === 'string'
-                                                ? `Prescription #${invoice.prescription.slice(-8).toUpperCase()}`
-                                                : 'Prescription'
+                                                    ? `Prescription #${invoice.prescription._id.toString().slice(-8).toUpperCase()}`
+                                                    : typeof invoice.prescription === 'string'
+                                                        ? `Prescription #${invoice.prescription.slice(-8).toUpperCase()}`
+                                                        : 'Prescription'
                                         }
                                     </Typography>
                                 )}
@@ -724,7 +727,7 @@ function InvoiceDetails() {
                                                         {categoryItems.map((item) => {
                                                             itemCounter++;
                                                             const isMedicine = item.category === "pharmacy" || category === "Medicines";
-                                                            
+
                                                             // For medicines, show expanded table with medicine details
                                                             if (isMedicine) {
                                                                 return (
@@ -772,9 +775,9 @@ function InvoiceDetails() {
                                                                                             </Typography>
                                                                                         )}
                                                                                         {item.foodTiming && (
-                                                                                            <Chip 
-                                                                                                label={item.foodTiming} 
-                                                                                                size="small" 
+                                                                                            <Chip
+                                                                                                label={item.foodTiming}
+                                                                                                size="small"
                                                                                                 color={item.foodTiming === "Before Food" ? "warning" : "info"}
                                                                                                 sx={{ fontSize: "0.65rem", height: "18px" }}
                                                                                             />
@@ -786,7 +789,7 @@ function InvoiceDetails() {
                                                                     </Fragment>
                                                                 );
                                                             }
-                                                            
+
                                                             // For non-medicine items, show simple row
                                                             return (
                                                                 <TableRow key={`${category}-${item.originalIndex}`} hover>
@@ -876,7 +879,7 @@ function InvoiceDetails() {
                                     {formatCurrency(invoice.totalPayable)}
                                 </Typography>
                             </Box>
-                            
+
                             {/* Payment Status - Always Show */}
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2, padding: "12px", backgroundColor: invoice.amountPaid >= invoice.totalPayable ? "#f1f8f4" : "#fff3e0", borderRadius: 1, border: `1px solid ${invoice.amountPaid >= invoice.totalPayable ? "#4CAF50" : "#ff9800"}` }}>
                                 <Typography variant="body1" sx={{ fontWeight: 600, color: "#666" }}>
@@ -900,10 +903,10 @@ function InvoiceDetails() {
                             {/* Balance Due - Always Show */}
                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                 <Typography variant="body1" sx={{ color: "#666", fontWeight: 600 }}>Balance Due:</Typography>
-                                <Typography 
-                                    variant="body1" 
-                                    sx={{ 
-                                        fontWeight: 700, 
+                                <Typography
+                                    variant="body1"
+                                    sx={{
+                                        fontWeight: 700,
                                         color: (invoice.totalPayable - (invoice.amountPaid || 0)) > 0 ? "#f57c00" : "#4CAF50",
                                         fontSize: "1.1rem"
                                     }}
@@ -911,7 +914,7 @@ function InvoiceDetails() {
                                     {formatCurrency(invoice.totalPayable - (invoice.amountPaid || 0))}
                                 </Typography>
                             </Box>
-                            
+
                             {/* Payment Status Note */}
                             {(invoice.totalPayable - (invoice.amountPaid || 0)) > 0 && (
                                 <Box sx={{ marginTop: 2, padding: "8px 12px", backgroundColor: "#fff3e0", borderRadius: 1 }}>
@@ -971,6 +974,20 @@ function InvoiceDetails() {
                         helperText={`Maximum: ${formatCurrency((invoice?.totalPayable || 0) - (invoice?.amountPaid || 0))}`}
                         autoFocus
                     />
+                    <TextField
+                        select
+                        fullWidth
+                        label="Payment Method"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        variant="outlined"
+                        sx={{ mt: 3 }}
+                    >
+                        <MenuItem value="Cash">Cash</MenuItem>
+                        <MenuItem value="Card">Card</MenuItem>
+                        <MenuItem value="Online">Online</MenuItem>
+                        <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+                    </TextField>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClosePaymentDialog} disabled={isRecordingPayment}>

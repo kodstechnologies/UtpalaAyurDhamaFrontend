@@ -30,10 +30,10 @@ const Therapies_View = () => {
         setIsLoading(true);
         try {
             const response = await therapyService.getPatientTherapies();
-            
+
             if (response && response.success) {
                 const therapiesData = Array.isArray(response.data) ? response.data : [];
-                
+
                 // Transform dates array to calendar format
                 const transformedTherapies = therapiesData.map((therapy) => {
                     // Create a map of dates for quick lookup
@@ -63,7 +63,7 @@ const Therapies_View = () => {
                             })
                             .filter(d => d !== null)
                             .sort((a, b) => a - b);
-                        
+
                         if (validDates.length > 0) {
                             earliestDate = validDates[0];
                         }
@@ -73,7 +73,7 @@ const Therapies_View = () => {
                             earliestDate = sessionDate;
                         }
                     }
-                    
+
                     // Align earliest date to Sunday (week start) - go back to the Sunday of that week
                     const dayOfWeek = earliestDate.getDay(); // 0 = Sunday
                     const calendarStartDate = new Date(earliestDate);
@@ -85,9 +85,15 @@ const Therapies_View = () => {
                     for (let i = 0; i < 42; i++) {
                         const cellDate = new Date(calendarStartDate);
                         cellDate.setDate(calendarStartDate.getDate() + i);
-                        const dateKey = cellDate.toISOString().split('T')[0];
+
+                        // Use local date for key to avoid timezone shifts (toISOString uses UTC)
+                        const year = cellDate.getFullYear();
+                        const month = String(cellDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(cellDate.getDate()).padStart(2, '0');
+                        const dateKey = `${year}-${month}-${day}`;
+
                         const therapyDate = datesMap.get(dateKey);
-                        
+
                         if (therapyDate) {
                             calendarDates.push({
                                 date: dateKey,
@@ -104,10 +110,14 @@ const Therapies_View = () => {
                         }
                     }
 
+                    // Format Month Year label (e.g. "February 2026")
+                    const monthYearLabel = earliestDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
                     return {
                         ...therapy,
                         id: therapy._id,
                         dates: calendarDates,
+                        monthYearLabel,
                     };
                 });
 
@@ -167,7 +177,24 @@ const Therapies_View = () => {
                 {cellStatus === "absent" && (
                     <Cancel sx={{ color: "#B54545", fontSize: 28, position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)" }} />
                 )}
-                {cellStatus === "upcoming" && (
+                {cellStatus === "upcoming" && therapyDate.label && (
+                    <Chip
+                        label={therapyDate.label}
+                        size="small"
+                        sx={{
+                            bgcolor: "#E8A84E",
+                            color: "white",
+                            fontWeight: 700,
+                            fontSize: "0.8rem",
+                            height: 28,
+                            position: "absolute",
+                            top: 8,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                        }}
+                    />
+                )}
+                {cellStatus === "upcoming" && !therapyDate.label && (
                     <Circle sx={{ color: "#E8A84E", fontSize: 12, position: "absolute", top: 20, left: "50%", transform: "translateX(-50%)" }} />
                 )}
                 {cellStatus === "in-progress" && therapyDate.label && (
@@ -295,6 +322,11 @@ const Therapies_View = () => {
                                         </Box>
 
                                         <Box sx={{ p: 4, bgcolor: "#FDFBF7" }}>
+                                            {therapy.monthYearLabel && (
+                                                <Typography variant="h6" sx={{ color: "#5C3D2E", fontWeight: 700, mb: 2, textAlign: "center" }}>
+                                                    {therapy.monthYearLabel}
+                                                </Typography>
+                                            )}
                                             <TableContainer>
                                                 <Table size="medium">
                                                     <TableHead>

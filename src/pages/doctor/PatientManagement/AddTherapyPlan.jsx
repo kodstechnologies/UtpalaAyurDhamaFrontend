@@ -59,7 +59,7 @@ function AddTherapyPlanPage() {
                 const inpatient = response.data.data;
                 const patient = inpatient.patient?.user || {};
                 const patientProfileId = inpatient.patient?._id || "";
-                
+
                 setPatientData(inpatient);
                 setFormData((prev) => ({
                     ...prev,
@@ -106,7 +106,7 @@ function AddTherapyPlanPage() {
         try {
             const response = await axios.get(
                 getApiUrl("therapies"),
-                { 
+                {
                     headers: getAuthHeaders(),
                     params: {
                         page: 1,
@@ -143,8 +143,8 @@ function AddTherapyPlanPage() {
                 const allSessions = sessionsResponse.data.data || [];
                 // Filter sessions by inpatient ID
                 const filteredSessions = allSessions.filter(
-                    session => session.inpatient?._id?.toString() === inpatientId || 
-                               session.inpatient?.toString() === inpatientId
+                    session => session.inpatient?._id?.toString() === inpatientId ||
+                        session.inpatient?.toString() === inpatientId
                 );
 
                 if (filteredSessions.length > 0) {
@@ -170,9 +170,9 @@ function AddTherapyPlanPage() {
                             const plan = planResponse.data.data;
 
                             // Find therapist user ID from the session
-                            const therapistUserId = latestSession.therapist?.user?._id || 
-                                                   latestSession.therapist?.user ||
-                                                   (typeof latestSession.therapist === 'string' ? latestSession.therapist : null);
+                            const therapistUserId = latestSession.therapist?.user?._id ||
+                                latestSession.therapist?.user ||
+                                (typeof latestSession.therapist === 'string' ? latestSession.therapist : null);
 
                             // Match therapist by user ID - therapists list contains User objects with _id
                             const matchingTherapist = therapists.find(
@@ -190,7 +190,7 @@ function AddTherapyPlanPage() {
                                 therapistId: matchingTherapist?._id || therapistUserId || "",
                                 therapyType: matchingTherapy?._id || "",
                                 totalSessions: plan.daysOfTreatment?.toString() || "",
-                                assignedDate: plan.createdAt 
+                                assignedDate: plan.createdAt
                                     ? new Date(plan.createdAt).toISOString().split("T")[0]
                                     : new Date().toISOString().split("T")[0],
                                 notes: plan.specialInstructions || "",
@@ -227,9 +227,9 @@ function AddTherapyPlanPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Validation
-        if (!formData.patientName || !formData.patientId || !formData.therapistId || 
+        if (!formData.patientName || !formData.patientId || !formData.therapistId ||
             !formData.therapyType || !formData.totalSessions || !formData.assignedDate) {
             toast.error("Please fill in all required fields.");
             return;
@@ -245,9 +245,12 @@ function AddTherapyPlanPage() {
 
         try {
             // Map form data to backend API structure
-            const selectedTherapy = therapies.find(t => t._id === formData.therapyType);
+            // Ensure we are sending the name, not the ID
+            const selectedTherapy = therapies.find(t => t._id === formData.therapyType || t.therapyName === formData.therapyType);
+            const treatmentNameToSend = selectedTherapy ? selectedTherapy.therapyName : formData.therapyType;
+
             const requestData = {
-                treatmentName: selectedTherapy?.therapyName || formData.therapyType, // Use therapy name
+                treatmentName: treatmentNameToSend, // Use therapy name
                 daysOfTreatment: parseInt(formData.totalSessions, 10),
                 timeline: "AlternateDay", // Default timeline - can be updated if needed
                 specialInstructions: formData.notes.trim() || "",
