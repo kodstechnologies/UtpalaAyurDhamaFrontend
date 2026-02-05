@@ -759,13 +759,30 @@ function PatientHistory() {
                                             </Box>
                                         </AccordionSummary>
                                         <AccordionDetails>
-                                            {dayData.therapySessions.map((session, idx) => (
+                                            {dayData.therapySessions.map((session, idx) => {
+                                                // Helper function to check if a string is a MongoDB ID
+                                                const isMongoId = (str) => {
+                                                    if (!str || typeof str !== 'string') return false;
+                                                    return /^[0-9a-fA-F]{24}$/.test(str);
+                                                };
+                                                
+                                                // Get treatment name, ensuring it's not a MongoDB ID
+                                                const getTreatmentName = () => {
+                                                    const name = session.treatmentName;
+                                                    if (!name || name === "N/A" || isMongoId(name)) {
+                                                        // Fallback to a meaningful default
+                                                        return "Therapy Session";
+                                                    }
+                                                    return name;
+                                                };
+                                                
+                                                return (
                                                 <Card key={idx} sx={{ mb: 2, border: "1px solid #e0e0e0" }}>
                                                     <CardContent>
                                                         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                                                            <Typography variant="h6">{session.treatmentName}</Typography>
+                                                            <Typography variant="h6">{getTreatmentName()}</Typography>
                                                             <Chip
-                                                                label={session.status}
+                                                                label={session.status || "Pending"}
                                                                 color={getStatusColor(session.status)}
                                                                 size="small"
                                                             />
@@ -800,7 +817,8 @@ function PatientHistory() {
                                                         </Grid>
                                                     </CardContent>
                                                 </Card>
-                                            ))}
+                                                );
+                                            })}
                                         </AccordionDetails>
                                     </Accordion>
                                 )}

@@ -106,7 +106,6 @@ function AddEditMedicine() {
         quantity: 0,
         costPrice: 0,
         sellPrice: 0,
-        mfgDate: "",
         expiryDate: "",
         lowStockThreshold: 10,
         status: "Active",
@@ -133,7 +132,6 @@ function AddEditMedicine() {
                             quantity: medicine.quantity || 0,
                             costPrice: medicine.costPrice || 0,
                             sellPrice: medicine.sellPrice || 0,
-                            mfgDate: medicine.mfgDate ? medicine.mfgDate.split("T")[0] : "",
                             expiryDate: medicine.expiryDate ? medicine.expiryDate.split("T")[0] : "",
                             lowStockThreshold: medicine.lowStockThreshold || 10,
                             status: medicine.status || "Active",
@@ -344,15 +342,6 @@ function AddEditMedicine() {
                             value={formData.lowStockThreshold}
                             onChange={handleChange}
                             inputProps={{ min: 0 }}
-                        />
-
-                        <StyledTextField
-                            label="Manufacturing Date"
-                            name="mfgDate"
-                            type="date"
-                            value={formData.mfgDate}
-                            onChange={handleChange}
-                            InputLabelProps={{ shrink: true }}
                         />
 
                         <StyledTextField

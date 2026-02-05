@@ -107,8 +107,15 @@ function PrepareDischargePage() {
 
             if (response.data.success) {
                 toast.success("Patient discharge completed successfully!");
-                // Navigate back to the list page
+                
+                // IMPORTANT: Nurse discharge confirmation should ONLY navigate to discharge preparation list
+                // It should NEVER redirect to payment page. Payment page should only be accessed
+                // after receptionist clicks "Finalize Bill" on billing pages.
+                console.log("Nurse discharge confirmed - navigating to discharge preparation list");
                 navigate("/nurse/discharge-preparation", { replace: true });
+                
+                // Explicitly prevent any other navigation
+                return;
             } else {
                 toast.error(response.data.message || "Failed to process discharge");
             }
