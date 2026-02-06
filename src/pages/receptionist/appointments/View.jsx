@@ -128,8 +128,6 @@ function Appointments_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
     const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
-    const [walkInSessions, setWalkInSessions] = useState([]);
-    const [isLoadingWalkIn, setIsLoadingWalkIn] = useState(false);
 
     const navigate = useNavigate();
 
@@ -286,32 +284,6 @@ function Appointments_View() {
         }
     }, []);
 
-    // Fetch walk-in sessions
-    const fetchWalkInSessions = useCallback(async () => {
-        setIsLoadingWalkIn(true);
-        try {
-            const response = await axios.get(
-                getApiUrl("therapist-sessions/treatment-list"),
-                {
-                    headers: getAuthHeaders(),
-                    params: {
-                        type: "WALK_IN",
-                    }
-                }
-            );
-
-            if (response.data.success) {
-                setWalkInSessions(response.data.data || []);
-            } else {
-                toast.error(response.data.message || "Failed to fetch walk-in sessions");
-            }
-        } catch (error) {
-            console.error("Error fetching walk-in sessions:", error);
-            toast.error(error.response?.data?.message || "Failed to fetch walk-in sessions");
-        } finally {
-            setIsLoadingWalkIn(false);
-        }
-    }, []);
 
     useEffect(() => {
         fetchReceptionPatients();
@@ -321,10 +293,8 @@ function Appointments_View() {
     useEffect(() => {
         if (activeTab === "appointments") {
             // Already fetched by initial useEffect, but kept for clarity if tab logic requires re-fetching
-        } else if (activeTab === "walkIn") {
-            fetchWalkInSessions();
         }
-    }, [activeTab, fetchAppointments, fetchWalkInSessions]);
+    }, [activeTab, fetchAppointments]);
 
     // Filter appointments - Show all future appointments by default in "Upcoming Appointments" tab
     const filteredAppointments = useMemo(() => {
@@ -496,6 +466,24 @@ function Appointments_View() {
 
 
     // --------------------------
+
+    const formatDisplayDateTime = (dateTimeStr) => {
+        if (!dateTimeStr || dateTimeStr === "N/A") return dateTimeStr;
+        try {
+            const [datePart, timePart] = dateTimeStr.split(" ");
+            if (!datePart || !timePart) return dateTimeStr;
+
+            let [hours, minutes] = timePart.split(":").map(Number);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const strTime = hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0') + ' ' + ampm;
+
+            return `${datePart} ${strTime}`;
+        } catch (e) {
+            return dateTimeStr;
+        }
+    };
 
     return (
         <Box sx={{ padding: "20px" }}>
@@ -874,7 +862,7 @@ function Appointments_View() {
                                                     <tr key={appointment.id}>
                                                         <td>{index + 1}</td>
                                                         <td>{appointment.name}</td>
-                                                        <td>{appointment.appointmentDateTime}</td>
+                                                        <td>{formatDisplayDateTime(appointment.appointmentDateTime)}</td>
                                                         <td>{appointment.doctor}</td>
                                                         <td>{appointment.contact}</td>
                                                         <td>
@@ -962,77 +950,100 @@ function Appointments_View() {
                         {/* Walk-in Patients Tab */}
                         {activeTab === "walkIn" && (
                             <>
-                                {isLoadingWalkIn ? (
-                                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
-                                        <CircularProgress />
-                                    </Box>
-                                ) : walkInSessions.length === 0 ? (
-                                    <Box sx={{ textAlign: "center", padding: "40px", color: "#666" }}>
-                                        No walk-in patients found
-                                    </Box>
-                                ) : (
-                                    <div className="table-responsive">
-                                        <table className="table table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Sl. No.</th>
-                                                    <th>Patient Name</th>
-                                                    <th>Contact</th>
-                                                    <th>Therapy</th>
-                                                    <th>Therapist</th>
-                                                    <th>Date & Time</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {walkInSessions.map((session, index) => (
-                                                    <tr key={session._id}>
-                                                        <td>{index + 1}</td>
-                                                        <td>{session.patientName}</td>
-                                                        <td>{session.patientPhone}</td>
-                                                        <td>{session.treatmentName}</td>
-                                                        <td>{session.therapistName || "Not Assigned"}</td>
-                                                        <td>
-                                                            {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString("en-GB") : ""} {session.sessionTime}
-                                                        </td>
-                                                        <td>
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm"
-                                                                onClick={() => handleSendMessageClick(session)}
-                                                                title="Send WhatsApp Reminder"
-                                                                style={{
-                                                                    backgroundColor: "#FFB347",
-                                                                    borderColor: "#FFB347",
-                                                                    color: "#000",
-                                                                    borderRadius: "8px",
-                                                                    padding: "8px 12px",
-                                                                    minWidth: "45px",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center",
-                                                                    transition: "all 0.3s ease",
-                                                                }}
-                                                                onMouseEnter={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#FF9F33";
-                                                                    e.currentTarget.style.transform = "translateY(-2px)";
-                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.backgroundColor = "#FFB347";
-                                                                    e.currentTarget.style.transform = "translateY(0)";
-                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                }}
-                                                            >
-                                                                <MessageIcon fontSize="small" />
-                                                            </button>
-                                                        </td>
+                                {(() => {
+                                    const walkInAppointments = appointments.filter(apt =>
+                                        apt.disease && apt.disease.includes("Walk-in Hub")
+                                    );
+
+                                    return walkInAppointments.length === 0 ? (
+                                        <Box sx={{ textAlign: "center", padding: "40px", color: "#666" }}>
+                                            No walk-in patients found
+                                        </Box>
+                                    ) : (
+                                        <div className="table-responsive">
+                                            <table className="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Sl. No.</th>
+                                                        <th>Patient Name</th>
+                                                        <th>Date & Time</th>
+                                                        <th>Doctor</th>
+                                                        <th>Contact</th>
+                                                        <th>Status</th>
+                                                        <th>Actions</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
+                                                </thead>
+                                                <tbody>
+                                                    {walkInAppointments.map((appointment, index) => (
+                                                        <tr key={appointment.id}>
+                                                            <td>{index + 1}</td>
+                                                            <td>{appointment.name}</td>
+                                                            <td>{formatDisplayDateTime(appointment.appointmentDateTime)}</td>
+                                                            <td>{appointment.doctor}</td>
+                                                            <td>{appointment.contact}</td>
+                                                            <td>
+                                                                <span className={getStatusBadgeClass(appointment.status)}>
+                                                                    {appointment.status}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <div className="btn-group" role="group">
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm btn-primary"
+                                                                        onClick={() => handleRescheduleClick(appointment)}
+                                                                        title="Reschedule Appointment"
+                                                                        style={{
+                                                                            borderRadius: "8px",
+                                                                            padding: "8px 12px",
+                                                                            minWidth: "45px",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            transition: "all 0.3s ease",
+                                                                        }}
+                                                                    >
+                                                                        <EditIcon fontSize="small" />
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm"
+                                                                        onClick={() => handleSendMessageClick(appointment)}
+                                                                        title="Send WhatsApp Reminder"
+                                                                        style={{
+                                                                            backgroundColor: "#FFB347",
+                                                                            borderColor: "#FFB347",
+                                                                            color: "#000",
+                                                                            borderRadius: "8px",
+                                                                            padding: "8px 12px",
+                                                                            minWidth: "45px",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            transition: "all 0.3s ease",
+                                                                        }}
+                                                                    >
+                                                                        <MessageIcon fontSize="small" />
+                                                                    </button>
+                                                                    {appointment.invoiceNumber && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm btn-info"
+                                                                            onClick={() => toast.info(`Invoice: ${appointment.invoiceNumber}`)}
+                                                                            title={`View Invoice: ${appointment.invoiceNumber}`}
+                                                                        >
+                                                                            View Invoice
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                })()}
                             </>
                         )}
 
