@@ -35,6 +35,9 @@ function WalkInHub() {
         nurseProfileId: "",
         appointmentTime: "",
         appointmentDate: new Date().toLocaleDateString("en-CA"),
+        wardCategory: "General",
+        roomNumber: "",
+        bedNumber: "",
         therapyData: {
             treatmentName: "",
             daysOfTreatment: 1,
@@ -86,6 +89,9 @@ function WalkInHub() {
             nurseProfileId: "",
             appointmentTime: "",
             appointmentDate: new Date().toLocaleDateString("en-CA"),
+            wardCategory: "General",
+            roomNumber: "",
+            bedNumber: "",
             therapyData: {
                 treatmentName: "",
                 daysOfTreatment: 1,
@@ -137,6 +143,9 @@ function WalkInHub() {
             patientProfileId,
             doctorProfileId: formData.doctorProfileId || undefined,
             nurseProfileId: mode === "IPD" ? (formData.nurseProfileId || undefined) : undefined,
+            wardCategory: mode === "IPD" ? formData.wardCategory : undefined,
+            roomNumber: mode === "IPD" ? formData.roomNumber : undefined,
+            bedNumber: mode === "IPD" ? formData.bedNumber : undefined,
             appointmentTime: formData.appointmentTime || undefined,
             appointmentDate: formData.appointmentDate,
             therapyData: formData.therapyData.treatmentName ? {
@@ -321,6 +330,40 @@ function WalkInHub() {
                                     </FormControl>
                                 )}
                             </Box>
+
+                            {mode === "IPD" && (
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mt: 3 }}>
+                                    <FormControl sx={{ flex: 1, minWidth: "250px" }}>
+                                        <InputLabel>Ward Category</InputLabel>
+                                        <Select
+                                            name="wardCategory"
+                                            value={formData.wardCategory}
+                                            onChange={handleChange}
+                                            label="Ward Category"
+                                        >
+                                            <MenuItem value="General">General</MenuItem>
+                                            <MenuItem value="Duplex">Duplex</MenuItem>
+                                            <MenuItem value="Special">Special</MenuItem>
+                                        </Select>
+                                    </FormControl>
+
+                                    <TextField
+                                        label="Room Number"
+                                        name="roomNumber"
+                                        value={formData.roomNumber}
+                                        onChange={handleChange}
+                                        sx={{ flex: 1, minWidth: "250px" }}
+                                    />
+
+                                    <TextField
+                                        label="Bed Number"
+                                        name="bedNumber"
+                                        value={formData.bedNumber}
+                                        onChange={handleChange}
+                                        sx={{ flex: 1, minWidth: "250px" }}
+                                    />
+                                </Box>
+                            )}
                         </Box>
 
                         <Divider sx={{ mb: 4 }} />
@@ -348,19 +391,15 @@ function WalkInHub() {
                                         </Select>
                                     </FormControl>
 
-                                    <FormControl sx={{ flex: 1, minWidth: "150px" }}>
-                                        <InputLabel>Days</InputLabel>
-                                        <Select
-                                            name="therapy.daysOfTreatment"
-                                            value={formData.therapyData.daysOfTreatment}
-                                            onChange={handleChange}
-                                            label="Days"
-                                        >
-                                            {[1, 2, 3, 5, 7, 10, 14, 21, 30].map(d => (
-                                                <MenuItem key={d} value={d}>{d} Days</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
+                                    <TextField
+                                        label="Days"
+                                        type="number"
+                                        name="therapy.daysOfTreatment"
+                                        value={formData.therapyData.daysOfTreatment}
+                                        onChange={handleChange}
+                                        sx={{ flex: 1, minWidth: "150px" }}
+                                        inputProps={{ min: 1 }}
+                                    />
 
                                     <FormControl sx={{ flex: 1, minWidth: "150px" }}>
                                         <InputLabel>Timeline</InputLabel>
@@ -371,8 +410,9 @@ function WalkInHub() {
                                             label="Timeline"
                                         >
                                             <MenuItem value="Daily">Daily</MenuItem>
-                                            <MenuItem value="Alternate Days">Alternate Days</MenuItem>
+                                            <MenuItem value="AlternateDay">Alternate Days</MenuItem>
                                             <MenuItem value="Weekly">Weekly</MenuItem>
+                                            <MenuItem value="Monthly">Monthly</MenuItem>
                                         </Select>
                                     </FormControl>
                                 </Box>

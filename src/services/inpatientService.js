@@ -37,8 +37,12 @@ const getUnifiedBillingSummary = async (patientId) => {
     return response.data;
 };
 
-const getOutpatientBillingSummary = async (patientId) => {
-    const response = await axios.get(getApiUrl(`inpatients/patient/${patientId}/billing/outpatient`), { headers: getAuthHeaders() });
+const getOutpatientBillingSummary = async (patientId, options = {}) => {
+    const { examinationId } = options;
+    const response = await axios.get(getApiUrl(`inpatients/patient/${patientId}/billing/outpatient`), {
+        headers: getAuthHeaders(),
+        params: { examinationId }
+    });
     return response.data;
 };
 
@@ -47,8 +51,12 @@ const finalizeDischarge = async (id, data) => {
     return response.data;
 };
 
-const finalizeOutpatientBilling = async (patientId, data) => {
-    const response = await axios.post(getApiUrl(`inpatients/patient/${patientId}/billing/outpatient/finalize`), data, { headers: getAuthHeaders() });
+const finalizeOutpatientBilling = async (patientId, data, options = {}) => {
+    const { examinationId } = options;
+    const response = await axios.post(getApiUrl(`inpatients/patient/${patientId}/billing/outpatient/finalize`), data, {
+        headers: getAuthHeaders(),
+        params: { examinationId }
+    });
     return response.data;
 };
 

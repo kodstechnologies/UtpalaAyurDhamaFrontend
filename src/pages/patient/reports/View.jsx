@@ -60,33 +60,22 @@ function Reports_View() {
         // Navigate to appropriate detail page based on report type
         if (report.type === "invoice") {
             // Navigate to patient invoice detail page with ID
-            navigate(`/patient/reports/invoice/${report._id}`, {
-                state: { fromReports: true },
-            });
+            navigate(`/patient/reports/invoice/${report._id}`);
         } else if (report.type === "prescription") {
-            // For prescriptions, show the dedicated Prescription Details page
-            // Use the explicit prescriptionId if available, otherwise fall back to report._id
-            const prescriptionId = report.prescriptionId || report._id;
-            navigate(`/patient/prescriptions/${prescriptionId}`, {
-                state: { fromReports: true },
-            });
-        } else if (report.type === "examination") {
-            // Examination summaries should also open the appointment-based consultation details
-            if (report.appointmentId) {
-                navigate(`/patient/consultations/${report.appointmentId}`, {
-                    state: { fromReports: true },
-                });
+            // Navigate to consultation details using examination ID
+            if (report.examinationId) {
+                navigate(`/patient/consultations/${report.examinationId}`);
             } else {
-                navigate(`/patient/consultations`, {
-                    state: { fromReports: true },
-                });
+                // If no examination ID, navigate to consultations list
+                navigate(`/patient/consultations`);
             }
+        } else if (report.type === "examination") {
+            // Navigate to consultation details
+            navigate(`/patient/consultations/${report.examinationId || report._id}`);
         } else {
             // Default: navigate to invoice detail if invoice number exists
             if (report.invoiceNumber) {
-                navigate(`/patient/reports/invoice/${report._id}`, {
-                    state: { fromReports: true },
-                });
+                navigate(`/patient/reports/invoice/${report._id}`);
             }
         }
     };

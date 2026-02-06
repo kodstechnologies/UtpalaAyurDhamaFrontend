@@ -96,10 +96,10 @@ function OPDTherapyDetails() {
     const timeline = therapyPlan.timeline || "N/A";
     const assignedDate = therapyPlan.createdAt
         ? new Date(therapyPlan.createdAt).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-          })
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        })
         : "N/A";
     const specialInstructions = therapyPlan.specialInstructions || "No special instructions provided.";
 
@@ -117,6 +117,8 @@ function OPDTherapyDetails() {
             case "AlternateDay":
                 return "info";
             case "Weekly":
+                return "success";
+            case "Monthly":
                 return "success";
             case "Daily":
                 return "warning";

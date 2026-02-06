@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
     Box,
     Card,
@@ -36,7 +36,6 @@ import EventIcon from "@mui/icons-material/Event";
 function ConsultationDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const location = useLocation();
     const [loading, setLoading] = useState(true);
     const [consultationData, setConsultationData] = useState(null);
 
@@ -171,20 +170,14 @@ function ConsultationDetails() {
                         <Typography variant="body2" color="text.secondary" sx={{ marginBottom: 3 }}>
                             The consultation you're looking for doesn't exist or you don't have permission to view it.
                         </Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => {
-                        if (location.state?.fromReports) {
-                            navigate("/patient/reports");
-                        } else {
-                            navigate("/patient/consultations");
-                        }
-                    }}
-                    sx={{ borderRadius: "8px" }}
-                >
-                    Back
-                </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate("/patient/consultations")}
+                            sx={{ borderRadius: "8px" }}
+                        >
+                            Back to Consultations
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
@@ -211,20 +204,14 @@ function ConsultationDetails() {
                         <Typography variant="body2" color="text.secondary" sx={{ marginBottom: 3 }}>
                             Unable to load appointment information. Please try again later.
                         </Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => {
-                        if (location.state?.fromReports) {
-                            navigate("/patient/reports");
-                        } else {
-                            navigate("/patient/consultations");
-                        }
-                    }}
-                    sx={{ borderRadius: "8px" }}
-                >
-                    Back
-                </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate("/patient/consultations")}
+                            sx={{ borderRadius: "8px" }}
+                        >
+                            Back to Consultations
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
@@ -250,16 +237,10 @@ function ConsultationDetails() {
                 <Button
                     variant="outlined"
                     startIcon={<ArrowBackIcon />}
-                    onClick={() => {
-                        if (location.state?.fromReports) {
-                            navigate("/patient/reports");
-                        } else {
-                            navigate("/patient/consultations");
-                        }
-                    }}
+                    onClick={() => navigate("/patient/consultations")}
                     sx={{ borderRadius: "8px" }}
                 >
-                    Back
+                    Back to Consultations
                 </Button>
             </Box>
 

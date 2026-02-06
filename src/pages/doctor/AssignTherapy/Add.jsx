@@ -267,12 +267,12 @@ function AssignTherapyAddPage() {
                     { headers: getAuthHeaders() }
                 );
             } else {
-            // Create therapy plan for inpatient
+                // Create therapy plan for inpatient
                 response = await axios.post(
-                getApiUrl(`inpatients/${formData.inpatientId}/therapy-plans`),
-                requestData,
-                { headers: getAuthHeaders() }
-            );
+                    getApiUrl(`inpatients/${formData.inpatientId}/therapy-plans`),
+                    requestData,
+                    { headers: getAuthHeaders() }
+                );
             }
 
             if (response.data.success) {
@@ -300,228 +300,229 @@ function AssignTherapyAddPage() {
                 </Box>
             ) : (
                 <>
-            <HeadingCard
-                title={isEditMode ? "Edit IPD Therapy Plan" : "Assign New IPD Therapy"}
-                subtitle={formData.patientName ? `Therapy plan for ${formData.patientName}` : (isEditMode ? "Edit IPD therapy plan" : "Assign IPD therapy to an inpatient")}
-                breadcrumbItems={[
-                    { label: "Doctor", url: "/doctor/dashboard" },
-                    { label: "In Patients", url: "/doctor/in-patients" },
-                    { label: "IPD Therapies", url: "/doctor/assign-therapy" },
-                    { label: isEditMode ? "Edit Therapy Plan" : "New Assignment" },
-                ]}
-            />
+                    <HeadingCard
+                        title={isEditMode ? "Edit IPD Therapy Plan" : "Assign New IPD Therapy"}
+                        subtitle={formData.patientName ? `Therapy plan for ${formData.patientName}` : (isEditMode ? "Edit IPD therapy plan" : "Assign IPD therapy to an inpatient")}
+                        breadcrumbItems={[
+                            { label: "Doctor", url: "/doctor/dashboard" },
+                            { label: "In Patients", url: "/doctor/in-patients" },
+                            { label: "IPD Therapies", url: "/doctor/assign-therapy" },
+                            { label: isEditMode ? "Edit Therapy Plan" : "New Assignment" },
+                        ]}
+                    />
 
-            <Box
-                component="form"
-                onSubmit={handleSubmit}
-                sx={{
-                    backgroundColor: "var(--color-bg-card)",
-                    borderRadius: 4,
-                    p: 4,
-                    border: "1px solid var(--color-border)",
-                    boxShadow: "var(--shadow-medium)",
-                    mt: 3,
-                }}
-            >
-                <Grid container spacing={3}>
-                    {/* Inpatient Selection */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Select Inpatient <span style={{ color: "red" }}>*</span>
-                        </Typography>
-                        <Autocomplete
-                            options={inpatients}
-                            getOptionLabel={(option) => {
-                                const patientName = option.patient?.user?.name || "Unknown";
-                                const roomNumber = option.roomNumber || "N/A";
-                                const bedNumber = option.bedNumber ? `Bed: ${option.bedNumber}` : "";
-                                return `${patientName} - Room: ${roomNumber}${bedNumber ? `, ${bedNumber}` : ""}`;
-                            }}
-                            value={selectedInpatient}
-                            onChange={handleInpatientSelect}
-                            loading={isLoadingInpatients}
-                            disabled={isLoadingInpatients || isEditMode}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    placeholder="Select inpatient"
-                                    required
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        endAdornment: (
-                                            <>
-                                                {isLoadingInpatients ? <CircularProgress size={20} /> : null}
-                                                {params.InputProps.endAdornment}
-                                            </>
-                                        ),
+                    <Box
+                        component="form"
+                        onSubmit={handleSubmit}
+                        sx={{
+                            backgroundColor: "var(--color-bg-card)",
+                            borderRadius: 4,
+                            p: 4,
+                            border: "1px solid var(--color-border)",
+                            boxShadow: "var(--shadow-medium)",
+                            mt: 3,
+                        }}
+                    >
+                        <Grid container spacing={3}>
+                            {/* Inpatient Selection */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Select Inpatient <span style={{ color: "red" }}>*</span>
+                                </Typography>
+                                <Autocomplete
+                                    options={inpatients}
+                                    getOptionLabel={(option) => {
+                                        const patientName = option.patient?.user?.name || "Unknown";
+                                        const roomNumber = option.roomNumber || "N/A";
+                                        const bedNumber = option.bedNumber ? `Bed: ${option.bedNumber}` : "";
+                                        return `${patientName} - Room: ${roomNumber}${bedNumber ? `, ${bedNumber}` : ""}`;
+                                    }}
+                                    value={selectedInpatient}
+                                    onChange={handleInpatientSelect}
+                                    loading={isLoadingInpatients}
+                                    disabled={isLoadingInpatients || isEditMode}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            placeholder="Select inpatient"
+                                            required
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {isLoadingInpatients ? <CircularProgress size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                        />
+                                    )}
+                                    renderOption={(props, option) => (
+                                        <li {...props} key={option._id}>
+                                            <Box>
+                                                <Typography variant="body1" fontWeight={600}>
+                                                    {option.patient?.user?.name || "Unknown"}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Room: {option.roomNumber || "N/A"}
+                                                    {option.bedNumber && ` | Bed: ${option.bedNumber}`}
+                                                    {option.patient?.user?.uhid && ` | UHID: ${option.patient.user.uhid}`}
+                                                </Typography>
+                                            </Box>
+                                        </li>
+                                    )}
+                                    sx={{
+                                        "& .MuiOutlinedInput-root": {
+                                            backgroundColor: "var(--color-bg-input)",
+                                        },
                                     }}
                                 />
-                            )}
-                            renderOption={(props, option) => (
-                                <li {...props} key={option._id}>
-                                    <Box>
-                                        <Typography variant="body1" fontWeight={600}>
-                                            {option.patient?.user?.name || "Unknown"}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                            Room: {option.roomNumber || "N/A"}
-                                            {option.bedNumber && ` | Bed: ${option.bedNumber}`}
-                                            {option.patient?.user?.uhid && ` | UHID: ${option.patient.user.uhid}`}
-                                        </Typography>
-                                    </Box>
-                                </li>
-                            )}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    backgroundColor: "var(--color-bg-input)",
-                                },
-                            }}
-                        />
-                    </Grid>
+                            </Grid>
 
-                    {/* Therapist */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Therapist <span style={{ color: "red" }}>*</span>
-                        </Typography>
-                        <FormControl fullWidth required disabled={isLoadingTherapists}>
-                            <InputLabel>Select Therapist</InputLabel>
-                            <Select
-                                name="therapistId"
-                                value={formData.therapistId}
-                                label="Select Therapist"
-                                onChange={handleChange}
-                            >
-                                <MenuItem value="">
-                                    <em>Select Therapist...</em>
-                                </MenuItem>
-                                {therapists.map((therapist) => {
-                                    // Get therapist name from user object or fallback
-                                    const therapistName = therapist.user?.name || therapist.name || "Unknown";
-                                    // Get speciality (note: backend uses 'speciality', not 'specialization')
-                                    const therapistSpeciality = therapist.speciality || therapist.specialization || "N/A";
-                                    // Use user._id for the value (needed for assignment)
-                                    const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
-                                    
-                                    return (
-                                        <MenuItem key={therapist._id} value={therapistUserId}>
-                                            {therapistName} - {therapistSpeciality}
+                            {/* Therapist */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Therapist <span style={{ color: "red" }}>*</span>
+                                </Typography>
+                                <FormControl fullWidth required disabled={isLoadingTherapists}>
+                                    <InputLabel>Select Therapist</InputLabel>
+                                    <Select
+                                        name="therapistId"
+                                        value={formData.therapistId}
+                                        label="Select Therapist"
+                                        onChange={handleChange}
+                                    >
+                                        <MenuItem value="">
+                                            <em>Select Therapist...</em>
                                         </MenuItem>
-                                    );
-                                })}
-                            </Select>
-                        </FormControl>
-                    </Grid>
+                                        {therapists.map((therapist) => {
+                                            // Get therapist name from user object or fallback
+                                            const therapistName = therapist.user?.name || therapist.name || "Unknown";
+                                            // Get speciality (note: backend uses 'speciality', not 'specialization')
+                                            const therapistSpeciality = therapist.speciality || therapist.specialization || "N/A";
+                                            // Use user._id for the value (needed for assignment)
+                                            const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
 
-                    {/* Therapy Type */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Therapy Type <span style={{ color: "red" }}>*</span>
-                        </Typography>
-                        <FormControl fullWidth required disabled={isLoadingTherapies}>
-                            <InputLabel>Select Therapy Type</InputLabel>
-                            <Select
-                                name="therapyType"
-                                value={formData.therapyType}
-                                label="Select Therapy Type"
-                                onChange={handleChange}
-                            >
-                                <MenuItem value="">
-                                    <em>Select Therapy Type...</em>
-                                </MenuItem>
-                                {therapies.map((therapy) => (
-                                    <MenuItem key={therapy._id} value={therapy._id}>
-                                        {therapy.therapyName}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </Grid>
+                                            return (
+                                                <MenuItem key={therapist._id} value={therapistUserId}>
+                                                    {therapistName} - {therapistSpeciality}
+                                                </MenuItem>
+                                            );
+                                        })}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
 
-                    {/* Total Sessions */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Total Sessions <span style={{ color: "red" }}>*</span>
-                        </Typography>
-                        <TextField
-                            fullWidth
-                            name="totalSessions"
-                            type="number"
-                            value={formData.totalSessions}
-                            onChange={handleChange}
-                            placeholder="Enter total number of sessions"
-                            inputProps={{ min: 1 }}
-                            required
-                        />
-                    </Grid>
+                            {/* Therapy Type */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Therapy Type <span style={{ color: "red" }}>*</span>
+                                </Typography>
+                                <FormControl fullWidth required disabled={isLoadingTherapies}>
+                                    <InputLabel>Select Therapy Type</InputLabel>
+                                    <Select
+                                        name="therapyType"
+                                        value={formData.therapyType}
+                                        label="Select Therapy Type"
+                                        onChange={handleChange}
+                                    >
+                                        <MenuItem value="">
+                                            <em>Select Therapy Type...</em>
+                                        </MenuItem>
+                                        {therapies.map((therapy) => (
+                                            <MenuItem key={therapy._id} value={therapy._id}>
+                                                {therapy.therapyName}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
 
-                    {/* Timeline */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Timeline
-                        </Typography>
-                        <FormControl fullWidth>
-                            <InputLabel>Select Timeline</InputLabel>
-                            <Select
-                                name="timeline"
-                                value={formData.timeline}
-                                label="Select Timeline"
-                                onChange={handleChange}
-                            >
-                                <MenuItem value="AlternateDay">Alternate Day</MenuItem>
-                                <MenuItem value="Weekly">Weekly</MenuItem>
-                                <MenuItem value="Daily">Daily</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid>
+                            {/* Total Sessions */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Total Sessions <span style={{ color: "red" }}>*</span>
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    name="totalSessions"
+                                    type="number"
+                                    value={formData.totalSessions}
+                                    onChange={handleChange}
+                                    placeholder="Enter total number of sessions"
+                                    inputProps={{ min: 1 }}
+                                    required
+                                />
+                            </Grid>
 
-                    {/* Assigned Date */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Assigned Date <span style={{ color: "red" }}>*</span>
-                        </Typography>
-                        <TextField
-                            fullWidth
-                            name="assignedDate"
-                            type="date"
-                            value={formData.assignedDate}
-                            onChange={handleChange}
-                            InputLabelProps={{ shrink: true }}
-                            required
-                        />
-                    </Grid>
+                            {/* Timeline */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Timeline
+                                </Typography>
+                                <FormControl fullWidth>
+                                    <InputLabel>Select Timeline</InputLabel>
+                                    <Select
+                                        name="timeline"
+                                        value={formData.timeline}
+                                        label="Select Timeline"
+                                        onChange={handleChange}
+                                    >
+                                        <MenuItem value="AlternateDay">Alternate Day</MenuItem>
+                                        <MenuItem value="Weekly">Weekly</MenuItem>
+                                        <MenuItem value="Daily">Daily</MenuItem>
+                                        <MenuItem value="Monthly">Monthly</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
 
-                    {/* Notes */}
-                    <Grid item xs={12}>
-                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Notes
-                        </Typography>
-                        <TextField
-                            fullWidth
-                            name="notes"
-                            multiline
-                            rows={4}
-                            value={formData.notes}
-                            onChange={handleChange}
-                            placeholder="Enter any additional notes or instructions"
-                        />
-                    </Grid>
-                </Grid>
+                            {/* Assigned Date */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Assigned Date <span style={{ color: "red" }}>*</span>
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    name="assignedDate"
+                                    type="date"
+                                    value={formData.assignedDate}
+                                    onChange={handleChange}
+                                    InputLabelProps={{ shrink: true }}
+                                    required
+                                />
+                            </Grid>
 
-                {/* Action Buttons */}
-                <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
-                    <CancelButton onClick={() => navigate("/doctor/assign-therapy")}>
-                        <X size={16} style={{ marginRight: "8px" }} />
-                        Cancel
-                    </CancelButton>
-                    <SubmitButton
-                        text={isEditMode ? "Update IPD Therapy Plan" : "Assign IPD Therapy"}
-                        type="submit"
-                        disabled={isSubmitting}
-                    />
-                </Box>
-            </Box>
-            </>
+                            {/* Notes */}
+                            <Grid item xs={12}>
+                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Notes
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    name="notes"
+                                    multiline
+                                    rows={4}
+                                    value={formData.notes}
+                                    onChange={handleChange}
+                                    placeholder="Enter any additional notes or instructions"
+                                />
+                            </Grid>
+                        </Grid>
+
+                        {/* Action Buttons */}
+                        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+                            <CancelButton onClick={() => navigate("/doctor/assign-therapy")}>
+                                <X size={16} style={{ marginRight: "8px" }} />
+                                Cancel
+                            </CancelButton>
+                            <SubmitButton
+                                text={isEditMode ? "Update IPD Therapy Plan" : "Assign IPD Therapy"}
+                                type="submit"
+                                disabled={isSubmitting}
+                            />
+                        </Box>
+                    </Box>
+                </>
             )}
         </div>
     );

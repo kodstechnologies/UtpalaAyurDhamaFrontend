@@ -98,20 +98,20 @@ function IPDTherapyDetails() {
     const timeline = therapyPlan.timeline || "N/A";
     const assignedDate = therapyPlan.createdAt
         ? new Date(therapyPlan.createdAt).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-          })
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        })
         : "N/A";
     const specialInstructions = therapyPlan.specialInstructions || "No special instructions provided.";
     const roomNumber = inpatient?.roomNumber || "N/A";
     const wardCategory = inpatient?.wardCategory || "N/A";
     const admissionDate = inpatient?.admissionDate
         ? new Date(inpatient.admissionDate).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-          })
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        })
         : "N/A";
     const inpatientStatus = inpatient?.status || "N/A";
 
@@ -120,6 +120,8 @@ function IPDTherapyDetails() {
             case "AlternateDay":
                 return "info";
             case "Weekly":
+                return "success";
+            case "Monthly":
                 return "success";
             case "Daily":
                 return "warning";

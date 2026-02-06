@@ -21,7 +21,7 @@ import GreetingsImg from "../../assets/greeting/therapist.png"
 function Therapist_Dashboard() {
     const { user } = useSelector((state) => state.auth);
     const therapistName = user?.name || "Therapist";
-    
+
     const [sessions, setSessions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [summary, setSummary] = useState({
@@ -29,6 +29,8 @@ function Therapist_Dashboard() {
         todayTherapySessions: 0,
         totalPatients: 0,
     });
+    const [currentPage, setCurrentPage] = useState(1);
+    const sessionsPerPage = 6;
 
     // Fetch therapist sessions from API
     useEffect(() => {
@@ -152,27 +154,29 @@ function Therapist_Dashboard() {
 
 
     // Upcoming sessions (today and future) - filter by status and date
-    const upcomingSessions = useMemo(() => {
+    const allUpcomingSessions = useMemo(() => {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         return treatments
             .filter((item) => {
-                // Only show scheduled, in progress, or pending sessions
                 const validStatuses = ['Scheduled', 'In Progress', 'Pending'];
                 if (!validStatuses.includes(item.status)) return false;
-                
-                // Check if date is valid and in the future (or today)
                 if (!item.date) return false;
                 const date = new Date(item.date);
                 if (isNaN(date.getTime())) return false;
-                
                 const sessionDate = new Date(date);
                 sessionDate.setHours(0, 0, 0, 0);
                 return sessionDate >= now;
             })
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            .slice(0, 6);
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [treatments]);
+
+    const upcomingSessions = useMemo(() => {
+        const startIndex = (currentPage - 1) * sessionsPerPage;
+        return allUpcomingSessions.slice(startIndex, startIndex + sessionsPerPage);
+    }, [allUpcomingSessions, currentPage]);
+
+    const totalPages = Math.ceil(allUpcomingSessions.length / sessionsPerPage);
 
     // Therapy breakdown
     const therapyBreakdown = useMemo(() => {
@@ -505,6 +509,31 @@ function Therapist_Dashboard() {
                                         </div>
                                     </div>
                                 ))}
+
+                                {totalPages > 1 && (
+                                    <div className="d-flex justify-content-center align-items-center gap-3 mt-2">
+                                        <button
+                                            className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center"
+                                            style={{ width: "32px", height: "32px", borderRadius: "50%", padding: 0 }}
+                                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            <i className="bi bi-chevron-left"></i>
+                                            <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>‹</span>
+                                        </button>
+                                        <span className="text-muted" style={{ fontSize: "0.875rem" }}>
+                                            Page {currentPage} of {totalPages}
+                                        </span>
+                                        <button
+                                            className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center"
+                                            style={{ width: "32px", height: "32px", borderRadius: "50%", padding: 0 }}
+                                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>›</span>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

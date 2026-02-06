@@ -26,7 +26,7 @@ function Inpatient_View() {
     const [inpatients, setInpatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("All");
+    const [statusFilter, setStatusFilter] = useState("Admitted");
     const navigate = useNavigate();
 
     // Tooltip states
@@ -56,12 +56,12 @@ function Inpatient_View() {
 
             if (response.data.success) {
                 const inpatientsData = response.data.data || [];
-                
+
                 // Fetch invoices for all inpatients to check payment status
                 const invoiceIds = inpatientsData
                     .filter(ip => ip._id)
                     .map(ip => ip._id);
-                
+
                 let invoicesMap = {};
                 if (invoiceIds.length > 0) {
                     try {
@@ -75,13 +75,13 @@ function Inpatient_View() {
                                 },
                             }
                         );
-                        
+
                         if (invoicesResponse.data.success && invoicesResponse.data.data) {
                             // Create a map of inpatientId -> invoice
                             invoicesResponse.data.data.forEach((invoice) => {
                                 if (invoice.inpatient) {
                                     const inpatientId = invoice.inpatient._id || invoice.inpatient;
-                                    if (!invoicesMap[inpatientId] || 
+                                    if (!invoicesMap[inpatientId] ||
                                         new Date(invoice.createdAt) > new Date(invoicesMap[inpatientId].createdAt)) {
                                         invoicesMap[inpatientId] = invoice;
                                     }
@@ -92,16 +92,16 @@ function Inpatient_View() {
                         console.error("Error fetching invoices for payment status:", error);
                     }
                 }
-                
+
                 // Transform API response to match frontend table structure
                 const transformedInpatients = inpatientsData.map((inpatient) => {
                     // Check payment status
                     const invoice = invoicesMap[inpatient._id];
                     const isFullyPaid = invoice ? ((invoice.amountPaid || 0) >= (invoice.totalPayable || 0)) : false;
-                    
+
                     // Determine status based on payment and discharge date
                     let displayStatus = inpatient.status;
-                    
+
                     // If dischargeDate is set (bill finalized), check payment status
                     if (inpatient.dischargeDate) {
                         if (isFullyPaid) {
@@ -113,7 +113,7 @@ function Inpatient_View() {
                         }
                     }
                     // If no dischargeDate, use original status
-                    
+
                     // Map backend status to frontend status
                     const statusMap = {
                         "Admitted": "Admitted",
@@ -123,12 +123,12 @@ function Inpatient_View() {
                         "Transferred": "Under Observation",
                         "transferred": "Under Observation",
                     };
-                    
+
                     const mappedStatus = statusMap[displayStatus] || "Pending Allocation";
-                    
+
                     // Get patient profile ID (could be object or string)
                     const patientProfileId = inpatient.patient?._id || inpatient.patient || null;
-                    
+
                     return {
                         id: inpatient._id,
                         _id: inpatient._id,
@@ -148,6 +148,7 @@ function Inpatient_View() {
                         doctorName: inpatient.doctor?.user?.name || inpatient.examinations?.[0]?.doctor?.user?.name || "N/A",
                         bedNumber: inpatient.bedNumber || undefined,
                         hasPendingPayment: invoice && !isFullyPaid, // Flag for UI indication
+                        hasBill: !!invoice, // Flag for Billed badge
                     };
                 });
 
@@ -317,303 +318,310 @@ function Inpatient_View() {
                                     </thead>
                                     <tbody>
                                         {filteredData.map((patient, index) => (
-                                        <tr key={patient.id}>
-                                            <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                <strong>{patient.name}</strong>
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                {patient.doctorName ? (
-                                                    <span>
-                                                        <LocalHospitalIcon fontSize="small" className="me-1" />
-                                                        {patient.doctorName}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted">N/A</span>
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                {patient.wardCategory ? (
-                                                    <span className="badge bg-primary">{patient.wardCategory}</span>
-                                                ) : (
-                                                    <span className="text-muted">N/A</span>
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                {patient.roomNo ? (
-                                                    <span>
-                                                        <LocalHotelIcon fontSize="small" className="me-1" />
-                                                        {patient.roomNo}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted">N/A</span>
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                {patient.bedNumber ? (
-                                                    <span>{patient.bedNumber}</span>
-                                                ) : (
-                                                    <span className="text-muted">N/A</span>
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>{patient.allocatedNurse || <span className="text-muted">N/A</span>}</td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                <span
-                                                    className={getStatusBadgeClass(patient.admitStatus)}
-                                                    style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                                                >
-                                                    {patient.admitStatus}
-                                                </span>
-                                                {patient.hasPendingPayment && (
+                                            <tr key={patient.id}>
+                                                <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <strong>{patient.name}</strong>
+                                                        {patient.hasBill && (
+                                                            <span className="badge rounded-pill bg-success" style={{ fontSize: "0.65rem" }}>
+                                                                Billed
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.doctorName ? (
+                                                        <span>
+                                                            <LocalHospitalIcon fontSize="small" className="me-1" />
+                                                            {patient.doctorName}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted">N/A</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.wardCategory ? (
+                                                        <span className="badge bg-primary">{patient.wardCategory}</span>
+                                                    ) : (
+                                                        <span className="text-muted">N/A</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.roomNo ? (
+                                                        <span>
+                                                            <LocalHotelIcon fontSize="small" className="me-1" />
+                                                            {patient.roomNo}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted">N/A</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.bedNumber ? (
+                                                        <span>{patient.bedNumber}</span>
+                                                    ) : (
+                                                        <span className="text-muted">N/A</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>{patient.allocatedNurse || <span className="text-muted">N/A</span>}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>
                                                     <span
-                                                        className="badge bg-warning ms-2"
-                                                        style={{ fontSize: "0.7rem", padding: "2px 6px" }}
-                                                        title="Payment pending - Patient will show as Discharged after full payment"
+                                                        className={getStatusBadgeClass(patient.admitStatus)}
+                                                        style={{ fontSize: "0.75rem", padding: "4px 8px" }}
                                                     >
-                                                        Payment Pending
+                                                        {patient.admitStatus}
                                                     </span>
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                <div className="d-flex gap-2">
-                                                    <div style={{ position: "relative", display: "inline-block" }}>
-                                                        <Link
-                                                            to={`/receptionist/inpatient-billing/${patient.id}`}
-                                                            className="btn btn-sm"
-                                                            style={{
-                                                                backgroundColor: "#D4A574",
-                                                                borderColor: "#D4A574",
-                                                                color: "#000",
-                                                                borderRadius: "8px",
-                                                                padding: "6px 8px",
-                                                                fontWeight: 500,
-                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                transition: "all 0.3s ease",
-                                                                minWidth: "40px",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                textDecoration: "none",
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = "#C8965A";
-                                                                e.currentTarget.style.transform = "translateY(-2px)";
-                                                                e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                setHoveredButton(`view-${patient.id}`);
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = "#D4A574";
-                                                                e.currentTarget.style.transform = "translateY(0)";
-                                                                e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                setHoveredButton(null);
-                                                            }}
+                                                    {patient.hasPendingPayment && (
+                                                        <span
+                                                            className="badge bg-warning ms-2"
+                                                            style={{ fontSize: "0.7rem", padding: "2px 6px" }}
+                                                            title="Payment pending - Patient will show as Discharged after full payment"
                                                         >
-                                                            <VisibilityIcon fontSize="small" />
-                                                        </Link>
-                                                        {hoveredButton === `view-${patient.id}` && (
-                                                            <span
-                                                                style={{
-                                                                    position: "absolute",
-                                                                    bottom: "100%",
-                                                                    left: "50%",
-                                                                    transform: "translateX(-50%)",
-                                                                    marginBottom: "5px",
-                                                                    padding: "4px 8px",
-                                                                    backgroundColor: "#333",
-                                                                    color: "#fff",
-                                                                    fontSize: "0.75rem",
-                                                                    borderRadius: "4px",
-                                                                    whiteSpace: "nowrap",
-                                                                    zIndex: 1000,
-                                                                    pointerEvents: "none",
-                                                                }}
-                                                            >
-                                                                View/Add Charges
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ position: "relative", display: "inline-block" }}>
-                                                        <Link
-                                                            to={`/receptionist/patient-history/${patient.patientProfileId || patient.id}`}
-                                                            className="btn btn-sm"
-                                                            style={{
-                                                                backgroundColor: "#4A90E2",
-                                                                borderColor: "#4A90E2",
-                                                                color: "#fff",
-                                                                borderRadius: "8px",
-                                                                padding: "6px 12px",
-                                                                fontWeight: 500,
-                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                transition: "all 0.3s ease",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: "4px",
-                                                                textDecoration: "none",
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.backgroundColor = "#357ABD";
-                                                                e.currentTarget.style.transform = "translateY(-2px)";
-                                                                e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                setHoveredButton(`history-${patient.id}`);
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.backgroundColor = "#4A90E2";
-                                                                e.currentTarget.style.transform = "translateY(0)";
-                                                                e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                setHoveredButton(null);
-                                                            }}
-                                                        >
-                                                            <CalendarTodayIcon fontSize="small" />
-                                                            <span style={{ fontSize: "0.75rem" }}>View History</span>
-                                                        </Link>
-                                                        {hoveredButton === `history-${patient.id}` && (
-                                                            <span
-                                                                style={{
-                                                                    position: "absolute",
-                                                                    bottom: "100%",
-                                                                    left: "50%",
-                                                                    transform: "translateX(-50%)",
-                                                                    marginBottom: "5px",
-                                                                    padding: "4px 8px",
-                                                                    backgroundColor: "#333",
-                                                                    color: "#fff",
-                                                                    fontSize: "0.75rem",
-                                                                    borderRadius: "4px",
-                                                                    whiteSpace: "nowrap",
-                                                                    zIndex: 1000,
-                                                                    pointerEvents: "none",
-                                                                }}
-                                                            >
-                                                                View Complete History
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {patient.admitStatus !== "Discharged" && (
+                                                            Payment Pending
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    <div className="d-flex gap-2">
                                                         <div style={{ position: "relative", display: "inline-block" }}>
-                                                            {!patient.allocatedNurse || patient.allocatedNurse === "N/A" ? (
-                                                                // No nurse assigned - Show "Allocate Nurse" button
-                                                                <>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="btn btn-sm"
-                                                                        onClick={() => handleOpenAllocationModal(patient)}
-                                                                        style={{
-                                                                            backgroundColor: "#90EE90",
-                                                                            borderColor: "#90EE90",
-                                                                            color: "#fff",
-                                                                            borderRadius: "8px",
-                                                                            padding: "6px 12px",
-                                                                            fontWeight: 500,
-                                                                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                            transition: "all 0.3s ease",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            gap: "4px",
-                                                                        }}
-                                                                        onMouseEnter={(e) => {
-                                                                            e.currentTarget.style.backgroundColor = "#7ACC7A";
-                                                                            e.currentTarget.style.transform = "translateY(-2px)";
-                                                                            e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                            setHoveredButton(`allocate-${patient.id}`);
-                                                                        }}
-                                                                        onMouseLeave={(e) => {
-                                                                            e.currentTarget.style.backgroundColor = "#90EE90";
-                                                                            e.currentTarget.style.transform = "translateY(0)";
-                                                                            e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                            setHoveredButton(null);
-                                                                        }}
-                                                                    >
-                                                                        <AssignmentIcon fontSize="small" />
-                                                                        <span style={{ fontSize: "0.75rem" }}>Allocate Nurse</span>
-                                                                    </button>
-                                                                    {hoveredButton === `allocate-${patient.id}` && (
-                                                                        <span
-                                                                            style={{
-                                                                                position: "absolute",
-                                                                                bottom: "100%",
-                                                                                left: "50%",
-                                                                                transform: "translateX(-50%)",
-                                                                                marginBottom: "5px",
-                                                                                padding: "4px 8px",
-                                                                                backgroundColor: "#333",
-                                                                                color: "#fff",
-                                                                                fontSize: "0.75rem",
-                                                                                borderRadius: "4px",
-                                                                                whiteSpace: "nowrap",
-                                                                                zIndex: 1000,
-                                                                                pointerEvents: "none",
-                                                                            }}
-                                                                        >
-                                                                            Allocate Nurse
-                                                                        </span>
-                                                                    )}
-                                                                </>
-                                                            ) : (
-                                                                // Nurse assigned - Show edit/pen button with "Re-allocate Nurse" tooltip
-                                                                <>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="btn btn-sm"
-                                                                        onClick={() => handleOpenAllocationModal(patient)}
-                                                                        style={{
-                                                                            backgroundColor: "#90EE90",
-                                                                            borderColor: "#90EE90",
-                                                                            color: "#fff",
-                                                                            borderRadius: "8px",
-                                                                            padding: "6px 8px",
-                                                                            fontWeight: 500,
-                                                                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                                            transition: "all 0.3s ease",
-                                                                            minWidth: "40px",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                        }}
-                                                                        onMouseEnter={(e) => {
-                                                                            e.currentTarget.style.backgroundColor = "#7ACC7A";
-                                                                            e.currentTarget.style.transform = "translateY(-2px)";
-                                                                            e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-                                                                            setHoveredButton(`allocate-${patient.id}`);
-                                                                        }}
-                                                                        onMouseLeave={(e) => {
-                                                                            e.currentTarget.style.backgroundColor = "#90EE90";
-                                                                            e.currentTarget.style.transform = "translateY(0)";
-                                                                            e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                                                                            setHoveredButton(null);
-                                                                        }}
-                                                                    >
-                                                                        <EditIcon fontSize="small" />
-                                                                    </button>
-                                                                    {hoveredButton === `allocate-${patient.id}` && (
-                                                                        <span
-                                                                            style={{
-                                                                                position: "absolute",
-                                                                                bottom: "100%",
-                                                                                left: "50%",
-                                                                                transform: "translateX(-50%)",
-                                                                                marginBottom: "5px",
-                                                                                padding: "4px 8px",
-                                                                                backgroundColor: "#333",
-                                                                                color: "#fff",
-                                                                                fontSize: "0.75rem",
-                                                                                borderRadius: "4px",
-                                                                                whiteSpace: "nowrap",
-                                                                                zIndex: 1000,
-                                                                                pointerEvents: "none",
-                                                                            }}
-                                                                        >
-                                                                            Re-allocate Nurse
-                                                                        </span>
-                                                                    )}
-                                                                </>
+                                                            <Link
+                                                                to={`/receptionist/inpatient-billing/${patient.id}`}
+                                                                className="btn btn-sm"
+                                                                style={{
+                                                                    backgroundColor: "#D4A574",
+                                                                    borderColor: "#D4A574",
+                                                                    color: "#000",
+                                                                    borderRadius: "8px",
+                                                                    padding: "6px 8px",
+                                                                    fontWeight: 500,
+                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                    transition: "all 0.3s ease",
+                                                                    minWidth: "40px",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    textDecoration: "none",
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = "#C8965A";
+                                                                    e.currentTarget.style.transform = "translateY(-2px)";
+                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    setHoveredButton(`view-${patient.id}`);
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = "#D4A574";
+                                                                    e.currentTarget.style.transform = "translateY(0)";
+                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    setHoveredButton(null);
+                                                                }}
+                                                            >
+                                                                <VisibilityIcon fontSize="small" />
+                                                            </Link>
+                                                            {hoveredButton === `view-${patient.id}` && (
+                                                                <span
+                                                                    style={{
+                                                                        position: "absolute",
+                                                                        bottom: "100%",
+                                                                        left: "50%",
+                                                                        transform: "translateX(-50%)",
+                                                                        marginBottom: "5px",
+                                                                        padding: "4px 8px",
+                                                                        backgroundColor: "#333",
+                                                                        color: "#fff",
+                                                                        fontSize: "0.75rem",
+                                                                        borderRadius: "4px",
+                                                                        whiteSpace: "nowrap",
+                                                                        zIndex: 1000,
+                                                                        pointerEvents: "none",
+                                                                    }}
+                                                                >
+                                                                    View/Add Charges
+                                                                </span>
                                                             )}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                        <div style={{ position: "relative", display: "inline-block" }}>
+                                                            <Link
+                                                                to={`/receptionist/patient-history/${patient.patientProfileId || patient.id}`}
+                                                                className="btn btn-sm"
+                                                                style={{
+                                                                    backgroundColor: "#4A90E2",
+                                                                    borderColor: "#4A90E2",
+                                                                    color: "#fff",
+                                                                    borderRadius: "8px",
+                                                                    padding: "6px 12px",
+                                                                    fontWeight: 500,
+                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                    transition: "all 0.3s ease",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    gap: "4px",
+                                                                    textDecoration: "none",
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = "#357ABD";
+                                                                    e.currentTarget.style.transform = "translateY(-2px)";
+                                                                    e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    setHoveredButton(`history-${patient.id}`);
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = "#4A90E2";
+                                                                    e.currentTarget.style.transform = "translateY(0)";
+                                                                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    setHoveredButton(null);
+                                                                }}
+                                                            >
+                                                                <CalendarTodayIcon fontSize="small" />
+                                                                <span style={{ fontSize: "0.75rem" }}>View History</span>
+                                                            </Link>
+                                                            {hoveredButton === `history-${patient.id}` && (
+                                                                <span
+                                                                    style={{
+                                                                        position: "absolute",
+                                                                        bottom: "100%",
+                                                                        left: "50%",
+                                                                        transform: "translateX(-50%)",
+                                                                        marginBottom: "5px",
+                                                                        padding: "4px 8px",
+                                                                        backgroundColor: "#333",
+                                                                        color: "#fff",
+                                                                        fontSize: "0.75rem",
+                                                                        borderRadius: "4px",
+                                                                        whiteSpace: "nowrap",
+                                                                        zIndex: 1000,
+                                                                        pointerEvents: "none",
+                                                                    }}
+                                                                >
+                                                                    View Complete History
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {patient.admitStatus !== "Discharged" && (
+                                                            <div style={{ position: "relative", display: "inline-block" }}>
+                                                                {!patient.allocatedNurse || patient.allocatedNurse === "N/A" ? (
+                                                                    // No nurse assigned - Show "Allocate Nurse" button
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm"
+                                                                            onClick={() => handleOpenAllocationModal(patient)}
+                                                                            style={{
+                                                                                backgroundColor: "#90EE90",
+                                                                                borderColor: "#90EE90",
+                                                                                color: "#fff",
+                                                                                borderRadius: "8px",
+                                                                                padding: "6px 12px",
+                                                                                fontWeight: 500,
+                                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                                transition: "all 0.3s ease",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                                gap: "4px",
+                                                                            }}
+                                                                            onMouseEnter={(e) => {
+                                                                                e.currentTarget.style.backgroundColor = "#7ACC7A";
+                                                                                e.currentTarget.style.transform = "translateY(-2px)";
+                                                                                e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                                setHoveredButton(`allocate-${patient.id}`);
+                                                                            }}
+                                                                            onMouseLeave={(e) => {
+                                                                                e.currentTarget.style.backgroundColor = "#90EE90";
+                                                                                e.currentTarget.style.transform = "translateY(0)";
+                                                                                e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                                setHoveredButton(null);
+                                                                            }}
+                                                                        >
+                                                                            <AssignmentIcon fontSize="small" />
+                                                                            <span style={{ fontSize: "0.75rem" }}>Allocate Nurse</span>
+                                                                        </button>
+                                                                        {hoveredButton === `allocate-${patient.id}` && (
+                                                                            <span
+                                                                                style={{
+                                                                                    position: "absolute",
+                                                                                    bottom: "100%",
+                                                                                    left: "50%",
+                                                                                    transform: "translateX(-50%)",
+                                                                                    marginBottom: "5px",
+                                                                                    padding: "4px 8px",
+                                                                                    backgroundColor: "#333",
+                                                                                    color: "#fff",
+                                                                                    fontSize: "0.75rem",
+                                                                                    borderRadius: "4px",
+                                                                                    whiteSpace: "nowrap",
+                                                                                    zIndex: 1000,
+                                                                                    pointerEvents: "none",
+                                                                                }}
+                                                                            >
+                                                                                Allocate Nurse
+                                                                            </span>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    // Nurse assigned - Show edit/pen button with "Re-allocate Nurse" tooltip
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm"
+                                                                            onClick={() => handleOpenAllocationModal(patient)}
+                                                                            style={{
+                                                                                backgroundColor: "#90EE90",
+                                                                                borderColor: "#90EE90",
+                                                                                color: "#fff",
+                                                                                borderRadius: "8px",
+                                                                                padding: "6px 8px",
+                                                                                fontWeight: 500,
+                                                                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                                transition: "all 0.3s ease",
+                                                                                minWidth: "40px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                            }}
+                                                                            onMouseEnter={(e) => {
+                                                                                e.currentTarget.style.backgroundColor = "#7ACC7A";
+                                                                                e.currentTarget.style.transform = "translateY(-2px)";
+                                                                                e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                                setHoveredButton(`allocate-${patient.id}`);
+                                                                            }}
+                                                                            onMouseLeave={(e) => {
+                                                                                e.currentTarget.style.backgroundColor = "#90EE90";
+                                                                                e.currentTarget.style.transform = "translateY(0)";
+                                                                                e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                                setHoveredButton(null);
+                                                                            }}
+                                                                        >
+                                                                            <EditIcon fontSize="small" />
+                                                                        </button>
+                                                                        {hoveredButton === `allocate-${patient.id}` && (
+                                                                            <span
+                                                                                style={{
+                                                                                    position: "absolute",
+                                                                                    bottom: "100%",
+                                                                                    left: "50%",
+                                                                                    transform: "translateX(-50%)",
+                                                                                    marginBottom: "5px",
+                                                                                    padding: "4px 8px",
+                                                                                    backgroundColor: "#333",
+                                                                                    color: "#fff",
+                                                                                    fontSize: "0.75rem",
+                                                                                    borderRadius: "4px",
+                                                                                    whiteSpace: "nowrap",
+                                                                                    zIndex: 1000,
+                                                                                    pointerEvents: "none",
+                                                                                }}
+                                                                            >
+                                                                                Re-allocate Nurse
+                                                                            </span>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         ))}
                                     </tbody>
                                 </table>

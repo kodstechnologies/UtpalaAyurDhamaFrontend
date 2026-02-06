@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
     Box,
     Dialog,
@@ -25,6 +25,7 @@ import doctorService from "../../../services/doctorService";
 import therapistService from "../../../services/therapistService";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import ConfirmationModal from "../../../components/modal/ConfirmationModal";
 
 // Icons
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
@@ -216,6 +217,9 @@ function OutpatientBilling() {
     console.log("OutpatientBilling component rendering...");
     const { patientId } = useParams();
     console.log("Patient ID from params:", patientId);
+    const [searchParams] = useSearchParams();
+    const examinationId = searchParams.get("examinationId");
+    console.log("Examination ID from query:", examinationId);
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [billingData, setBillingData] = useState(null);
@@ -236,6 +240,7 @@ function OutpatientBilling() {
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
     const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
     // Refetch billing details
     const fetchBillingDetails = async () => {
@@ -249,8 +254,8 @@ function OutpatientBilling() {
         try {
             setLoading(true);
             setError(null);
-            console.log("Fetching outpatient billing details for patient ID:", patientId);
-            const response = await inpatientService.getOutpatientBillingSummary(patientId);
+            console.log("Fetching outpatient billing details for patient ID:", patientId, "Examination ID:", examinationId);
+            const response = await inpatientService.getOutpatientBillingSummary(patientId, { examinationId });
             console.log("Outpatient Billing API Response:", response);
 
             if (response && response.success && response.data) {
@@ -342,7 +347,7 @@ function OutpatientBilling() {
 
     const grandTotal = useMemo(() => {
         if (!billingData) return 0;
-        return billingData.totals?.grandTotal || Object.values(chargeTotals).reduce((a, b) => a + b, 0);
+        return billingData.totals?.grandTotal ?? Object.values(chargeTotals).reduce((a, b) => a + b, 0);
     }, [billingData, chargeTotals]);
 
     const discountAmount = useMemo(() => {
@@ -353,22 +358,36 @@ function OutpatientBilling() {
         }
     }, [grandTotal, discountRate, discountType]);
     const discountedTotal = useMemo(() => Math.max(0, grandTotal - discountAmount), [grandTotal, discountAmount]);
+
+    const isFinalized = useMemo(() => {
+        return !!billingData?.isFinalized || !!billingData?.invoice?.id;
+    }, [billingData]);
+
     const taxAmount = useMemo(() => {
-        const isFinalized = billingData?.invoice?.id;
         if (isFinalized && billingData?.invoice) {
             // If finalized, tax is already fixed in invoice
             return 0;
         }
         return Number((discountedTotal * (taxRate / 100)).toFixed(2));
-    }, [discountedTotal, taxRate, billingData]);
+    }, [discountedTotal, taxRate, isFinalized, billingData]);
 
     const totalCharges = useMemo(() => {
-        const isFinalized = billingData?.invoice?.id;
         if (isFinalized && billingData?.invoice) {
             return billingData.invoice.totalPayable;
         }
         return Number((discountedTotal + taxAmount).toFixed(2));
-    }, [grandTotal, discountedTotal, taxAmount, billingData]);
+    }, [discountedTotal, taxAmount, billingData, isFinalized]);
+
+    const amountPaid = useMemo(() => {
+        return billingData?.invoice?.amountPaid || 0;
+    }, [billingData]);
+
+    const outstandingAmount = useMemo(() => {
+        if (isFinalized) {
+            return Math.max(0, totalCharges - amountPaid);
+        }
+        return totalCharges;
+    }, [isFinalized, totalCharges, amountPaid]);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat("en-IN", {
@@ -536,9 +555,6 @@ function OutpatientBilling() {
 
 
     const handleFinalizeBilling = async () => {
-        if (!window.confirm("Finalize outpatient billing and generate the final bill?")) {
-            return;
-        }
         try {
             setIsFinalizing(true);
             const response = await inpatientService.finalizeOutpatientBilling(patientId, {
@@ -546,7 +562,7 @@ function OutpatientBilling() {
                 discountValue: discountRate,
                 discountRate,
                 taxRate
-            });
+            }, { examinationId });
 
             if (response && response.success) {
                 toast.success(`Billing finalized successfully. Invoice #${response.data.invoiceNumber} generated.`);
@@ -554,7 +570,7 @@ function OutpatientBilling() {
                 // Refresh billing data to show updated invoice information
                 if (patientId) {
                     try {
-                        const billingResponse = await inpatientService.getOutpatientBillingSummary(patientId);
+                        const billingResponse = await inpatientService.getOutpatientBillingSummary(patientId, { examinationId });
                         if (billingResponse && billingResponse.success && billingResponse.data) {
                             const data = billingResponse.data;
                             const charges = {
@@ -586,6 +602,7 @@ function OutpatientBilling() {
             toast.error(errorMessage);
         } finally {
             setIsFinalizing(false);
+            setIsConfirmModalOpen(false);
         }
     };
 
@@ -629,7 +646,7 @@ function OutpatientBilling() {
     }
 
     const { patient, charges } = billingData || {};
-    const isFinalized = billingData?.invoice?.id;
+    // Removed duplicate isFinalized declaration
 
     console.log("Patient data:", patient);
     console.log("Charges:", charges);
@@ -710,7 +727,7 @@ function OutpatientBilling() {
                                             letterSpacing: "0.5px",
                                         }}
                                     >
-                                        {isFinalized ? "Total Paid / Billed" : "Total Outstanding"}
+                                        {isFinalized ? (outstandingAmount === 0 ? "Total Paid (Finalized)" : "Amount Due") : "Total Outstanding"}
                                     </p>
                                     <h2
                                         style={{
@@ -721,8 +738,13 @@ function OutpatientBilling() {
                                             lineHeight: "1.2",
                                         }}
                                     >
-                                        {formatCurrency(totalCharges)}
+                                        {formatCurrency(isFinalized ? (outstandingAmount === 0 ? totalCharges : outstandingAmount) : totalCharges)}
                                     </h2>
+                                    {isFinalized && outstandingAmount > 0 && (
+                                        <p style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.8)", marginTop: "4px" }}>
+                                            Paid: {formatCurrency(amountPaid)}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1008,7 +1030,7 @@ function OutpatientBilling() {
                     <button
                         type="button"
                         className="btn btn-success"
-                        onClick={handleFinalizeBilling}
+                        onClick={() => setIsConfirmModalOpen(true)}
                         disabled={isFinalizing || !patientId || grandTotal === 0}
                         style={{
                             backgroundColor: "#4CAF50",
@@ -1035,7 +1057,18 @@ function OutpatientBilling() {
                 )}
             </div>
 
-        </Box>
+            <ConfirmationModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={handleFinalizeBilling}
+                title="Finalize Billing"
+                description="Are you sure you want to finalize the outpatient billing? This will generate the final invoice and cannot be undone."
+                confirmText="Finalize & Generate Bill"
+                isLoading={isFinalizing}
+                type="success"
+            />
+
+        </Box >
     );
 }
 

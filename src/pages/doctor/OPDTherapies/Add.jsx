@@ -302,7 +302,7 @@ function OPDTherapiesAddPage() {
         }
     };
 
-    const timelineOptions = ["AlternateDay", "Weekly", "Daily"];
+    const timelineOptions = ["AlternateDay", "Weekly", "Daily", "Monthly"];
 
     if (isLoadingExisting) {
         return (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
 import {
     Box,
@@ -39,7 +39,6 @@ import { toast } from "react-toastify";
 function PrescriptionDetailsPage() {
     const navigate = useNavigate();
     const { id } = useParams();
-    const location = useLocation();
     const theme = useTheme();
 
     const [prescription, setPrescription] = useState(null);
@@ -226,13 +225,7 @@ function PrescriptionDetailsPage() {
             <Box sx={{ mb: 3 }}>
                 <Button
                     startIcon={<ArrowBackIcon />}
-                    onClick={() => {
-                        if (location.state?.fromReports) {
-                            navigate("/patient/reports");
-                        } else {
-                            navigate("/patient/prescriptions");
-                        }
-                    }}
+                    onClick={() => navigate("/patient/prescriptions")}
                     sx={{
                         color: "var(--color-text-dark)",
                         textTransform: "none",

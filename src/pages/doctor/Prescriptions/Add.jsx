@@ -902,13 +902,13 @@ function PrescriptionsAddPage() {
     useEffect(() => {
         const fetchOPDPatients = async () => {
             if (!user?._id) return;
-            
+
             setIsLoadingPatients(true);
             try {
                 // Fetch appointments for this doctor (backend automatically filters by logged-in doctor)
                 const appointmentsResponse = await axios.get(
                     getApiUrl("appointments"),
-                    { 
+                    {
                         headers: getAuthHeaders(),
                         params: {
                             page: 1,
@@ -947,7 +947,7 @@ function PrescriptionsAddPage() {
                 if (appointmentsResponse.data.success) {
                     const appointments = appointmentsResponse.data.data || [];
                     console.log("Appointments fetched:", appointments.length);
-                    
+
                     // Extract unique patients from appointments
                     const patientMap = new Map();
                     appointments.forEach(appointment => {
@@ -958,7 +958,7 @@ function PrescriptionsAddPage() {
                                 const isNotInpatientProfile = !appointment.patient.inpatient || appointment.patient.inpatient === false;
                                 // Check if patient is currently admitted (has active inpatient record)
                                 const isNotCurrentlyAdmitted = !activeInpatientPatientIds.has(patientId);
-                                
+
                                 // Only include OPD patients (not inpatients)
                                 if (isNotInpatientProfile && isNotCurrentlyAdmitted) {
                                     patientMap.set(patientId, {
@@ -971,11 +971,11 @@ function PrescriptionsAddPage() {
                             }
                         }
                     });
-                    
+
                     const uniquePatients = Array.from(patientMap.values());
                     console.log("Unique OPD patients from appointments (after filtering IPD):", uniquePatients.length);
                     setOpdPatients(uniquePatients);
-                    
+
                     // If no assigned patients found, show a message
                     if (uniquePatients.length === 0) {
                         console.warn("No assigned patients found for this doctor");
@@ -1127,7 +1127,7 @@ function PrescriptionsAddPage() {
     };
 
     const frequencyOptions = ["Once daily", "Twice daily", "Thrice daily", "Four times daily", "As needed"];
-    const durationOptions = ["3 days", "5 days", "7 days", "10 days", "14 days", "1 month", "Ongoing"];
+
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -1504,21 +1504,14 @@ function PrescriptionsAddPage() {
                                     </FormControl>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={2}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Duration</InputLabel>
-                                        <Select
-                                            value={formData.currentMedicine.duration}
-                                            onChange={(e) => handleMedicineFieldChange("duration", e.target.value)}
-                                            label="Duration"
-                                        >
-                                            <MenuItem value="">Select</MenuItem>
-                                            {durationOptions.map((dur) => (
-                                                <MenuItem key={dur} value={dur}>
-                                                    {dur}
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Duration"
+                                        value={formData.currentMedicine.duration}
+                                        onChange={(e) => handleMedicineFieldChange("duration", e.target.value)}
+                                        placeholder="e.g., 5 days"
+                                    />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={2}>
                                     <FormControl fullWidth size="small">

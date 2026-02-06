@@ -2,23 +2,23 @@ import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../config/api";
 
 const getAllInvoices = async (params) => {
-    const response = await axios.get(getApiUrl("invoices"), { 
-        headers: getAuthHeaders(), 
-        params 
+    const response = await axios.get(getApiUrl("invoices"), {
+        headers: getAuthHeaders(),
+        params
     });
     return response.data;
 };
 
 const getInvoiceById = async (id) => {
-    const response = await axios.get(getApiUrl(`invoices/${id}`), { 
-        headers: getAuthHeaders() 
+    const response = await axios.get(getApiUrl(`invoices/${id}`), {
+        headers: getAuthHeaders()
     });
     return response.data;
 };
 
 const getInvoicesByUser = async (userId) => {
-    const response = await axios.get(getApiUrl(`invoices/by-user/${userId}`), { 
-        headers: getAuthHeaders() 
+    const response = await axios.get(getApiUrl(`invoices/by-user/${userId}`), {
+        headers: getAuthHeaders()
     });
     return response.data;
 };
@@ -38,9 +38,10 @@ const getPatientReports = async () => {
     return response.data;
 };
 
-const recordPayment = async (invoiceId, paymentAmount) => {
+const recordPayment = async (invoiceId, paymentAmount, paymentMethod) => {
     const response = await axios.patch(getApiUrl(`invoices/${invoiceId}/record-payment`), {
-        paymentAmount
+        paymentAmount,
+        paymentMethod
     }, {
         headers: getAuthHeaders()
     });
