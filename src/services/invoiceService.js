@@ -38,10 +38,12 @@ const getPatientReports = async () => {
     return response.data;
 };
 
-const recordPayment = async (invoiceId, paymentAmount, paymentMethod) => {
+const recordPayment = async (invoiceId, paymentAmount, paymentMethod, transactionId, cardLastFourDigits) => {
     const response = await axios.patch(getApiUrl(`invoices/${invoiceId}/record-payment`), {
         paymentAmount,
-        paymentMethod
+        paymentMethod,
+        transactionId,
+        cardLastFourDigits
     }, {
         headers: getAuthHeaders()
     });

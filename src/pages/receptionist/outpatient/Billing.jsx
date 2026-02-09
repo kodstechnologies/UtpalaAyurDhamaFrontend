@@ -36,7 +36,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloseIcon from "@mui/icons-material/Close";
 
-const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) => {
+const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, useHeaderAction = false }) => {
     // Safety check for charges array
     if (!charges || !Array.isArray(charges)) {
         return (
@@ -85,12 +85,36 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
         return "badge bg-secondary";
     };
 
-    const columnCount = category === "therapy" ? 7 : category === "pharmacy" ? 9 : category === "consultation" ? 4 : 3;
+    const columnCount = category === "therapy" ? 5 : category === "pharmacy" ? 9 : category === "consultation" ? 4 : 3;
 
     return (
         <div className="card shadow-sm mb-4">
-            <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="card-title mb-0">{title}</h5>
+            <div className="card-header d-flex justify-content-between align-items-center" style={{ padding: "12px 20px" }}>
+                <h5 className="card-title mb-0" style={{ fontWeight: 700, fontSize: "1.1rem" }}>{title}</h5>
+                <div className="d-flex align-items-center gap-2">
+                    {useHeaderAction && isEditable && onEdit && charges.length > 0 && (
+                        <button
+                            type="button"
+                            className="btn btn-sm"
+                            onClick={() => onEdit(charges[0])}
+                            style={{
+                                backgroundColor: "#D4A574",
+                                borderColor: "#D4A574",
+                                color: "#000",
+                                borderRadius: "8px",
+                                padding: "6px 14px",
+                                fontWeight: 600,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            }}
+                        >
+                            <EditIcon sx={{ fontSize: "1.1rem" }} />
+                            <span>Edit</span>
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="card-body">
                 <div className="table-responsive">
@@ -102,9 +126,9 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                     <>
                                         <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                                         <th style={{ fontSize: "0.875rem" }}>Therapist</th>
-                                        <th style={{ fontSize: "0.875rem", textAlign: "center" }}>In Time</th>
-                                        <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Out Time</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Status</th>
+                                        <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapy Charge</th>
+                                        <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapist Charge</th>
                                     </>
                                 ) : category === "pharmacy" ? (
                                     <>
@@ -121,7 +145,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                 )}
                                 {category === "consultation" && <th style={{ fontSize: "0.875rem" }}>Doctor</th>}
                                 <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Amount</th>
-                                {isEditable && onEdit && <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Actions</th>}
+                                {!useHeaderAction && isEditable && onEdit && <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Actions</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -132,14 +156,18 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                         <>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapyName || charge.description}</td>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.inTime || "—"}</td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.outTime || "—"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
                                                 {charge.status && (
                                                     <span className={getStatusBadgeClass(charge.status)} style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
                                                         {charge.status}
                                                     </span>
                                                 )}
+                                            </td>
+                                            <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
+                                                {formatCurrency(charge.therapyCharge !== undefined ? charge.therapyCharge : (charge.amount || 0))}
+                                            </td>
+                                            <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
+                                                {formatCurrency(charge.therapistCharge !== undefined ? charge.therapistCharge : 0)}
                                             </td>
                                         </>
                                     ) : category === "pharmacy" ? (
@@ -176,7 +204,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
                                         {formatCurrency(charge.amount)}
                                     </td>
-                                    {isEditable && onEdit && (
+                                    {!useHeaderAction && isEditable && onEdit && (
                                         <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
                                             <button
                                                 type="button"
@@ -184,7 +212,6 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                                 onClick={() => onEdit(charge)}
                                                 style={{
                                                     backgroundColor: "#D4A574",
-                                                    borderColor: "#D4A574",
                                                     color: "#000",
                                                     borderRadius: "8px",
                                                     padding: "4px 8px",
@@ -236,11 +263,18 @@ function OutpatientBilling() {
     const [therapists, setTherapists] = useState([]);
     const [selectedDoctor, setSelectedDoctor] = useState("");
     const [selectedTherapist, setSelectedTherapist] = useState("");
+    const [therapyCost, setTherapyCost] = useState("");
+    const [therapistCharge, setTherapistCharge] = useState("");
     const [consultationAmount, setConsultationAmount] = useState("");
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
     const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
+    // Edit Pharmacy Dialog State
+    const [editPharmacyDialog, setEditPharmacyDialog] = useState({ open: false, charge: null });
+    const [pharmacyUnitPrice, setPharmacyUnitPrice] = useState("");
+    const [isUpdatingPharmacy, setIsUpdatingPharmacy] = useState(false);
 
     // Refetch billing details
     const fetchBillingDetails = async () => {
@@ -368,8 +402,9 @@ function OutpatientBilling() {
             // If finalized, tax is already fixed in invoice
             return 0;
         }
-        return Number((discountedTotal * (taxRate / 100)).toFixed(2));
-    }, [discountedTotal, taxRate, isFinalized, billingData]);
+        // GST applied only on medicines (pharmacy)
+        return Number((chargeTotals.pharmacy * (taxRate / 100)).toFixed(2));
+    }, [chargeTotals.pharmacy, taxRate, isFinalized, billingData]);
 
     const totalCharges = useMemo(() => {
         if (isFinalized && billingData?.invoice) {
@@ -456,6 +491,12 @@ function OutpatientBilling() {
     // Handle edit therapist
     const handleEditTherapist = (charge) => {
         setEditTherapistDialog({ open: true, charge });
+        setSelectedTherapist(charge.therapistId || "");
+
+        // Initialize costs
+        setTherapyCost((charge.therapyCharge || 0).toString());
+        setTherapistCharge((charge.therapistCharge || 0).toString());
+
         setSelectedTherapist("");
         if (!therapists.length) {
             fetchTherapists();
@@ -517,6 +558,11 @@ function OutpatientBilling() {
             return;
         }
 
+        if (!therapyCost || parseFloat(therapyCost) < 0) {
+            toast.error("Please enter a valid therapy cost");
+            return;
+        }
+
         // Get sessionId from charge - for outpatient, id is the sessionId directly
         // For inpatient, it might be in sessionId field or composite id
         const sessionId = editTherapistDialog.charge?.sessionId || editTherapistDialog.charge?.id;
@@ -528,17 +574,24 @@ function OutpatientBilling() {
 
         setIsUpdating(true);
         try {
-            // Update the therapist session's therapist
+            // Update the therapist session's therapist AND cost
+            // Using PATCH /therapist-sessions/:id
             const response = await axios.patch(
-                getApiUrl(`therapist-sessions/${sessionId}/assign`),
-                { therapistIds: [selectedTherapist] },
+                getApiUrl(`therapist-sessions/${sessionId}`),
+                {
+                    therapist: selectedTherapist,
+                    cost: parseFloat(therapyCost),
+                    therapistCharge: parseFloat(therapistCharge || 0)
+                },
                 { headers: getAuthHeaders() }
             );
 
             if (response.data && response.data.success) {
-                toast.success("Therapist updated successfully!");
+                toast.success("Therapist and cost updated successfully!");
                 setEditTherapistDialog({ open: false, charge: null });
                 setSelectedTherapist("");
+                setTherapyCost("");
+                setTherapistCharge("");
 
                 // Refresh billing data
                 await fetchBillingDetails();
@@ -553,7 +606,52 @@ function OutpatientBilling() {
         }
     };
 
+    // Handle edit pharmacy charge
+    const handleEditPharmacy = (charge) => {
+        setEditPharmacyDialog({ open: true, charge });
+        setPharmacyUnitPrice((charge.unitPrice || 0).toString());
+    };
 
+    // Update pharmacy charge
+    const handleUpdatePharmacy = async () => {
+        if (!pharmacyUnitPrice || parseFloat(pharmacyUnitPrice) < 0) {
+            toast.error("Please enter a valid unit price");
+            return;
+        }
+
+        const charge = editPharmacyDialog.charge;
+        if (!charge?.id) {
+            toast.error("Invalid pharmacy record");
+            return;
+        }
+
+        setIsUpdatingPharmacy(true);
+        try {
+            const response = await axios.patch(
+                getApiUrl(`examinations/prescriptions/${charge.id}`),
+                {
+                    unitPrice: parseFloat(pharmacyUnitPrice),
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data && response.data.success) {
+                toast.success("Pharmacy price updated successfully!");
+                setEditPharmacyDialog({ open: false, charge: null });
+                setPharmacyUnitPrice("");
+
+                // Refresh billing data
+                await fetchBillingDetails();
+            } else {
+                toast.error(response.data?.message || "Failed to update pharmacy price");
+            }
+        } catch (error) {
+            console.error("Error updating pharmacy price:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to update pharmacy price");
+        } finally {
+            setIsUpdatingPharmacy(false);
+        }
+    };
     const handleFinalizeBilling = async () => {
         try {
             setIsFinalizing(true);
@@ -815,9 +913,29 @@ function OutpatientBilling() {
                                         disabled={!!isFinalized}
                                     />
                                 </div>
-                                <span className="text-muted" style={{ fontSize: "0.875rem" }}>
-                                    GST ({taxRate}%): <strong>{formatCurrency(taxAmount)}</strong>
-                                </span>
+                                <div className="d-flex align-items-center ms-3">
+                                    <TextField
+                                        label="GST (%) on Meds"
+                                        type="number"
+                                        size="small"
+                                        inputProps={{
+                                            min: 0,
+                                            max: 100,
+                                            step: 0.5,
+                                        }}
+                                        sx={{ width: 140 }}
+                                        value={taxRate}
+                                        onChange={(e) => {
+                                            if (billingData?.invoice?.id) return;
+                                            const val = parseFloat(e.target.value);
+                                            setTaxRate(Number.isFinite(val) && val >= 0 ? val : 0);
+                                        }}
+                                        disabled={!!isFinalized}
+                                    />
+                                    <span className="ms-2 text-muted fw-bold" style={{ fontSize: "0.875rem", minWidth: "80px" }}>
+                                        {formatCurrency(taxAmount)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -849,7 +967,8 @@ function OutpatientBilling() {
                         title="Pharmacy Charges"
                         charges={charges?.pharmacy || []}
                         category="pharmacy"
-                        isEditable={false}
+                        isEditable={!isFinalized}
+                        onEdit={handleEditPharmacy}
                     />
                 </div>
             </div>
@@ -1000,6 +1119,36 @@ function OutpatientBilling() {
                             })}
                         </Select>
                     </FormControl>
+                    <TextField
+                        fullWidth
+                        label="Therapy Cost (INR)"
+                        type="number"
+                        value={therapyCost}
+                        onChange={(e) => setTherapyCost(e.target.value)}
+                        variant="outlined"
+                        inputProps={{ min: 0, step: 1 }}
+                        disabled={isUpdating}
+                        sx={{ mt: 2 }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Therapist Charge (INR)"
+                        type="number"
+                        value={therapistCharge}
+                        onChange={(e) => setTherapistCharge(e.target.value)}
+                        variant="outlined"
+                        inputProps={{ min: 0, step: 1 }}
+                        disabled={isUpdating}
+                        sx={{ mt: 2 }}
+                    />
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(212, 165, 116, 0.1)', borderRadius: '8px', border: '1px solid rgba(212, 165, 116, 0.2)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Therapy Cost:</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#8B4513' }}>
+                                {formatCurrency(parseFloat(therapyCost || 0) + parseFloat(therapistCharge || 0))}
+                            </Typography>
+                        </Box>
+                    </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button
@@ -1016,6 +1165,78 @@ function OutpatientBilling() {
                         startIcon={isUpdating ? <CircularProgress size={20} sx={{ color: "white" }} /> : null}
                     >
                         {isUpdating ? "Updating..." : "Update Therapist"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Edit Pharmacy Dialog */}
+            <Dialog
+                open={editPharmacyDialog.open}
+                onClose={() => !isUpdatingPharmacy && setEditPharmacyDialog({ open: false, charge: null })}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Edit Pharmacy Price
+                    </Typography>
+                    <Button
+                        onClick={() => setEditPharmacyDialog({ open: false, charge: null })}
+                        disabled={isUpdatingPharmacy}
+                        sx={{ minWidth: "auto", p: 0.5 }}
+                    >
+                        <CloseIcon />
+                    </Button>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ mt: 2 }}>
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Medicine: <strong>{editPharmacyDialog.charge?.description || editPharmacyDialog.charge?.medication || "N/A"}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Quantity: <strong>{editPharmacyDialog.charge?.dispensedQuantity || editPharmacyDialog.charge?.quantity || 1}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Current Amount: <strong>{formatCurrency(editPharmacyDialog.charge?.amount || 0)}</strong>
+                        </Typography>
+                    </Box>
+                    <TextField
+                        fullWidth
+                        label="Unit Price (INR) *"
+                        type="number"
+                        value={pharmacyUnitPrice}
+                        onChange={(e) => setPharmacyUnitPrice(e.target.value)}
+                        variant="outlined"
+                        inputProps={{ min: 0, step: 0.01 }}
+                        required
+                        disabled={isUpdatingPharmacy}
+                        helperText="This will override the default price of the medicine for this billing."
+                    />
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(212, 165, 116, 0.1)', borderRadius: '8px', border: '1px solid rgba(212, 165, 116, 0.2)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Pharmacy Cost:</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#8B4513' }}>
+                                {formatCurrency(parseFloat(pharmacyUnitPrice || 0) * (editPharmacyDialog.charge?.dispensedQuantity || editPharmacyDialog.charge?.quantity || 1))}
+                            </Typography>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => setEditPharmacyDialog({ open: false, charge: null })}
+                        disabled={isUpdatingPharmacy}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleUpdatePharmacy}
+                        disabled={!pharmacyUnitPrice || isUpdatingPharmacy}
+                        sx={{ backgroundColor: "#8B4513" }}
+                        startIcon={isUpdatingPharmacy ? <CircularProgress size={20} sx={{ color: "white" }} /> : null}
+                    >
+                        {isUpdatingPharmacy ? "Updating..." : "Update Price"}
                     </Button>
                 </DialogActions>
             </Dialog>

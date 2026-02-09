@@ -64,8 +64,8 @@ function AddPatientPage() {
         e.preventDefault();
 
         // Basic validation
-        if (!formData.patientName || !formData.contactNumber || !formData.email) {
-            toast.error("Please fill in all required fields (Patient Name, Contact Number, Email)");
+        if (!formData.patientName || !formData.contactNumber) {
+            toast.error("Please fill in all required fields (Patient Name, Contact Number)");
             return;
         }
 

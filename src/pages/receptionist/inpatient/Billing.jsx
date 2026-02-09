@@ -23,6 +23,7 @@ import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
 import inpatientService from "../../../services/inpatientService";
 import doctorService from "../../../services/doctorService";
+import therapistService from "../../../services/therapistService";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
@@ -59,7 +60,7 @@ const RupeeIcon = (props) => {
     );
 };
 
-const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) => {
+const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, useHeaderAction = false }) => {
     const totalAmount = charges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
 
     const formatDate = (dateString) => {
@@ -94,17 +95,41 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
         return "badge bg-secondary";
     };
 
-    const columnCount = category === "therapy" ? 8 : category === "pharmacy" ? 9 : category === "consultation" ? 4 : category === "ward" ? 3 : 3;
+    const columnCount = category === "therapy" ? 6 : category === "pharmacy" ? 9 : category === "consultation" ? 4 : category === "ward" ? 3 : 3;
 
     return (
         <div className="card shadow-sm mb-4">
-            <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="card-title mb-0">{title}</h5>
-                {category === "ward" && charges.length > 0 && (
-                    <span className="badge bg-primary" style={{ fontSize: "0.875rem", padding: "6px 12px" }}>
-                        Total: {formatCurrency(totalAmount)}
-                    </span>
-                )}
+            <div className="card-header d-flex justify-content-between align-items-center" style={{ padding: "12px 20px" }}>
+                <h5 className="card-title mb-0" style={{ fontWeight: 700, fontSize: "1.1rem" }}>{title}</h5>
+                <div className="d-flex align-items-center gap-2">
+                    {category === "ward" && charges.length > 0 && (
+                        <span className="badge bg-primary" style={{ fontSize: "0.875rem", padding: "6px 12px" }}>
+                            Total: {formatCurrency(totalAmount)}
+                        </span>
+                    )}
+                    {useHeaderAction && isEditable && onEdit && charges.length > 0 && (
+                        <button
+                            type="button"
+                            className="btn btn-sm"
+                            onClick={() => onEdit(charges[0])}
+                            style={{
+                                backgroundColor: "#D4A574",
+                                borderColor: "#D4A574",
+                                color: "#000",
+                                borderRadius: "8px",
+                                padding: "6px 14px",
+                                fontWeight: 600,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            }}
+                        >
+                            <EditIcon sx={{ fontSize: "1.1rem" }} />
+                            <span>Edit</span>
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="card-body">
                 <div className="table-responsive">
@@ -116,8 +141,6 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                     <>
                                         <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                                         <th style={{ fontSize: "0.875rem" }}>Therapist</th>
-                                        <th style={{ fontSize: "0.875rem", textAlign: "center" }}>In Time</th>
-                                        <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Out Time</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Status</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapy Charge</th>
                                         <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapist Charge</th>
@@ -142,7 +165,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                 )}
                                 {category === "consultation" && <th style={{ fontSize: "0.875rem" }}>Doctor</th>}
                                 <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Amount</th>
-                                {isEditable && onEdit && <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Actions</th>}
+                                {!useHeaderAction && isEditable && onEdit && <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Actions</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -153,8 +176,6 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                         <>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapyName || charge.description}</td>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "N/A"}</td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.inTime || "—"}</td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.outTime || "—"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
                                                 {charge.status && (
                                                     <span className={getStatusBadgeClass(charge.status)} style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
@@ -235,7 +256,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true }) =
                                                 (charge.therapistCharge !== undefined ? charge.therapistCharge : 0))
                                         ) : charge.amount)}
                                     </td>
-                                    {isEditable && onEdit && (
+                                    {!useHeaderAction && isEditable && onEdit && (
                                         <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
                                             <button
                                                 type="button"
@@ -324,6 +345,20 @@ function InpatientBilling() {
     const [inpatientId, setInpatientId] = useState(null);
     const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
 
+    // Edit Therapist Dialog State
+    const [editTherapistDialog, setEditTherapistDialog] = useState({ open: false, charge: null });
+    const [therapists, setTherapists] = useState([]);
+    const [selectedTherapist, setSelectedTherapist] = useState("");
+    const [therapyCost, setTherapyCost] = useState("");
+    const [therapistCharge, setTherapistCharge] = useState("");
+    const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
+    const [isUpdatingTherapist, setIsUpdatingTherapist] = useState(false);
+
+    // Edit Pharmacy Dialog State
+    const [editPharmacyDialog, setEditPharmacyDialog] = useState({ open: false, charge: null });
+    const [pharmacyUnitPrice, setPharmacyUnitPrice] = useState("");
+    const [isUpdatingPharmacy, setIsUpdatingPharmacy] = useState(false);
+
     // First, get patient ID from inpatient if id is an inpatient ID
     useEffect(() => {
         const fetchPatientId = async () => {
@@ -348,58 +383,55 @@ function InpatientBilling() {
         fetchPatientId();
     }, [id]);
 
-    useEffect(() => {
-        const fetchBillingDetails = async () => {
-            if (!patientId) return;
+    const fetchBillingDetails = async () => {
+        if (!patientId) return;
 
-            try {
-                setLoading(true);
-                console.log("Fetching unified billing details for patient ID:", patientId);
-                const response = await inpatientService.getUnifiedBillingSummary(patientId);
-                console.log("Billing API Response:", response);
+        try {
+            setLoading(true);
+            console.log("Fetching unified billing details for patient ID:", patientId);
+            const response = await inpatientService.getUnifiedBillingSummary(patientId);
+            console.log("Billing API Response:", response);
 
-                if (response && response.success && response.data) {
-                    const data = response.data;
+            if (response && response.success && response.data) {
+                const data = response.data;
 
-                    // Ensure charges arrays exist
-                    const charges = {
-                        food: Array.isArray(data.charges?.food) ? data.charges.food : [],
-                        consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
-                        therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
-                        pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
-                        ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
-                    };
+                // Ensure charges arrays exist
+                const charges = {
+                    food: Array.isArray(data.charges?.food) ? data.charges.food : [],
+                    consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
+                    therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
+                    pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
+                    ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
+                };
 
-                    const billingDataWithCharges = {
-                        ...data,
-                        charges,
-                    };
+                const billingDataWithCharges = {
+                    ...data,
+                    charges,
+                };
 
-                    console.log("Processed billing data:", billingDataWithCharges);
-                    console.log("Ward charges count:", charges.ward.length);
-                    console.log("Sample ward charge:", charges.ward[0]);
-                    setBillingData(billingDataWithCharges);
+                console.log("Processed billing data:", billingDataWithCharges);
+                setBillingData(billingDataWithCharges);
 
-                    // Set initial values from invoice if available
-                    if (data.invoice && data.invoice.id) {
-                        setDiscountRate(data.invoice.discountValue !== undefined ? data.invoice.discountValue : (data.invoice.discountRate || 0));
-                        setDiscountType(data.invoice.discountType || "percentage");
-                        setTaxRate(data.invoice.taxRate || 5);
-                    }
-                } else {
-                    console.error("Invalid response structure:", response);
-                    toast.error("Invalid response from server");
+                // Set initial values from invoice if available
+                if (data.invoice && data.invoice.id) {
+                    setDiscountRate(data.invoice.discountValue !== undefined ? data.invoice.discountValue : (data.invoice.discountRate || 0));
+                    setDiscountType(data.invoice.discountType || "percentage");
+                    setTaxRate(data.invoice.taxRate || 5);
                 }
-            } catch (error) {
-                console.error("Error fetching billing details:", error);
-                console.error("Error response:", error.response);
-                const msg = error.response?.data?.message || error.message || "Failed to load billing details.";
-                toast.error(msg);
-            } finally {
-                setLoading(false);
+            } else {
+                console.error("Invalid response structure:", response);
+                toast.error("Invalid response from server");
             }
-        };
+        } catch (error) {
+            console.error("Error fetching billing details:", error);
+            const msg = error.response?.data?.message || error.message || "Failed to load billing details.";
+            toast.error(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         if (patientId) {
             fetchBillingDetails();
         }
@@ -441,8 +473,9 @@ function InpatientBilling() {
             // UNLESS the invoice amount is fixed.
             return 0; // Tax is usually included or calculated at the end
         }
-        return Number((discountedTotal * (taxRate / 100)).toFixed(2));
-    }, [discountedTotal, taxRate, billingData]);
+        // GST applied only on medicines (pharmacy)
+        return Number((chargeTotals.pharmacy * (taxRate / 100)).toFixed(2));
+    }, [chargeTotals.pharmacy, taxRate, billingData]);
 
     const totalCharges = useMemo(() => {
         const isDischarged = billingData?.admission?.status === "Discharged";
@@ -491,6 +524,140 @@ function InpatientBilling() {
         }
     };
 
+    // Fetch therapists for edit dialog
+    const fetchTherapists = async () => {
+        setIsLoadingTherapists(true);
+        try {
+            const response = await therapistService.getAllTherapists({ page: 1, limit: 1000 });
+            if (response && response.success) {
+                setTherapists(response.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching therapists:", error);
+            toast.error("Failed to load therapists");
+        } finally {
+            setIsLoadingTherapists(false);
+        }
+    };
+
+    // Handle edit therapist
+    const handleEditTherapist = (charge) => {
+        setEditTherapistDialog({ open: true, charge });
+        setSelectedTherapist(charge.therapistId || "");
+        // Initialize costs
+        setTherapyCost((charge.therapyCharge || 0).toString());
+        setTherapistCharge((charge.therapistCharge || 0).toString());
+
+        if (!therapists.length) {
+            fetchTherapists();
+        }
+    };
+
+    // Update therapist
+    const handleUpdateTherapist = async () => {
+        if (!selectedTherapist) {
+            toast.error("Please select a therapist");
+            return;
+        }
+
+        if (!therapyCost || parseFloat(therapyCost) < 0) {
+            toast.error("Please enter a valid therapy cost");
+            return;
+        }
+
+        // Get sessionId from charge
+        const sessionId = editTherapistDialog.charge?.sessionId || editTherapistDialog.charge?.id;
+
+        if (!sessionId) {
+            toast.error("Invalid therapy session record");
+            return;
+        }
+
+        setIsUpdatingTherapist(true);
+        try {
+            // Update the therapist session's therapist AND cost
+            // Using PATCH /therapist-sessions/:id
+            const response = await axios.patch(
+                getApiUrl(`therapist-sessions/${sessionId}`),
+                {
+                    therapist: selectedTherapist,
+                    cost: parseFloat(therapyCost),
+                    therapistCharge: parseFloat(therapistCharge || 0)
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data && response.data.success) {
+                toast.success("Therapist and cost updated successfully!");
+                setEditTherapistDialog({ open: false, charge: null });
+                setSelectedTherapist("");
+                setTherapyCost("");
+                setTherapistCharge("");
+
+                // Refresh billing data
+                if (patientId) {
+                    await fetchBillingDetails();
+                }
+            } else {
+                toast.error(response.data?.message || "Failed to update therapist");
+            }
+        } catch (error) {
+            console.error("Error updating therapist:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to update therapist");
+        } finally {
+            setIsUpdatingTherapist(false);
+        }
+    };
+
+    // Handle edit pharmacy charge
+    const handleEditPharmacy = (charge) => {
+        setEditPharmacyDialog({ open: true, charge });
+        setPharmacyUnitPrice((charge.unitPrice || 0).toString());
+    };
+
+    // Update pharmacy charge
+    const handleUpdatePharmacy = async () => {
+        if (!pharmacyUnitPrice || parseFloat(pharmacyUnitPrice) < 0) {
+            toast.error("Please enter a valid unit price");
+            return;
+        }
+
+        const charge = editPharmacyDialog.charge;
+        if (!charge?.id) {
+            toast.error("Invalid pharmacy record");
+            return;
+        }
+
+        setIsUpdatingPharmacy(true);
+        try {
+            const response = await axios.patch(
+                getApiUrl(`examinations/prescriptions/${charge.id}`),
+                {
+                    unitPrice: parseFloat(pharmacyUnitPrice),
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data && response.data.success) {
+                toast.success("Pharmacy price updated successfully!");
+                setEditPharmacyDialog({ open: false, charge: null });
+                setPharmacyUnitPrice("");
+
+                // Refresh billing data
+                if (patientId) {
+                    await fetchBillingDetails();
+                }
+            } else {
+                toast.error(response.data?.message || "Failed to update pharmacy price");
+            }
+        } catch (error) {
+            console.error("Error updating pharmacy price:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to update pharmacy price");
+        } finally {
+            setIsUpdatingPharmacy(false);
+        }
+    };
+
     // Handle edit consultation charge
     const handleEditConsultation = (charge) => {
         setEditConsultationDialog({ open: true, charge });
@@ -514,13 +681,20 @@ function InpatientBilling() {
             return;
         }
 
-        // Extract checkupId from charge.id (format: inpatientId-checkupId or just checkupId)
-        const checkupId = charge.id.includes('-') ? charge.id.split('-')[1] : charge.id;
-
         setIsUpdatingConsultation(true);
         try {
+            let apiUrl;
+            if (charge.type === "outpatient") {
+                // For outpatient consultations appearing in unified view
+                apiUrl = getApiUrl(`examinations/${charge.id}/consultation`);
+            } else {
+                // For inpatient daily checkups
+                const checkupId = charge.id.includes("-") ? charge.id.split("-")[1] : charge.id;
+                apiUrl = getApiUrl(`inpatients/${inpatientId}/checkups/${checkupId}/consultation`);
+            }
+
             const response = await axios.patch(
-                getApiUrl(`inpatients/${inpatientId}/checkups/${checkupId}/consultation`),
+                apiUrl,
                 {
                     doctorId: selectedDoctor || null,
                     price: parseFloat(consultationAmount),
@@ -536,18 +710,7 @@ function InpatientBilling() {
 
                 // Refresh billing data
                 if (patientId) {
-                    const billingResponse = await inpatientService.getUnifiedBillingSummary(patientId);
-                    if (billingResponse && billingResponse.success && billingResponse.data) {
-                        const data = billingResponse.data;
-                        const charges = {
-                            food: Array.isArray(data.charges?.food) ? data.charges.food : [],
-                            consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
-                            therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
-                            pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
-                            ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
-                        };
-                        setBillingData({ ...data, charges });
-                    }
+                    await fetchBillingDetails();
                 }
             } else {
                 toast.error(response.data?.message || "Failed to update consultation charge");
@@ -564,6 +727,18 @@ function InpatientBilling() {
         // For consultation charges, use the dialog
         if (charge.category === "consultation" || charge.type === "consultation") {
             handleEditConsultation(charge);
+            return;
+        }
+
+        // For therapy charges, use the new dialog
+        if (charge.category === "therapy" || charge.type === "therapy") {
+            handleEditTherapist(charge);
+            return;
+        }
+
+        // For pharmacy charges, use the new dialog
+        if (charge.category === "pharmacy" || charge.type === "pharmacy") {
+            handleEditPharmacy(charge);
             return;
         }
 
@@ -596,28 +771,7 @@ function InpatientBilling() {
 
                 // Refresh billing data to show updated invoice information
                 if (patientId) {
-                    try {
-                        const billingResponse = await inpatientService.getUnifiedBillingSummary(patientId);
-                        if (billingResponse && billingResponse.success && billingResponse.data) {
-                            const data = billingResponse.data;
-                            const charges = {
-                                food: Array.isArray(data.charges?.food) ? data.charges.food : [],
-                                consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
-                                therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
-                                pharmacy: Array.isArray(data.charges?.pharmacy) ? data.charges.pharmacy : [],
-                                ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
-                            };
-                            setBillingData({ ...data, charges });
-
-                            if (data.invoice && data.invoice.id) {
-                                setDiscountRate(data.invoice.discountValue !== undefined ? data.invoice.discountValue : (data.invoice.discountRate || 0));
-                                setDiscountType(data.invoice.discountType || "percentage");
-                                setTaxRate(data.invoice.taxRate || 5);
-                            }
-                        }
-                    } catch (refreshError) {
-                        console.error("Error refreshing billing data:", refreshError);
-                    }
+                    await fetchBillingDetails();
                 }
 
                 // Navigate to payments page after a short delay
@@ -832,9 +986,29 @@ function InpatientBilling() {
                                     />
                                 </div>
 
-                                <span className="text-muted" style={{ fontSize: "0.875rem" }}>
-                                    GST ({taxRate}%): <strong>{formatCurrency(taxAmount)}</strong>
-                                </span>
+                                <div className="d-flex align-items-center ms-3">
+                                    <TextField
+                                        label="GST (%) on Meds"
+                                        type="number"
+                                        size="small"
+                                        inputProps={{
+                                            min: 0,
+                                            max: 100,
+                                            step: 0.5,
+                                        }}
+                                        sx={{ width: 140 }}
+                                        value={taxRate}
+                                        onChange={(e) => {
+                                            if (billingData?.admission?.status === "Discharged") return;
+                                            const val = parseFloat(e.target.value);
+                                            setTaxRate(Number.isFinite(val) && val >= 0 ? val : 0);
+                                        }}
+                                        disabled={isDischarged}
+                                    />
+                                    <span className="ms-2 text-muted fw-bold" style={{ fontSize: "0.875rem", minWidth: "80px" }}>
+                                        {formatCurrency(taxAmount)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -865,13 +1039,14 @@ function InpatientBilling() {
                         title="Therapy Charges"
                         charges={charges.therapy}
                         category="therapy"
-                        isEditable={false}
+                        isEditable={!isDischarged}
+                        onEdit={handleEditCharge}
                     />
                 </div>
                 <div className="col-12 mb-4">
                     <ChargesPanel
                         title="Pharmacy Charges"
-                        charges={charges.pharmacy}
+                        charges={charges.pharmacy.map(ch => ({ ...ch, category: "pharmacy" }))}
                         category="pharmacy"
                         isEditable={!isDischarged}
                         onEdit={handleEditCharge}
@@ -1001,6 +1176,183 @@ function InpatientBilling() {
                         startIcon={isUpdatingConsultation ? <CircularProgress size={20} sx={{ color: "white" }} /> : null}
                     >
                         {isUpdatingConsultation ? "Updating..." : "Update Consultation"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Edit Therapist Dialog */}
+            <Dialog
+                open={editTherapistDialog.open}
+                onClose={() => !isUpdatingTherapist && setEditTherapistDialog({ open: false, charge: null })}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Edit Therapist
+                    </Typography>
+                    <Button
+                        onClick={() => setEditTherapistDialog({ open: false, charge: null })}
+                        disabled={isUpdatingTherapist}
+                        sx={{ minWidth: "auto", p: 0.5 }}
+                    >
+                        <CloseIcon />
+                    </Button>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ mt: 2 }}>
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Therapy: <strong>{editTherapistDialog.charge?.therapyName || "N/A"}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Current Therapist: <strong>{editTherapistDialog.charge?.therapistName || "N/A"}</strong>
+                        </Typography>
+                    </Box>
+                    <FormControl fullWidth required>
+                        <InputLabel id="therapist-select-label-ipd">Select Therapist</InputLabel>
+                        <Select
+                            labelId="therapist-select-label-ipd"
+                            value={selectedTherapist}
+                            onChange={(e) => setSelectedTherapist(e.target.value)}
+                            label="Select Therapist"
+                            disabled={isLoadingTherapists || isUpdatingTherapist}
+                        >
+                            <MenuItem value="" disabled>
+                                {isLoadingTherapists ? "Loading therapists..." : "Select Therapist"}
+                            </MenuItem>
+                            {therapists.map((therapist) => {
+                                const therapistName = therapist.user?.name || therapist.name || "Therapist";
+                                const displayName = therapist.speciality
+                                    ? `${therapistName} - ${therapist.speciality}`
+                                    : therapistName;
+                                const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
+                                return (
+                                    <MenuItem key={therapist._id || therapist.id} value={therapistUserId}>
+                                        {displayName}
+                                    </MenuItem>
+                                );
+                            })}
+                        </Select>
+                    </FormControl>
+                    <TextField
+                        fullWidth
+                        label="Therapy Cost (INR)"
+                        type="number"
+                        value={therapyCost}
+                        onChange={(e) => setTherapyCost(e.target.value)}
+                        variant="outlined"
+                        inputProps={{ min: 0, step: 1 }}
+                        disabled={isUpdatingTherapist}
+                        sx={{ mt: 2 }}
+                    />
+                    <TextField
+                        fullWidth
+                        label="Therapist Charge (INR)"
+                        type="number"
+                        value={therapistCharge}
+                        onChange={(e) => setTherapistCharge(e.target.value)}
+                        variant="outlined"
+                        inputProps={{ min: 0, step: 1 }}
+                        disabled={isUpdatingTherapist}
+                        sx={{ mt: 2 }}
+                    />
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(212, 165, 116, 0.1)', borderRadius: '8px', border: '1px solid rgba(212, 165, 116, 0.2)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Therapy Cost:</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#8B4513' }}>
+                                {formatCurrency(parseFloat(therapyCost || 0) + parseFloat(therapistCharge || 0))}
+                            </Typography>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => setEditTherapistDialog({ open: false, charge: null })}
+                        disabled={isUpdatingTherapist}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleUpdateTherapist}
+                        disabled={!selectedTherapist || isUpdatingTherapist}
+                        sx={{ backgroundColor: "#8B4513" }}
+                        startIcon={isUpdatingTherapist ? <CircularProgress size={20} sx={{ color: "white" }} /> : null}
+                    >
+                        {isUpdatingTherapist ? "Updating..." : "Update Therapist"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Edit Pharmacy Dialog */}
+            <Dialog
+                open={editPharmacyDialog.open}
+                onClose={() => !isUpdatingPharmacy && setEditPharmacyDialog({ open: false, charge: null })}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Edit Pharmacy Price
+                    </Typography>
+                    <Button
+                        onClick={() => setEditPharmacyDialog({ open: false, charge: null })}
+                        disabled={isUpdatingPharmacy}
+                        sx={{ minWidth: "auto", p: 0.5 }}
+                    >
+                        <CloseIcon />
+                    </Button>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ mt: 2 }}>
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Medicine: <strong>{editPharmacyDialog.charge?.description || editPharmacyDialog.charge?.medication || "N/A"}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Quantity: <strong>{editPharmacyDialog.charge?.dispensedQuantity || editPharmacyDialog.charge?.quantity || 1}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Current Amount: <strong>{formatCurrency(editPharmacyDialog.charge?.amount || 0)}</strong>
+                        </Typography>
+                    </Box>
+                    <TextField
+                        fullWidth
+                        label="Unit Price (INR) *"
+                        type="number"
+                        value={pharmacyUnitPrice}
+                        onChange={(e) => setPharmacyUnitPrice(e.target.value)}
+                        variant="outlined"
+                        inputProps={{ min: 0, step: 0.01 }}
+                        required
+                        disabled={isUpdatingPharmacy}
+                        helperText="This will override the default price of the medicine for this billing."
+                    />
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(212, 165, 116, 0.1)', borderRadius: '8px', border: '1px solid rgba(212, 165, 116, 0.2)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Pharmacy Cost:</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#8B4513' }}>
+                                {formatCurrency(parseFloat(pharmacyUnitPrice || 0) * (editPharmacyDialog.charge?.dispensedQuantity || editPharmacyDialog.charge?.quantity || 1))}
+                            </Typography>
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button
+                        onClick={() => setEditPharmacyDialog({ open: false, charge: null })}
+                        disabled={isUpdatingPharmacy}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleUpdatePharmacy}
+                        disabled={!pharmacyUnitPrice || isUpdatingPharmacy}
+                        sx={{ backgroundColor: "#8B4513" }}
+                        startIcon={isUpdatingPharmacy ? <CircularProgress size={20} sx={{ color: "white" }} /> : null}
+                    >
+                        {isUpdatingPharmacy ? "Updating..." : "Update Price"}
                     </Button>
                 </DialogActions>
             </Dialog>

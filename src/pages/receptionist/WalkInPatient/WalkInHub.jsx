@@ -40,7 +40,7 @@ function WalkInHub() {
         bedNumber: "",
         therapyData: {
             treatmentName: "",
-            daysOfTreatment: 1,
+            daysOfTreatment: 0,
             timeline: "Daily",
             specialInstructions: "",
             therapistId: "",
@@ -94,7 +94,7 @@ function WalkInHub() {
             bedNumber: "",
             therapyData: {
                 treatmentName: "",
-                daysOfTreatment: 1,
+                daysOfTreatment: 0,
                 timeline: "Daily",
                 specialInstructions: "",
                 therapistId: "",
@@ -133,10 +133,7 @@ function WalkInHub() {
             return;
         }
 
-        if (mode === "OPD" && !formData.doctorProfileId) {
-            toast.error("Please select a doctor for OPD consultation");
-            return;
-        }
+
 
         const payload = {
             mode,
@@ -372,7 +369,7 @@ function WalkInHub() {
                         <Box sx={{ mb: 4 }}>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
                                 <Clipboard size={20} color="var(--color-primary-a)" />
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Initial Therapy (Optional)</Typography>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Initial Therapy</Typography>
                             </Box>
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
                                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
@@ -392,13 +389,13 @@ function WalkInHub() {
                                     </FormControl>
 
                                     <TextField
-                                        label="Days"
+                                        label="Session"
                                         type="number"
                                         name="therapy.daysOfTreatment"
                                         value={formData.therapyData.daysOfTreatment}
                                         onChange={handleChange}
                                         sx={{ flex: 1, minWidth: "150px" }}
-                                        inputProps={{ min: 1 }}
+                                        inputProps={{ min: 0 }}
                                     />
 
                                     <FormControl sx={{ flex: 1, minWidth: "150px" }}>

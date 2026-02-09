@@ -24,6 +24,11 @@ import {
     TableContainer,
     Checkbox,
     TextField,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
 } from "@mui/material";
 import {
     LocalPharmacy,
@@ -63,6 +68,7 @@ function Inpatientprescriptions() {
     const [inpatient, setInpatient] = useState(null);
     // State for selected medicines and quantities
     const [selectedMedicines, setSelectedMedicines] = useState({}); // { prescriptionId: { selected: boolean, quantity: number } }
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     // State for available medicines
     const [availableMedicines, setAvailableMedicines] = useState([]); // Array of medicine names from medicine collection
     const [medicinesMap, setMedicinesMap] = useState({}); // Map of medicine name to medicine object (for getting sellPrice)
@@ -89,7 +95,7 @@ function Inpatientprescriptions() {
                         if (firstPresc.examination?.inpatient) {
                             setInpatient(firstPresc.examination.inpatient);
                         }
-                        
+
                         // Initialize selected medicines state for all prescriptions (including dispensed ones for display)
                         const initialSelection = {};
                         prescList.forEach((presc) => {
@@ -107,15 +113,15 @@ function Inpatientprescriptions() {
 
                 // Store available medicines
                 if (medicinesResponse && medicinesResponse.success && medicinesResponse.data) {
-                    const medicines = Array.isArray(medicinesResponse.data.medicines) 
-                        ? medicinesResponse.data.medicines 
-                        : Array.isArray(medicinesResponse.data.data) 
-                        ? medicinesResponse.data.data 
-                        : [];
+                    const medicines = Array.isArray(medicinesResponse.data.medicines)
+                        ? medicinesResponse.data.medicines
+                        : Array.isArray(medicinesResponse.data.data)
+                            ? medicinesResponse.data.data
+                            : [];
                     // Create a map of medicine names (case-insensitive)
                     const medicineNames = medicines.map((med) => med.medicineName?.toLowerCase().trim()).filter(Boolean);
                     setAvailableMedicines(medicineNames);
-                    
+
                     // Create a map of medicine name to medicine object for quick lookup
                     // Use normalized names to handle case and space variations
                     const medicinesMapObj = {};
@@ -171,30 +177,30 @@ function Inpatientprescriptions() {
     const isMedicineAvailable = (medicineName) => {
         if (!medicineName) return false;
         const normalizedPrescribed = normalizeMedicineName(medicineName);
-        
+
         // Check exact match first
         if (availableMedicines.includes(normalizedPrescribed)) {
             return true;
         }
-        
+
         // Check if any available medicine matches (handles partial matches and variations)
         return availableMedicines.some((availableName) => {
             // Exact match after normalization
             if (normalizedPrescribed === availableName) return true;
-            
+
             // Check if prescribed name contains available name or vice versa (for partial matches)
             // e.g., "Paracetamol 500mg" matches "Paracetamol"
             const prescribedWords = normalizedPrescribed.split(/\s+/);
             const availableWords = availableName.split(/\s+/);
-            
+
             // If one is a subset of the other, consider it a match
-            const allPrescribedWordsInAvailable = prescribedWords.every(word => 
+            const allPrescribedWordsInAvailable = prescribedWords.every(word =>
                 availableWords.some(aw => aw.includes(word) || word.includes(aw))
             );
-            const allAvailableWordsInPrescribed = availableWords.every(word => 
+            const allAvailableWordsInPrescribed = availableWords.every(word =>
                 prescribedWords.some(pw => pw.includes(word) || word.includes(pw))
             );
-            
+
             return allPrescribedWordsInAvailable || allAvailableWordsInPrescribed;
         });
     };
@@ -203,36 +209,36 @@ function Inpatientprescriptions() {
     const findMedicineInMap = (medicineName) => {
         if (!medicineName) return null;
         const normalizedPrescribed = normalizeMedicineName(medicineName);
-        
+
         // Try exact match first
         if (medicinesMap[normalizedPrescribed]) {
             return medicinesMap[normalizedPrescribed];
         }
-        
+
         // Try to find by matching keys
         for (const [key, medicine] of Object.entries(medicinesMap)) {
             const normalizedKey = normalizeMedicineName(key);
             if (normalizedPrescribed === normalizedKey) {
                 return medicine;
             }
-            
+
             // Check for partial matches
             const prescribedWords = normalizedPrescribed.split(/\s+/);
             const keyWords = normalizedKey.split(/\s+/);
-            
+
             // If medicine name words match, consider it a match
-            const allPrescribedWordsInKey = prescribedWords.every(word => 
+            const allPrescribedWordsInKey = prescribedWords.every(word =>
                 keyWords.some(kw => kw.includes(word) || word.includes(kw))
             );
-            const allKeyWordsInPrescribed = keyWords.every(word => 
+            const allKeyWordsInPrescribed = keyWords.every(word =>
                 prescribedWords.some(pw => pw.includes(word) || word.includes(pw))
             );
-            
+
             if (allPrescribedWordsInKey || allKeyWordsInPrescribed) {
                 return medicine;
             }
         }
-        
+
         return null;
     };
 
@@ -241,7 +247,7 @@ function Inpatientprescriptions() {
         if (!medicineName || !dispenseQty) return 0;
         const medicine = findMedicineInMap(medicineName);
         if (!medicine || !medicine.sellPrice) return 0;
-        
+
         // Try to parse dispenseQty as number, if it's a string like "10 tablets", extract the number
         let qty = 0;
         if (typeof dispenseQty === 'string') {
@@ -251,7 +257,7 @@ function Inpatientprescriptions() {
         } else {
             qty = parseFloat(dispenseQty) || 0;
         }
-        
+
         return (medicine.sellPrice * qty).toFixed(2);
     };
 
@@ -325,10 +331,10 @@ function Inpatientprescriptions() {
         }));
     };
 
-    const handleDispense = async () => {
+    const validateDispense = () => {
         if (prescriptions.length === 0) {
             toast.error("No prescriptions to dispense");
-            return;
+            return null;
         }
 
         // Get selected medicines
@@ -338,7 +344,7 @@ function Inpatientprescriptions() {
 
         if (selectedPrescriptions.length === 0) {
             toast.error("Please select at least one medicine to dispense");
-            return;
+            return null;
         }
 
         // Check for unavailable medicines
@@ -348,7 +354,7 @@ function Inpatientprescriptions() {
             toast.error(
                 `Cannot dispense unavailable medicines: ${unavailableNames}. Please unselect them or add them to the medicine collection first.`
             );
-            return;
+            return null;
         }
 
         // Validate quantities (check if quantity is entered)
@@ -359,14 +365,23 @@ function Inpatientprescriptions() {
 
         if (invalidPrescriptions.length > 0) {
             toast.error("Please enter quantities for all selected medicines");
-            return;
+            return null;
         }
 
-        // Confirm action
-        const confirmed = window.confirm(
-            `Are you sure you want to dispense ${selectedPrescriptions.length} medicine(s) for ${patientName}?`
-        );
-        if (!confirmed) return;
+        return selectedPrescriptions;
+    };
+
+    const handleDispenseClick = () => {
+        const validPrescriptions = validateDispense();
+        if (validPrescriptions) {
+            setConfirmDialogOpen(true);
+        }
+    };
+
+    const handleDispenseConfirm = async () => {
+        setConfirmDialogOpen(false);
+        const selectedPrescriptions = validateDispense(); // Re-validate just in case, or trust state
+        if (!selectedPrescriptions) return;
 
         setIsDispensing(true);
         try {
@@ -387,42 +402,42 @@ function Inpatientprescriptions() {
             });
 
             await Promise.all(updatePromises);
-            
+
             // Update medicine quantities - deduct dispensed quantities from stock
             const medicineUpdatePromises = [];
             for (const presc of selectedPrescriptions) {
                 const selected = selectedMedicines[presc._id];
                 const dispensedQuantityStr = selected.quantity;
-                
+
                 // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
                 const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
                 const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
-                
+
                 if (dispensedQuantity <= 0) {
                     console.warn(`Invalid dispensed quantity for ${presc.medication}: ${dispensedQuantityStr}`);
                     continue;
                 }
-                
+
                 // Find the medicine using improved matching
                 const medicine = findMedicineInMap(presc.medication);
-                
+
                 if (!medicine) {
                     console.warn(`Medicine not found in collection: ${presc.medication}`);
                     continue;
                 }
-                
+
                 // Calculate new quantity
                 const currentQuantity = medicine.quantity || 0;
-                
+
                 // Warn if insufficient stock
                 if (currentQuantity < dispensedQuantity) {
                     toast.warning(
                         `Insufficient stock for ${presc.medication}. Available: ${currentQuantity}, Dispensing: ${dispensedQuantity}. Stock will be set to 0.`
                     );
                 }
-                
+
                 const newQuantity = Math.max(0, currentQuantity - dispensedQuantity); // Ensure non-negative
-                
+
                 // Update medicine quantity
                 medicineUpdatePromises.push(
                     medicineService.updateMedicine(medicine._id, {
@@ -433,18 +448,18 @@ function Inpatientprescriptions() {
                     })
                 );
             }
-            
+
             // Wait for all medicine updates to complete
             await Promise.all(medicineUpdatePromises);
-            
+
             toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully! Stock updated.`);
-            
+
             // Refresh the data
             const response = await prescriptionService.getPrescriptionsByExamination(id);
             if (response && response.success && response.data) {
                 const prescList = Array.isArray(response.data) ? response.data : [];
                 setPrescriptions(prescList);
-                
+
                 // Reset selections
                 const newSelection = {};
                 prescList.forEach((presc) => {
@@ -518,7 +533,7 @@ function Inpatientprescriptions() {
                                 <Button
                                     variant="contained"
                                     startIcon={isDispensing ? <CircularProgress size={16} color="inherit" /> : <CheckCircle />}
-                                    onClick={handleDispense}
+                                    onClick={handleDispenseClick}
                                     disabled={isDispensing}
                                     sx={{
                                         backgroundColor: theme.palette.success.main,
@@ -920,7 +935,7 @@ function Inpatientprescriptions() {
                                     <Button
                                         variant="contained"
                                         startIcon={isDispensing ? <CircularProgress size={16} color="inherit" /> : <LocalPharmacy />}
-                                        onClick={handleDispense}
+                                        onClick={handleDispenseClick}
                                         disabled={isDispensing}
                                         fullWidth
                                         sx={{
@@ -963,6 +978,27 @@ function Inpatientprescriptions() {
                     </Card>
                 </Grid>
             </Grid>
+
+            {/* Confirmation Dialog */}
+            <Dialog
+                open={confirmDialogOpen}
+                onClose={() => setConfirmDialogOpen(false)}
+            >
+                <DialogTitle>Confirm Dispense</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Are you sure you want to dispense {prescriptions.filter((p) => p.status !== "Dispensed" && selectedMedicines[p._id]?.selected).length} medicine(s) for {patientName}?
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConfirmDialogOpen(false)} color="inherit">
+                        Cancel
+                    </Button>
+                    <Button onClick={handleDispenseConfirm} variant="contained" color="primary" autoFocus>
+                        Confirm
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }

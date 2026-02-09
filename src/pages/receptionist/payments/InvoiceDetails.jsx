@@ -25,6 +25,8 @@ function InvoiceDetails() {
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("Cash");
+    const [transactionId, setTransactionId] = useState("");
+    const [cardLastFourDigits, setCardLastFourDigits] = useState("");
     const [isRecordingPayment, setIsRecordingPayment] = useState(false);
     const [downloadingReport, setDownloadingReport] = useState(false);
     const [printingReport, setPrintingReport] = useState(false);
@@ -72,11 +74,25 @@ function InvoiceDetails() {
         setPaymentDialogOpen(false);
         setPaymentAmount("");
         setPaymentMethod("Cash");
+        setTransactionId("");
+        setCardLastFourDigits("");
     };
 
     const handleRecordPayment = async () => {
         if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
             toast.error("Please enter a valid payment amount");
+            return;
+        }
+
+        // Validate transaction ID for Online, Bank Transfer, Card
+        if ((paymentMethod === "Online" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") && !transactionId) {
+            toast.error("Transaction ID is required for this payment method");
+            return;
+        }
+
+        // Validate card last 4 digits for Card
+        if (paymentMethod === "Card" && (!cardLastFourDigits || cardLastFourDigits.length !== 4)) {
+            toast.error("Please enter the last 4 digits of the card");
             return;
         }
 
@@ -90,13 +106,15 @@ function InvoiceDetails() {
 
         try {
             setIsRecordingPayment(true);
-            const response = await invoiceService.recordPayment(id, paymentValue, paymentMethod);
+            const response = await invoiceService.recordPayment(id, paymentValue, paymentMethod, transactionId || undefined, cardLastFourDigits || undefined);
 
             if (response && response.success) {
                 toast.success("Payment recorded successfully!");
                 setPaymentDialogOpen(false);
                 setPaymentAmount("");
                 setPaymentMethod("Cash");
+                setTransactionId("");
+                setCardLastFourDigits("");
                 // Refresh invoice data
                 await fetchInvoiceDetails();
             } else {
@@ -988,6 +1006,46 @@ function InvoiceDetails() {
                         <MenuItem value="Online">Online</MenuItem>
                         <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
                     </TextField>
+                    {/* Transaction ID for Online, Bank Transfer, Card */}
+                    {(paymentMethod === "Online" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") && (
+                        <TextField
+                            fullWidth
+                            label={
+                                paymentMethod === "Online" ? "UPI/Payment Reference ID *" :
+                                    paymentMethod === "Bank Transfer" ? "Bank Reference/UTR Number *" :
+                                        "Card Transaction ID *"
+                            }
+                            value={transactionId}
+                            onChange={(e) => setTransactionId(e.target.value)}
+                            variant="outlined"
+                            sx={{ mt: 2 }}
+                            placeholder={
+                                paymentMethod === "Online" ? "Enter UPI transaction ID or payment reference" :
+                                    paymentMethod === "Bank Transfer" ? "Enter bank reference number or UTR" :
+                                        "Enter card transaction/authorization ID"
+                            }
+                            required
+                        />
+                    )}
+                    {/* Card Last 4 Digits for Card only */}
+                    {paymentMethod === "Card" && (
+                        <TextField
+                            fullWidth
+                            label="Card Last 4 Digits *"
+                            value={cardLastFourDigits}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/\D/g, ''); // Only digits
+                                if (value.length <= 4) {
+                                    setCardLastFourDigits(value);
+                                }
+                            }}
+                            variant="outlined"
+                            sx={{ mt: 2 }}
+                            placeholder="Enter last 4 digits of card"
+                            inputProps={{ maxLength: 4, pattern: "[0-9]*" }}
+                            required
+                        />
+                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClosePaymentDialog} disabled={isRecordingPayment}>

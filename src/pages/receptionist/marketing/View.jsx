@@ -193,7 +193,7 @@ function Marketing_View() {
         }
 
         setSelectedImage(file);
-        
+
         // Create preview
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -208,8 +208,8 @@ function Marketing_View() {
             formData.append("image", file);
 
             // Get auth token for Authorization header
-            const token = localStorage.getItem("token") || localStorage.getItem("authToken") || 
-                         JSON.parse(localStorage.getItem("user") || "{}")?.token;
+            const token = localStorage.getItem("token") || localStorage.getItem("authToken") ||
+                JSON.parse(localStorage.getItem("user") || "{}")?.token;
 
             const headers = {};
             if (token) {
@@ -709,9 +709,9 @@ function Marketing_View() {
                                         <ImageIcon className="me-2" style={{ verticalAlign: "middle", fontSize: "1.2rem", color: "#D4A574" }} />
                                         Promotional Image <span className="text-danger">*</span>
                                     </label>
-                                    <div 
-                                        className="border rounded p-4" 
-                                        style={{ 
+                                    <div
+                                        className="border rounded p-4"
+                                        style={{
                                             backgroundColor: "#fff",
                                             border: "2px dashed #D4A574",
                                             borderColor: imageUrl ? "#28a745" : "#D4A574",
@@ -762,18 +762,18 @@ function Marketing_View() {
                                                     disabled={isUploadingImage}
                                                 />
                                                 <div className="mb-3">
-                                                    <ImageIcon 
-                                                        sx={{ 
-                                                            fontSize: 48, 
+                                                    <ImageIcon
+                                                        sx={{
+                                                            fontSize: 48,
                                                             color: "#D4A574",
                                                             marginBottom: "10px"
-                                                        }} 
+                                                        }}
                                                     />
                                                 </div>
                                                 <label
                                                     htmlFor="promotional-image-upload"
                                                     className="btn d-inline-flex align-items-center"
-                                                    style={{ 
+                                                    style={{
                                                         cursor: isUploadingImage ? "not-allowed" : "pointer",
                                                         userSelect: "none",
                                                         backgroundColor: "#D4A574",
