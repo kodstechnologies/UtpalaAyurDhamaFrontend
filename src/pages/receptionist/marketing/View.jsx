@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, TextField, MenuItem } from "@mui/material";
 import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
@@ -494,19 +494,35 @@ function Marketing_View() {
                             </div>
                             <div className="col-md-4">
                                 <label className="form-label">Treatment</label>
-                                <select
+                                <TextField
+                                    select
                                     name="treatment"
-                                    className="form-select"
                                     value={filters.treatment}
                                     onChange={handleFilterChange}
+                                    variant="outlined"
+                                    size="small"
+                                    fullWidth
+                                    sx={{ backgroundColor: "white" }}
+                                    SelectProps={{
+                                        displayEmpty: true,
+                                        MenuProps: {
+                                            PaperProps: {
+                                                style: {
+                                                    maxHeight: 250,
+                                                },
+                                            },
+                                        },
+                                    }}
                                 >
-                                    <option value="">All Treatments</option>
+                                    <MenuItem value="">
+                                        <em>All Treatments</em>
+                                    </MenuItem>
                                     {treatments.map((t) => (
-                                        <option key={t} value={t}>
+                                        <MenuItem key={t} value={t}>
                                             {t}
-                                        </option>
+                                        </MenuItem>
                                     ))}
-                                </select>
+                                </TextField>
                             </div>
                         </div>
                     </div>
