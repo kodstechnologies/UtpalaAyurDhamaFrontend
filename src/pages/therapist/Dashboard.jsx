@@ -146,10 +146,22 @@ function Therapist_Dashboard() {
         if (!date) return "—";
         const d = date instanceof Date ? date : new Date(date);
         if (isNaN(d.getTime())) return "—";
-        return d.toLocaleTimeString(undefined, {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        // Convert UTC to IST (Asia/Kolkata timezone)
+        try {
+            return d.toLocaleTimeString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            });
+        } catch (e) {
+            // Fallback: manual conversion
+            const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+            const dateIST = new Date(d.getTime() + IST_OFFSET);
+            const hours = String(dateIST.getUTCHours()).padStart(2, '0');
+            const minutes = String(dateIST.getUTCMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
     };
 
 

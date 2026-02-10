@@ -207,9 +207,6 @@ function ViewPatientPage() {
                                     <Typography variant="subtitle2" color="textSecondary" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                         <PersonIcon fontSize="small" /> Primary Doctor
                                     </Typography>
-                                    <IconButton size="small" onClick={handleEditDoctor} sx={{ color: "var(--color-primary-a)" }}>
-                                        <EditIcon fontSize="small" />
-                                    </IconButton>
                                 </Box>
                                 <Typography variant="body1" sx={{ fontWeight: 500 }}>
                                     {patient.patientProfile?.primaryDoctor ?

@@ -1019,14 +1019,6 @@ function InpatientBilling() {
             <div className="row">
                 <div className="col-12 mb-4">
                     <ChargesPanel
-                        title="Food Charges"
-                        charges={charges.food}
-                        category="food"
-                        isEditable={false}
-                    />
-                </div>
-                <div className="col-12 mb-4">
-                    <ChargesPanel
                         title="Doctor Consultation"
                         charges={charges.consultation.map(ch => ({ ...ch, category: "consultation" }))}
                         category="consultation"
@@ -1057,6 +1049,14 @@ function InpatientBilling() {
                         title="Ward Charges"
                         charges={charges.ward}
                         category="ward"
+                        isEditable={false}
+                    />
+                </div>
+                <div className="col-12 mb-4">
+                    <ChargesPanel
+                        title="Food Charges"
+                        charges={charges.food}
+                        category="food"
                         isEditable={false}
                     />
                 </div>

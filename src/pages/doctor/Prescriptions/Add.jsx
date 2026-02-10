@@ -1172,8 +1172,44 @@ function PrescriptionsAddPage() {
     // Get or create examination for the patient
     const getOrCreateExamination = async (patientProfileId) => {
         try {
-            // Always create a new examination for each prescription to ensure correct patient association
-            // This prevents issues with reusing old examinations
+            // First, check if an examination already exists for this patient today
+            // This prevents duplicates when walk-in hub has already created an examination
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            try {
+                const existingExamsResponse = await axios.get(
+                    getApiUrl("examinations"),
+                    {
+                        headers: getAuthHeaders(),
+                        params: {
+                            patientId: patientProfileId,
+                            startDate: today.toISOString(),
+                            endDate: tomorrow.toISOString(),
+                        }
+                    }
+                );
+
+                if (existingExamsResponse.data.success && existingExamsResponse.data.data) {
+                    // Filter for OPD examinations (no inpatient) and get the most recent one
+                    const opdExams = existingExamsResponse.data.data
+                        .filter(exam => !exam.inpatient)
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                    if (opdExams.length > 0) {
+                        console.log("Found existing examination for today, reusing it:", opdExams[0]._id);
+                        return opdExams[0]._id;
+                    }
+                }
+            } catch (checkError) {
+                // If check fails, continue to create new examination
+                console.warn("Error checking for existing examination:", checkError);
+            }
+
+            // No existing examination found, create a new one
+            // The backend will also check and prevent duplicates, but frontend check provides better UX
             const createExamResponse = await axios.post(
                 getApiUrl("examinations"),
                 {
@@ -1190,6 +1226,28 @@ function PrescriptionsAddPage() {
             return null;
         } catch (error) {
             console.error("Error creating examination:", error);
+            // If it's a duplicate error from backend, try to get the existing examination
+            if (error.response?.status === 409 || error.response?.data?.message?.includes("already exists")) {
+                try {
+                    const existingExamsResponse = await axios.get(
+                        getApiUrl("examinations"),
+                        {
+                            headers: getAuthHeaders(),
+                            params: { patientId: patientProfileId }
+                        }
+                    );
+                    if (existingExamsResponse.data.success && existingExamsResponse.data.data) {
+                        const opdExams = existingExamsResponse.data.data
+                            .filter(exam => !exam.inpatient)
+                            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                        if (opdExams.length > 0) {
+                            return opdExams[0]._id;
+                        }
+                    }
+                } catch (retryError) {
+                    console.error("Error fetching existing examination:", retryError);
+                }
+            }
             throw error;
         }
     };

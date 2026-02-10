@@ -43,6 +43,7 @@ function PatientDetails() {
     const [inpatientData, setInpatientData] = useState(null);
     const [foodIntakes, setFoodIntakes] = useState([]);
     const [vitals, setVitals] = useState([]);
+    const [consultingDoctor, setConsultingDoctor] = useState(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -109,12 +110,39 @@ function PatientDetails() {
 
             if (response.data.success) {
                 setPatientData(response.data.data);
+                // Fetch latest examination to get consulting doctor for outpatients
+                await fetchLatestExamination();
             } else {
                 toast.error("Failed to fetch patient profile");
             }
         } catch (error) {
             console.error("Error fetching patient profile:", error);
             toast.error(error.response?.data?.message || "Failed to fetch patient profile");
+        }
+    };
+
+    const fetchLatestExamination = async () => {
+        try {
+            // Fetch latest outpatient examination for this patient to get consulting doctor
+            const response = await axios.get(getApiUrl(`doctor-examinations`), {
+                headers: getAuthHeaders(),
+                params: {
+                    patientId: patientId,
+                    hasInpatient: false, // Only get outpatient examinations
+                    limit: 1,
+                    page: 1
+                }
+            });
+
+            if (response.data.success && response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+                const latestExam = response.data.data[0];
+                if (latestExam.doctor?.user?.name) {
+                    setConsultingDoctor(latestExam.doctor.user.name);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching latest examination:", error);
+            // Don't show error toast, just log it
         }
     };
 
@@ -322,7 +350,9 @@ function PatientDetails() {
                                         Consulting Doctor
                                     </Typography>
                                     <Typography variant="body1" fontWeight={500}>
-                                        {inpatientData ? (inpatientData.doctor?.user?.name || "Not Assigned") : (patientData?.primaryDoctor?.user?.name || "Not Assigned")}
+                                        {inpatientData 
+                                            ? (inpatientData.doctor?.user?.name || "Not Assigned") 
+                                            : (consultingDoctor || patientData?.primaryDoctor?.user?.name || "Not Assigned")}
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
@@ -426,7 +456,6 @@ function PatientDetails() {
                                                 <TableCell sx={{ fontWeight: 600 }}>Temperature (°F)</TableCell>
                                                 <TableCell sx={{ fontWeight: 600 }}>Blood Pressure (mmHg)</TableCell>
                                                 <TableCell sx={{ fontWeight: 600 }}>Pulse Rate (bpm)</TableCell>
-                                                <TableCell sx={{ fontWeight: 600 }}>SpO2 (%)</TableCell>
                                                 <TableCell sx={{ fontWeight: 600 }}>Notes</TableCell>
                                                 <TableCell sx={{ fontWeight: 600 }}>Recorded By</TableCell>
                                             </TableRow>
@@ -438,7 +467,6 @@ function PatientDetails() {
                                                     <TableCell>{vital.temperature}</TableCell>
                                                     <TableCell>{vital.bloodPressure}</TableCell>
                                                     <TableCell>{vital.pulseRate}</TableCell>
-                                                    <TableCell>{vital.spo2}</TableCell>
                                                     <TableCell>
                                                         {vital.notes || (
                                                             <Typography variant="caption" color="text.secondary">

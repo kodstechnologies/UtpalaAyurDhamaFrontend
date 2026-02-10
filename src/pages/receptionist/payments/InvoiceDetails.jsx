@@ -149,9 +149,9 @@ function InvoiceDetails() {
         });
     };
 
-    // Categorize invoice items - use category field if available, otherwise use name-based categorization
+    // Categorize invoice items - ALWAYS prioritize category field from backend
     const categorizeItem = (item) => {
-        // If item has a category field, use it (with proper formatting)
+        // CRITICAL: Always use category field if available (backend sets this correctly)
         if (item.category) {
             const categoryMap = {
                 "consultation": "Doctor Consultation",
@@ -160,56 +160,44 @@ function InvoiceDetails() {
                 "food": "Food Charges",
                 "ward": "Bed Charges",
             };
-            return categoryMap[item.category] || item.category.charAt(0).toUpperCase() + item.category.slice(1);
+            const mappedCategory = categoryMap[item.category.toLowerCase()];
+            if (mappedCategory) {
+                return mappedCategory;
+            }
+            // If category exists but not in map, format it properly
+            return item.category.charAt(0).toUpperCase() + item.category.slice(1).toLowerCase();
         }
 
-        // Fallback to name-based categorization
+        // Fallback to name-based categorization ONLY if category is missing
+        // Order matters: Check most specific patterns first, then general ones
         const itemName = item.name || "";
         if (!itemName) return "Other";
         const name = itemName.toLowerCase().trim();
 
-        // Doctor Consultation - Check FIRST (most specific patterns first)
-        // Also check if it has doctor-related fields or is from consultation charges
-        if (name.includes("consultation") ||
-            name.includes("opd consultation") ||
-            name.includes("ipd consultation") ||
-            name.includes("consultation charge") ||
-            name.includes("examination") ||
-            (name.includes("doctor") && (name.includes("fee") || name.includes("charge"))) ||
-            name === "opd consultation" ||
-            // Check if item has consultation-related metadata (for old invoices)
-            (item.description && (item.description.toLowerCase().includes("consultation") || item.description.toLowerCase().includes("examination"))) ||
-            // If it's a single item with high amount and no medicine details, likely consultation
-            (!item.dosage && !item.frequency && !item.duration && item.quantity === 1 && item.unitPrice > 100)) {
-            return "Doctor Consultation";
+        // Food - Check FIRST (before consultation) to avoid mis-categorization
+        if (name.includes("breakfast") ||
+            name.includes("lunch") ||
+            name.includes("dinner") ||
+            name.includes("snack") ||
+            name.includes("meal") ||
+            name.includes("food charge") ||
+            name.includes("food")) {
+            return "Food Charges";
         }
 
-        // Therapy - Check before medicine (specific therapy patterns)
-        // Check common therapy names like Cardiology, Physiotherapy, etc.
-        if (name.includes("therapy") ||
-            name.includes("therapy charge") ||
-            name.includes("opd therapy") ||
-            name.includes("ipd therapy") ||
-            name.includes("therapeutic") ||
-            name.includes("treatment session") ||
-            (name.includes("treatment") && (name.includes("charge") || name.includes("session"))) ||
-            name === "opd therapy charge" ||
-            name === "therapy charge" ||
-            // Common therapy names
-            name.includes("cardiology") ||
-            name.includes("physiotherapy") ||
-            name.includes("acupuncture") ||
-            name.includes("massage") ||
-            name.includes("yoga") ||
-            name.includes("panchakarma") ||
-            name.includes("shirodhara") ||
-            name.includes("abhyanga") ||
-            // Check if item has therapy-related metadata
-            (item.description && item.description.toLowerCase().includes("therapy"))) {
-            return "Therapy";
+        // Ward/Bed - Check SECOND (before consultation) to avoid mis-categorization
+        if (name.includes("ward charge") ||
+            name.includes("general ward") ||
+            name.includes("bed charge") ||
+            name.includes("room charge") ||
+            name.includes("accommodation") ||
+            name.includes("ward") ||
+            name.includes("bed") ||
+            name.includes("one bed")) {
+            return "Bed Charges";
         }
 
-        // Medicine/Pharmacy - Check after therapy/consultation
+        // Medicine/Pharmacy - Check THIRD (has specific indicators)
         // If it has medicine details (dosage, frequency, etc.), it's definitely a medicine
         if (item.dosage || item.frequency || item.duration || item.foodTiming) {
             return "Medicines";
@@ -229,29 +217,44 @@ function InvoiceDetails() {
             return "Medicines";
         }
 
-        // Food - Check before ward/bed
-        if (name.includes("food") ||
-            name.includes("food charge") ||
-            name.includes("meal") ||
-            name.includes("breakfast") ||
-            name.includes("lunch") ||
-            name.includes("dinner") ||
-            name.includes("snack")) {
-            return "Food Charges";
+        // Therapy - Check FOURTH (specific therapy patterns)
+        if (name.includes("therapy") ||
+            name.includes("therapy charge") ||
+            name.includes("opd therapy") ||
+            name.includes("ipd therapy") ||
+            name.includes("therapeutic") ||
+            name.includes("treatment session") ||
+            (name.includes("treatment") && (name.includes("charge") || name.includes("session"))) ||
+            name === "opd therapy charge" ||
+            name === "therapy charge" ||
+            // Common therapy names
+            name.includes("cardiology") ||
+            name.includes("physiotherapy") ||
+            name.includes("acupuncture") ||
+            name.includes("massage") ||
+            name.includes("yoga") ||
+            name.includes("panchakarma") ||
+            name.includes("shirodhara") ||
+            name.includes("abhyanga") ||
+            name.includes("basti") ||
+            // Check if item has therapy-related metadata
+            (item.description && item.description.toLowerCase().includes("therapy"))) {
+            return "Therapy";
         }
 
-        // Ward/Bed - Check last
-        if (name.includes("ward") ||
-            name.includes("ward charge") ||
-            name.includes("bed") ||
-            name.includes("bed charge") ||
-            name.includes("room charge") ||
-            name.includes("accommodation") ||
-            name.includes("one bed")) {
-            return "Bed Charges";
+        // Doctor Consultation - Check LAST (most general, avoid false positives)
+        // Only match explicit consultation patterns
+        if (name.includes("consultation") ||
+            name.includes("opd consultation") ||
+            name.includes("ipd consultation") ||
+            name.includes("consultation charge") ||
+            (name.includes("doctor") && (name.includes("fee") || name.includes("charge"))) ||
+            // Check if item has consultation-related metadata (for old invoices)
+            (item.description && (item.description.toLowerCase().includes("consultation") || item.description.toLowerCase().includes("examination")))) {
+            return "Doctor Consultation";
         }
 
-        // Default to "Other"
+        // Default to "Other" - don't assume consultation for items without clear category
         return "Other";
     };
 
@@ -481,7 +484,23 @@ function InvoiceDetails() {
 
     const discountAmount = invoice.subtotal * ((invoice.discountRate || 0) / 100);
     const taxableAmount = invoice.subtotal - discountAmount;
-    const taxAmount = taxableAmount * ((invoice.taxRate || 0) / 100);
+    
+    // CRITICAL FIX: GST should only be applied to pharmacy items, not consultation or therapy
+    // Calculate pharmacy subtotal (items with category "pharmacy")
+    const pharmacySubtotal = (invoice.items || [])
+        .filter(item => item.category === "pharmacy")
+        .reduce((sum, item) => sum + (item.total || 0), 0);
+    
+    // Apply discount proportionally to pharmacy items
+    let pharmacyTaxableAmount = pharmacySubtotal;
+    if (discountAmount > 0 && invoice.subtotal > 0) {
+        // Apply discount proportionally based on pharmacy's share of subtotal
+        const pharmacyDiscount = (pharmacySubtotal / invoice.subtotal) * discountAmount;
+        pharmacyTaxableAmount = Math.max(0, pharmacySubtotal - pharmacyDiscount);
+    }
+    
+    // Calculate tax only on pharmacy items
+    const taxAmount = pharmacyTaxableAmount * ((invoice.taxRate || 0) / 100);
 
     return (
         <Box sx={{ padding: "20px" }} className="invoice-details-page">

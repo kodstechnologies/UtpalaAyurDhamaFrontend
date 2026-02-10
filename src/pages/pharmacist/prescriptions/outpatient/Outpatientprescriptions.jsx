@@ -24,6 +24,11 @@ import {
     TableContainer,
     Checkbox,
     TextField,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
 } from "@mui/material";
 import {
     LocalPharmacy,
@@ -65,6 +70,9 @@ function OutpatientPrescriptions() {
     // State for available medicines
     const [availableMedicines, setAvailableMedicines] = useState([]); // Array of medicine names from medicine collection
     const [medicinesMap, setMedicinesMap] = useState({}); // Map of medicine name to medicine object (for getting sellPrice)
+    // State for confirmation dialog
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [pendingSelectedPrescriptions, setPendingSelectedPrescriptions] = useState([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -639,11 +647,18 @@ function OutpatientPrescriptions() {
         // Update selection state if we modified any quantities
         setSelectedMedicines(newSelection);
 
-        // Confirm action
-        const confirmed = window.confirm(
-            `Are you sure you want to dispense ${selectedPrescriptions.length} medicine(s) for ${patientName}?`
-        );
-        if (!confirmed) return;
+        // Store selected prescriptions and open confirmation dialog
+        setPendingSelectedPrescriptions(selectedPrescriptions);
+        setConfirmDialogOpen(true);
+    };
+
+    const handleDispenseConfirm = async () => {
+        setConfirmDialogOpen(false);
+        const selectedPrescriptions = pendingSelectedPrescriptions;
+        
+        if (!selectedPrescriptions || selectedPrescriptions.length === 0) {
+            return;
+        }
 
         setIsDispensing(true);
         try {
@@ -1228,6 +1243,58 @@ function OutpatientPrescriptions() {
                     </Card>
                 </Grid>
             </Grid>
+
+            {/* Confirmation Dialog */}
+            <Dialog
+                open={confirmDialogOpen}
+                onClose={() => setConfirmDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ 
+                    backgroundColor: theme.palette.primary.main,
+                    color: theme.palette.primary.contrastText,
+                    fontWeight: 600
+                }}>
+                    Confirm Dispense
+                </DialogTitle>
+                <DialogContent sx={{ mt: 2 }}>
+                    <DialogContentText>
+                        Are you sure you want to dispense {pendingSelectedPrescriptions.length} medicine(s) for {patientName}?
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button 
+                        onClick={() => setConfirmDialogOpen(false)} 
+                        variant="outlined"
+                        color="inherit"
+                        sx={{
+                            borderColor: theme.palette.grey[400],
+                            color: theme.palette.text.primary,
+                            "&:hover": {
+                                borderColor: theme.palette.grey[600],
+                                backgroundColor: theme.palette.grey[50],
+                            }
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button 
+                        onClick={handleDispenseConfirm} 
+                        variant="contained" 
+                        color="primary"
+                        autoFocus
+                        sx={{
+                            backgroundColor: theme.palette.primary.main,
+                            "&:hover": {
+                                backgroundColor: theme.palette.primary.dark,
+                            }
+                        }}
+                    >
+                        Confirm
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }

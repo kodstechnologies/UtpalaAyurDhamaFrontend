@@ -204,7 +204,43 @@ function ViewPatientDetailsPage() {
                                     Session Date / Time
                                 </Typography>
                                 <Typography variant="body1">
-                                    {formatDate(session.sessionDate)} {session.sessionTime && `at ${session.sessionTime}`}
+                                    {(() => {
+                                        // Try to get session date/time from various sources
+                                        let displayDate = null;
+                                        let displayTime = null;
+                                        
+                                        // First priority: Use sessionDate and sessionTime if available
+                                        if (session.sessionDate) {
+                                            displayDate = formatDate(session.sessionDate);
+                                            displayTime = session.sessionTime || null;
+                                        }
+                                        // Second priority: Use first session day's date/time
+                                        else if (session.days && session.days.length > 0) {
+                                            const firstDay = session.days[0];
+                                            if (firstDay.date) {
+                                                displayDate = formatDate(firstDay.date);
+                                                displayTime = firstDay.time || null;
+                                            }
+                                        }
+                                        
+                                        // Third priority: Use last completed session date/time (only if still no date found)
+                                        if (!displayDate && session.days && session.days.length > 0) {
+                                            const completedDays = session.days.filter(d => d.completed);
+                                            if (completedDays.length > 0) {
+                                                const lastCompleted = completedDays[completedDays.length - 1];
+                                                if (lastCompleted.date) {
+                                                    displayDate = formatDate(lastCompleted.date);
+                                                    displayTime = lastCompleted.time || null;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (!displayDate) {
+                                            return "N/A";
+                                        }
+                                        
+                                        return displayTime ? `${displayDate} at ${displayTime}` : displayDate;
+                                    })()}
                                 </Typography>
                             </Box>
                         </Box>

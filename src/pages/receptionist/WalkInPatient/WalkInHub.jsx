@@ -54,6 +54,7 @@ function WalkInHub() {
     const [therapies, setTherapies] = useState([]);
 
     const [isLoadingData, setIsLoadingData] = useState(true);
+    const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchData = useCallback(async () => {
@@ -79,29 +80,181 @@ function WalkInHub() {
         }
     }, []);
 
+    // Fetch existing patient assignments
+    const loadExistingAssignments = useCallback(async () => {
+        if (!patientProfileId) return;
+
+        setIsLoadingExistingData(true);
+        try {
+            // Fetch patient profile
+            const patientRes = await axios.get(
+                getApiUrl(`patients/${patientProfileId}`),
+                { headers: getAuthHeaders() }
+            );
+
+            if (patientRes.data.success && patientRes.data.data) {
+                const patient = patientRes.data.data;
+                let currentInpatientId = null; // Store inpatient ID for therapist lookup
+                
+                // Determine mode based on admission status
+                if (patient.admissionStatus === "In-patient") {
+                    setMode("IPD");
+                    
+                        // Fetch latest inpatient record
+                        try {
+                            const inpatientsRes = await axios.get(
+                                getApiUrl(`inpatients/patient/${patientProfileId}`),
+                                { headers: getAuthHeaders() }
+                            );
+                        
+                        if (inpatientsRes.data.success) {
+                            // Handle both array and single object responses
+                            const inpatient = Array.isArray(inpatientsRes.data.data) 
+                                ? inpatientsRes.data.data.find(ip => ip.status === "Admitted") || inpatientsRes.data.data[0]
+                                : inpatientsRes.data.data;
+                            
+                            if (!inpatient) return;
+                            
+                            currentInpatientId = inpatient._id; // Store for therapist lookup
+                            
+                            // Format date for input
+                            const formatDateForInput = (date) => {
+                                if (!date) return new Date().toLocaleDateString("en-CA");
+                                const d = new Date(date);
+                                return d.toLocaleDateString("en-CA");
+                            };
+
+                            setFormData(prev => ({
+                                ...prev,
+                                doctorProfileId: inpatient.doctor?._id || patient.primaryDoctor?._id || existingDoctorId || "",
+                                nurseProfileId: inpatient.allocatedNurse?._id || patient.allocatedNurse?._id || "",
+                                wardCategory: inpatient.wardCategory || "General",
+                                roomNumber: inpatient.roomNumber || "",
+                                bedNumber: inpatient.bedNumber || "",
+                                appointmentDate: formatDateForInput(inpatient.admissionDate),
+                            }));
+                        }
+                    } catch (err) {
+                        console.error("Error fetching inpatient data:", err);
+                    }
+                } else {
+                    setMode("OPD");
+                    
+                    // Fetch latest appointment for OPD
+                    try {
+                        const appointmentsRes = await axios.get(
+                            getApiUrl(`appointments?patientId=${patientProfileId}&limit=1`),
+                            { headers: getAuthHeaders() }
+                        );
+                        
+                        if (appointmentsRes.data.success && appointmentsRes.data.data?.length > 0) {
+                            // Get the most recent appointment (already sorted by appointmentDate desc)
+                            const appointment = appointmentsRes.data.data[0];
+                            
+                            // Format time for input (HH:MM)
+                            const formatTimeForInput = (timeStr) => {
+                                if (!timeStr) return "";
+                                // If time is in HH:MM format, return as is
+                                if (timeStr.match(/^\d{2}:\d{2}$/)) return timeStr;
+                                // If it's a Date object or ISO string, extract time
+                                const d = new Date(timeStr);
+                                return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                            };
+
+                            // Format date for input
+                            const formatDateForInput = (date) => {
+                                if (!date) return new Date().toLocaleDateString("en-CA");
+                                const d = new Date(date);
+                                return d.toLocaleDateString("en-CA");
+                            };
+
+                            setFormData(prev => ({
+                                ...prev,
+                                doctorProfileId: appointment.doctor?._id || patient.primaryDoctor?._id || existingDoctorId || "",
+                                appointmentTime: formatTimeForInput(appointment.appointmentTime),
+                                appointmentDate: formatDateForInput(appointment.appointmentDate),
+                            }));
+                        } else {
+                            // No appointment found, use patient profile data
+                            setFormData(prev => ({
+                                ...prev,
+                                doctorProfileId: patient.primaryDoctor?._id || existingDoctorId || "",
+                            }));
+                        }
+                    } catch (err) {
+                        console.error("Error fetching appointment data:", err);
+                        // Fallback to patient profile data
+                        setFormData(prev => ({
+                            ...prev,
+                            doctorProfileId: patient.primaryDoctor?._id || existingDoctorId || "",
+                        }));
+                    }
+                }
+
+                // Load therapy data from patient profile and therapy sessions
+                if (patient.assignedTherapy) {
+                    const formatDateForInput = (date) => {
+                        if (!date) return new Date().toLocaleDateString("en-CA");
+                        const d = new Date(date);
+                        return d.toLocaleDateString("en-CA");
+                    };
+
+                    // Try to get therapist from patient profile first
+                    let therapistUserId = patient.primaryTherapist?.user?._id || patient.primaryTherapist?._id || "";
+
+                    // If not found in patient profile, fetch from therapy sessions using patient's user ID
+                    if (!therapistUserId && patient.user?._id) {
+                        try {
+                            // Fetch therapist sessions for the patient using their user ID
+                            const therapistSessionsRes = await axios.get(
+                                getApiUrl(`therapist-sessions/by-user/${patient.user._id}`),
+                                { headers: getAuthHeaders() }
+                            );
+                            if (therapistSessionsRes.data.success && therapistSessionsRes.data.data?.length > 0) {
+                                // Get the most recent session with a therapist assigned
+                                const sessionWithTherapist = therapistSessionsRes.data.data.find(
+                                    s => s.therapist?.user?._id || s.therapist?.user
+                                );
+                                if (sessionWithTherapist) {
+                                    therapistUserId = sessionWithTherapist.therapist?.user?._id || sessionWithTherapist.therapist?.user || "";
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Error fetching therapist session:", err);
+                        }
+                    }
+
+                    setFormData(prev => ({
+                        ...prev,
+                        therapyData: {
+                            treatmentName: patient.assignedTherapy?._id || patient.assignedTherapy || "",
+                            daysOfTreatment: patient.therapyDurationDays || 0,
+                            timeline: patient.therapyTimeline || "Daily",
+                            specialInstructions: patient.therapyInstructions || "",
+                            therapistId: therapistUserId,
+                            startDate: formatDateForInput(patient.therapyStartDate),
+                        }
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error("Error loading existing assignments:", error);
+            // Don't show error toast - just silently fail and let user fill manually
+        } finally {
+            setIsLoadingExistingData(false);
+        }
+    }, [patientProfileId, existingDoctorId]);
+
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
+    // Load existing assignments when patientProfileId is available
     useEffect(() => {
-        setFormData({
-            doctorProfileId: existingDoctorId,
-            nurseProfileId: "",
-            appointmentTime: "",
-            appointmentDate: new Date().toLocaleDateString("en-CA"),
-            wardCategory: "General",
-            roomNumber: "",
-            bedNumber: "",
-            therapyData: {
-                treatmentName: "",
-                daysOfTreatment: 0,
-                timeline: "Daily",
-                specialInstructions: "",
-                therapistId: "",
-                startDate: new Date().toLocaleDateString("en-CA"),
-            }
-        });
-    }, [patientProfileId, existingDoctorId]);
+        if (patientProfileId && !isLoadingData) {
+            loadExistingAssignments();
+        }
+    }, [patientProfileId, isLoadingData, loadExistingAssignments]);
 
     const handleModeChange = (event, newMode) => {
         if (newMode !== null) {
@@ -186,6 +339,14 @@ function WalkInHub() {
 
             <Box sx={{ maxWidth: "900px", mx: "auto", mt: 4, px: 2 }}>
                 <Paper elevation={0} sx={{ p: 4, borderRadius: "16px", border: "1px solid var(--color-border-a)" }}>
+                    {isLoadingExistingData && (
+                        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 3 }}>
+                            <CircularProgress size={24} sx={{ mr: 2 }} />
+                            <Typography variant="body2" color="text.secondary">
+                                Loading existing assignments...
+                            </Typography>
+                        </Box>
+                    )}
                     <form onSubmit={handleSubmit}>
 
                         {/* Section 1: Admission Mode */}
