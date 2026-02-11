@@ -483,13 +483,31 @@ function InpatientBilling() {
         return Number((chargeTotals.pharmacy * (taxRate / 100)).toFixed(2));
     }, [chargeTotals.pharmacy, taxRate, billingData]);
 
+    const hasInvoice = useMemo(() => {
+        return !!billingData?.invoice?.id;
+    }, [billingData]);
+
     const totalCharges = useMemo(() => {
-        const isDischarged = billingData?.admission?.status === "Discharged";
-        if (isDischarged && billingData?.invoice) {
+        // If bill is finalized (has invoice), use invoice totalPayable
+        if (hasInvoice && billingData?.invoice) {
             return billingData.invoice.totalPayable;
         }
+        // Otherwise calculate from charges
         return Number((discountedTotal + taxAmount).toFixed(2));
-    }, [grandTotal, discountedTotal, taxAmount, billingData]);
+    }, [grandTotal, discountedTotal, taxAmount, billingData, hasInvoice]);
+
+    const amountPaid = useMemo(() => {
+        return billingData?.invoice?.amountPaid || 0;
+    }, [billingData]);
+
+    const outstandingAmount = useMemo(() => {
+        // If bill is finalized (has invoice), calculate outstanding = totalPayable - amountPaid
+        if (hasInvoice) {
+            return Math.max(0, totalCharges - amountPaid);
+        }
+        // If not finalized, outstanding is the same as total charges
+        return totalCharges;
+    }, [totalCharges, amountPaid, hasInvoice]);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat("en-IN", {
@@ -820,7 +838,7 @@ function InpatientBilling() {
     }
 
     const { patient, admission, charges, doctor, hasInpatient, hasOutpatient } = billingData;
-    const isDischarged = admission?.status === "Discharged";
+    const isDischarged = admission?.status === "Discharged" || admission?.status === "readyToDischarged";
 
     return (
         <Box sx={{ padding: "20px" }}>
@@ -915,7 +933,7 @@ function InpatientBilling() {
                                             lineHeight: "1.2",
                                         }}
                                     >
-                                        {formatCurrency(totalCharges)}
+                                        {formatCurrency(isDischarged ? totalCharges : outstandingAmount)}
                                     </h2>
                                 </div>
                             </div>

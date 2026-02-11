@@ -40,9 +40,9 @@ function Outpatient_View() {
     const fetchOutpatients = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Fetch all patients, unbilled OPD examinations, today's examinations, and active inpatients in parallel
-            const today = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
-            const [patientsResponse, unbilledExamsResponse, todayExamsResponse, inpatientsResponse] = await Promise.all([
+            // Fetch all patients, ALL OPD examinations (to show discharged patients), and active inpatients in parallel
+            // We fetch ALL examinations (not just unbilled) so that discharged patients remain visible for reference
+            const [patientsResponse, allExamsResponse, inpatientsResponse] = await Promise.all([
                 axios.get(
                     getApiUrl("patients"),
                     {
@@ -60,20 +60,7 @@ function Outpatient_View() {
                         params: {
                             page: 1,
                             limit: 1000,
-                            isBilled: "false",
-                            hasInpatient: "false"
-                        },
-                    }
-                ),
-                axios.get(
-                    getApiUrl("examinations"),
-                    {
-                        headers: getAuthHeaders(),
-                        params: {
-                            page: 1,
-                            limit: 1000,
-                            startDate: today,
-                            hasInpatient: "false"
+                            hasInpatient: "false" // Only OPD examinations
                         },
                     }
                 ),
@@ -84,18 +71,17 @@ function Outpatient_View() {
                         params: {
                             page: 1,
                             limit: 1000,
-                            status: "Admitted"
+                            // Fetch ALL inpatients (not just admitted) to exclude discharged patients from OPD list
                         },
                     }
                 )
             ]);
 
             console.log("Patients API Response:", patientsResponse.data);
-            console.log("Unbilled Exams Response:", unbilledExamsResponse.data);
-            console.log("Today Exams Response:", todayExamsResponse.data);
+            console.log("All Exams Response:", allExamsResponse.data);
             console.log("Inpatients API Response:", inpatientsResponse.data);
 
-            if (patientsResponse.data.success && unbilledExamsResponse.data.success && todayExamsResponse.data.success) {
+            if (patientsResponse.data.success && allExamsResponse.data.success) {
                 // Handle different patient response structures
                 let patientsData = [];
                 if (Array.isArray(patientsResponse.data.data)) {
@@ -106,17 +92,10 @@ function Outpatient_View() {
                     patientsData = patientsResponse.data.data.data;
                 }
 
-                // Combine and deduplicate examinations
-                const allExams = [
-                    ...(Array.isArray(unbilledExamsResponse.data.data) ? unbilledExamsResponse.data.data : (unbilledExamsResponse.data.data?.data || [])),
-                    ...(Array.isArray(todayExamsResponse.data.data) ? todayExamsResponse.data.data : (todayExamsResponse.data.data?.data || []))
-                ];
-
-                const uniqueExamsMap = new Map();
-                allExams.forEach(exam => {
-                    uniqueExamsMap.set(exam._id.toString(), exam);
-                });
-                const examinationsData = Array.from(uniqueExamsMap.values());
+                // Get all OPD examinations (including billed ones to show discharged patients)
+                const examinationsData = Array.isArray(allExamsResponse.data.data) 
+                    ? allExamsResponse.data.data 
+                    : (allExamsResponse.data.data?.data || []);
 
                 const inpatientsData = inpatientsResponse.data.success
                     ? (Array.isArray(inpatientsResponse.data.data)
@@ -124,10 +103,10 @@ function Outpatient_View() {
                         : inpatientsResponse.data.data?.data || [])
                     : [];
 
-                // Get patient IDs who are currently admitted as inpatients
-                const activeInpatientPatientIds = new Set(
+                // Get patient IDs who have ANY inpatient record (admitted or discharged)
+                // Patients with inpatient records should only appear in the inpatient list, not outpatient list
+                const allInpatientPatientIds = new Set(
                     inpatientsData
-                        .filter(ip => ip.status === "Admitted")
                         .map(ip => {
                             const patientId = ip.patient?._id || ip.patient;
                             return patientId?.toString();
@@ -135,10 +114,11 @@ function Outpatient_View() {
                         .filter(Boolean)
                 );
 
-                // Filter patients who are NOT currently admitted
+                // Filter patients who have NEVER been inpatients
+                // This ensures patients with inpatient records (even discharged) only appear in inpatient list
                 const filteredPatients = patientsData.filter((patient) => {
                     const patientId = patient._id?.toString();
-                    return !activeInpatientPatientIds.has(patientId);
+                    return !allInpatientPatientIds.has(patientId);
                 });
 
                 // Create a map of patient ID to their examinations (unbilled or today's billed)
@@ -193,7 +173,10 @@ function Outpatient_View() {
                                 })(),
                                 allocatedNurseId: (() => {
                                     const nurseSource = exam.allocatedNurse || patient.allocatedNurse;
-                                    return typeof nurseSource === 'object' ? nurseSource._id : nurseSource;
+                                    if (nurseSource && typeof nurseSource === 'object' && nurseSource._id) {
+                                        return nurseSource._id;
+                                    }
+                                    return nurseSource || undefined;
                                 })(),
                                 hasFinalizedBill: !!exam.isBilled,
                                 hasUnbilledVisit: !exam.isBilled,
@@ -219,7 +202,7 @@ function Outpatient_View() {
                             doctorName: patient.primaryDoctor?.user?.name || patient.primaryDoctor?.name || "N/A",
                             lastVisitDate: patient.createdAt ? new Date(patient.createdAt).toISOString().split("T")[0] : "N/A",
                             allocatedNurse: (patient.allocatedNurse && typeof patient.allocatedNurse === 'object') ? patient.allocatedNurse.user?.name : undefined,
-                            allocatedNurseId: (patient.allocatedNurse && typeof patient.allocatedNurse === 'object') ? patient.allocatedNurse._id : patient.allocatedNurse,
+                            allocatedNurseId: (patient.allocatedNurse && typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) ? patient.allocatedNurse._id : (patient.allocatedNurse || undefined),
                             hasFinalizedBill: true,
                             hasUnbilledVisit: false,
                             type: "OPD",
@@ -230,7 +213,7 @@ function Outpatient_View() {
                 console.log("Total merged outpatient rows:", mergedRows.length);
                 setOutpatients(mergedRows);
             } else {
-                toast.error(examinationsResponse.data.message || "Failed to fetch outpatient visits");
+                toast.error(allExamsResponse?.data?.message || "Failed to fetch outpatient visits");
             }
         } catch (error) {
             console.error("Error fetching outpatient visits:", error);
@@ -260,14 +243,26 @@ function Outpatient_View() {
         };
     }, [outpatients]);
 
-    // Filter outpatients
+    // Filter and sort outpatients by time (most recent first)
     const filteredData = useMemo(() => {
-        return outpatients.filter((patient) => {
+        const filtered = outpatients.filter((patient) => {
             const matchesSearch =
                 patient.name.toLowerCase().includes(search.toLowerCase()) ||
                 (patient.doctorName && patient.doctorName.toLowerCase().includes(search.toLowerCase())) ||
                 (patient.phone && patient.phone.toLowerCase().includes(search.toLowerCase()));
             return matchesSearch;
+        });
+        
+        // Sort by time (most recent first)
+        // Use lastVisitDate if available (for examinations), otherwise use registeredDate
+        return filtered.sort((a, b) => {
+            const dateA = a.lastVisitDate && a.lastVisitDate !== "N/A" 
+                ? new Date(a.lastVisitDate) 
+                : (a.registeredDate && a.registeredDate !== "N/A" ? new Date(a.registeredDate) : new Date(0));
+            const dateB = b.lastVisitDate && b.lastVisitDate !== "N/A" 
+                ? new Date(b.lastVisitDate) 
+                : (b.registeredDate && b.registeredDate !== "N/A" ? new Date(b.registeredDate) : new Date(0));
+            return dateB - dateA; // Most recent first
         });
     }, [outpatients, search]);
 

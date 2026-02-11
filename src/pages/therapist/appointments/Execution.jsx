@@ -268,18 +268,29 @@ function Execution() {
     };
 
     const handleStartSession = async (slot) => {
+        // Prevent starting sessions scheduled for future dates
+        const slotDate = new Date(slot.date);
+        slotDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (slotDate.getTime() > today.getTime()) {
+            toast.error(`Cannot start session scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. Please wait until the scheduled date.`);
+            return;
+        }
+        
         setUpdatingSlot(slot.dateLabel);
         try {
             const currentDays = progressData.days || [];
-            const slotDate = new Date(slot.date);
-            slotDate.setHours(0, 0, 0, 0);
+            const slotDateForUpdate = new Date(slot.date);
+            slotDateForUpdate.setHours(0, 0, 0, 0);
             const now = new Date();
 
             let dayUpdated = false;
             let updatedDays = currentDays.map(day => {
                 const dayDate = new Date(day.date);
                 dayDate.setHours(0, 0, 0, 0);
-                if (dayDate.getTime() === slotDate.getTime()) {
+                if (dayDate.getTime() === slotDateForUpdate.getTime()) {
                     dayUpdated = true;
                     return {
                         ...day,
@@ -382,7 +393,7 @@ function Execution() {
                     return {
                         ...day,
                         completed: isNowCompleted,
-                        endTime: isNowCompleted ? new Date() : null,
+                        endTime: isNowCompleted ? (day.endTime || new Date()) : null,
                         time: day.time || slot.timeLabel?.split(" - ")[0] || ""
                     };
                 }
@@ -408,18 +419,22 @@ function Execution() {
             );
 
             if (response.data.success) {
-                const action = updatedDays.find(d => {
+                const updatedDay = updatedDays.find(d => {
                     const dDate = new Date(d.date);
                     dDate.setHours(0, 0, 0, 0);
                     return dDate.getTime() === slotDate.getTime();
-                })?.completed ? "marked complete" : "unmarked";
+                });
+                const action = updatedDay?.completed ? "marked complete" : "unmarked";
 
                 toast.success(`Session for ${slot.dateLabel} ${action}`);
                 fetchProgress();
+            } else {
+                toast.error(response.data.message || "Failed to update session");
             }
         } catch (error) {
             console.error("Error updating session:", error);
-            toast.error("Failed to update session");
+            const errorMessage = error?.response?.data?.message || error?.message || "Failed to update session";
+            toast.error(errorMessage);
         } finally {
             setUpdatingSlot(null);
         }
@@ -612,6 +627,13 @@ function Execution() {
                                 const dayRecord = getDayRecord(slot);
                                 const isInProgress = dayRecord && dayRecord.startTime && !dayRecord.endTime && !dayRecord.completed;
                                 
+                                // Check if the session date is in the future
+                                const slotDate = new Date(slot.date);
+                                slotDate.setHours(0, 0, 0, 0);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const isFutureDate = slotDate.getTime() > today.getTime();
+                                
                                 return (
                                     <Card
                                         key={index}
@@ -683,14 +705,22 @@ function Execution() {
                                                             variant="contained"
                                                             size="small"
                                                             onClick={() => handleStartSession(slot)}
-                                                            disabled={updatingSlot === slot.dateLabel}
+                                                            disabled={updatingSlot === slot.dateLabel || isFutureDate}
                                                             startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PlayCircleFilledIcon />}
+                                                            title={isFutureDate ? `This session is scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. You can only start sessions on or after the scheduled date.` : ""}
                                                             sx={{
                                                                 borderRadius: "10px",
                                                                 textTransform: "none",
-                                                                bgcolor: "#3182CE",
-                                                                boxShadow: "0 4px 6px rgba(49, 130, 206, 0.2)",
-                                                                "&:hover": { bgcolor: "#2B6CB0" }
+                                                                bgcolor: isFutureDate ? "#CBD5E0" : "#3182CE",
+                                                                boxShadow: isFutureDate ? "none" : "0 4px 6px rgba(49, 130, 206, 0.2)",
+                                                                "&:hover": { 
+                                                                    bgcolor: isFutureDate ? "#CBD5E0" : "#2B6CB0",
+                                                                    cursor: isFutureDate ? "not-allowed" : "pointer"
+                                                                },
+                                                                "&.Mui-disabled": {
+                                                                    bgcolor: "#E2E8F0",
+                                                                    color: "#A0AEC0"
+                                                                }
                                                             }}
                                                         >
                                                             Start

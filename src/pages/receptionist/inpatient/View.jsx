@@ -26,7 +26,7 @@ function Inpatient_View() {
     const [inpatients, setInpatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("Admitted");
+    const [statusFilter, setStatusFilter] = useState("All"); // Changed default to "All" to show discharged patients
     const navigate = useNavigate();
 
     // Tooltip states
@@ -179,15 +179,22 @@ function Inpatient_View() {
         };
     }, [inpatients]);
 
-    // Filter inpatients
+    // Filter and sort inpatients by admission time (most recent first)
     const filteredData = useMemo(() => {
-        return inpatients.filter((patient) => {
+        const filtered = inpatients.filter((patient) => {
             const matchesSearch =
                 patient.name.toLowerCase().includes(search.toLowerCase()) ||
                 (patient.doctorName && patient.doctorName.toLowerCase().includes(search.toLowerCase())) ||
                 (patient.roomNo && patient.roomNo.toLowerCase().includes(search.toLowerCase()));
             const matchesStatus = statusFilter === "All" || patient.admitStatus === statusFilter;
             return matchesSearch && matchesStatus;
+        });
+        
+        // Sort by admission date (most recent first)
+        return filtered.sort((a, b) => {
+            const dateA = a.admittedOn && a.admittedOn !== "N/A" ? new Date(a.admittedOn) : new Date(0);
+            const dateB = b.admittedOn && b.admittedOn !== "N/A" ? new Date(b.admittedOn) : new Date(0);
+            return dateB - dateA; // Most recent first
         });
     }, [inpatients, search, statusFilter]);
 

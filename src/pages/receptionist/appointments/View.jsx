@@ -128,6 +128,8 @@ function Appointments_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
     const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+    const [ipdWalkIns, setIpdWalkIns] = useState([]);
+    const [isLoadingIpdWalkIns, setIsLoadingIpdWalkIns] = useState(false);
 
     const navigate = useNavigate();
 
@@ -221,15 +223,26 @@ function Appointments_View() {
         };
     }, [allPatients, appointments]);
 
-    // Filter patients
+    // Filter and sort patients by registration time (most recent first)
     const filteredPatients = useMemo(() => {
-        return allPatients.filter((patient) => {
+        const filtered = allPatients.filter((patient) => {
             const matchesSearch =
                 !filters.search ||
                 patient.name.toLowerCase().includes(filters.search.toLowerCase()) ||
                 patient.contact.includes(filters.search) ||
                 patient.id.includes(filters.search);
             return matchesSearch;
+        });
+        
+        // Sort by registration date (most recent first)
+        return filtered.sort((a, b) => {
+            const dateA = a.registeredDate && a.registeredDate !== "N/A" 
+                ? new Date(a.registeredDate.split("/").reverse().join("-")) 
+                : new Date(0);
+            const dateB = b.registeredDate && b.registeredDate !== "N/A" 
+                ? new Date(b.registeredDate.split("/").reverse().join("-")) 
+                : new Date(0);
+            return dateB - dateA; // Most recent first
         });
     }, [allPatients, filters]);
 
@@ -285,10 +298,67 @@ function Appointments_View() {
     }, []);
 
 
+    // Fetch IPD walk-in patients (inpatient records created via Walk-in Hub)
+    const fetchIpdWalkIns = useCallback(async () => {
+        setIsLoadingIpdWalkIns(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("inpatients"),
+                {
+                    headers: getAuthHeaders(),
+                    params: {
+                        page: 1,
+                        limit: 1000, // Get all inpatients
+                        status: "Admitted" // Only show currently admitted patients
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                const inpatientsData = response.data.data?.data || response.data.data || [];
+                
+                // Filter only walk-in inpatients (those with reason containing "Walk-in Hub")
+                const walkInInpatients = inpatientsData.filter(ip => 
+                    ip.reason && ip.reason.includes("Walk-in Hub")
+                );
+
+                // Transform IPD walk-ins to match appointment structure for display
+                const transformedIpdWalkIns = walkInInpatients.map((ip) => ({
+                    id: `ipd-${ip._id}`, // Prefix to distinguish from appointments
+                    name: ip.patient?.user?.name || "Unknown",
+                    appointmentDateTime: ip.admissionDate
+                        ? `${new Date(ip.admissionDate).toISOString().split("T")[0]} ${new Date(ip.admissionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                        : "N/A",
+                    doctor: ip.doctor?.user?.name || "N/A",
+                    doctorId: ip.doctor?._id || ip.doctor || "",
+                    contact: ip.patient?.user?.phone || "N/A",
+                    disease: ip.reason || "Admitted via Walk-in Hub",
+                    status: ip.status === "Admitted" ? "Admitted" : ip.status || "Admitted",
+                    patientProfileId: ip.patient?._id || ip.patient || "",
+                    invoiceId: null,
+                    invoiceNumber: null,
+                    isIpd: true, // Flag to identify IPD walk-ins
+                    inpatientId: ip._id, // Store inpatient ID
+                    roomNumber: ip.roomNumber || null,
+                    bedNumber: ip.bedNumber || null,
+                    wardCategory: ip.wardCategory || null,
+                }));
+
+                setIpdWalkIns(transformedIpdWalkIns);
+            }
+        } catch (error) {
+            console.error("Error fetching IPD walk-ins:", error);
+            // Don't show error toast as this is optional data
+        } finally {
+            setIsLoadingIpdWalkIns(false);
+        }
+    }, []);
+
     useEffect(() => {
         fetchReceptionPatients();
         fetchAppointments();
-    }, [fetchReceptionPatients, fetchAppointments]);
+        fetchIpdWalkIns();
+    }, [fetchReceptionPatients, fetchAppointments, fetchIpdWalkIns]);
 
     useEffect(() => {
         if (activeTab === "appointments") {
@@ -296,16 +366,18 @@ function Appointments_View() {
         }
     }, [activeTab, fetchAppointments]);
 
-    // Filter appointments - Show all future appointments by default in "Upcoming Appointments" tab
+    // Filter and sort appointments by time (most recent first)
     const filteredAppointments = useMemo(() => {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
+
+        let filtered = [];
 
         // For "Upcoming Appointments" tab, show all future appointments
         if (activeTab === "appointments") {
             if (!filters.appointmentStatus) {
                 // Default: Show all future appointments
-                return appointments.filter((apt) => {
+                filtered = appointments.filter((apt) => {
                     try {
                         const [dateStr, timeStr] = apt.appointmentDateTime.split(" ");
                         if (!dateStr) return false;
@@ -320,27 +392,40 @@ function Appointments_View() {
         }
 
         // Apply filters if any
-        if (!filters.appointmentStatus) {
-            return appointments;
+        if (filtered.length === 0) {
+            if (!filters.appointmentStatus) {
+                filtered = appointments;
+            } else {
+                filtered = appointments.filter((apt) => {
+                    try {
+                        const [dateStr] = apt.appointmentDateTime.split(" ");
+                        if (!dateStr) return false;
+                        const appointmentDate = new Date(dateStr);
+                        appointmentDate.setHours(0, 0, 0, 0);
+
+                        if (filters.appointmentStatus === "upcoming") {
+                            return appointmentDate > now && apt.status !== "Ongoing" && apt.status !== "Completed" && apt.status !== "Cancelled";
+                        } else if (filters.appointmentStatus === "ongoing") {
+                            return apt.status === "Ongoing" || (appointmentDate.getTime() === now.getTime() && apt.status === "Confirmed");
+                        } else if (filters.appointmentStatus === "completed") {
+                            return apt.status === "Completed" || appointmentDate < now;
+                        }
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                });
+            }
         }
 
-        return appointments.filter((apt) => {
+        // Sort by appointment date/time (most recent first)
+        return filtered.sort((a, b) => {
             try {
-                const [dateStr] = apt.appointmentDateTime.split(" ");
-                if (!dateStr) return false;
-                const appointmentDate = new Date(dateStr);
-                appointmentDate.setHours(0, 0, 0, 0);
-
-                if (filters.appointmentStatus === "upcoming") {
-                    return appointmentDate > now && apt.status !== "Ongoing" && apt.status !== "Completed" && apt.status !== "Cancelled";
-                } else if (filters.appointmentStatus === "ongoing") {
-                    return apt.status === "Ongoing" || (appointmentDate.getTime() === now.getTime() && apt.status === "Confirmed");
-                } else if (filters.appointmentStatus === "completed") {
-                    return apt.status === "Completed" || appointmentDate < now;
-                }
-                return true;
+                const dateA = new Date(a.appointmentDateTime);
+                const dateB = new Date(b.appointmentDateTime);
+                return dateB - dateA; // Most recent first
             } catch {
-                return false;
+                return 0;
             }
         });
     }, [appointments, filters.appointmentStatus, activeTab]);
@@ -363,6 +448,18 @@ function Appointments_View() {
 
     const handleRescheduleClick = (appointment) => {
         try {
+            // If it's an IPD walk-in, redirect to walk-in hub instead
+            if (appointment.isIpd) {
+                const params = new URLSearchParams({
+                    patientProfileId: appointment.patientProfileId || "",
+                    patientName: appointment.name || "",
+                    mode: "IPD",
+                });
+                navigate(`/receptionist/walk-in-hub?${params.toString()}`);
+                return;
+            }
+
+            // For OPD appointments, use the reschedule page
             const [date, time] = appointment.appointmentDateTime.split(" ");
             const params = new URLSearchParams({
                 appointmentId: appointment.id || "",
@@ -951,11 +1048,26 @@ function Appointments_View() {
                         {activeTab === "walkIn" && (
                             <>
                                 {(() => {
+                                    // Filter OPD walk-in appointments (those with notes containing "Walk-in Hub")
                                     const walkInAppointments = appointments.filter(apt =>
                                         apt.disease && apt.disease.includes("Walk-in Hub")
                                     );
 
-                                    return walkInAppointments.length === 0 ? (
+                                    // Combine OPD walk-in appointments with IPD walk-in inpatient records
+                                    const allWalkIns = [...walkInAppointments, ...ipdWalkIns];
+
+                                    // Sort by date/time (most recent first)
+                                    const sortedWalkIns = allWalkIns.sort((a, b) => {
+                                        try {
+                                            const dateA = new Date(a.appointmentDateTime.split(" ")[0]);
+                                            const dateB = new Date(b.appointmentDateTime.split(" ")[0]);
+                                            return dateB - dateA; // Most recent first
+                                        } catch {
+                                            return 0;
+                                        }
+                                    });
+
+                                    return sortedWalkIns.length === 0 ? (
                                         <Box sx={{ textAlign: "center", padding: "40px", color: "#666" }}>
                                             No walk-in patients found
                                         </Box>
@@ -970,11 +1082,12 @@ function Appointments_View() {
                                                         <th>Doctor</th>
                                                         <th>Contact</th>
                                                         <th>Status</th>
+                                                        {sortedWalkIns.some(w => w.isIpd) && <th>Room/Bed</th>}
                                                         <th>Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {walkInAppointments.map((appointment, index) => (
+                                                    {sortedWalkIns.map((appointment, index) => (
                                                         <tr key={appointment.id}>
                                                             <td>{index + 1}</td>
                                                             <td>{appointment.name}</td>
@@ -986,13 +1099,26 @@ function Appointments_View() {
                                                                     {appointment.status}
                                                                 </span>
                                                             </td>
+                                                            {sortedWalkIns.some(w => w.isIpd) && (
+                                                                <td>
+                                                                    {appointment.isIpd ? (
+                                                                        appointment.roomNumber || appointment.bedNumber ? (
+                                                                            `${appointment.roomNumber ? `Room ${appointment.roomNumber}` : ''}${appointment.roomNumber && appointment.bedNumber ? ' / ' : ''}${appointment.bedNumber ? `Bed ${appointment.bedNumber}` : ''}`
+                                                                        ) : (
+                                                                            'N/A'
+                                                                        )
+                                                                    ) : (
+                                                                        '-'
+                                                                    )}
+                                                                </td>
+                                                            )}
                                                             <td>
                                                                 <div className="btn-group" role="group">
                                                                     <button
                                                                         type="button"
                                                                         className="btn btn-sm btn-primary"
                                                                         onClick={() => handleRescheduleClick(appointment)}
-                                                                        title="Reschedule Appointment"
+                                                                        title={appointment.isIpd ? "Edit Walk-in Admission" : "Reschedule Appointment"}
                                                                         style={{
                                                                             borderRadius: "8px",
                                                                             padding: "8px 12px",

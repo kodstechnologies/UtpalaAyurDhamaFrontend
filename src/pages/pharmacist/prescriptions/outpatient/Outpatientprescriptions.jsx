@@ -526,7 +526,10 @@ function OutpatientPrescriptions() {
     const patientAge = calculateAge(patient?.dateOfBirth) || 0;
     const patientGender = patient?.gender || "N/A";
     const doctorName = prescriptions[0]?.doctor?.user?.name || "Unknown";
-    const diagnosis = examination?.complaints || "N/A";
+    // Get diagnosis - prefer diagnoses array, fallback to complaints
+    const diagnosis = examination?.diagnoses?.length > 0 
+        ? examination.diagnoses.join(", ") 
+        : examination?.complaints || "N/A";
     const prescriptionDate = examination?.createdAt || prescriptions[0]?.createdAt;
     // Check if all prescriptions are dispensed
     const allDispensed = prescriptions.every((p) => p.status === "Dispensed");
@@ -641,6 +644,43 @@ function OutpatientPrescriptions() {
 
         if (hasEmptyQuantity) {
             toast.error("Please enter quantities for all selected medicines");
+            return;
+        }
+
+        // Check stock availability before dispensing
+        const outOfStockMedicines = [];
+        for (const presc of selectedPrescriptions) {
+            const selected = newSelection[presc._id];
+            const dispensedQuantityStr = selected.quantity;
+            
+            // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
+            const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
+            const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
+            
+            if (dispensedQuantity <= 0) {
+                continue; // Skip invalid quantities, will be caught by empty quantity check
+            }
+            
+            // Find the medicine
+            const medicine = findMedicineInMap(presc.medication);
+            if (!medicine) {
+                continue; // Skip if medicine not found, will be caught by unavailable check
+            }
+            
+            // Check stock quantity
+            const currentStock = medicine.quantity || 0;
+            if (currentStock <= 0) {
+                outOfStockMedicines.push(presc.medication);
+            } else if (currentStock < dispensedQuantity) {
+                outOfStockMedicines.push(presc.medication);
+            }
+        }
+        
+        // If any medicine is out of stock, show error and prevent dispensing
+        if (outOfStockMedicines.length > 0) {
+            outOfStockMedicines.forEach((medicineName) => {
+                toast.error(`${medicineName} is out of stock`);
+            });
             return;
         }
 
@@ -980,7 +1020,7 @@ function OutpatientPrescriptions() {
                                                     }}
                                                 />
                                             </TableCell>
-                                            <TableCell sx={{ minWidth: 180 }}>Medicine</TableCell>
+                                            <TableCell sx={{ minWidth: 250 }}>Medicine</TableCell>
                                             <TableCell sx={{ minWidth: 100 }}>Dosage</TableCell>
                                             <TableCell sx={{ minWidth: 120 }}>Frequency</TableCell>
                                             <TableCell sx={{ minWidth: 100 }}>Duration</TableCell>
@@ -1004,6 +1044,10 @@ function OutpatientPrescriptions() {
                                                     sx={{
                                                         "&:last-child td": { borderBottom: 0 },
                                                         backgroundColor: isSelected ? alpha(theme.palette.primary.main, 0.05) : "transparent",
+                                                        opacity: isDispensed ? 0.6 : 1,
+                                                        "& td": {
+                                                            color: isDispensed ? "text.disabled" : "text.primary",
+                                                        },
                                                     }}
                                                 >
                                                     <TableCell padding="checkbox">
@@ -1015,23 +1059,41 @@ function OutpatientPrescriptions() {
                                                         />
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Tooltip title={presc.medication || "N/A"} arrow>
-                                                            <Typography
-                                                                fontWeight={500}
-                                                                sx={{
-                                                                    wordBreak: "break-word",
-                                                                    overflowWrap: "break-word",
-                                                                    maxWidth: "180px",
-                                                                }}
-                                                            >
-                                                                {presc.medication || "N/A"}
-                                                            </Typography>
-                                                        </Tooltip>
-                                                        {presc.medicineType && (
-                                                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                                                                {presc.medicineType}
-                                                            </Typography>
-                                                        )}
+                                                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexDirection: "column" }}>
+                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                                                                {isDispensed && (
+                                                                    <Chip
+                                                                        label="Dispensed"
+                                                                        size="small"
+                                                                        color="success"
+                                                                        variant="filled"
+                                                                        sx={{
+                                                                            fontSize: "0.7rem",
+                                                                            height: "20px",
+                                                                            backgroundColor: theme.palette.success.main,
+                                                                            color: "white",
+                                                                            fontWeight: 600,
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                                <Tooltip title={presc.medication || "N/A"} arrow>
+                                                                    <Typography
+                                                                        fontWeight={500}
+                                                                        sx={{
+                                                                            wordBreak: "break-word",
+                                                                            overflowWrap: "break-word",
+                                                                        }}
+                                                                    >
+                                                                        {presc.medication || "N/A"}
+                                                                    </Typography>
+                                                                </Tooltip>
+                                                            </Box>
+                                                            {presc.medicineType && (
+                                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                                    {presc.medicineType}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
                                                     </TableCell>
                                                     <TableCell>
                                                         <Tooltip title={presc.dosage || "N/A"} arrow>
@@ -1131,31 +1193,58 @@ function OutpatientPrescriptions() {
                                                         </Tooltip>
                                                     </TableCell>
                                                     <TableCell align="center">
-                                                        {isMedicineAvailable(presc.medication) ? (
-                                                            <Chip
-                                                                label="Available"
-                                                                size="small"
-                                                                color="success"
-                                                                variant="filled"
-                                                                sx={{
-                                                                    backgroundColor: alpha(theme.palette.success.main, 0.1),
-                                                                    color: theme.palette.success.dark,
-                                                                    fontWeight: 500,
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <Chip
-                                                                label="Not Available"
-                                                                size="small"
-                                                                color="error"
-                                                                variant="filled"
-                                                                sx={{
-                                                                    backgroundColor: alpha(theme.palette.error.main, 0.1),
-                                                                    color: theme.palette.error.dark,
-                                                                    fontWeight: 500,
-                                                                }}
-                                                            />
-                                                        )}
+                                                        {(() => {
+                                                            // First check if medicine exists in collection
+                                                            if (!isMedicineAvailable(presc.medication)) {
+                                                                return (
+                                                                    <Chip
+                                                                        label="Not Available"
+                                                                        size="small"
+                                                                        color="error"
+                                                                        variant="filled"
+                                                                        sx={{
+                                                                            backgroundColor: alpha(theme.palette.error.main, 0.1),
+                                                                            color: theme.palette.error.dark,
+                                                                            fontWeight: 500,
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            }
+                                                            
+                                                            // Check actual stock quantity
+                                                            const medicine = findMedicineInMap(presc.medication);
+                                                            const stockQuantity = medicine?.quantity || 0;
+                                                            
+                                                            if (stockQuantity <= 0) {
+                                                                return (
+                                                                    <Chip
+                                                                        label="Out of Stock"
+                                                                        size="small"
+                                                                        color="error"
+                                                                        variant="filled"
+                                                                        sx={{
+                                                                            backgroundColor: alpha(theme.palette.error.main, 0.1),
+                                                                            color: theme.palette.error.dark,
+                                                                            fontWeight: 500,
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            }
+                                                            
+                                                            return (
+                                                                <Chip
+                                                                    label="Available"
+                                                                    size="small"
+                                                                    color="success"
+                                                                    variant="filled"
+                                                                    sx={{
+                                                                        backgroundColor: alpha(theme.palette.success.main, 0.1),
+                                                                        color: theme.palette.success.dark,
+                                                                        fontWeight: 500,
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
                                                     </TableCell>
                                                     <TableCell align="center">
                                                         <Chip

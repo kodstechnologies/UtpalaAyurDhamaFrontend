@@ -62,13 +62,18 @@ function WalkInHub() {
         try {
             const [doctorsRes, nursesRes, therapistsRes, therapiesRes] = await Promise.all([
                 axios.get(getApiUrl("doctors/profiles"), { headers: getAuthHeaders() }),
-                axios.get(getApiUrl("nurses"), { headers: getAuthHeaders() }),
+                axios.get(getApiUrl("nurses?limit=1000"), { headers: getAuthHeaders() }), // Fetch all nurses
                 axios.get(getApiUrl("therapists"), { headers: getAuthHeaders() }),
                 axios.get(getApiUrl("therapies?limit=100"), { headers: getAuthHeaders() }),
             ]);
 
             if (doctorsRes.data.success) setDoctors(doctorsRes.data.data || []);
-            if (nursesRes.data.success) setNurses(nursesRes.data.data || []);
+            if (nursesRes.data.success) {
+                const nursesData = nursesRes.data.data || [];
+                console.log("[WalkInHub] Fetched nurses:", nursesData);
+                console.log("[WalkInHub] Sample nurse structure:", nursesData[0]);
+                setNurses(nursesData);
+            }
             if (therapistsRes.data.success) setTherapists(therapistsRes.data.data || []);
             if (therapiesRes.data.success) setTherapies(therapiesRes.data.data || []);
 
@@ -94,6 +99,8 @@ function WalkInHub() {
 
             if (patientRes.data.success && patientRes.data.data) {
                 const patient = patientRes.data.data;
+                console.log("[WalkInHub] Patient profile loaded:", patient);
+                console.log("[WalkInHub] Patient allocatedNurse:", patient.allocatedNurse);
                 let currentInpatientId = null; // Store inpatient ID for therapist lookup
                 
                 // Determine mode based on admission status
@@ -124,10 +131,38 @@ function WalkInHub() {
                                 return d.toLocaleDateString("en-CA");
                             };
 
+                            // Extract nurse ID - handle both populated object and ObjectId string
+                            // PatientProfile stores NurseProfile ID, so we need to extract that
+                            let nurseId = "";
+                            console.log("[WalkInHub] Inpatient allocatedNurse:", inpatient.allocatedNurse);
+                            console.log("[WalkInHub] Patient allocatedNurse:", patient.allocatedNurse);
+                            
+                            if (inpatient.allocatedNurse) {
+                                // Inpatient record has allocatedNurse - could be populated object or ObjectId
+                                if (typeof inpatient.allocatedNurse === 'object' && inpatient.allocatedNurse._id) {
+                                    nurseId = inpatient.allocatedNurse._id.toString();
+                                    console.log("[WalkInHub] Extracted nurse ID from inpatient (object):", nurseId);
+                                } else {
+                                    nurseId = inpatient.allocatedNurse.toString();
+                                    console.log("[WalkInHub] Extracted nurse ID from inpatient (string):", nurseId);
+                                }
+                            } else if (patient.allocatedNurse) {
+                                // PatientProfile has allocatedNurse - could be populated object or ObjectId
+                                if (typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) {
+                                    nurseId = patient.allocatedNurse._id.toString();
+                                    console.log("[WalkInHub] Extracted nurse ID from patient (object):", nurseId);
+                                } else {
+                                    nurseId = patient.allocatedNurse.toString();
+                                    console.log("[WalkInHub] Extracted nurse ID from patient (string):", nurseId);
+                                }
+                            }
+                            
+                            console.log("[WalkInHub] Final nurseId to set:", nurseId);
+
                             setFormData(prev => ({
                                 ...prev,
                                 doctorProfileId: inpatient.doctor?._id || patient.primaryDoctor?._id || existingDoctorId || "",
-                                nurseProfileId: inpatient.allocatedNurse?._id || patient.allocatedNurse?._id || "",
+                                nurseProfileId: nurseId,
                                 wardCategory: inpatient.wardCategory || "General",
                                 roomNumber: inpatient.roomNumber || "",
                                 bedNumber: inpatient.bedNumber || "",
@@ -168,25 +203,56 @@ function WalkInHub() {
                                 return d.toLocaleDateString("en-CA");
                             };
 
+                            // Extract nurse ID - handle both populated object and ObjectId string
+                            // PatientProfile stores NurseProfile ID, so we need to extract that
+                            let nurseId = "";
+                            if (patient.allocatedNurse) {
+                                if (typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) {
+                                    nurseId = patient.allocatedNurse._id.toString();
+                                } else {
+                                    nurseId = patient.allocatedNurse.toString();
+                                }
+                            }
+
                             setFormData(prev => ({
                                 ...prev,
                                 doctorProfileId: appointment.doctor?._id || patient.primaryDoctor?._id || existingDoctorId || "",
+                                nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                                 appointmentTime: formatTimeForInput(appointment.appointmentTime),
                                 appointmentDate: formatDateForInput(appointment.appointmentDate),
                             }));
                         } else {
                             // No appointment found, use patient profile data
+                            // Extract nurse ID - handle both populated object and ObjectId string
+                            // PatientProfile stores NurseProfile ID, so we need to extract that
+                            let nurseId = "";
+                            if (patient.allocatedNurse) {
+                                if (typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) {
+                                    nurseId = patient.allocatedNurse._id.toString();
+                                } else {
+                                    nurseId = patient.allocatedNurse.toString();
+                                }
+                            }
+
                             setFormData(prev => ({
                                 ...prev,
                                 doctorProfileId: patient.primaryDoctor?._id || existingDoctorId || "",
+                                nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                             }));
                         }
                     } catch (err) {
                         console.error("Error fetching appointment data:", err);
                         // Fallback to patient profile data
+                        // Extract nurse ID - handle both populated object and ObjectId string
+                        let nurseId = "";
+                        if (patient.allocatedNurse) {
+                            nurseId = patient.allocatedNurse._id || patient.allocatedNurse || "";
+                        }
+
                         setFormData(prev => ({
                             ...prev,
                             doctorProfileId: patient.primaryDoctor?._id || existingDoctorId || "",
+                            nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                         }));
                     }
                 }
@@ -255,6 +321,17 @@ function WalkInHub() {
             loadExistingAssignments();
         }
     }, [patientProfileId, isLoadingData, loadExistingAssignments]);
+
+    // Debug: Log formData changes
+    useEffect(() => {
+        console.log("[WalkInHub] formData.nurseProfileId changed:", formData.nurseProfileId);
+        console.log("[WalkInHub] Available nurses:", nurses.map(n => ({ 
+            id: n.profileId || n._id, 
+            name: n.user?.name || n.name,
+            profileId: n.profileId,
+            _id: n._id
+        })));
+    }, [formData.nurseProfileId, nurses]);
 
     const handleModeChange = (event, newMode) => {
         if (newMode !== null) {
@@ -479,11 +556,37 @@ function WalkInHub() {
                                             disabled={isLoadingData}
                                         >
                                             <MenuItem value="">Unassigned</MenuItem>
-                                            {nurses.map(nurse => (
-                                                <MenuItem key={nurse._id} value={nurse._id}>
-                                                    {nurse.user?.name || "Nurse"}
-                                                </MenuItem>
-                                            ))}
+                                            {nurses.map(nurse => {
+                                                // Nurses API returns _id as User ID and profileId as NurseProfile ID
+                                                // PatientProfile stores NurseProfile ID in allocatedNurse field
+                                                // We need to match using profileId since PatientProfile stores NurseProfile ID
+                                                
+                                                // Try to get profileId - it might be in different places
+                                                let nurseProfileId = "";
+                                                if (nurse.profileId) {
+                                                    nurseProfileId = nurse.profileId.toString();
+                                                } else if (nurse._id && typeof nurse._id === 'object' && nurse._id.toString) {
+                                                    // If _id is an ObjectId, it might be the profile ID in some cases
+                                                    nurseProfileId = nurse._id.toString();
+                                                } else if (nurse._id) {
+                                                    // Fallback: use _id as string
+                                                    nurseProfileId = nurse._id.toString();
+                                                }
+                                                
+                                                const nurseName = nurse.user?.name || nurse.name || "Nurse";
+                                                
+                                                // Debug logging for matching
+                                                if (nurseProfileId && formData.nurseProfileId && 
+                                                    nurseProfileId === formData.nurseProfileId.toString()) {
+                                                    console.log("[WalkInHub] ✓ Matching nurse found:", nurseName, "ProfileID:", nurseProfileId, "FormValue:", formData.nurseProfileId);
+                                                }
+                                                
+                                                return (
+                                                    <MenuItem key={nurseProfileId || nurse._id} value={nurseProfileId}>
+                                                        {nurseName}
+                                                    </MenuItem>
+                                                );
+                                            })}
                                         </Select>
                                     </FormControl>
                                 )}
