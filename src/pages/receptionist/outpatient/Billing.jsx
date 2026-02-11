@@ -563,12 +563,21 @@ function OutpatientBilling() {
             return;
         }
 
-        // Get sessionId from charge - for outpatient, id is the sessionId directly
-        // For inpatient, it might be in sessionId field or composite id
-        const sessionId = editTherapistDialog.charge?.sessionId || editTherapistDialog.charge?.id;
+        // CRITICAL: Always use sessionId field, never use 'id' field
+        // The 'id' field may contain composite IDs like "sessionId-0" for display purposes
+        // Only 'sessionId' contains the actual MongoDB ObjectId
+        const sessionId = editTherapistDialog.charge?.sessionId;
 
-        if (!sessionId) {
-            toast.error("Invalid therapy session record");
+        // Validate ObjectId format (24 hex characters, no hyphens)
+        const isValidObjectId = (id) => {
+            if (!id || typeof id !== 'string') return false;
+            // ObjectId format: 24 hex characters, no hyphens
+            return /^[0-9a-fA-F]{24}$/.test(id) && !id.includes('-');
+        };
+
+        if (!sessionId || !isValidObjectId(sessionId)) {
+            toast.error("Invalid therapy session record. Please refresh the page and try again.");
+            console.error("Invalid sessionId:", sessionId, "Charge object:", editTherapistDialog.charge);
             return;
         }
 
