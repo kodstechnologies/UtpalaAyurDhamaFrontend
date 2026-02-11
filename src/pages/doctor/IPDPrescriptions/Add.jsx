@@ -23,6 +23,29 @@ import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import medicineService from "../../../services/medicineService";
 
+const dosageOptions = [
+    {
+        value: "0-1-0",
+        label: "0-1-0",
+        suggestion: "Take once in the afternoon (After food)",
+    },
+    {
+        value: "1-0-0",
+        label: "1-0-0",
+        suggestion: "Take once in the morning (Before breakfast)",
+    },
+    {
+        value: "1-1-1",
+        label: "1-1-1",
+        suggestion: "Take morning, afternoon, and night (After food)",
+    },
+    {
+        value: "0-0-1",
+        label: "0-0-1",
+        suggestion: "Take once at night (Before sleep)",
+    },
+];
+
 function IPDPrescriptionsAddPage() {
     const navigate = useNavigate();
     const { id: prescriptionId } = useParams();
@@ -55,6 +78,7 @@ function IPDPrescriptionsAddPage() {
             medicineType: "",
             administration: "",
             quantity: "",
+            dosageSchedule: "",
         },
         diagnosis: "",
         notes: "",
@@ -217,6 +241,7 @@ function IPDPrescriptionsAddPage() {
                         medicineType: prescription.medicineType || "",
                         administration: prescription.administration || "",
                         quantity: prescription.quantity?.toString() || "",
+                        dosageSchedule: prescription.dosageSchedule || "",
                     }] : [],
                 }));
             }
@@ -284,6 +309,7 @@ function IPDPrescriptionsAddPage() {
                 foodTiming: "",
                 remarks: "",
                 instructions: "",
+                dosageSchedule: "",
             },
         }));
     };
@@ -335,6 +361,7 @@ function IPDPrescriptionsAddPage() {
                     frequency: medicine.frequency || "As needed",
                     duration: medicine.duration || undefined,
                     foodTiming: medicine.foodTiming || undefined,
+                    dosageSchedule: medicine.dosageSchedule || undefined,
                     remarks: medicine.remarks || undefined,
                     notes: medicine.instructions || formData.notes || undefined,
                     quantity: medicine.quantity ? parseInt(medicine.quantity, 10) : 1,
@@ -411,6 +438,7 @@ function IPDPrescriptionsAddPage() {
                         frequency: medicine.frequency || "As needed",
                         duration: medicine.duration || undefined,
                         foodTiming: medicine.foodTiming || undefined,
+                        dosageSchedule: medicine.dosageSchedule || undefined,
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
                         quantity: medicine.quantity ? parseInt(medicine.quantity, 10) : 1,
@@ -611,6 +639,30 @@ function IPDPrescriptionsAddPage() {
                                                     <MenuItem value="">Select</MenuItem>
                                                     <MenuItem value="Before Food">Before Food</MenuItem>
                                                     <MenuItem value="After Food">After Food</MenuItem>
+                                                    <MenuItem value="With Food">With Food</MenuItem>
+                                                    <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
+                                                    <MenuItem value="Bedtime">Bedtime</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                        <Grid item xs={12} md={3}>
+                                            <FormControl fullWidth>
+                                                <InputLabel>Dosage Schedule</InputLabel>
+                                                <Select
+                                                    value={formData.medicines[0].dosageSchedule || ""}
+                                                    onChange={(e) => {
+                                                        const updatedMedicines = [...formData.medicines];
+                                                        updatedMedicines[0].dosageSchedule = e.target.value;
+                                                        setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
+                                                    }}
+                                                    label="Dosage Schedule"
+                                                >
+                                                    <MenuItem value="">Select</MenuItem>
+                                                    {dosageOptions.map((option) => (
+                                                        <MenuItem key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </MenuItem>
+                                                    ))}
                                                 </Select>
                                             </FormControl>
                                         </Grid>
@@ -733,6 +785,26 @@ function IPDPrescriptionsAddPage() {
                                                     <MenuItem value="">Select</MenuItem>
                                                     <MenuItem value="Before Food">Before Food</MenuItem>
                                                     <MenuItem value="After Food">After Food</MenuItem>
+                                                    <MenuItem value="With Food">With Food</MenuItem>
+                                                    <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
+                                                    <MenuItem value="Bedtime">Bedtime</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                        <Grid item xs={12} md={2}>
+                                            <FormControl fullWidth size="small">
+                                                <InputLabel>Dosage Schedule</InputLabel>
+                                                <Select
+                                                    value={formData.currentMedicine.dosageSchedule}
+                                                    onChange={(e) => handleMedicineFieldChange("dosageSchedule", e.target.value)}
+                                                    label="Dosage Schedule"
+                                                >
+                                                    <MenuItem value="">Select</MenuItem>
+                                                    {dosageOptions.map((option) => (
+                                                        <MenuItem key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </MenuItem>
+                                                    ))}
                                                 </Select>
                                             </FormControl>
                                         </Grid>
@@ -799,6 +871,7 @@ function IPDPrescriptionsAddPage() {
                                                         <Typography variant="body2" color="text.secondary">
                                                             {medicine.dosage} - {medicine.frequency} - {medicine.duration}
                                                             {medicine.foodTiming && ` - ${medicine.foodTiming}`}
+                                                            {medicine.dosageSchedule && ` - Schedule: ${medicine.dosageSchedule}`}
                                                         </Typography>
                                                         {medicine.remarks && (
                                                             <Typography variant="body2" color="text.secondary">
