@@ -877,6 +877,8 @@ function PrescriptionsAddPage() {
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [medicines, setMedicines] = useState([]);
     const [isLoadingMedicines, setIsLoadingMedicines] = useState(false);
+    const [examinationId, setExaminationId] = useState(null);
+    const [existingPrescriptionIds, setExistingPrescriptionIds] = useState([]);
 
     const [formData, setFormData] = useState({
         patientId: patientId,
@@ -1047,6 +1049,7 @@ function PrescriptionsAddPage() {
 
             setIsLoadingPrescription(true);
             try {
+                // First, get the single prescription to get examination ID
                 const response = await axios.get(
                     getApiUrl(`examinations/prescriptions/detail/${prescriptionId}`),
                     { headers: getAuthHeaders() }
@@ -1054,6 +1057,10 @@ function PrescriptionsAddPage() {
 
                 if (response.data.success) {
                     const data = response.data.data;
+                    const examId = data.examination?._id || data.examination;
+
+                    // Set examination ID
+                    setExaminationId(examId);
 
                     // Set patient information
                     const patient = data.patient || data.examination?.patient;
@@ -1071,28 +1078,105 @@ function PrescriptionsAddPage() {
                         }));
                     }
 
-                    // Set prescription data
-                    const prescriptionMedicine = data.medication ? {
-                        name: data.medication,
-                        dosage: data.dosage || "",
-                        frequency: data.frequency || "",
-                        duration: data.duration || "",
-                        foodTiming: data.foodTiming || "",
-                        remarks: data.remarks || "",
-                        instructions: data.notes || "",
-                        dosageSchedule: data.dosageSchedule || "",
-                    } : null;
+                    // Now fetch ALL prescriptions for this examination
+                    if (examId) {
+                        try {
+                            const allPrescriptionsResponse = await axios.get(
+                                getApiUrl(`examinations/${examId}/prescriptions`),
+                                { headers: getAuthHeaders() }
+                            );
 
-                    setFormData((prev) => ({
-                        ...prev,
-                        prescriptionDate: data.createdAt
-                            ? new Date(data.createdAt).toISOString().split("T")[0]
-                            : new Date().toISOString().split("T")[0],
-                        diagnosis: data.examination?.complaints || "",
-                        notes: data.notes || "",
-                        medicines: prescriptionMedicine ? [prescriptionMedicine] : [],
-                        currentMedicine: prescriptionMedicine || prev.currentMedicine,
-                    }));
+                            if (allPrescriptionsResponse.data.success) {
+                                const allPrescriptions = allPrescriptionsResponse.data.data || [];
+                                
+                                // Store existing prescription IDs
+                                const prescriptionIds = allPrescriptions.map(p => p._id);
+                                setExistingPrescriptionIds(prescriptionIds);
+
+                                // Convert all prescriptions to medicine format
+                                const prescriptionMedicines = allPrescriptions.map(prescription => ({
+                                    _id: prescription._id, // Store prescription ID for updates
+                                    name: prescription.medication || "",
+                                    dosage: prescription.dosage || "",
+                                    frequency: prescription.frequency || "",
+                                    duration: prescription.duration || "",
+                                    foodTiming: prescription.foodTiming || "",
+                                    remarks: prescription.remarks || "",
+                                    instructions: prescription.notes || "",
+                                    dosageSchedule: prescription.dosageSchedule || "",
+                                }));
+
+                                setFormData((prev) => ({
+                                    ...prev,
+                                    prescriptionDate: data.createdAt
+                                        ? new Date(data.createdAt).toISOString().split("T")[0]
+                                        : new Date().toISOString().split("T")[0],
+                                    diagnosis: data.examination?.complaints || "",
+                                    notes: data.notes || "",
+                                    medicines: prescriptionMedicines,
+                                    currentMedicine: {
+                                        name: "",
+                                        dosage: "",
+                                        frequency: "",
+                                        duration: "",
+                                        foodTiming: "",
+                                        remarks: "",
+                                        instructions: "",
+                                        dosageSchedule: "",
+                                    },
+                                }));
+                            }
+                        } catch (error) {
+                            console.error("Error fetching all prescriptions:", error);
+                            // Fallback to single prescription if fetching all fails
+                            const prescriptionMedicine = data.medication ? {
+                                _id: data._id,
+                                name: data.medication,
+                                dosage: data.dosage || "",
+                                frequency: data.frequency || "",
+                                duration: data.duration || "",
+                                foodTiming: data.foodTiming || "",
+                                remarks: data.remarks || "",
+                                instructions: data.notes || "",
+                                dosageSchedule: data.dosageSchedule || "",
+                            } : null;
+
+                            setFormData((prev) => ({
+                                ...prev,
+                                prescriptionDate: data.createdAt
+                                    ? new Date(data.createdAt).toISOString().split("T")[0]
+                                    : new Date().toISOString().split("T")[0],
+                                diagnosis: data.examination?.complaints || "",
+                                notes: data.notes || "",
+                                medicines: prescriptionMedicine ? [prescriptionMedicine] : [],
+                                currentMedicine: prescriptionMedicine || prev.currentMedicine,
+                            }));
+                        }
+                    } else {
+                        // Fallback if no examination ID
+                        const prescriptionMedicine = data.medication ? {
+                            _id: data._id,
+                            name: data.medication,
+                            dosage: data.dosage || "",
+                            frequency: data.frequency || "",
+                            duration: data.duration || "",
+                            foodTiming: data.foodTiming || "",
+                            remarks: data.remarks || "",
+                            instructions: data.notes || "",
+                            dosageSchedule: data.dosageSchedule || "",
+                        } : null;
+
+                        setFormData((prev) => ({
+                            ...prev,
+                            prescriptionDate: data.createdAt
+                                ? new Date(data.createdAt).toISOString().split("T")[0]
+                                : new Date().toISOString().split("T")[0],
+                            diagnosis: data.examination?.complaints || "",
+                            notes: data.notes || "",
+                            medicines: prescriptionMedicine ? [prescriptionMedicine] : [],
+                            currentMedicine: prescriptionMedicine || prev.currentMedicine,
+                        }));
+                    }
                 } else {
                     toast.error(response.data.message || "Failed to fetch prescription");
                 }
@@ -1264,37 +1348,90 @@ function PrescriptionsAddPage() {
 
         try {
             if (isEditMode && prescriptionId) {
-                // Update existing prescription
-                // If currentMedicine has a name, use it (it might be newly typed)
-                // Otherwise use the first item in medicines list
-                const medicine = formData.currentMedicine.name
-                    ? formData.currentMedicine
-                    : formData.medicines[0];
-
-                if (!medicine || !medicine.name) {
-                    toast.error("Medicine name is required");
+                // Handle multiple medicines in edit mode
+                if (formData.medicines.length === 0) {
+                    toast.error("Please add at least one medicine");
                     setIsSubmitting(false);
                     return;
                 }
 
-                const prescriptionData = {
-                    medication: medicine.name,
-                    dosage: medicine.dosage,
-                    frequency: medicine.frequency || "As needed",
-                    duration: medicine.duration || undefined,
-                    foodTiming: medicine.foodTiming || undefined,
-                    dosageSchedule: medicine.dosageSchedule || undefined,
-                    remarks: medicine.remarks || undefined,
-                    notes: medicine.instructions || formData.notes || undefined,
-                    diagnosis: formData.diagnosis, // Include diagnosis for backend to update examination
-                    quantity: 1,
-                };
+                if (!examinationId) {
+                    toast.error("Examination ID not found. Please reload the page.");
+                    setIsSubmitting(false);
+                    return;
+                }
 
-                await axios.patch(
-                    getApiUrl(`examinations/prescriptions/${prescriptionId}`),
-                    prescriptionData,
-                    { headers: getAuthHeaders() }
-                );
+                // Separate existing prescriptions (with _id) from new ones (without _id)
+                const existingMedicines = formData.medicines.filter(m => m._id);
+                const newMedicines = formData.medicines.filter(m => !m._id);
+
+                const updatePromises = [];
+                const createPromises = [];
+
+                // Update existing prescriptions
+                // Only include diagnosis in the first update to avoid multiple examination updates
+                let isFirstUpdate = true;
+                for (const medicine of existingMedicines) {
+                    if (!medicine.name || !medicine.dosage) {
+                        continue; // Skip invalid medicines
+                    }
+
+                    const prescriptionData = {
+                        medication: medicine.name,
+                        dosage: medicine.dosage,
+                        frequency: medicine.frequency || "As needed",
+                        duration: medicine.duration || undefined,
+                        foodTiming: medicine.foodTiming || undefined,
+                        dosageSchedule: medicine.dosageSchedule || undefined,
+                        remarks: medicine.remarks || undefined,
+                        notes: medicine.instructions || formData.notes || undefined,
+                        quantity: 1,
+                    };
+
+                    // Only include diagnosis in the first prescription update
+                    if (isFirstUpdate && formData.diagnosis) {
+                        prescriptionData.diagnosis = formData.diagnosis;
+                        isFirstUpdate = false;
+                    }
+
+                    updatePromises.push(
+                        axios.patch(
+                            getApiUrl(`examinations/prescriptions/${medicine._id}`),
+                            prescriptionData,
+                            { headers: getAuthHeaders() }
+                        )
+                    );
+                }
+
+                // Create new prescriptions
+                for (const medicine of newMedicines) {
+                    if (!medicine.name || !medicine.dosage) {
+                        continue; // Skip invalid medicines
+                    }
+
+                    const prescriptionData = {
+                        medication: medicine.name,
+                        dosage: medicine.dosage,
+                        frequency: medicine.frequency || "As needed",
+                        duration: medicine.duration || undefined,
+                        foodTiming: medicine.foodTiming || undefined,
+                        dosageSchedule: medicine.dosageSchedule || undefined,
+                        remarks: medicine.remarks || undefined,
+                        notes: medicine.instructions || formData.notes || undefined,
+                        quantity: 1,
+                    };
+
+                    createPromises.push(
+                        axios.post(
+                            getApiUrl(`examinations/${examinationId}/prescriptions`),
+                            prescriptionData,
+                            { headers: getAuthHeaders() }
+                        )
+                    );
+                }
+
+                // Execute all updates and creates in parallel
+                await Promise.all([...updatePromises, ...createPromises]);
 
                 toast.success("Prescription updated successfully!");
                 setTimeout(() => {
@@ -1655,7 +1792,7 @@ function PrescriptionsAddPage() {
                                 </Typography>
                                 {formData.medicines.map((medicine, index) => (
                                     <Box
-                                        key={index}
+                                        key={medicine._id || `new-${index}`}
                                         sx={{
                                             border: "1px solid var(--color-border)",
                                             borderRadius: 1,

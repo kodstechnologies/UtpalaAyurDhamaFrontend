@@ -73,7 +73,7 @@ function Patient_Dashboard() {
             {/* ⭐ Greeting + Breadcrumb Inside */}
             <GreetingBanner
                 title="Namaste"
-                name={dashboardData?.patientName || patientName}
+                name={user?.name || dashboardData?.patientName || "Patient"}
                 subtitle="Here's a quick overview of your health updates and upcoming activities."
                 image={GreetingsImg}
                 breadcrumbItems={[
