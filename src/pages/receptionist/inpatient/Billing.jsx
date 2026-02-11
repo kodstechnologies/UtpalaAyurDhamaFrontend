@@ -160,6 +160,8 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                         <th style={{ fontSize: "0.875rem" }}>Ward Category</th>
                                         <th style={{ fontSize: "0.875rem" }}>Description</th>
                                     </>
+                                ) : category === "food" ? (
+                                    <th style={{ fontSize: "0.875rem" }}>Description</th>
                                 ) : (
                                     <th style={{ fontSize: "0.875rem" }}>Description</th>
                                 )}
@@ -229,6 +231,10 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                                 {charge.description || "Ward Charge"}
                                             </td>
                                         </>
+                                    ) : category === "food" ? (
+                                        <td style={{ fontSize: "0.875rem" }}>
+                                            {charge.description || "Food Charge"}
+                                        </td>
                                     ) : (
                                         <td style={{ fontSize: "0.875rem" }}>
                                             {charge.description || charge.medication}
