@@ -31,7 +31,7 @@ function WalkInHub() {
 
     const [mode, setMode] = useState("OPD");
     const [formData, setFormData] = useState({
-        doctorProfileId: existingDoctorId,
+        doctorProfileId: "", // Don't initialize from URL - will be loaded from patient profile
         nurseProfileId: "",
         appointmentTime: "",
         appointmentDate: new Date().toLocaleDateString("en-CA"),
@@ -161,7 +161,8 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                doctorProfileId: inpatient.doctor?._id || patient.primaryDoctor?._id || existingDoctorId || "",
+                                // Always prioritize primary doctor from patient profile
+                                doctorProfileId: patient.primaryDoctor?._id || inpatient.doctor?._id || "",
                                 nurseProfileId: nurseId,
                                 wardCategory: inpatient.wardCategory || "General",
                                 roomNumber: inpatient.roomNumber || "",
@@ -216,7 +217,8 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                doctorProfileId: appointment.doctor?._id || patient.primaryDoctor?._id || existingDoctorId || "",
+                                // Always prioritize primary doctor from patient profile
+                                doctorProfileId: patient.primaryDoctor?._id || appointment.doctor?._id || "",
                                 nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                                 appointmentTime: formatTimeForInput(appointment.appointmentTime),
                                 appointmentDate: formatDateForInput(appointment.appointmentDate),
@@ -236,7 +238,8 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                doctorProfileId: patient.primaryDoctor?._id || existingDoctorId || "",
+                                // Always use primary doctor from patient profile, ignore URL parameter
+                                doctorProfileId: patient.primaryDoctor?._id || "",
                                 nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                             }));
                         }
@@ -251,7 +254,8 @@ function WalkInHub() {
 
                         setFormData(prev => ({
                             ...prev,
-                            doctorProfileId: patient.primaryDoctor?._id || existingDoctorId || "",
+                            // Always prioritize primary doctor from patient profile, ignore URL parameter
+                            doctorProfileId: patient.primaryDoctor?._id || "",
                             nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                         }));
                     }
@@ -309,7 +313,7 @@ function WalkInHub() {
         } finally {
             setIsLoadingExistingData(false);
         }
-    }, [patientProfileId, existingDoctorId]);
+    }, [patientProfileId]); // Removed existingDoctorId dependency - always load from patient profile
 
     useEffect(() => {
         fetchData();

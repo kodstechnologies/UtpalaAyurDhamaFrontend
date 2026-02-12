@@ -15,7 +15,9 @@ import {
     TextField,
     CircularProgress,
     Typography,
-    Divider
+    Divider,
+    Checkbox,
+    FormControlLabel
 } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -357,6 +359,7 @@ function InpatientBilling() {
     const [selectedTherapist, setSelectedTherapist] = useState("");
     const [therapyCost, setTherapyCost] = useState("");
     const [therapistCharge, setTherapistCharge] = useState("");
+    const [replaceTherapists, setReplaceTherapists] = useState(false); // Flag to replace all therapists
     const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
     const [isUpdatingTherapist, setIsUpdatingTherapist] = useState(false);
 
@@ -571,6 +574,8 @@ function InpatientBilling() {
         // Initialize costs
         setTherapyCost((charge.therapyCharge || 0).toString());
         setTherapistCharge((charge.therapistCharge || 0).toString());
+        // Reset replace mode
+        setReplaceTherapists(false);
 
         if (!therapists.length) {
             fetchTherapists();
@@ -606,17 +611,23 @@ function InpatientBilling() {
                 {
                     therapist: selectedTherapist,
                     cost: parseFloat(therapyCost),
-                    therapistCharge: parseFloat(therapistCharge || 0)
+                    therapistCharge: parseFloat(therapistCharge || 0),
+                    replaceTherapists: replaceTherapists // Flag to replace all therapists instead of adding
                 },
                 { headers: getAuthHeaders() }
             );
 
             if (response.data && response.data.success) {
-                toast.success("Therapist and cost updated successfully!");
+                toast.success(
+                    replaceTherapists 
+                        ? "Therapist replaced and cost updated successfully!" 
+                        : "Therapist added and cost updated successfully!"
+                );
                 setEditTherapistDialog({ open: false, charge: null });
                 setSelectedTherapist("");
                 setTherapyCost("");
                 setTherapistCharge("");
+                setReplaceTherapists(false);
 
                 // Refresh billing data
                 if (patientId) {
@@ -1281,6 +1292,27 @@ function InpatientBilling() {
                         disabled={isUpdatingTherapist}
                         sx={{ mt: 2 }}
                     />
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255, 193, 7, 0.1)', borderRadius: '8px', border: '1px solid rgba(255, 193, 7, 0.3)' }}>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={replaceTherapists}
+                                    onChange={(e) => setReplaceTherapists(e.target.checked)}
+                                    disabled={isUpdatingTherapist}
+                                />
+                            }
+                            label={
+                                <Typography variant="body2">
+                                    <strong>Replace all therapists</strong> (instead of adding to existing list)
+                                </Typography>
+                            }
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, ml: 4 }}>
+                            {replaceTherapists 
+                                ? "All existing therapists will be removed and replaced with the selected therapist."
+                                : "The selected therapist will be added to the existing therapists list."}
+                        </Typography>
+                    </Box>
                     <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(212, 165, 116, 0.1)', borderRadius: '8px', border: '1px solid rgba(212, 165, 116, 0.2)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Therapy Cost:</Typography>

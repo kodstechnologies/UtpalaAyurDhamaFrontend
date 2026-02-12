@@ -668,18 +668,32 @@ function PatientTherapyDetails() {
                             }}
                             disabled={isLoadingTherapists}
                         >
-                            {therapists.map((therapist) => {
-                                const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
-                                return (
-                                    <MenuItem key={therapist._id} value={therapistUserId}>
-                                        <Checkbox checked={reallocateDialog.selectedTherapists.indexOf(therapistUserId.toString()) > -1} />
-                                        <ListItemText 
-                                            primary={therapist.user?.name || therapist.name}
-                                            secondary={therapist.speciality || therapist.specialization || "N/A"}
-                                        />
-                                    </MenuItem>
-                                );
-                            })}
+                            {(() => {
+                                // Remove duplicates from therapists array based on therapist profile ID
+                                const uniqueTherapists = [];
+                                const seenIds = new Set();
+                                
+                                therapists.forEach((therapist) => {
+                                    const therapistId = therapist._id?.toString();
+                                    if (therapistId && !seenIds.has(therapistId)) {
+                                        seenIds.add(therapistId);
+                                        uniqueTherapists.push(therapist);
+                                    }
+                                });
+                                
+                                return uniqueTherapists.map((therapist) => {
+                                    const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
+                                    return (
+                                        <MenuItem key={therapist._id} value={therapistUserId}>
+                                            <Checkbox checked={reallocateDialog.selectedTherapists.indexOf(therapistUserId.toString()) > -1} />
+                                            <ListItemText 
+                                                primary={therapist.user?.name || therapist.name}
+                                                secondary={therapist.speciality || therapist.specialization || "N/A"}
+                                            />
+                                        </MenuItem>
+                                    );
+                                });
+                            })()}
                         </Select>
                     </FormControl>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>

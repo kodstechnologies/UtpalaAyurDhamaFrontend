@@ -89,3 +89,62 @@ export const getAuthHeaders = (additionalHeaders = {}) => {
 
     return headers;
 };
+
+/**
+ * Get axios configuration with timeout and error handling
+ * @param {Object} options - Additional axios options
+ * @returns {Object} Axios configuration object
+ */
+export const getAxiosConfig = (options = {}) => {
+    return {
+        timeout: 30000, // 30 seconds timeout
+        ...options,
+        headers: {
+            ...getAuthHeaders(),
+            ...(options.headers || {}),
+        },
+    };
+};
+
+/**
+ * Handle axios errors with better error messages
+ * @param {Error} error - Axios error object
+ * @returns {string} User-friendly error message
+ */
+export const getErrorMessage = (error) => {
+    if (!error) return "An unexpected error occurred";
+
+    // Network error (no response from server)
+    if (error.code === "ECONNABORTED" || error.message === "Network Error" || !error.response) {
+        if (error.code === "ECONNABORTED") {
+            return "Request timeout. Please check your connection and try again.";
+        }
+        return "Network error. Please check your internet connection and ensure the server is running.";
+    }
+
+    // HTTP error responses
+    if (error.response) {
+        const status = error.response.status;
+        const message = error.response?.data?.message || error.response?.data?.error;
+
+        if (status === 401) {
+            return "Session expired. Please login again.";
+        }
+        if (status === 403) {
+            return "You don't have permission to perform this action.";
+        }
+        if (status === 404) {
+            return "Resource not found.";
+        }
+        if (status === 409) {
+            return message || "Conflict: This resource already exists.";
+        }
+        if (status >= 500) {
+            return "Server error. Please try again later.";
+        }
+
+        return message || `Error ${status}: ${error.response.statusText}`;
+    }
+
+    return error.message || "An unexpected error occurred";
+};

@@ -18,6 +18,9 @@ import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import EditIcon from "@mui/icons-material/Edit";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import PendingActionsIcon from "@mui/icons-material/PendingActions";
+import TodayIcon from "@mui/icons-material/Today";
 
 function Outpatient_View() {
     const [outpatients, setOutpatients] = useState([]);
@@ -134,8 +137,8 @@ function Outpatient_View() {
                 });
 
                 // Build the final list: 
-                // 1. One row per unbilled examination for patients who have them
-                // 2. One row per patient for patients who have NO unbilled examinations
+                // Only include patients who have at least one examination/assignment
+                // Patients with no examinations should NOT appear in the Out-Patient Management list
                 const mergedRows = [];
 
                 filteredPatients.forEach(patient => {
@@ -143,6 +146,8 @@ function Outpatient_View() {
                     const patientExams = patientExaminationsMap.get(patientId) || [];
                     const patientUser = patient.user || {};
 
+                    // Only add patients who have at least one examination
+                    // Skip patients with no examinations/assignments
                     if (patientExams.length > 0) {
                         patientExams.forEach(exam => {
                             mergedRows.push({
@@ -183,31 +188,8 @@ function Outpatient_View() {
                                 type: "OPD",
                             });
                         });
-                    } else {
-                        mergedRows.push({
-                            id: patient._id,
-                            _id: patient._id,
-                            examinationId: null,
-                            patientId: patientId,
-                            name: patientUser.name || "Unknown",
-                            age: patientUser.age || "N/A",
-                            gender: patientUser.gender || "N/A",
-                            uhid: patientUser.uhid || patient.uhid || "N/A",
-                            phone: patientUser.phone || "N/A",
-                            email: patientUser.email || "N/A",
-                            registeredDate: patient.createdAt
-                                ? new Date(patient.createdAt).toISOString().split("T")[0]
-                                : "N/A",
-                            complain: "Idle / Follow-up Pending",
-                            doctorName: patient.primaryDoctor?.user?.name || patient.primaryDoctor?.name || "N/A",
-                            lastVisitDate: patient.createdAt ? new Date(patient.createdAt).toISOString().split("T")[0] : "N/A",
-                            allocatedNurse: (patient.allocatedNurse && typeof patient.allocatedNurse === 'object') ? patient.allocatedNurse.user?.name : undefined,
-                            allocatedNurseId: (patient.allocatedNurse && typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) ? patient.allocatedNurse._id : (patient.allocatedNurse || undefined),
-                            hasFinalizedBill: true,
-                            hasUnbilledVisit: false,
-                            type: "OPD",
-                        });
                     }
+                    // Removed the else block - patients with no examinations are now excluded
                 });
 
                 console.log("Total merged outpatient rows:", mergedRows.length);
@@ -238,8 +220,43 @@ function Outpatient_View() {
 
     // Calculate statistics
     const stats = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let total = 0;
+        let todayVisits = 0;
+        let unbilledVisits = 0;
+        let billedVisits = 0;
+
+        outpatients.forEach(patient => {
+            total++;
+            
+            // Check if last visit is today
+            if (patient.lastVisitDate && patient.lastVisitDate !== "N/A") {
+                const visitDate = new Date(patient.lastVisitDate);
+                visitDate.setHours(0, 0, 0, 0);
+                
+                if (visitDate.getTime() === today.getTime()) {
+                    todayVisits++;
+                }
+            }
+            
+            // Count unbilled visits
+            if (patient.hasUnbilledVisit) {
+                unbilledVisits++;
+            }
+            
+            // Count billed visits
+            if (patient.hasFinalizedBill) {
+                billedVisits++;
+            }
+        });
+
         return {
-            total: outpatients.length,
+            total,
+            todayVisits,
+            unbilledVisits,
+            billedVisits,
         };
     }, [outpatients]);
 
@@ -294,14 +311,33 @@ function Outpatient_View() {
                     gridTemplateColumns: {
                         xs: "1fr",
                         sm: "repeat(2, 1fr)",
-                        md: "repeat(3, 1fr)",
-                        lg: "repeat(5, 1fr)",
+                        md: "repeat(2, 1fr)",
+                        lg: "repeat(4, 1fr)",
                     },
                     gap: "15px",
                     marginTop: 3,
                 }}
             >
-                <DashboardCard title="Total Outpatients" count={stats.total} icon={PeopleIcon} />
+                <DashboardCard 
+                    title="Total Outpatients" 
+                    count={stats.total} 
+                    icon={PeopleIcon} 
+                />
+                <DashboardCard 
+                    title="Today's Visits" 
+                    count={stats.todayVisits} 
+                    icon={TodayIcon} 
+                />
+                <DashboardCard 
+                    title="Unbilled Visits" 
+                    count={stats.unbilledVisits} 
+                    icon={PendingActionsIcon} 
+                />
+                <DashboardCard 
+                    title="Billed Visits" 
+                    count={stats.billedVisits} 
+                    icon={ReceiptIcon} 
+                />
             </Box>
 
             {/* Table Section */}

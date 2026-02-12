@@ -14,7 +14,9 @@ import {
     CircularProgress,
     Typography,
     Divider,
-    TextField
+    TextField,
+    Checkbox,
+    FormControlLabel
 } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -265,6 +267,7 @@ function OutpatientBilling() {
     const [selectedTherapist, setSelectedTherapist] = useState("");
     const [therapyCost, setTherapyCost] = useState("");
     const [therapistCharge, setTherapistCharge] = useState("");
+    const [replaceTherapists, setReplaceTherapists] = useState(false); // Flag to replace all therapists
     const [consultationAmount, setConsultationAmount] = useState("");
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
     const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
@@ -491,13 +494,18 @@ function OutpatientBilling() {
     // Handle edit therapist
     const handleEditTherapist = (charge) => {
         setEditTherapistDialog({ open: true, charge });
-        setSelectedTherapist(charge.therapistId || "");
+        
+        // Initialize therapist selection - use therapistId if available, otherwise try to extract from session
+        const therapistId = charge.therapistId || charge.therapist?._id || charge.therapist || "";
+        setSelectedTherapist(therapistId);
 
         // Initialize costs
         setTherapyCost((charge.therapyCharge || 0).toString());
         setTherapistCharge((charge.therapistCharge || 0).toString());
+        
+        // Reset replace mode
+        setReplaceTherapists(false);
 
-        setSelectedTherapist("");
         if (!therapists.length) {
             fetchTherapists();
         }
@@ -590,17 +598,23 @@ function OutpatientBilling() {
                 {
                     therapist: selectedTherapist,
                     cost: parseFloat(therapyCost),
-                    therapistCharge: parseFloat(therapistCharge || 0)
+                    therapistCharge: parseFloat(therapistCharge || 0),
+                    replaceTherapists: replaceTherapists // Flag to replace all therapists instead of adding
                 },
                 { headers: getAuthHeaders() }
             );
 
             if (response.data && response.data.success) {
-                toast.success("Therapist and cost updated successfully!");
+                toast.success(
+                    replaceTherapists 
+                        ? "Therapist replaced and cost updated successfully!" 
+                        : "Therapist added and cost updated successfully!"
+                );
                 setEditTherapistDialog({ open: false, charge: null });
                 setSelectedTherapist("");
                 setTherapyCost("");
                 setTherapistCharge("");
+                setReplaceTherapists(false);
 
                 // Refresh billing data
                 await fetchBillingDetails();
@@ -1150,6 +1164,27 @@ function OutpatientBilling() {
                         disabled={isUpdating}
                         sx={{ mt: 2 }}
                     />
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255, 193, 7, 0.1)', borderRadius: '8px', border: '1px solid rgba(255, 193, 7, 0.3)' }}>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={replaceTherapists}
+                                    onChange={(e) => setReplaceTherapists(e.target.checked)}
+                                    disabled={isUpdating}
+                                />
+                            }
+                            label={
+                                <Typography variant="body2">
+                                    <strong>Replace all therapists</strong> (instead of adding to existing list)
+                                </Typography>
+                            }
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, ml: 4 }}>
+                            {replaceTherapists 
+                                ? "All existing therapists will be removed and replaced with the selected therapist."
+                                : "The selected therapist will be added to the existing therapists list."}
+                        </Typography>
+                    </Box>
                     <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(212, 165, 116, 0.1)', borderRadius: '8px', border: '1px solid rgba(212, 165, 116, 0.2)' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Therapy Cost:</Typography>

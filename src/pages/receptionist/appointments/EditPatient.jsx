@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
@@ -7,6 +7,7 @@ import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import HeadingCard from "../../../components/card/HeadingCard";
 import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, Grid, CircularProgress } from "@mui/material";
 import familyMemberService from "../../../services/familyMemberService";
+import adminUserService from "../../../services/adminUserService";
 
 function EditPatientPage() {
     const navigate = useNavigate();
@@ -16,6 +17,9 @@ function EditPatientPage() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
+    const [originalContactNumber, setOriginalContactNumber] = useState("");
+    const phoneCheckTimeoutRef = useRef(null);
 
     const [doctors, setDoctors] = useState([]);
     const [therapists, setTherapists] = useState([]);
@@ -93,6 +97,8 @@ function EditPatientPage() {
                     address: data.address || "",
                     dateOfBirth: data.dateOfBirth || "",
                 });
+                // Store original contact number for duplicate checking
+                setOriginalContactNumber(data.phoneNumber || "");
 
             } else {
                 // Regular Reception Patient
@@ -111,6 +117,8 @@ function EditPatientPage() {
                     address: data.address || "",
                     dateOfBirth: "", // Reception patients usually store Age directly, but might vary
                 });
+                // Store original contact number for duplicate checking
+                setOriginalContactNumber(data.contactNumber || "");
             }
         } catch (error) {
             console.error("Error fetching patient details:", error);
@@ -121,6 +129,53 @@ function EditPatientPage() {
         }
     };
 
+    // Check contact number availability (debounced) - exclude current patient
+    const checkContactAvailability = async (contactNumber) => {
+        if (!contactNumber || contactNumber.length !== 10) {
+            setErrors((prev) => ({ ...prev, contactNumber: "" }));
+            return;
+        }
+
+        // Don't check if it's the same as original
+        if (contactNumber === originalContactNumber) {
+            setErrors((prev) => ({ ...prev, contactNumber: "" }));
+            return;
+        }
+
+        if (phoneCheckTimeoutRef.current) {
+            clearTimeout(phoneCheckTimeoutRef.current);
+        }
+
+        phoneCheckTimeoutRef.current = setTimeout(async () => {
+            try {
+                // Get current patient's user ID to exclude from check
+                let excludeUserId = null;
+                if (patientId && !isFamilyMember) {
+                    try {
+                        const response = await axios.get(getApiUrl(`reception-patients/${patientId}`), {
+                            headers: getAuthHeaders(),
+                        });
+                        if (response.data.success && response.data.data?.patientProfile?.user?._id) {
+                            excludeUserId = response.data.data.patientProfile.user._id;
+                        }
+                    } catch (err) {
+                        console.error("Error fetching patient for exclusion:", err);
+                    }
+                }
+
+                const checkResult = await adminUserService.checkPhoneAvailability(contactNumber, "Patient", excludeUserId);
+                if (checkResult.exists) {
+                    toast.error("This contact number is already registered. Please use a different number.");
+                    setErrors((prev) => ({ ...prev, contactNumber: "This contact number is already registered" }));
+                } else {
+                    setErrors((prev) => ({ ...prev, contactNumber: "" }));
+                }
+            } catch (error) {
+                console.error("Error checking contact number:", error);
+            }
+        }, 800);
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
 
@@ -128,6 +183,11 @@ function EditPatientPage() {
         if (name === "contactNumber" || name === "alternativeNumber") {
             const numericValue = value.replace(/\D/g, "");
             setFormData((prev) => ({ ...prev, [name]: numericValue }));
+            
+            // Check for duplicate contact number
+            if (name === "contactNumber") {
+                checkContactAvailability(numericValue);
+            }
             return;
         }
 
@@ -170,6 +230,12 @@ function EditPatientPage() {
         }
         if (formData.alternativeNumber && !contactRegex.test(formData.alternativeNumber)) {
             toast.error("Alternative number must be exactly 10 digits");
+            return;
+        }
+
+        // Check for duplicate contact number error before submitting
+        if (errors.contactNumber) {
+            toast.error("Please fix the contact number error before submitting");
             return;
         }
 
@@ -298,7 +364,8 @@ function EditPatientPage() {
                                 onChange={handleChange}
                                 onKeyDown={handleKeyDown}
                                 inputProps={{ maxLength: 10 }}
-                                helperText={isFamilyMember ? "Updates linked User account too" : ""}
+                                error={!!errors.contactNumber}
+                                helperText={errors.contactNumber || (isFamilyMember ? "Updates linked User account too" : "")}
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>

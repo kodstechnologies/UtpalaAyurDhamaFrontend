@@ -20,6 +20,7 @@ function ViewPatientPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
     const [sessions, setSessions] = useState([]);
+    const [examinations, setExaminations] = useState([]); // For walk-in doctor assignments
     const [doctors, setDoctors] = useState([]);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [selectedDoctorId, setSelectedDoctorId] = useState("");
@@ -38,9 +39,10 @@ function ViewPatientPage() {
 
     const fetchClinicalData = async (profileId) => {
         try {
-            const [apptRes, sessionRes] = await Promise.all([
+            const [apptRes, sessionRes, examRes] = await Promise.all([
                 axios.get(getApiUrl(`appointments?patientId=${profileId}&status=Scheduled`), { headers: getAuthHeaders() }),
-                axios.get(getApiUrl(`therapist-sessions?patientId=${profileId}&limit=5`), { headers: getAuthHeaders() })
+                axios.get(getApiUrl(`therapist-sessions?patientId=${profileId}&limit=5`), { headers: getAuthHeaders() }),
+                axios.get(getApiUrl(`examinations?patientId=${profileId}&limit=5&hasInpatient=false`), { headers: getAuthHeaders() })
             ]);
 
             if (apptRes.data.success) setAppointments(apptRes.data.data || []);
@@ -52,6 +54,14 @@ function ViewPatientPage() {
                     (s.patient?.patientId === profileId)
                 );
                 setSessions(filteredSessions);
+            }
+            if (examRes.data.success) {
+                // Filter examinations by patient ID and get unbilled ones (recent walk-in visits)
+                const filteredExams = (examRes.data.data || []).filter(e =>
+                    ((e.patient?._id === profileId) || (e.patient === profileId)) &&
+                    !e.isBilled // Only show unbilled examinations (recent walk-in visits)
+                );
+                setExaminations(filteredExams);
             }
         } catch (error) {
             console.error("Error fetching clinical data:", error);
@@ -66,10 +76,16 @@ function ViewPatientPage() {
         }
 
         setIsLoading(true);
+        const abortController = new AbortController();
+        
         try {
             const response = await axios.get(
                 getApiUrl(`reception-patients/${patientId}`),
-                { headers: getAuthHeaders() }
+                { 
+                    headers: getAuthHeaders(),
+                    timeout: 30000, // 30 seconds timeout
+                    signal: abortController.signal
+                }
             );
 
             if (response.data.success) {
@@ -85,12 +101,33 @@ function ViewPatientPage() {
                 navigate("/receptionist/appointments");
             }
         } catch (error) {
+            // Don't show error if request was cancelled
+            if (axios.isCancel(error) || error.name === 'AbortError') {
+                return;
+            }
+            
             console.error("Error fetching patient details:", error);
-            toast.error(error.response?.data?.message || error.message || "Failed to fetch patient details");
+            
+            // Better error messages
+            let errorMessage = "Failed to fetch patient details";
+            if (error.code === "ECONNABORTED") {
+                errorMessage = "Request timeout. Please check your connection and try again.";
+            } else if (!error.response) {
+                errorMessage = "Network error. Please check your internet connection.";
+            } else {
+                errorMessage = error.response?.data?.message || error.message || errorMessage;
+            }
+            
+            toast.error(errorMessage);
             navigate("/receptionist/appointments");
         } finally {
             setIsLoading(false);
         }
+        
+        // Cleanup function to cancel request if component unmounts
+        return () => {
+            abortController.abort();
+        };
     }, [patientId, navigate]);
 
     useEffect(() => {
@@ -208,16 +245,39 @@ function ViewPatientPage() {
                                         <PersonIcon fontSize="small" /> Primary Doctor
                                     </Typography>
                                 </Box>
-                                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                    {patient.patientProfile?.primaryDoctor ?
-                                        `Dr. ${patient.patientProfile.primaryDoctor.firstName} ${patient.patientProfile.primaryDoctor.lastName}` :
-                                        (appointments.length > 0 ? (appointments[0].doctor?.user?.name || "None assigned") : "None assigned")}
-                                </Typography>
-                                {(patient.patientProfile?.primaryDoctor?.specialization || (appointments.length > 0 && appointments[0].doctor?.specialization)) && (
-                                    <Typography variant="caption" color="textSecondary">
-                                        {patient.patientProfile?.primaryDoctor?.specialization || appointments[0].doctor?.specialization}
-                                    </Typography>
-                                )}
+                                {(() => {
+                                    // Get doctor info from primaryDoctor, examination (walk-in), or appointment
+                                    const primaryDoctor = patient.patientProfile?.primaryDoctor;
+                                    const examDoctor = examinations.length > 0 ? examinations[0].doctor : null;
+                                    const apptDoctor = appointments.length > 0 ? appointments[0].doctor : null;
+                                    
+                                    const doctor = primaryDoctor || examDoctor || apptDoctor;
+                                    const doctorName = primaryDoctor 
+                                        ? `Dr. ${primaryDoctor.firstName} ${primaryDoctor.lastName}`
+                                        : (doctor?.user?.name || doctor?.name || "None assigned");
+                                    const doctorSpecialization = primaryDoctor?.specialization || doctor?.specialization;
+                                    
+                                    // Get examination date/time for walk-in patients
+                                    const examDate = examinations.length > 0 ? examinations[0].createdAt : null;
+                                    
+                                    return (
+                                        <Box>
+                                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                {doctorName}
+                                            </Typography>
+                                            {doctorSpecialization && (
+                                                <Typography variant="caption" color="textSecondary">
+                                                    {doctorSpecialization}
+                                                </Typography>
+                                            )}
+                                            {examDate && (
+                                                <Typography variant="caption" color="textSecondary" sx={{ display: "block", mt: 0.5 }}>
+                                                    Walk-in: {new Date(examDate).toLocaleDateString("en-GB")}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    );
+                                })()}
                             </Box>
                         </Grid>
 
@@ -227,41 +287,120 @@ function ViewPatientPage() {
                                 <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
                                     <CalendarTodayIcon fontSize="small" /> Upcoming Appointment
                                 </Typography>
-                                {appointments.length > 0 ? (
-                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        <Box>
-                                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                                {new Date(appointments[0].appointmentDate).toLocaleDateString("en-GB")} at {appointments[0].appointmentTime}
-                                            </Typography>
-                                            <Typography variant="body2" color="primary">
-                                                {appointments[0].doctor?.user?.name || "Assigned Doctor"}
-                                            </Typography>
-                                        </Box>
-                                        <Button
-                                            size="small"
-                                            variant="contained"
-                                            color="success"
-                                            startIcon={<MessageIcon />}
-                                            sx={{ textTransform: "none", borderRadius: "20px" }}
-                                            onClick={() => {
-                                                const appt = appointments[0];
-                                                const params = new URLSearchParams({
-                                                    patientId,
-                                                    patientName: patient.patientName,
-                                                    contact: patient.contactNumber,
-                                                    doctorName: appt.doctor?.user?.name || "Doctor",
-                                                    date: new Date(appt.appointmentDate).toLocaleDateString("en-GB"),
-                                                    time: appt.appointmentTime
-                                                });
-                                                navigate(`/receptionist/appointments/whatsapp?${params.toString()}`);
-                                            }}
-                                        >
-                                            Send Reminder
-                                        </Button>
-                                    </Box>
-                                ) : (
-                                    <Typography variant="body2" color="textSecondary">No upcoming appointments</Typography>
-                                )}
+                                {(() => {
+                                    // Get primary doctor info for consistent display
+                                    const primaryDoctor = patient.patientProfile?.primaryDoctor;
+                                    const primaryDoctorName = primaryDoctor 
+                                        ? `Dr. ${primaryDoctor.firstName} ${primaryDoctor.lastName}`
+                                        : null;
+                                    
+                                    // Check for formal appointments first
+                                    if (appointments.length > 0) {
+                                        const appt = appointments[0];
+                                        // Use primary doctor name if available, otherwise use appointment doctor
+                                        const displayDoctorName = primaryDoctorName || appt.doctor?.user?.name || "Assigned Doctor";
+                                        const reminderDoctorName = primaryDoctor 
+                                            ? `${primaryDoctor.firstName} ${primaryDoctor.lastName}`
+                                            : (appt.doctor?.user?.name || "Doctor");
+                                        
+                                        return (
+                                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <Box>
+                                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                        {new Date(appt.appointmentDate).toLocaleDateString("en-GB")} {appt.appointmentTime ? `at ${appt.appointmentTime}` : ""}
+                                                    </Typography>
+                                                    <Typography variant="body2" color="primary">
+                                                        {displayDoctorName}
+                                                    </Typography>
+                                                </Box>
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    color="success"
+                                                    startIcon={<MessageIcon />}
+                                                    sx={{ textTransform: "none", borderRadius: "20px" }}
+                                                    onClick={() => {
+                                                        const params = new URLSearchParams({
+                                                            patientId,
+                                                            patientName: patient.patientName,
+                                                            contact: patient.contactNumber,
+                                                            doctorName: reminderDoctorName,
+                                                            date: new Date(appt.appointmentDate).toLocaleDateString("en-GB"),
+                                                            time: appt.appointmentTime || ""
+                                                        });
+                                                        navigate(`/receptionist/appointments/whatsapp?${params.toString()}`);
+                                                    }}
+                                                >
+                                                    Send Reminder
+                                                </Button>
+                                            </Box>
+                                        );
+                                    }
+                                    
+                                    // If no formal appointments, check for walk-in examinations with doctor
+                                    // But prioritize primary doctor over examination doctor
+                                    if (examinations.length > 0) {
+                                        const exam = examinations[0];
+                                        const examDate = exam.createdAt || exam.appointment?.appointmentDate;
+                                        const examTime = exam.appointment?.appointmentTime || "";
+                                        
+                                        // Get doctor info - prioritize primary doctor, then examination doctor
+                                        const primaryDoctor = patient.patientProfile?.primaryDoctor;
+                                        const examDoctor = exam.doctor;
+                                        
+                                        // Use primary doctor name if available, otherwise use examination doctor
+                                        let doctorName = "Assigned Doctor";
+                                        if (primaryDoctor) {
+                                            doctorName = `Dr. ${primaryDoctor.firstName} ${primaryDoctor.lastName}`;
+                                        } else if (examDoctor) {
+                                            doctorName = examDoctor?.user?.name || examDoctor?.name || "Assigned Doctor";
+                                        }
+                                        
+                                        return (
+                                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <Box>
+                                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                        {examDate ? new Date(examDate).toLocaleDateString("en-GB") : "Today"} {examTime ? `at ${examTime}` : ""}
+                                                    </Typography>
+                                                    <Typography variant="body2" color="primary">
+                                                        {doctorName}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="textSecondary" sx={{ display: "block", mt: 0.5 }}>
+                                                        Walk-in Visit
+                                                    </Typography>
+                                                </Box>
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    color="success"
+                                                    startIcon={<MessageIcon />}
+                                                    sx={{ textTransform: "none", borderRadius: "20px" }}
+                                                    onClick={() => {
+                                                        const doctorNameForReminder = primaryDoctor 
+                                                            ? `${primaryDoctor.firstName} ${primaryDoctor.lastName}`
+                                                            : (examDoctor?.user?.name || examDoctor?.name || "Doctor").replace("Dr. ", "");
+                                                        const params = new URLSearchParams({
+                                                            patientId,
+                                                            patientName: patient.patientName,
+                                                            contact: patient.contactNumber,
+                                                            doctorName: doctorNameForReminder,
+                                                            date: examDate ? new Date(examDate).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"),
+                                                            time: examTime || ""
+                                                        });
+                                                        navigate(`/receptionist/appointments/whatsapp?${params.toString()}`);
+                                                    }}
+                                                >
+                                                    Send Reminder
+                                                </Button>
+                                            </Box>
+                                        );
+                                    }
+                                    
+                                    // No appointments or examinations
+                                    return (
+                                        <Typography variant="body2" color="textSecondary">No upcoming appointments</Typography>
+                                    );
+                                })()}
                             </Box>
                         </Grid>
 

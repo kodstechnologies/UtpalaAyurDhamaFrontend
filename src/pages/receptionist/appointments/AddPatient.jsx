@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import HeadingCard from "../../../components/card/HeadingCard";
 import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, Grid, CircularProgress } from "@mui/material";
+import adminUserService from "../../../services/adminUserService";
 
 function AddPatientPage() {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
+    const phoneCheckTimeoutRef = useRef(null);
 
     const [formData, setFormData] = useState({
         patientName: "",
@@ -27,6 +30,11 @@ function AddPatientPage() {
         if (name === "contactNumber" || name === "alternativeNumber") {
             const numericValue = value.replace(/\D/g, "");
             setFormData((prev) => ({ ...prev, [name]: numericValue }));
+            
+            // Check for duplicate contact number
+            if (name === "contactNumber") {
+                checkContactAvailability(numericValue);
+            }
             return;
         }
 
@@ -49,6 +57,32 @@ function AddPatientPage() {
         }
 
         setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    // Check contact number availability (debounced)
+    const checkContactAvailability = async (contactNumber) => {
+        if (!contactNumber || contactNumber.length !== 10) {
+            setErrors((prev) => ({ ...prev, contactNumber: "" }));
+            return;
+        }
+
+        if (phoneCheckTimeoutRef.current) {
+            clearTimeout(phoneCheckTimeoutRef.current);
+        }
+
+        phoneCheckTimeoutRef.current = setTimeout(async () => {
+            try {
+                const checkResult = await adminUserService.checkPhoneAvailability(contactNumber, "Patient");
+                if (checkResult.exists) {
+                    toast.error("This contact number is already registered. Please use a different number.");
+                    setErrors((prev) => ({ ...prev, contactNumber: "This contact number is already registered" }));
+                } else {
+                    setErrors((prev) => ({ ...prev, contactNumber: "" }));
+                }
+            } catch (error) {
+                console.error("Error checking contact number:", error);
+            }
+        }, 800);
     };
 
     const handleKeyDown = (e) => {
@@ -77,6 +111,12 @@ function AddPatientPage() {
         }
         if (formData.alternativeNumber && !contactRegex.test(formData.alternativeNumber)) {
             toast.error("Alternative number must be exactly 10 digits");
+            return;
+        }
+
+        // Check for duplicate contact number error before submitting
+        if (errors.contactNumber) {
+            toast.error("Please fix the contact number error before submitting");
             return;
         }
 
@@ -168,6 +208,8 @@ function AddPatientPage() {
                                 onChange={handleChange}
                                 onKeyDown={handleKeyDown}
                                 inputProps={{ maxLength: 10 }}
+                                error={!!errors.contactNumber}
+                                helperText={errors.contactNumber || ""}
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>

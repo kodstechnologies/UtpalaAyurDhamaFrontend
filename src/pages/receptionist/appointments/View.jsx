@@ -136,6 +136,8 @@ function Appointments_View() {
     // Fetch reception patients from API
     const fetchReceptionPatients = useCallback(async () => {
         setIsLoading(true);
+        const abortController = new AbortController();
+        
         try {
             const response = await axios.get(
                 getApiUrl("reception-patients"),
@@ -144,7 +146,9 @@ function Appointments_View() {
                     params: {
                         page: 1,
                         limit: 1000 // Get all patients for now
-                    }
+                    },
+                    timeout: 30000, // 30 seconds timeout
+                    signal: abortController.signal
                 }
             );
 
@@ -177,11 +181,32 @@ function Appointments_View() {
                 toast.error(response.data.message || "Failed to fetch patients");
             }
         } catch (error) {
+            // Don't show error if request was cancelled
+            if (axios.isCancel(error) || error.name === 'AbortError') {
+                return;
+            }
+            
             console.error("Error fetching reception patients:", error);
-            toast.error(error.response?.data?.message || error.message || "Failed to fetch patients");
+            
+            // Better error messages
+            let errorMessage = "Failed to fetch patients";
+            if (error.code === "ECONNABORTED") {
+                errorMessage = "Request timeout. Please check your connection and try again.";
+            } else if (!error.response) {
+                errorMessage = "Network error. Please check your internet connection.";
+            } else {
+                errorMessage = error.response?.data?.message || error.message || errorMessage;
+            }
+            
+            toast.error(errorMessage);
         } finally {
             setIsLoading(false);
         }
+        
+        // Cleanup function to cancel request if component unmounts
+        return () => {
+            abortController.abort();
+        };
     }, []);
 
 
@@ -226,12 +251,27 @@ function Appointments_View() {
     // Filter and sort patients by registration time (most recent first)
     const filteredPatients = useMemo(() => {
         const filtered = allPatients.filter((patient) => {
-            const matchesSearch =
-                !filters.search ||
-                patient.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-                patient.contact.includes(filters.search) ||
-                patient.id.includes(filters.search);
-            return matchesSearch;
+            if (!filters.search || !filters.search.trim()) {
+                return true;
+            }
+            
+            const searchLower = filters.search.toLowerCase().trim();
+            // Search across all columns: name, contact, ID, email, age, registered date
+            const name = (patient.name || "").toLowerCase();
+            const contact = (patient.contact || "").toLowerCase();
+            const id = (patient.id || "").toLowerCase();
+            const email = (patient.email || "").toLowerCase();
+            const age = (patient.age || "").toString().toLowerCase();
+            const registeredDate = (patient.registeredDate || "").toLowerCase();
+            const address = (patient.address || "").toLowerCase();
+            
+            return name.includes(searchLower) ||
+                   contact.includes(searchLower) ||
+                   id.includes(searchLower) ||
+                   email.includes(searchLower) ||
+                   age.includes(searchLower) ||
+                   registeredDate.includes(searchLower) ||
+                   address.includes(searchLower);
         });
         
         // Sort by registration date (most recent first)
@@ -249,6 +289,8 @@ function Appointments_View() {
     // Fetch appointments from API
     const fetchAppointments = useCallback(async () => {
         setIsLoadingAppointments(true);
+        const abortController = new AbortController();
+        
         try {
             const response = await axios.get(
                 getApiUrl("appointments"),
@@ -257,7 +299,9 @@ function Appointments_View() {
                     params: {
                         page: 1,
                         limit: 1000, // Get all appointments
-                    }
+                    },
+                    timeout: 30000, // 30 seconds timeout
+                    signal: abortController.signal
                 }
             );
 
@@ -288,13 +332,34 @@ function Appointments_View() {
                 setAppointments(mockAppointments);
             }
         } catch (error) {
+            // Don't show error if request was cancelled
+            if (axios.isCancel(error) || error.name === 'AbortError') {
+                return;
+            }
+            
             console.error("Error fetching appointments:", error);
-            toast.error(error.response?.data?.message || error.message || "Failed to fetch appointments");
+            
+            // Better error messages
+            let errorMessage = "Failed to fetch appointments";
+            if (error.code === "ECONNABORTED") {
+                errorMessage = "Request timeout. Please check your connection and try again.";
+            } else if (!error.response) {
+                errorMessage = "Network error. Please check your internet connection.";
+            } else {
+                errorMessage = error.response?.data?.message || error.message || errorMessage;
+            }
+            
+            toast.error(errorMessage);
             // Fallback to mock data if API fails
             setAppointments(mockAppointments);
         } finally {
             setIsLoadingAppointments(false);
         }
+        
+        // Cleanup function to cancel request if component unmounts
+        return () => {
+            abortController.abort();
+        };
     }, []);
 
 
@@ -418,6 +483,27 @@ function Appointments_View() {
             }
         }
 
+        // Apply search filter if search text is provided
+        if (filters.search && filters.search.trim()) {
+            const searchLower = filters.search.toLowerCase().trim();
+            filtered = filtered.filter((apt) => {
+                // Search across all columns: name, contact, doctor, date/time, status, disease/notes
+                const name = (apt.name || "").toLowerCase();
+                const contact = (apt.contact || "").toLowerCase();
+                const doctor = (apt.doctor || "").toLowerCase();
+                const dateTime = (apt.appointmentDateTime || "").toLowerCase();
+                const status = (apt.status || "").toLowerCase();
+                const disease = (apt.disease || "").toLowerCase();
+                
+                return name.includes(searchLower) ||
+                       contact.includes(searchLower) ||
+                       doctor.includes(searchLower) ||
+                       dateTime.includes(searchLower) ||
+                       status.includes(searchLower) ||
+                       disease.includes(searchLower);
+            });
+        }
+
         // Sort by appointment date/time (most recent first)
         return filtered.sort((a, b) => {
             try {
@@ -428,7 +514,7 @@ function Appointments_View() {
                 return 0;
             }
         });
-    }, [appointments, filters.appointmentStatus, activeTab]);
+    }, [appointments, filters.appointmentStatus, filters.search, activeTab]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -692,7 +778,7 @@ function Appointments_View() {
                                             type="text"
                                             name="search"
                                             className="form-control"
-                                            placeholder="Search by Name/ID..."
+                                            placeholder="Search by Name, Contact, ID, Email, Age, Date..."
                                             value={filters.search}
                                             onChange={handleFilterChange}
                                         />
@@ -919,18 +1005,30 @@ function Appointments_View() {
                         {/* Appointments Tab */}
                         {activeTab === "appointments" && (
                             <>
-                                <div className="d-flex justify-content-end mb-4">
-                                    <select
-                                        name="appointmentStatus"
-                                        className="form-select w-auto"
-                                        value={filters.appointmentStatus}
-                                        onChange={handleFilterChange}
-                                    >
-                                        <option value="">All Future Appointments</option>
-                                        <option value="upcoming">Upcoming</option>
-                                        <option value="ongoing">Ongoing (Today)</option>
-                                        <option value="completed">Completed</option>
-                                    </select>
+                                <div className="row g-3 mb-4">
+                                    <div className="col-md-6">
+                                        <input
+                                            type="text"
+                                            name="search"
+                                            className="form-control"
+                                            placeholder="Search by Name, Contact, Doctor, Date, Status..."
+                                            value={filters.search}
+                                            onChange={handleFilterChange}
+                                        />
+                                    </div>
+                                    <div className="col-md-6 d-flex justify-content-end">
+                                        <select
+                                            name="appointmentStatus"
+                                            className="form-select w-auto"
+                                            value={filters.appointmentStatus}
+                                            onChange={handleFilterChange}
+                                        >
+                                            <option value="">All Future Appointments</option>
+                                            <option value="upcoming">Upcoming</option>
+                                            <option value="ongoing">Ongoing (Today)</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 {isLoadingAppointments ? (
                                     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
@@ -1047,6 +1145,18 @@ function Appointments_View() {
                         {/* Walk-in Patients Tab */}
                         {activeTab === "walkIn" && (
                             <>
+                                <div className="row g-3 mb-4">
+                                    <div className="col-md-12">
+                                        <input
+                                            type="text"
+                                            name="search"
+                                            className="form-control"
+                                            placeholder="Search by Name, Contact, Doctor, Date, Status, Room/Bed..."
+                                            value={filters.search}
+                                            onChange={handleFilterChange}
+                                        />
+                                    </div>
+                                </div>
                                 {(() => {
                                     // Filter OPD walk-in appointments (those with notes containing "Walk-in Hub")
                                     const walkInAppointments = appointments.filter(apt =>
@@ -1056,8 +1166,60 @@ function Appointments_View() {
                                     // Combine OPD walk-in appointments with IPD walk-in inpatient records
                                     const allWalkIns = [...walkInAppointments, ...ipdWalkIns];
 
+                                    // Deduplicate by patient ID - show only the most recent walk-in per patient
+                                    const patientWalkInMap = new Map();
+                                    allWalkIns.forEach(walkIn => {
+                                        const patientId = walkIn.patientProfileId || walkIn.inpatientId || walkIn.id;
+                                        if (!patientId) return;
+                                        
+                                        const existing = patientWalkInMap.get(patientId);
+                                        if (!existing) {
+                                            patientWalkInMap.set(patientId, walkIn);
+                                        } else {
+                                            // Keep the most recent one (compare by date/time)
+                                            try {
+                                                const existingDate = new Date(existing.appointmentDateTime.split(" ")[0]);
+                                                const newDate = new Date(walkIn.appointmentDateTime.split(" ")[0]);
+                                                if (newDate >= existingDate) {
+                                                    // Also prefer the one with the current primary doctor if available
+                                                    // For now, just keep the most recent
+                                                    patientWalkInMap.set(patientId, walkIn);
+                                                }
+                                            } catch {
+                                                // If date parsing fails, keep existing
+                                            }
+                                        }
+                                    });
+
+                                    // Convert map back to array
+                                    const deduplicatedWalkIns = Array.from(patientWalkInMap.values());
+
+                                    // Apply search filter if search text is provided
+                                    let filteredWalkIns = deduplicatedWalkIns;
+                                    if (filters.search && filters.search.trim()) {
+                                        const searchLower = filters.search.toLowerCase().trim();
+                                        filteredWalkIns = deduplicatedWalkIns.filter((walkIn) => {
+                                            // Search across all columns: name, contact, doctor, date/time, status, room/bed
+                                            const name = (walkIn.name || "").toLowerCase();
+                                            const contact = (walkIn.contact || "").toLowerCase();
+                                            const doctor = (walkIn.doctor || "").toLowerCase();
+                                            const dateTime = (walkIn.appointmentDateTime || "").toLowerCase();
+                                            const status = (walkIn.status || "").toLowerCase();
+                                            const roomBed = walkIn.isIpd 
+                                                ? `${walkIn.roomNumber || ""} ${walkIn.bedNumber || ""}`.toLowerCase()
+                                                : "";
+                                            
+                                            return name.includes(searchLower) ||
+                                                   contact.includes(searchLower) ||
+                                                   doctor.includes(searchLower) ||
+                                                   dateTime.includes(searchLower) ||
+                                                   status.includes(searchLower) ||
+                                                   roomBed.includes(searchLower);
+                                        });
+                                    }
+
                                     // Sort by date/time (most recent first)
-                                    const sortedWalkIns = allWalkIns.sort((a, b) => {
+                                    const sortedWalkIns = filteredWalkIns.sort((a, b) => {
                                         try {
                                             const dateA = new Date(a.appointmentDateTime.split(" ")[0]);
                                             const dateB = new Date(b.appointmentDateTime.split(" ")[0]);
