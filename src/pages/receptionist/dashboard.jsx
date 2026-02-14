@@ -15,7 +15,6 @@ import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import PeopleIcon from "@mui/icons-material/People";
 import SpaIcon from "@mui/icons-material/Spa";
 import DescriptionIcon from "@mui/icons-material/Description";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import PaymentIcon from "@mui/icons-material/Payment";
@@ -261,10 +260,14 @@ function Receptionist_Dashboard() {
 
                 <Grid item xs={12} sm={6} md={4} lg={3}>
                     <DashboardCard
-                        title="Today's Revenue"
-                        count={dashboardData.todayRevenue || 0}
-                        icon={AttachMoneyIcon}
-                        prefix="₹"
+                        title="Invoices Created Today"
+                        count={dashboardData.todayInvoicesCount ?? 0}
+                        description={
+                            [dashboardData.paidInvoicesToday, dashboardData.partialInvoicesToday].every((n) => (n ?? 0) === 0)
+                                ? "No paid or partial yet"
+                                : `${dashboardData.paidInvoicesToday ?? 0} paid, ${dashboardData.partialInvoicesToday ?? 0} partial`
+                        }
+                        icon={DescriptionIcon}
                     />
                 </Grid>
             </Grid>

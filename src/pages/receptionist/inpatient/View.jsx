@@ -12,8 +12,6 @@ import { getApiUrl, getAuthHeaders } from "../../../config/api";
 // Icons
 import PeopleIcon from "@mui/icons-material/People";
 import LocalHotelIcon from "@mui/icons-material/LocalHotel";
-import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
-import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import SearchIcon from "@mui/icons-material/Search";
@@ -235,13 +233,11 @@ function Inpatient_View() {
             {/* Statistics Cards */}
             <Box
                 sx={{
+                    width: "100%",
                     display: "grid",
-                    gridTemplateColumns: "repeat(5, 1fr)",
+                    gridTemplateColumns: "repeat(3, 1fr)",
                     gap: "15px",
                     marginTop: 3,
-                    "@media (max-width: 1200px)": {
-                        gridTemplateColumns: "repeat(3, 1fr)",
-                    },
                     "@media (max-width: 768px)": {
                         gridTemplateColumns: "repeat(2, 1fr)",
                     },
@@ -252,8 +248,6 @@ function Inpatient_View() {
             >
                 <DashboardCard title="Total Patients" count={stats.total} icon={PeopleIcon} />
                 <DashboardCard title="Admitted" count={stats.admitted} icon={LocalHotelIcon} />
-                <DashboardCard title="Under Observation" count={stats.underObservation} icon={MonitorHeartIcon} />
-                <DashboardCard title="Pending Allocation" count={stats.pendingAllocation} icon={PendingActionsIcon} />
                 <DashboardCard title="Discharged" count={stats.discharged} icon={CheckCircleIcon} />
             </Box>
 

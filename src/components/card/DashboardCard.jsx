@@ -72,23 +72,38 @@ function DashboardCard({
 
                         {/* IF COUNT EXISTS → SHOW ANIMATED VALUE */}
                         {count !== null && count !== undefined && !isNaN(count) ? (
-                            <Typography
-                                variant="h5"
-                                sx={{
-                                    fontWeight: "bold",
-                                    color: "var(--color-text-dark)",
-                                    fontSize: "1.4rem",
-                                }}
-                            >
-                                {prefix}
-                                {prefix
-                                    ? new Intl.NumberFormat("en-IN", {
-                                        maximumFractionDigits: 2,
-                                        minimumFractionDigits: 2,
-                                    }).format(displayValue)
-                                    : Math.floor(displayValue)}
-                                {description && description.includes("%") ? description : ""}
-                            </Typography>
+                            <>
+                                <Typography
+                                    variant="h5"
+                                    sx={{
+                                        fontWeight: "bold",
+                                        color: "var(--color-text-dark)",
+                                        fontSize: "1.4rem",
+                                    }}
+                                >
+                                    {prefix}
+                                    {prefix
+                                        ? new Intl.NumberFormat("en-IN", {
+                                            maximumFractionDigits: 2,
+                                            minimumFractionDigits: 2,
+                                        }).format(displayValue)
+                                        : Math.floor(displayValue)}
+                                    {description && description.includes("%") ? description : ""}
+                                </Typography>
+                                {description && !description.includes("%") && (
+                                    <Typography
+                                        variant="caption"
+                                        sx={{
+                                            color: "var(--color-text-muted)",
+                                            fontSize: "0.7rem",
+                                            display: "block",
+                                            mt: 0.25,
+                                        }}
+                                    >
+                                        {description}
+                                    </Typography>
+                                )}
+                            </>
                         ) : (
                             /* ELSE SHOW DESCRIPTION */
                             <Typography

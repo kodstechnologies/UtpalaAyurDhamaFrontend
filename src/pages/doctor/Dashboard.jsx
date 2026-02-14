@@ -169,9 +169,14 @@ function Doctor_Dashboard() {
                 followUpsResponse,
             ] = await Promise.all(fetchPromises);
 
-            // Filter today's appointments
+            // Filter today's appointments (normalize appointmentDate: API may return ISO string or Date)
+            const toDateOnly = (d) => {
+                if (!d) return null;
+                if (typeof d === "string") return d.split("T")[0];
+                try { return new Date(d).toISOString().split("T")[0]; } catch { return null; }
+            };
             const todayAppointments = appointments.filter(
-                (apt) => apt.appointmentDate === today && apt.status !== "Cancelled"
+                (apt) => toDateOnly(apt.appointmentDate) === today && apt.status !== "Cancelled"
             );
 
             // Get unique patients from appointments

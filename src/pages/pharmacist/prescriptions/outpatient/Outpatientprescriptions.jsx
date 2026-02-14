@@ -579,37 +579,16 @@ function OutpatientPrescriptions() {
             return;
         }
 
-        // Get selected medicines
-        let selectedPrescriptions = prescriptions.filter(
+        // Get selected medicines (only those explicitly checked by the user)
+        const selectedPrescriptions = prescriptions.filter(
             (p) => p.status !== "Dispensed" && selectedMedicines[p._id]?.selected
         );
 
         console.log("Selected Prescriptions:", selectedPrescriptions);
 
-        // If no medicines are selected, auto-select all available medicines with their prescribed quantities
         if (selectedPrescriptions.length === 0) {
-            const availablePrescriptions = prescriptions.filter(
-                (p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication)
-            );
-
-            if (availablePrescriptions.length === 0) {
-                toast.error("No available medicines to dispense");
-                return;
-            }
-
-            // Auto-select all available medicines with their prescribed quantities
-            const newSelection = { ...selectedMedicines };
-            availablePrescriptions.forEach((presc) => {
-                newSelection[presc._id] = {
-                    selected: true,
-                    quantity: presc.quantity || presc.dosage || "",
-                };
-            });
-            setSelectedMedicines(newSelection);
-            selectedPrescriptions = availablePrescriptions;
-
-            // Continue with dispense after auto-selection
-            console.log("Auto-selected all available medicines, proceeding with dispense...");
+            toast.error("Please select the medicines you want to dispense by checking the checkbox for each one.");
+            return;
         }
 
         // Check for unavailable medicines

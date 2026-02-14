@@ -14,13 +14,11 @@ import PeopleIcon from "@mui/icons-material/People";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import SearchIcon from "@mui/icons-material/Search";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import EditIcon from "@mui/icons-material/Edit";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
-import TodayIcon from "@mui/icons-material/Today";
 
 function Outpatient_View() {
     const [outpatients, setOutpatients] = useState([]);
@@ -43,9 +41,9 @@ function Outpatient_View() {
     const fetchOutpatients = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Fetch all patients, ALL OPD examinations (to show discharged patients), and active inpatients in parallel
-            // We fetch ALL examinations (not just unbilled) so that discharged patients remain visible for reference
-            const [patientsResponse, allExamsResponse, inpatientsResponse] = await Promise.all([
+            // Fetch all patients and OPD examinations (hasInpatient: false). List is built from OPD exams
+            // so that patients who later become IPD still show their OPD visits (and OPD bills) here.
+            const [patientsResponse, allExamsResponse] = await Promise.all([
                 axios.get(
                     getApiUrl("patients"),
                     {
@@ -66,23 +64,11 @@ function Outpatient_View() {
                             hasInpatient: "false" // Only OPD examinations
                         },
                     }
-                ),
-                axios.get(
-                    getApiUrl("inpatients"),
-                    {
-                        headers: getAuthHeaders(),
-                        params: {
-                            page: 1,
-                            limit: 1000,
-                            // Fetch ALL inpatients (not just admitted) to exclude discharged patients from OPD list
-                        },
-                    }
                 )
             ]);
 
             console.log("Patients API Response:", patientsResponse.data);
             console.log("All Exams Response:", allExamsResponse.data);
-            console.log("Inpatients API Response:", inpatientsResponse.data);
 
             if (patientsResponse.data.success && allExamsResponse.data.success) {
                 // Handle different patient response structures
@@ -100,96 +86,58 @@ function Outpatient_View() {
                     ? allExamsResponse.data.data 
                     : (allExamsResponse.data.data?.data || []);
 
-                const inpatientsData = inpatientsResponse.data.success
-                    ? (Array.isArray(inpatientsResponse.data.data)
-                        ? inpatientsResponse.data.data
-                        : inpatientsResponse.data.data?.data || [])
-                    : [];
-
-                // Get patient IDs who have ANY inpatient record (admitted or discharged)
-                // Patients with inpatient records should only appear in the inpatient list, not outpatient list
-                const allInpatientPatientIds = new Set(
-                    inpatientsData
-                        .map(ip => {
-                            const patientId = ip.patient?._id || ip.patient;
-                            return patientId?.toString();
-                        })
-                        .filter(Boolean)
-                );
-
-                // Filter patients who have NEVER been inpatients
-                // This ensures patients with inpatient records (even discharged) only appear in inpatient list
-                const filteredPatients = patientsData.filter((patient) => {
-                    const patientId = patient._id?.toString();
-                    return !allInpatientPatientIds.has(patientId);
+                // Map patient ID -> patient for lookups (so we show OPD visits even if patient is/was IPD)
+                const patientByIdMap = new Map();
+                patientsData.forEach(p => {
+                    const id = p._id?.toString();
+                    if (id) patientByIdMap.set(id, p);
                 });
 
-                // Create a map of patient ID to their examinations (unbilled or today's billed)
-                const patientExaminationsMap = new Map();
+                // Build the list from OPD examinations: one row per OPD visit.
+                // Do NOT exclude patients who have an inpatient record — their OPD bill must stay visible on this page.
+                const mergedRows = [];
                 examinationsData.forEach(exam => {
                     const patientId = exam.patient?._id?.toString() || exam.patient?.toString();
-                    if (patientId) {
-                        if (!patientExaminationsMap.has(patientId)) {
-                            patientExaminationsMap.set(patientId, []);
-                        }
-                        patientExaminationsMap.get(patientId).push(exam);
-                    }
-                });
-
-                // Build the final list: 
-                // Only include patients who have at least one examination/assignment
-                // Patients with no examinations should NOT appear in the Out-Patient Management list
-                const mergedRows = [];
-
-                filteredPatients.forEach(patient => {
-                    const patientId = patient._id?.toString();
-                    const patientExams = patientExaminationsMap.get(patientId) || [];
-                    const patientUser = patient.user || {};
-
-                    // Only add patients who have at least one examination
-                    // Skip patients with no examinations/assignments
-                    if (patientExams.length > 0) {
-                        patientExams.forEach(exam => {
-                            mergedRows.push({
-                                id: exam._id,
-                                _id: exam._id,
-                                examinationId: exam._id,
-                                patientId: patientId,
-                                name: patientUser.name || "Unknown",
-                                age: patientUser.age || "N/A",
-                                gender: patientUser.gender || "N/A",
-                                uhid: patientUser.uhid || patient.uhid || "N/A",
-                                phone: patientUser.phone || "N/A",
-                                email: patientUser.email || "N/A",
-                                registeredDate: exam.createdAt
-                                    ? new Date(exam.createdAt).toISOString().split("T")[0]
-                                    : "N/A",
-                                complain: exam.complaints || "OPD Patient",
-                                doctorName: exam.doctor?.user?.name || exam.doctor?.name || "N/A",
-                                lastVisitDate: exam.createdAt
-                                    ? new Date(exam.createdAt).toISOString().split("T")[0]
-                                    : "N/A",
-                                allocatedNurse: (() => {
-                                    const nurseSource = exam.allocatedNurse || patient.allocatedNurse;
-                                    if (nurseSource && typeof nurseSource === 'object') {
-                                        return nurseSource.user?.name;
-                                    }
-                                    return undefined;
-                                })(),
-                                allocatedNurseId: (() => {
-                                    const nurseSource = exam.allocatedNurse || patient.allocatedNurse;
-                                    if (nurseSource && typeof nurseSource === 'object' && nurseSource._id) {
-                                        return nurseSource._id;
-                                    }
-                                    return nurseSource || undefined;
-                                })(),
-                                hasFinalizedBill: !!exam.isBilled,
-                                hasUnbilledVisit: !exam.isBilled,
-                                type: "OPD",
-                            });
-                        });
-                    }
-                    // Removed the else block - patients with no examinations are now excluded
+                    if (!patientId) return;
+                    const patient = patientByIdMap.get(patientId) || (exam.patient && typeof exam.patient === "object" ? exam.patient : null);
+                    const patientUser = patient?.user || {};
+                    mergedRows.push({
+                        id: exam._id,
+                        _id: exam._id,
+                        examinationId: exam._id,
+                        patientId,
+                        name: patientUser.name || patient?.name || "Unknown",
+                        age: patientUser.age || patient?.age || "N/A",
+                        gender: patientUser.gender || patient?.gender || "N/A",
+                        uhid: patientUser.uhid || patient?.uhid || "N/A",
+                        phone: patientUser.phone || patient?.phone || "N/A",
+                        email: patientUser.email || patient?.email || "N/A",
+                        registeredDate: exam.createdAt
+                            ? new Date(exam.createdAt).toISOString().split("T")[0]
+                            : "N/A",
+                        complain: exam.complaints || "OPD Patient",
+                        doctorName: exam.doctor?.user?.name || exam.doctor?.name || "N/A",
+                        lastVisitDate: exam.createdAt
+                            ? new Date(exam.createdAt).toISOString().split("T")[0]
+                            : "N/A",
+                        allocatedNurse: (() => {
+                            const nurseSource = exam.allocatedNurse || patient?.allocatedNurse;
+                            if (nurseSource && typeof nurseSource === "object") {
+                                return nurseSource.user?.name;
+                            }
+                            return undefined;
+                        })(),
+                        allocatedNurseId: (() => {
+                            const nurseSource = exam.allocatedNurse || patient?.allocatedNurse;
+                            if (nurseSource && typeof nurseSource === "object" && nurseSource._id) {
+                                return nurseSource._id;
+                            }
+                            return nurseSource || undefined;
+                        })(),
+                        hasFinalizedBill: !!exam.isBilled,
+                        hasUnbilledVisit: !exam.isBilled,
+                        type: "OPD",
+                    });
                 });
 
                 console.log("Total merged outpatient rows:", mergedRows.length);
@@ -220,26 +168,12 @@ function Outpatient_View() {
 
     // Calculate statistics
     const stats = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
         let total = 0;
-        let todayVisits = 0;
         let unbilledVisits = 0;
         let billedVisits = 0;
 
         outpatients.forEach(patient => {
             total++;
-            
-            // Check if last visit is today
-            if (patient.lastVisitDate && patient.lastVisitDate !== "N/A") {
-                const visitDate = new Date(patient.lastVisitDate);
-                visitDate.setHours(0, 0, 0, 0);
-                
-                if (visitDate.getTime() === today.getTime()) {
-                    todayVisits++;
-                }
-            }
             
             // Count unbilled visits
             if (patient.hasUnbilledVisit) {
@@ -254,7 +188,6 @@ function Outpatient_View() {
 
         return {
             total,
-            todayVisits,
             unbilledVisits,
             billedVisits,
         };
@@ -312,7 +245,7 @@ function Outpatient_View() {
                         xs: "1fr",
                         sm: "repeat(2, 1fr)",
                         md: "repeat(2, 1fr)",
-                        lg: "repeat(4, 1fr)",
+                        lg: "repeat(3, 1fr)",
                     },
                     gap: "15px",
                     marginTop: 3,
@@ -322,11 +255,6 @@ function Outpatient_View() {
                     title="Total Outpatients" 
                     count={stats.total} 
                     icon={PeopleIcon} 
-                />
-                <DashboardCard 
-                    title="Today's Visits" 
-                    count={stats.todayVisits} 
-                    icon={TodayIcon} 
                 />
                 <DashboardCard 
                     title="Unbilled Visits" 

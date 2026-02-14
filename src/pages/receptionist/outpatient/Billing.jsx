@@ -159,17 +159,19 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapyName || charge.description}</td>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
-                                                {charge.status && (
+                                                {charge.status ? (
                                                     <span className={getStatusBadgeClass(charge.status)} style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
                                                         {charge.status}
                                                     </span>
+                                                ) : (
+                                                    <span style={{ color: "#888" }}>—</span>
                                                 )}
                                             </td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.therapyCharge !== undefined ? charge.therapyCharge : (charge.amount || 0))}
+                                                {formatCurrency(charge.therapyCharge ?? 0)}
                                             </td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.therapistCharge !== undefined ? charge.therapistCharge : 0)}
+                                                {formatCurrency(charge.therapistCharge ?? 0)}
                                             </td>
                                         </>
                                     ) : category === "pharmacy" ? (
