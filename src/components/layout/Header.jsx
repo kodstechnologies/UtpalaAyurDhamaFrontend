@@ -269,7 +269,7 @@ function ResponsiveAppBar() {
                   src={logo}
                   alt="UTPALA Logo"
                   style={{
-                    height: "3rem",
+                    height: "2.5rem",
                     width: "auto",
                     display: "block",
                     objectFit: "contain",

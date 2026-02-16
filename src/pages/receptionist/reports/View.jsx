@@ -5,7 +5,7 @@ import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
 import paymentService from "../../../services/paymentService";
-import logo from "../../../assets/logo/logo.webp";
+import logo from "../../../assets/logo/logo2.png";
 
 // Icons
 import CreditScoreIcon from "@mui/icons-material/CreditScore";
@@ -92,14 +92,14 @@ function Reports_View() {
         }
         try {
             setLoading(true);
-            
+
             // Convert dates to ISO strings for API (YYYY-MM-DD format is fine, API will convert)
             // The backend validation expects ISO 8601 format
             const startDateObj = new Date(startDate);
             startDateObj.setHours(0, 0, 0, 0); // Set to start of day in local time
             const endDateObj = new Date(endDate);
             endDateObj.setHours(23, 59, 59, 999); // Set to end of day in local time
-            
+
             const startDateISO = startDateObj.toISOString();
             const endDateISO = endDateObj.toISOString();
 
@@ -190,6 +190,11 @@ function Reports_View() {
 
     // Handle print
     const handlePrint = () => {
+        // Note: Browser print headers/footers (URL, page numbers, timestamps) 
+        // are controlled by browser print settings and cannot be removed via CSS/JS.
+        // Users need to disable them in the browser's print dialog:
+        // Chrome/Edge: Click "More settings" → Uncheck "Headers and footers"
+        // Firefox: Settings → Uncheck "Print headers and footers"
         window.print();
     };
 
@@ -237,9 +242,31 @@ function Reports_View() {
             <style>
                 {`
                     @page {
-                        margin: 0.5cm 1cm;
+                        margin: 0;
+                        size: A4;
                     }
                     @media print {
+                        /* Remove browser print headers and footers */
+                        @page {
+                            margin: 0;
+                            size: A4;
+                        }
+                        /* Try to hide browser print headers/footers using CSS */
+                        @page {
+                            margin: 0;
+                        }
+                        /* Hide any browser-generated print elements */
+                        body::before,
+                        body::after {
+                            display: none !important;
+                        }
+                        /* Hide browser print headers/footers */
+                        body {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            print-color-adjust: exact;
+                            -webkit-print-color-adjust: exact;
+                        }
                         body * {
                             visibility: hidden;
                         }
@@ -251,13 +278,10 @@ function Reports_View() {
                             left: 0;
                             top: 0;
                             width: 100%;
-                            padding: 0 !important;
+                            padding: 0 20px !important;
+                            padding-top: 0 !important;
                             margin: 0 !important;
                             margin-top: 0 !important;
-                        }
-                        body {
-                            margin: 0 !important;
-                            padding: 0 !important;
                         }
                         #printable-area .card {
                             margin: 0 !important;
@@ -266,22 +290,25 @@ function Reports_View() {
                             border: none !important;
                         }
                         #printable-area .card-body {
-                            padding: 10px 0 !important;
+                            padding: 0 !important;
                         }
                         #printable-area .card-body > div:first-child {
                             margin-top: 0 !important;
-                            margin-bottom: 10px !important;
-                            padding-bottom: 5px !important;
+                            margin-bottom: 0 !important;
+                            padding-top: 0 !important;
+                            padding-bottom: 0 !important;
                         }
                         #printable-area .card-body > div:first-child .MuiBox-root {
                             margin-bottom: 0 !important;
                             padding-bottom: 0 !important;
+                            margin-top: 0 !important;
+                            padding-top: 0 !important;
                         }
                         #printable-area .MuiBox-root[class*="MuiBox-root"] {
                             margin-top: 0 !important;
                         }
                         #printable-area img {
-                            height: 50px !important;
+                            height: 150px !important;
                         }
                         #printable-area h4 {
                             font-size: 1.5rem !important;
@@ -409,88 +436,68 @@ function Reports_View() {
 
                 {/* ⭐ Report Table Section */}
                 {hasGenerated && reportData.length > 0 && (
-                    <Box sx={{ marginTop: 4 }} id="printable-area">
+                    <Box sx={{ marginTop: 4, "@media print": { marginTop: "0 !important" } }} id="printable-area">
                         <div className="card shadow-sm">
                             <div className="card-body">
                                 {/* Header Section with Logo and Title */}
+                                {/* Header Section with Logo and Period */}
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        mb: 3,
+                                        pb: 3,
+                                        borderBottom: "2px solid #e0e0e0",
+                                        "@media print": {
+                                            marginTop: "0 !important",
+                                            paddingTop: "0 !important",
+                                            marginBottom: "5px !important",
+                                            paddingBottom: "0 !important",
+                                        },
+                                    }}
+                                >
+                                    <Box
+                                        component="img"
+                                        src={logo}
+                                        alt="Utpala Ayurdhama"
+                                        sx={{
+                                            height: { xs: "100px", md: "120px" },
+                                            width: "auto",
+                                            objectFit: "contain",
+                                        }}
+                                    />
+                                    <Typography
+                                        variant="body2"
+                                        sx={{ color: "#666", fontWeight: 500, textAlign: "right" }}
+                                    >
+                                        Period: {formatDateDisplay(startDate)} - {formatDateDisplay(endDate)}
+                                    </Typography>
+                                </Box>
+
+                                {/* Title and Actions Section */}
                                 <Box
                                     sx={{
                                         display: "flex",
                                         justifyContent: "space-between",
                                         alignItems: "center",
                                         mb: 4,
-                                        pb: 3,
-                                        borderBottom: "2px solid #e0e0e0",
+                                        flexWrap: "wrap",
+                                        gap: 2,
                                     }}
                                 >
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                        <Box
-                                            component="img"
-                                            src={logo}
-                                            alt="Utpala Ayurdham"
-                                            sx={{
-                                                height: { xs: "60px", md: "80px" },
-                                                width: "auto",
-                                                objectFit: "contain",
-                                            }}
-                                        />
-                                        <Box>
-                                            <Typography
-                                                variant="h4"
-                                                sx={{
-                                                    fontWeight: 700,
-                                                    color: "#2d2d2d",
-                                                    mb: 0.5,
-                                                    fontSize: { xs: "1.5rem", md: "2rem" },
-                                                }}
-                                            >
-                                                Utpala Ayurdham
-                                            </Typography>
-                                            <Typography
-                                                variant="h6"
-                                                sx={{
-                                                    fontWeight: 600,
-                                                    color: "#666",
-                                                    fontSize: { xs: "1rem", md: "1.25rem" },
-                                                }}
-                                            >
-                                                Transaction Details
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                    <Box
-                                        className="no-print"
+                                    <Typography
+                                        variant="h4"
                                         sx={{
-                                            display: { xs: "none", md: "flex" },
-                                            flexDirection: "column",
-                                            alignItems: "flex-end",
+                                            fontWeight: 700,
+                                            color: "#2d2d2d",
+                                            mb: 0,
+                                            fontSize: { xs: "1.5rem", md: "2rem" },
                                         }}
                                     >
-                                        <Typography
-                                            variant="body2"
-                                            sx={{ color: "#666", fontWeight: 500 }}
-                                        >
-                                            Period: {formatDateDisplay(startDate)} - {formatDateDisplay(endDate)}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-
-                                {/* Period info for mobile/print */}
-                                <Box
-                                    sx={{
-                                        mb: 3,
-                                        pb: 2,
-                                        borderBottom: "1px solid #e0e0e0",
-                                        display: { xs: "block", md: "none" },
-                                    }}
-                                >
-                                    <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
-                                        Period: {formatDateDisplay(startDate)} - {formatDateDisplay(endDate)}
+                                        Transaction Details
                                     </Typography>
-                                </Box>
-
-                                <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom no-print">
-                                    <div className="d-flex gap-2 mt-3 mt-md-0">
+                                    <Box className="no-print d-flex gap-2">
                                         <button
                                             type="button"
                                             className="btn btn-outline-primary"
@@ -507,8 +514,8 @@ function Reports_View() {
                                             <PrintIcon className="me-2" />
                                             Print / PDF
                                         </button>
-                                    </div>
-                                </div>
+                                    </Box>
+                                </Box>
 
                                 <div className="table-responsive">
                                     <table className="table table-hover">
@@ -555,12 +562,12 @@ function Reports_View() {
                                                 </tr>
                                             ))}
                                         </tbody>
-                                        <tfoot>
+                                        <tfoot style={{ borderTop: "2px solid #e0e0e0" }}>
                                             <tr>
-                                                <td colSpan="4" style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right" }}>
+                                                <td colSpan="4" style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", paddingTop: "12px" }}>
                                                     Total Credit:
                                                 </td>
-                                                <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#198754" }}>
+                                                <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#198754", paddingTop: "12px" }}>
                                                     {formatCurrency(totals.credit)}
                                                 </td>
                                             </tr>

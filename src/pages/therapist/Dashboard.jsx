@@ -500,16 +500,6 @@ function Therapist_Dashboard() {
                                                 >
                                                     {session.therapyName}
                                                 </p>
-                                                <p
-                                                    className="text-muted mb-0"
-                                                    style={{
-                                                        fontSize: "0.75rem",
-                                                        textTransform: "uppercase",
-                                                        letterSpacing: "0.05em",
-                                                    }}
-                                                >
-                                                    Duration: {session.duration || "N/A"}
-                                                </p>
                                             </div>
                                             <Link
                                                 to={`/therapist/patient-monitoring?patientId=${session.patientId}`}
@@ -726,13 +716,9 @@ function Therapist_Dashboard() {
                                             </p>
                                         </div>
                                         <div className="mb-2" style={{ fontSize: "0.875rem" }}>
-                                            <p className="mb-1">
+                                            <p className="mb-0">
                                                 <span style={{ fontWeight: 500 }}>Last session:</span>{" "}
                                                 {formatDate(patient.date)}
-                                            </p>
-                                            <p className="mb-0">
-                                                <span style={{ fontWeight: 500 }}>Duration:</span>{" "}
-                                                {patient.duration || "N/A"}
                                             </p>
                                         </div>
                                         <Link

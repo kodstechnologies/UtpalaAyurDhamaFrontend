@@ -97,9 +97,25 @@ function Marketing_View() {
             return matchesFilters && matchesSearch;
         });
 
+        // Sort by last appointment date (most recent first)
+        const sorted = result.sort((a, b) => {
+            const dateA = a.appointmentDate && a.appointmentDate !== "N/A" ? new Date(a.appointmentDate) : null;
+            const dateB = b.appointmentDate && b.appointmentDate !== "N/A" ? new Date(b.appointmentDate) : null;
+            
+            // If both have dates, sort descending (most recent first)
+            if (dateA && dateB) {
+                return dateB.getTime() - dateA.getTime();
+            }
+            // If only one has a date, prioritize it
+            if (dateA && !dateB) return -1;
+            if (!dateA && dateB) return 1;
+            // If neither has a date, maintain original order
+            return 0;
+        });
+
         // Reset to first page whenever filters or search change
         setCurrentPage(1);
-        return result;
+        return sorted;
     }, [filters, allPatients, searchQuery]);
 
     const totalPages = useMemo(
@@ -493,7 +509,7 @@ function Marketing_View() {
                                 </select>
                             </div>
                             <div className="col-md-4">
-                                <label className="form-label">Treatment</label>
+                                <label className="form-label">Therapies</label>
                                 <TextField
                                     select
                                     name="treatment"
@@ -515,7 +531,7 @@ function Marketing_View() {
                                     }}
                                 >
                                     <MenuItem value="">
-                                        <em>All Treatments</em>
+                                        <em>All Therapies</em>
                                     </MenuItem>
                                     {treatments.map((t) => (
                                         <MenuItem key={t} value={t}>
