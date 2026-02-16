@@ -20,22 +20,39 @@ function Monitoring() {
     const [searchText, setSearchText] = useState("");
     const [patients, setPatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
     useEffect(() => {
         fetchAllPatients();
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage]);
+    
+    // Reset to first page when search changes
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+    }, [searchText]);
 
     const fetchAllPatients = async () => {
         setIsLoading(true);
         try {
-            // Fetch both inpatients and outpatients in parallel
+            // Fetch both inpatients (paginated) and outpatients in parallel
             const [inpatientsResponse, outpatientsResponse] = await Promise.all([
                 axios.get(
-                    getApiUrl("inpatients?status=Admitted&limit=100"),
-                    { headers: getAuthHeaders() }
+                    getApiUrl("inpatients"),
+                    { 
+                        headers: getAuthHeaders(),
+                        params: {
+                            status: "Admitted",
+                            page: pagination.page + 1, // Backend uses 1-based pagination
+                            limit: pagination.rowsPerPage,
+                        }
+                    }
                 ).catch(err => {
                     console.error("Error fetching inpatients:", err);
-                    return { data: { success: false, data: [] } };
+                    return { data: { success: false, data: [], meta: { total: 0 } } };
                 }),
                 axios.get(
                     getApiUrl("patients/nurse/outpatients"),
@@ -104,6 +121,17 @@ function Monitoring() {
 
             console.log("All patients (inpatients + outpatients):", allPatients);
             setPatients(allPatients);
+            
+            // Update pagination metadata from inpatients response
+            if (inpatientsResponse.data.meta) {
+                // Note: Total only counts inpatients, outpatients are added separately
+                // For accurate pagination, we might want to count outpatients separately
+                // For now, pagination will be based on inpatients count
+                setPagination(prev => ({
+                    ...prev,
+                    total: inpatientsResponse.data.meta.total || 0,
+                }));
+            }
         } catch (error) {
             console.error("Error fetching patients:", error);
             console.error("Error details:", error.response?.data);
@@ -253,6 +281,12 @@ function Monitoring() {
                     rows={filteredPatients}
                     actions={getActions}
                     showStatusBadge={false}
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={(newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                    onRowsPerPageChange={(newRowsPerPage) => setPagination(prev => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }))}
                 />
             )}
         </>

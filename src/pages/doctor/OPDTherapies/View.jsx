@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Box, Stack, Button, CircularProgress, Chip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import HealingIcon from "@mui/icons-material/Healing";
@@ -23,24 +23,26 @@ function OPDTherapies_View() {
     const [therapies, setTherapies] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
-    const [filter, setFilter] = useState("All");
+    const [pagination, setPagination] = useState({ page: 0, rowsPerPage: 25, total: 0 });
     const navigate = useNavigate();
 
-    // Fetch OPD therapy plans from backend
-    useEffect(() => {
-        const fetchTherapies = async () => {
-            setIsLoading(true);
-            try {
-                const response = await axios.get(
-                    getApiUrl("examinations/therapy-plans/opd"),
-                    { headers: getAuthHeaders() }
-                );
+    const fetchTherapies = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const params = { page: pagination.page + 1, limit: pagination.rowsPerPage };
+            if (searchText && searchText.trim()) params.search = searchText.trim();
 
-                if (response.data.success) {
-                    const therapyData = response.data.data || [];
+            const response = await axios.get(
+                getApiUrl("examinations/therapy-plans/opd"),
+                { headers: getAuthHeaders(), params }
+            );
 
-                    // Group therapies by patient
-                    const groupedByPatient = {};
+            if (response.data.success) {
+                const therapyData = response.data.data || [];
+                const total = response.data.meta?.total ?? 0;
+                setPagination((prev) => ({ ...prev, total }));
+
+                const groupedByPatient = {};
                     
                     therapyData.forEach((therapy) => {
                         const patientId = therapy.examination?.patient?._id?.toString() || therapy.examination?.patient?.toString();
@@ -85,52 +87,44 @@ function OPDTherapies_View() {
                     // Convert grouped object to array
                     const groupedTherapies = Object.values(groupedByPatient);
 
-                    setTherapies(groupedTherapies);
-                } else {
-                    toast.error(response.data.message || "Failed to fetch therapy plans");
-                }
-            } catch (error) {
-                console.error("Error fetching therapy plans:", error);
-                toast.error(error.response?.data?.message || "Error fetching therapy plans");
-            } finally {
-                setIsLoading(false);
+                setTherapies(groupedTherapies);
+            } else {
+                toast.error(response.data.message || "Failed to fetch therapy plans");
             }
-        };
+        } catch (error) {
+            console.error("Error fetching therapy plans:", error);
+            toast.error(error.response?.data?.message || "Error fetching therapy plans");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [pagination.page, pagination.rowsPerPage, searchText]);
 
+    useEffect(() => {
         fetchTherapies();
-    }, []);
+    }, [fetchTherapies]);
 
-    // Filter therapies
-    const filteredTherapies = useMemo(() => {
-        return therapies.filter((therapy) => {
-            // Check if any treatment in the therapies array matches search
-            const treatmentsMatch = therapy.therapies?.some(t => 
-                t.treatmentName?.toLowerCase().includes(searchText.toLowerCase())
-            ) || false;
-            
-            const searchMatch =
-                searchText === "" ||
-                therapy.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-                therapy.patientUhid.toLowerCase().includes(searchText.toLowerCase()) ||
-                treatmentsMatch;
+    const handlePageChange = (newPage) => setPagination((prev) => ({ ...prev, page: newPage }));
+    const handleRowsPerPageChange = (newRowsPerPage) =>
+        setPagination((prev) => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }));
+    const onSearchChange = (val) => {
+        setSearchText(val);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
 
-            return searchMatch;
-        });
-    }, [therapies, searchText]);
+    const displayedTherapies = therapies;
 
     // Calculate statistics
     const stats = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
-        // Count total therapies (not grouped rows)
         const totalTherapies = therapies.reduce((sum, t) => sum + (t.therapies?.length || 0), 0);
         return {
-            total: totalTherapies,
+            total: pagination.total,
             today: therapies.filter((t) => t.therapyDate === today).length,
             alternateDay: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "AlternateDay").length || 0), 0),
             weekly: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "Weekly").length || 0), 0),
             daily: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "Daily").length || 0), 0),
         };
-    }, [therapies]);
+    }, [therapies, pagination.total]);
 
     const columns = [
         { field: "patientName", header: "Patient Name" },
@@ -289,16 +283,12 @@ function OPDTherapies_View() {
                 }}
             >
                 <div style={{ flex: 1, marginRight: "1rem" }}>
-                    <Search
-                        value={searchText}
-                        onChange={(val) => setSearchText(val)}
-                        style={{ width: "100%" }}
-                    />
+                    <Search value={searchText} onChange={onSearchChange} style={{ width: "100%" }} />
                 </div>
 
-                <div style={{ display: "flex", gap: "1rem" }}>
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <ExportDataButton
-                        rows={filteredTherapies}
+                        rows={displayedTherapies}
                         columns={columns}
                         fileName="opd-therapies.xlsx"
                     />
@@ -306,11 +296,11 @@ function OPDTherapies_View() {
                 </div>
             </CardBorder>
 
-            {/* Table */}
+            {/* Table - client-side pagination same as in-patients */}
             <TableComponent
                 title="OPD Therapy Plans"
                 columns={columns}
-                rows={filteredTherapies.map((row) => ({
+                rows={displayedTherapies.map((row) => ({
                     ...row,
                     timeline: getTimelineBadge(row.timeline),
                 }))}
@@ -321,6 +311,12 @@ function OPDTherapies_View() {
                 showAddButton={false}
                 showExportButton={false}
                 showCheckbox={false}
+                serverSidePagination={true}
+                totalCount={pagination.total}
+                page={pagination.page}
+                rowsPerPage={pagination.rowsPerPage}
+                onPageChange={handlePageChange}
+                onRowsPerPageChange={handleRowsPerPageChange}
             />
         </Box>
     );

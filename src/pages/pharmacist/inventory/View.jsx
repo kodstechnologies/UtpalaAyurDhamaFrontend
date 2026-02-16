@@ -26,6 +26,11 @@ function Inventory_View_Details() {
     const [isLoading, setIsLoading] = useState(true);
     const [medicines, setMedicines] = useState([]);
     const [searchText, setSearchText] = useState("");
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
     /* Breadcrumb */
     const breadcrumbItems = [
@@ -36,17 +41,39 @@ function Inventory_View_Details() {
 
     useEffect(() => {
         fetchMedicines();
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, searchText]);
+
+    // Reset to first page when search changes
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+    }, [searchText]);
 
     const fetchMedicines = async () => {
         setIsLoading(true);
         try {
-            const response = await medicineService.getAllMedicines({ page: 1, limit: 1000 });
+            const params = {
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
+            };
+            
+            if (searchText) {
+                params.search = searchText;
+            }
+
+            const response = await medicineService.getAllMedicines(params);
             if (response && response.success && response.data) {
                 const medicinesList = Array.isArray(response.data.medicines || response.data.data || response.data)
                     ? (response.data.medicines || response.data.data || response.data)
                     : [];
                 setMedicines(medicinesList);
+                
+                // Update pagination metadata
+                if (response.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: response.meta.total || 0,
+                    }));
+                }
             }
         } catch (error) {
             console.error("Error fetching medicines:", error);
@@ -273,7 +300,12 @@ function Inventory_View_Details() {
                     actions={actions}
                     showStatusBadge={true}
                     statusField="stockStatus"
-                    isLoading={isLoading}
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={(newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                    onRowsPerPageChange={(newRowsPerPage) => setPagination(prev => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }))}
                 />
             </Box>
         </Box>

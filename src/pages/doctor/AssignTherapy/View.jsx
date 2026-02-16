@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
-import { Box, Stack, Button, CircularProgress, Chip } from "@mui/material";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Box, Stack, CircularProgress, Chip, TextField, MenuItem } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import HealingIcon from "@mui/icons-material/Healing";
 import PersonIcon from "@mui/icons-material/Person";
@@ -24,23 +24,27 @@ function AssignTherapy_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [filter, setFilter] = useState("All");
+    const [pagination, setPagination] = useState({ page: 0, rowsPerPage: 25, total: 0 });
     const navigate = useNavigate();
 
-    // Fetch IPD therapy plans from backend
-    useEffect(() => {
-        const fetchAssignments = async () => {
-            setIsLoading(true);
-            try {
-                const response = await axios.get(
-                    getApiUrl("examinations/therapy-plans/ipd"),
-                    { headers: getAuthHeaders() }
-                );
+    const fetchAssignments = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const params = { page: pagination.page + 1, limit: pagination.rowsPerPage };
+            if (searchText && searchText.trim()) params.search = searchText.trim();
+            if (filter && filter !== "All") params.status = filter;
 
-                if (response.data.success) {
-                    const therapyData = response.data.data || [];
+            const response = await axios.get(
+                getApiUrl("examinations/therapy-plans/ipd"),
+                { headers: getAuthHeaders(), params }
+            );
 
-                    // Group therapies by patient
-                    const groupedByPatient = {};
+            if (response.data.success) {
+                const therapyData = response.data.data || [];
+                const total = response.data.meta?.total ?? 0;
+                setPagination((prev) => ({ ...prev, total }));
+
+                const groupedByPatient = {};
                     
                     therapyData.forEach((therapy) => {
                         const patientId = therapy.examination?.patient?._id?.toString() || therapy.examination?.patient?.toString();
@@ -92,48 +96,42 @@ function AssignTherapy_View() {
                     // Convert grouped object to array
                     const groupedAssignments = Object.values(groupedByPatient);
 
-                    setAssignments(groupedAssignments);
-                } else {
-                    toast.error(response.data.message || "Failed to fetch assignments");
-                }
-            } catch (error) {
-                console.error("Error fetching assignments:", error);
-                toast.error(error.response?.data?.message || "Error fetching assignments");
-            } finally {
-                setIsLoading(false);
+                setAssignments(groupedAssignments);
+            } else {
+                toast.error(response.data.message || "Failed to fetch assignments");
             }
-        };
+        } catch (error) {
+            console.error("Error fetching assignments:", error);
+            toast.error(error.response?.data?.message || "Error fetching assignments");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [pagination.page, pagination.rowsPerPage, searchText, filter]);
 
+    useEffect(() => {
         fetchAssignments();
-    }, []);
+    }, [fetchAssignments]);
 
-    // Filter assignments
-    const filteredAssignments = useMemo(() => {
-        return assignments.filter((assignment) => {
-            const searchMatch =
-                searchText === "" ||
-                assignment.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-                assignment.patientId.toLowerCase().includes(searchText.toLowerCase()) ||
-                assignment.therapistName.toLowerCase().includes(searchText.toLowerCase()) ||
-                assignment.therapyType.toLowerCase().includes(searchText.toLowerCase());
+    const handlePageChange = (newPage) => setPagination((prev) => ({ ...prev, page: newPage }));
+    const handleRowsPerPageChange = (newRowsPerPage) =>
+        setPagination((prev) => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }));
+    const onSearchChange = (val) => {
+        setSearchText(val);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
+    const onFilterChange = (val) => {
+        setFilter(val);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
 
-            const statusMatch = filter === "All" || assignment.status === filter;
+    const displayedAssignments = assignments;
 
-            return searchMatch && statusMatch;
-        });
-    }, [assignments, searchText, filter]);
-
-    // Calculate statistics
-    const stats = useMemo(() => {
-        // Count total therapies (not grouped rows)
-        const totalTherapies = assignments.reduce((sum, a) => sum + (a.therapies?.length || 0), 0);
-        return {
-            total: totalTherapies,
-            active: assignments.filter((a) => a.status === "Active").length,
-            completed: assignments.filter((a) => a.status === "Completed").length,
-            pending: assignments.filter((a) => a.status === "Pending").length,
-        };
-    }, [assignments]);
+    const stats = useMemo(() => ({
+        total: pagination.total,
+        active: assignments.filter((a) => a.status === "Active").length,
+        completed: assignments.filter((a) => a.status === "Completed").length,
+        pending: assignments.filter((a) => a.status === "Pending").length,
+    }), [assignments, pagination.total]);
 
     const columns = [
         { field: "patientName", header: "Patient Name" },
@@ -282,54 +280,43 @@ function AssignTherapy_View() {
                 }}
             >
                 <div style={{ flex: 1, marginRight: "1rem" }}>
-                    <Search
-                        value={searchText}
-                        onChange={(val) => setSearchText(val)}
-                        style={{ width: "100%" }}
-                    />
+                    <Search value={searchText} onChange={onSearchChange} style={{ width: "100%" }} />
                 </div>
 
-                <div style={{ display: "flex", gap: "1rem" }}>
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <ExportDataButton
-                        rows={filteredAssignments}
+                        rows={displayedAssignments}
                         columns={columns}
                         fileName="therapy-assignments.xlsx"
                     />
+                    <TextField
+                        select
+                        value={filter}
+                        onChange={(e) => onFilterChange(e.target.value)}
+                        sx={{
+                            width: { xs: "100%", sm: 220 },
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: 3,
+                                bgcolor: "white",
+                                height: 46,
+                            },
+                        }}
+                        size="small"
+                    >
+                        <MenuItem value="All">All Status</MenuItem>
+                        <MenuItem value="Active">Active</MenuItem>
+                        <MenuItem value="Completed">Completed</MenuItem>
+                        <MenuItem value="Pending">Pending</MenuItem>
+                    </TextField>
                     <RedirectButton text="Assign New Therapy" link="/doctor/assign-therapy/new" />
                 </div>
             </CardBorder>
 
-            {/* Filter Buttons */}
-            <Stack direction="row" spacing={2} mb={3}>
-                {["All", "Active", "Completed", "Pending"].map((btn) => (
-                    <Button
-                        key={btn}
-                        onClick={() => setFilter(btn)}
-                        variant={filter === btn ? "contained" : "outlined"}
-                        sx={{
-                            px: 3,
-                            py: 1,
-                            borderRadius: 2,
-                            bgcolor: filter === btn ? "var(--color-primary)" : "transparent",
-                            color: filter === btn ? "white" : "var(--color-text-dark)",
-                            borderColor: "var(--color-border)",
-                            fontWeight: 600,
-                            textTransform: "none",
-                            "&:hover": {
-                                bgcolor: filter === btn ? "var(--color-primary-dark)" : "var(--color-bg-hover)",
-                            },
-                        }}
-                    >
-                        {btn}
-                    </Button>
-                ))}
-            </Stack>
-
-            {/* Table */}
+            {/* Table - client-side pagination same as in-patients */}
             <TableComponent
                 title="Therapy Assignments"
                 columns={columns}
-                rows={filteredAssignments.map((row) => ({
+                rows={displayedAssignments.map((row) => ({
                     ...row,
                     sessionsProgress: `${row.sessionsCompleted}/${row.totalSessions}`,
                     status: (
@@ -347,6 +334,12 @@ function AssignTherapy_View() {
                 showAddButton={false}
                 showExportButton={false}
                 showCheckbox={false}
+                serverSidePagination={true}
+                totalCount={pagination.total}
+                page={pagination.page}
+                rowsPerPage={pagination.rowsPerPage}
+                onPageChange={handlePageChange}
+                onRowsPerPageChange={handleRowsPerPageChange}
             />
         </Box>
     );

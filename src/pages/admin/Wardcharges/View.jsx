@@ -33,11 +33,16 @@ function Ward_Charges_View() {
     const [searchText, setSearchText] = useState("");
     const [category, setCategory] = useState("All");
     const [status, setStatus] = useState("All");
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
     // Fetch ward charges from API
     useEffect(() => {
         fetchWardCharges();
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, category, status]);
 
     // Refresh when navigating back from add/edit
     useEffect(() => {
@@ -48,12 +53,17 @@ function Ward_Charges_View() {
         }
     }, [location.state]);
 
+    // Reset to first page when filters change
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+    }, [category, status, searchText]);
+
     const fetchWardCharges = async () => {
         try {
             setIsLoading(true);
             const params = {
-                page: 1,
-                limit: 100,
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
             };
             
             if (category !== "All") {
@@ -74,7 +84,7 @@ function Ward_Charges_View() {
                 // Transform data for table display
                 const transformedData = response.data.map((charge, index) => ({
                     _id: charge._id,
-                    slNo: index + 1,
+                    slNo: pagination.page * pagination.rowsPerPage + index + 1,
                     wardCategory: charge.wardCategory || "N/A",
                     dailyRate: charge.dailyRate || 0,
                     description: charge.description || "",
@@ -83,6 +93,14 @@ function Ward_Charges_View() {
                     updated: charge.updatedAt ? new Date(charge.updatedAt).toLocaleDateString() : "N/A",
                 }));
                 setRows(transformedData);
+                
+                // Update pagination metadata
+                if (response.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: response.meta.total || 0,
+                    }));
+                }
             } else {
                 toast.error(response.message || "Failed to fetch ward charges");
             }
@@ -93,11 +111,6 @@ function Ward_Charges_View() {
             setIsLoading(false);
         }
     };
-
-    // Refetch when filters change
-    useEffect(() => {
-        fetchWardCharges();
-    }, [category, status]);
 
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this ward charge?')) {
@@ -133,16 +146,8 @@ function Ward_Charges_View() {
         }
     };
 
-    // Filtered rows based on search (client-side filtering for search only)
-    const filteredRows = useMemo(() => {
-        if (!searchText) return rows;
-        return rows.filter(item => {
-            const searchMatch = 
-                item.wardCategory.toLowerCase().includes(searchText.toLowerCase()) ||
-                item.description.toLowerCase().includes(searchText.toLowerCase());
-            return searchMatch;
-        });
-    }, [rows, searchText]);
+    // Note: Search is now handled server-side via API params
+    const filteredRows = rows;
 
     // Columns with ₹ formatting
     const columns = [
@@ -266,8 +271,6 @@ function Ward_Charges_View() {
             </CardBorder>
 
             <TableComponent
-                title="Ward Charges List"
-                subtitle={`${filteredRows.length} charges found`}
                 columns={columns}
                 rows={filteredRows.map((row) => ({
                     ...row,
@@ -280,12 +283,13 @@ function Ward_Charges_View() {
                     )
                 }))}
                 actions={actions}
-                showAddButton={false}
-                showExportButton={false}
-                showView={false}
-                showEdit={false}
-                showDelete={false}
                 showStatusBadge={false}
+                serverSidePagination={true}
+                totalCount={pagination.total}
+                page={pagination.page}
+                rowsPerPage={pagination.rowsPerPage}
+                onPageChange={(newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                onRowsPerPageChange={(newRowsPerPage) => setPagination(prev => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }))}
             />
         </Box>
     );

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, CircularProgress, Typography } from "@mui/material";
+import { Box, CircularProgress, Typography, TablePagination } from "@mui/material";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -25,6 +25,11 @@ function Inpatient_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All"); // Changed default to "All" to show discharged patients
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
     const navigate = useNavigate();
 
     // Tooltip states
@@ -41,21 +46,41 @@ function Inpatient_View() {
     const fetchInpatients = useCallback(async () => {
         setIsLoading(true);
         try {
+            const params = {
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
+            };
+            
+            // Add status filter if not "All"
+            if (statusFilter !== "All") {
+                params.status = statusFilter;
+            }
+            
+            // Add search parameter if search is active
+            if (search && search.trim()) {
+                params.search = search.trim();
+            }
+            
             const response = await axios.get(
                 getApiUrl("inpatients"),
                 {
                     headers: getAuthHeaders(),
-                    params: {
-                        page: 1,
-                        limit: 1000, // Get all inpatients
-                    },
+                    params,
                 }
             );
 
             if (response.data.success) {
                 const inpatientsData = response.data.data || [];
+                
+                // Update pagination metadata
+                if (response.data.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: response.data.meta.total || 0,
+                    }));
+                }
 
-                // Fetch invoices for all inpatients to check payment status
+                // Fetch invoices for current page inpatients to check payment status
                 const invoiceIds = inpatientsData
                     .filter(ip => ip._id)
                     .map(ip => ip._id);
@@ -69,7 +94,7 @@ function Inpatient_View() {
                                 headers: getAuthHeaders(),
                                 params: {
                                     page: 1,
-                                    limit: 1000,
+                                    limit: 100, // Only fetch invoices for current page
                                 },
                             }
                         );
@@ -160,11 +185,22 @@ function Inpatient_View() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, statusFilter, search]);
 
     useEffect(() => {
         fetchInpatients();
     }, [fetchInpatients]);
+    
+    // Reset to first page when search or status filter changes
+    useEffect(() => {
+        setPagination(prev => {
+            if (prev.page !== 0) {
+                return { ...prev, page: 0 };
+            }
+            // Even if page is already 0, trigger a fetch by updating state
+            return prev;
+        });
+    }, [search, statusFilter]);
 
     // Calculate statistics
     const stats = useMemo(() => {
@@ -177,15 +213,12 @@ function Inpatient_View() {
         };
     }, [inpatients]);
 
-    // Filter and sort inpatients by admission time (most recent first)
+    // Filter by status only (search is now server-side)
     const filteredData = useMemo(() => {
+        // Server-side search is already applied, only filter by status client-side
         const filtered = inpatients.filter((patient) => {
-            const matchesSearch =
-                patient.name.toLowerCase().includes(search.toLowerCase()) ||
-                (patient.doctorName && patient.doctorName.toLowerCase().includes(search.toLowerCase())) ||
-                (patient.roomNo && patient.roomNo.toLowerCase().includes(search.toLowerCase()));
             const matchesStatus = statusFilter === "All" || patient.admitStatus === statusFilter;
-            return matchesSearch && matchesStatus;
+            return matchesStatus;
         });
         
         // Sort by admission date (most recent first)
@@ -194,7 +227,7 @@ function Inpatient_View() {
             const dateB = b.admittedOn && b.admittedOn !== "N/A" ? new Date(b.admittedOn) : new Date(0);
             return dateB - dateA; // Most recent first
         });
-    }, [inpatients, search, statusFilter]);
+    }, [inpatients, statusFilter]);
 
     const handleOpenAllocationModal = (patient) => {
         const params = new URLSearchParams({
@@ -320,7 +353,7 @@ function Inpatient_View() {
                                     <tbody>
                                         {filteredData.map((patient, index) => (
                                             <tr key={patient.id}>
-                                                <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>{pagination.page * pagination.rowsPerPage + index + 1}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <div className="d-flex align-items-center gap-2">
                                                         <strong>{patient.name}</strong>
@@ -627,6 +660,26 @@ function Inpatient_View() {
                                     </tbody>
                                 </table>
                             </div>
+                        )}
+                        
+                        {/* Pagination */}
+                        {!isLoading && filteredData.length > 0 && (
+                            <TablePagination
+                                component="div"
+                                count={pagination.total}
+                                page={pagination.page}
+                                rowsPerPage={pagination.rowsPerPage}
+                                onPageChange={(_, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                                onRowsPerPageChange={(e) => {
+                                    setPagination(prev => ({
+                                        ...prev,
+                                        rowsPerPage: parseInt(e.target.value, 10),
+                                        page: 0
+                                    }));
+                                }}
+                                rowsPerPageOptions={[10, 25, 50, 100]}
+                                labelRowsPerPage="Rows per page:"
+                            />
                         )}
                     </div>
                 </div>

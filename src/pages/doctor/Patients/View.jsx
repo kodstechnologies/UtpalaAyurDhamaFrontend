@@ -1,15 +1,14 @@
-import React, { useState } from "react";
-import { Box, Stack, TextField, MenuItem } from "@mui/material";
-import ChatIcon from "@mui/icons-material/Chat";
-import AssignmentIcon from "@mui/icons-material/Assignment";
+import React, { useState, useCallback, useEffect } from "react";
+import { Box, Stack, TextField, MenuItem, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import TableComponent from "../../../components/table/TableComponent";
 import DashboardCard from "../../../components/card/DashboardCard";
 import HeadingCard from "../../../components/card/HeadingCard";
+import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { toast } from "react-toastify";
 
-// ICONS
 import PeopleIcon from "@mui/icons-material/People";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -18,14 +17,92 @@ import { Eye } from "lucide-react";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
-import RedirectButton from "../../../components/buttons/RedirectButton";
 
 function All_Patients_View() {
     const navigate = useNavigate();
-
-    // FILTERS
-    const [treatmentFilter, setTreatmentFilter] = useState("All Treatment Types");
+    const [rows, setRows] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
+    const [treatmentFilter, setTreatmentFilter] = useState("All Treatment Types");
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
+
+    // Fetch patients from API (server-side pagination and search)
+    const fetchPatients = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const params = {
+                page: pagination.page + 1,
+                limit: pagination.rowsPerPage,
+            };
+            if (searchText && searchText.trim()) params.search = searchText.trim();
+
+            const response = await axios.get(getApiUrl("patients"), {
+                headers: getAuthHeaders(),
+                params,
+            });
+
+            if (response.data.success && response.data.data) {
+                const { profiles = [], total = 0 } = response.data.data;
+                const transformed = (Array.isArray(profiles) ? profiles : []).map((p) => ({
+                    _id: p._id,
+                    patientName: p?.user?.name || "N/A",
+                    age: p?.user?.age ?? p?.age ?? "N/A",
+                    condition: p?.condition || "—",
+                    lastVisit: p?.updatedAt
+                        ? new Date(p.updatedAt).toISOString().split("T")[0]
+                        : "—",
+                    status: p?.status || "Active",
+                }));
+                setRows(transformed);
+                setPagination((prev) => ({ ...prev, total }));
+            } else {
+                setRows([]);
+                setPagination((prev) => ({ ...prev, total: 0 }));
+            }
+        } catch (error) {
+            console.error("Error fetching patients:", error);
+            toast.error(error.response?.data?.message || "Failed to load patients");
+            setRows([]);
+            setPagination((prev) => ({ ...prev, total: 0 }));
+        } finally {
+            setIsLoading(false);
+        }
+    }, [pagination.page, pagination.rowsPerPage, searchText]);
+
+    useEffect(() => {
+        fetchPatients();
+    }, [fetchPatients]);
+
+    const handlePageChange = (newPage) => {
+        setPagination((prev) => ({ ...prev, page: newPage }));
+    };
+    const handleRowsPerPageChange = (newRowsPerPage) => {
+        setPagination((prev) => ({
+            ...prev,
+            rowsPerPage: newRowsPerPage,
+            page: 0,
+        }));
+    };
+
+    // Reset to first page when search changes
+    const onSearchChange = (val) => {
+        setSearchText(val);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
+
+    // Client-side filter by treatment/condition only (backend has no condition filter)
+    const filteredRows =
+        treatmentFilter === "All Treatment Types"
+            ? rows
+            : rows.filter(
+                  (row) =>
+                      (row.condition || "").toLowerCase() ===
+                      treatmentFilter.toLowerCase()
+              );
 
     // COLUMNS
     const columns = [
@@ -36,55 +113,33 @@ function All_Patients_View() {
         { field: "status", header: "Status" },
     ];
 
-    // DATA
-    const rows = [
-        { _id: "P1", patientName: "Amit Kumar", age: 32, condition: "Diabetes", lastVisit: "2025-02-12", status: "Active" },
-        { _id: "P2", patientName: "Neha Sharma", age: 28, condition: "Asthma", lastVisit: "2025-02-10", status: "Inactive" },
-        { _id: "P3", patientName: "Rohan Das", age: 45, condition: "Hypertension", lastVisit: "2025-02-14", status: "Active" },
-        { _id: "P4", patientName: "Priya Singh", age: 38, condition: "Arthritis", lastVisit: "2025-02-15", status: "Active" },
-        { _id: "P5", patientName: "Vikram Patel", age: 50, condition: "Diabetes", lastVisit: "2025-02-16", status: "Pending" },
-    ];
+    // Counts from current page data (for display only; for full stats would need separate API)
+    const totalPatients = pagination.total;
+    const activeTreatments = rows.filter((r) => r.status === "Active").length;
+    const completed = rows.filter((r) => r.status === "Inactive").length;
+    const pending = rows.filter((r) => r.status === "Pending").length;
 
-    // FILTERED ROWS
-    const filteredRows = rows.filter(row => {
-        const matchesTreatment = treatmentFilter === "All Treatment Types" || row.condition === treatmentFilter;
-        const matchesSearch = row.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-            row.condition.toLowerCase().includes(searchText.toLowerCase());
-        return matchesTreatment && matchesSearch;
-    });
-
-    // DYNAMIC COUNTS (based on original rows; can adjust to filtered if needed)
-    const totalPatients = rows.length;
-    const activeTreatments = rows.filter(row => row.status === "Active").length;
-    const completed = rows.filter(row => row.status === "Inactive").length;
-    const pending = rows.filter(row => row.status === "Pending").length;
-
-    // CUSTOM ACTIONS
     const actions = [
         {
             label: "View",
             icon: <Eye />,
             color: "var(--color-icon-3)",
-            onClick: (row) => navigate(`/doctor/family-members/${row._id}`)
+            onClick: (row) => navigate(`/doctor/family-members/${row._id}`),
         },
     ];
 
     return (
-        <Box
-            className="space-y-6 p-6"
-        >
-            {/* HEADING */}
+        <Box className="space-y-6 p-6">
             <HeadingCard
                 category="PATIENT MANAGEMENT"
                 title="All Patients"
                 subtitle="View and manage patient details, treatment history, and current status."
                 breadcrumbItems={[
-                    { label: "Admin", url: "/admin/dashboard" },
+                    { label: "Doctor", url: "/doctor/dashboard" },
                     { label: "All Patients" },
                 ]}
             />
 
-            {/* DASHBOARD CARDS */}
             <Stack
                 direction="row"
                 spacing={3}
@@ -102,7 +157,6 @@ function All_Patients_View() {
                 <DashboardCard title="Pending" count={pending} icon={PendingActionsIcon} iconColor="#ed6c02" />
             </Stack>
 
-            {/* SEARCH + EXPORT + FILTER */}
             <CardBorder
                 justify="between"
                 align="center"
@@ -110,16 +164,13 @@ function All_Patients_View() {
                 padding="2rem"
                 style={{ width: "100%" }}
             >
-                {/* LEFT SIDE — Search */}
                 <div style={{ flex: 1, marginRight: "1rem" }}>
                     <Search
                         value={searchText}
-                        onChange={(val) => setSearchText(val)}
+                        onChange={onSearchChange}
                         style={{ width: "100%" }}
                     />
                 </div>
-
-                {/* RIGHT SIDE — Export + Filter */}
                 <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <ExportDataButton
                         rows={filteredRows}
@@ -132,9 +183,9 @@ function All_Patients_View() {
                         onChange={(e) => setTreatmentFilter(e.target.value)}
                         sx={{
                             width: { xs: "100%", sm: 300 },
-                            '& .MuiOutlinedInput-root': {
+                            "& .MuiOutlinedInput-root": {
                                 borderRadius: 3,
-                                bgcolor: 'white',
+                                bgcolor: "white",
                                 height: 46,
                             },
                         }}
@@ -151,14 +202,25 @@ function All_Patients_View() {
                 </div>
             </CardBorder>
 
-            {/* TABLE */}
-            <TableComponent
-                columns={columns}
-                rows={filteredRows}
-                actions={actions}
-                showStatusBadge={true}
-                statusField="status"
-            />
+            {isLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 300 }}>
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <TableComponent
+                    columns={columns}
+                    rows={filteredRows}
+                    actions={actions}
+                    showStatusBadge={true}
+                    statusField="status"
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                />
+            )}
         </Box>
     );
 }

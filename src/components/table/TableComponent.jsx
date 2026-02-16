@@ -18,13 +18,33 @@ function TableComponent({
     showStatusBadge = false,
     statusField = null,
     showCheckbox = true, // New prop to control checkbox visibility
+    
+    // Server-side pagination props
+    serverSidePagination = false,
+    totalCount = 0,
+    page = 0,
+    rowsPerPage = 25,
+    onPageChange,
+    onRowsPerPageChange,
+    // Client-side: initial rows per page (default 25 to match in-patients style)
+    initialRowsPerPage = 25,
 }) {
     const [selected, setSelected] = useState([]);
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(100);
+    const [clientPage, setClientPage] = useState(0);
+    const [clientRowsPerPage, setClientRowsPerPage] = useState(initialRowsPerPage);
+
+    // Use server-side pagination if enabled, otherwise use client-side
+    const currentPage = serverSidePagination ? page : clientPage;
+    const currentRowsPerPage = serverSidePagination ? rowsPerPage : clientRowsPerPage;
+    const totalRows = serverSidePagination ? totalCount : rows.length;
 
     // Ensure rows is always an array
     const safeRows = Array.isArray(rows) ? rows : [];
+    
+    // For client-side pagination, slice the rows
+    const displayedRows = serverSidePagination 
+        ? safeRows 
+        : safeRows.slice(clientPage * clientRowsPerPage, clientPage * clientRowsPerPage + clientRowsPerPage);
 
     const handleSelectAll = (e) => {
         if (e.target.checked) setSelected(safeRows.map((r) => r._id));
@@ -108,9 +128,7 @@ function TableComponent({
                     </TableHead>
 
                     <TableBody>
-                        {safeRows
-                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                            .map((row, i) => (
+                        {displayedRows.map((row, i) => (
                                 <TableRow key={row._id || i} hover>
                                     {showCheckbox && (
                                         <TableCell padding="checkbox">
@@ -122,7 +140,9 @@ function TableComponent({
                                     )}
 
                                     <TableCell>
-                                        {page * rowsPerPage + i + 1}
+                                        {serverSidePagination 
+                                            ? currentPage * currentRowsPerPage + i + 1
+                                            : clientPage * clientRowsPerPage + i + 1}
                                     </TableCell>
 
                                     {columns.map((col) => (
@@ -193,15 +213,28 @@ function TableComponent({
             {/* PAGINATION */}
             <TablePagination
                 component="div"
-                count={safeRows.length}
-                page={page}
-                rowsPerPage={rowsPerPage}
-                onPageChange={(_, p) => setPage(p)}
-                onRowsPerPageChange={(e) => {
-                    setRowsPerPage(+e.target.value);
-                    setPage(0);
+                count={totalRows}
+                page={currentPage}
+                rowsPerPage={currentRowsPerPage}
+                onPageChange={(_, p) => {
+                    if (serverSidePagination && onPageChange) {
+                        onPageChange(p);
+                    } else {
+                        setClientPage(p);
+                    }
                 }}
-                rowsPerPageOptions={[10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]}
+                onRowsPerPageChange={(e) => {
+                    const newRowsPerPage = +e.target.value;
+                    if (serverSidePagination && onRowsPerPageChange) {
+                        onRowsPerPageChange(newRowsPerPage);
+                    } else {
+                        setClientRowsPerPage(newRowsPerPage);
+                        setClientPage(0);
+                    }
+                }}
+                rowsPerPageOptions={serverSidePagination 
+                    ? [10, 25, 50, 100] 
+                    : [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]}
             />
         </Paper>
     );

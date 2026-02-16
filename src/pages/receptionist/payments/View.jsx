@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, TablePagination } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
@@ -21,6 +21,11 @@ function Payments_View() {
     // Invoices Data
     const [invoices, setInvoices] = useState([]);
     const [invoiceSearch, setInvoiceSearch] = useState("");
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
     // Stats
     const [stats, setStats] = useState({
@@ -37,7 +42,10 @@ function Payments_View() {
 
     const fetchInvoices = async () => {
         try {
-            const params = {};
+            const params = {
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
+            };
             if (invoiceSearch) params.search = invoiceSearch;
 
             const response = await invoiceService.getAllInvoices(params);
@@ -45,6 +53,15 @@ function Payments_View() {
             if (response && response.success) {
                 const invoicesData = Array.isArray(response.data) ? response.data : [];
                 setInvoices(invoicesData);
+                
+                // Update pagination metadata
+                if (response.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: response.meta.total || 0,
+                    }));
+                }
+                
                 return invoicesData;
             } else {
                 console.warn("Invoice API response missing success or data:", response);
@@ -64,12 +81,13 @@ function Payments_View() {
         setLoading(true);
         const invData = await fetchInvoices();
 
-        // Calculate Totals from Invoices only
+        // Calculate Totals from current page invoices (for display)
+        // Note: For accurate totals, we'd need a separate summary endpoint
         const totalIncome = invData.reduce((sum, inv) => sum + (inv.totalPayable || 0), 0);
 
         setStats({
-            totalInvoices: invData.length,
-            totalIncome,
+            totalInvoices: pagination.total || invData.length, // Use total from pagination if available
+            totalIncome, // This is only for current page, consider fetching summary separately if needed
             netBalance: totalIncome
         });
 
@@ -78,6 +96,11 @@ function Payments_View() {
 
     useEffect(() => {
         loadAllData();
+    }, [pagination.page, pagination.rowsPerPage, invoiceSearch]);
+    
+    // Reset to first page when search changes
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
     }, [invoiceSearch]);
 
     const handleViewInvoice = (invoice) => {
@@ -282,6 +305,26 @@ function Payments_View() {
                                     <DescriptionIcon sx={{ fontSize: 48, color: "#ccc" }} />
                                     <p className="text-muted mt-2">No invoices found.</p>
                                 </div>
+                            )}
+                            
+                            {/* Pagination */}
+                            {!loading && invoices.length > 0 && (
+                                <TablePagination
+                                    component="div"
+                                    count={pagination.total}
+                                    page={pagination.page}
+                                    rowsPerPage={pagination.rowsPerPage}
+                                    onPageChange={(_, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                                    onRowsPerPageChange={(e) => {
+                                        setPagination(prev => ({
+                                            ...prev,
+                                            rowsPerPage: parseInt(e.target.value, 10),
+                                            page: 0
+                                        }));
+                                    }}
+                                    rowsPerPageOptions={[10, 25, 50, 100]}
+                                    labelRowsPerPage="Rows per page:"
+                                />
                             )}
                         </div>
                     </div>

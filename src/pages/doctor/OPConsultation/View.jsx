@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Box, Stack, Button, Chip, CircularProgress } from "@mui/material";
+import { Box, Stack, Chip, CircularProgress, TextField, MenuItem } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
@@ -23,10 +23,15 @@ function OPConsultation_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [filter, setFilter] = useState("All");
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
 
-    // Fetch appointments from API
+    // Fetch appointments from API (server-side pagination, search, status)
     const fetchAppointments = useCallback(async () => {
         if (!user?._id) {
             setIsLoading(false);
@@ -35,21 +40,26 @@ function OPConsultation_View() {
 
         setIsLoading(true);
         try {
+            const params = {
+                page: pagination.page + 1,
+                limit: pagination.rowsPerPage,
+            };
+            if (searchText && searchText.trim()) params.search = searchText.trim();
+            if (filter && filter !== "All") params.status = filter;
+
             const response = await axios.get(
                 getApiUrl("appointments"),
                 {
                     headers: getAuthHeaders(),
-                    params: {
-                        page: 1,
-                        limit: 1000, // Get all appointments for now
-                        // userId is automatically used if user is Doctor (handled in backend)
-                    },
+                    params,
                 }
             );
 
             if (response.data.success) {
-                // Transform API response to match frontend table structure
-                const appointments = (response.data.data || []).filter(
+                const rawData = response.data.data || [];
+                const total = response.data.meta?.total ?? rawData.length;
+                // Exclude cancelled / no-show from display only (backend may still return them)
+                const appointments = rawData.filter(
                     appt => appt.status !== "Cancelled" && appt.status !== "No Show"
                 );
 
@@ -99,6 +109,7 @@ function OPConsultation_View() {
                 );
 
                 setConsultations(consultationsWithExamination);
+                setPagination((prev) => ({ ...prev, total }));
             } else {
                 toast.error(response.data.message || "Failed to fetch appointments");
             }
@@ -108,37 +119,42 @@ function OPConsultation_View() {
         } finally {
             setIsLoading(false);
         }
-    }, [user]);
+    }, [user, pagination.page, pagination.rowsPerPage, searchText, filter]);
 
     useEffect(() => {
         fetchAppointments();
     }, [fetchAppointments]);
 
-    // Filter consultations
-    const filteredConsultations = useMemo(() => {
-        return consultations.filter((consultation) => {
-            const searchMatch =
-                searchText === "" ||
-                consultation.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-                consultation.patientId.toLowerCase().includes(searchText.toLowerCase()) ||
-                consultation.chiefComplaint.toLowerCase().includes(searchText.toLowerCase());
+    const handlePageChange = (newPage) => {
+        setPagination((prev) => ({ ...prev, page: newPage }));
+    };
+    const handleRowsPerPageChange = (newRowsPerPage) => {
+        setPagination((prev) => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }));
+    };
 
-            const statusMatch = filter === "All" || consultation.status === filter;
+    // Reset to first page when search or filter changes
+    const onSearchChange = (val) => {
+        setSearchText(val);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
+    const onFilterChange = (btn) => {
+        setFilter(btn);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
 
-            return searchMatch && statusMatch;
-        });
-    }, [consultations, searchText, filter]);
+    // Display rows (search/status applied on server)
+    const displayedConsultations = consultations;
 
-    // Calculate statistics
+    // Stats from current page data (for cards)
     const stats = useMemo(() => {
         const today = new Date().toISOString().split("T")[0];
         return {
-            total: consultations.length,
+            total: pagination.total,
             today: consultations.filter((c) => c.appointmentDate === today).length,
             scheduled: consultations.filter((c) => c.status === "Scheduled").length,
             completed: consultations.filter((c) => c.status === "Completed").length,
         };
-    }, [consultations]);
+    }, [consultations, pagination.total]);
 
     const columns = [
         {
@@ -311,47 +327,39 @@ function OPConsultation_View() {
                 <div style={{ flex: 1, marginRight: "1rem" }}>
                     <Search
                         value={searchText}
-                        onChange={(val) => setSearchText(val)}
+                        onChange={onSearchChange}
                         style={{ width: "100%" }}
                     />
                 </div>
 
-                <div style={{ display: "flex", gap: "1rem" }}>
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <ExportDataButton
-                        rows={filteredConsultations}
+                        rows={displayedConsultations}
                         columns={columns}
                         fileName="op-consultations.xlsx"
                     />
+                    <TextField
+                        select
+                        value={filter}
+                        onChange={(e) => onFilterChange(e.target.value)}
+                        sx={{
+                            width: { xs: "100%", sm: 220 },
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: 3,
+                                bgcolor: "white",
+                                height: 46,
+                            },
+                        }}
+                        size="small"
+                    >
+                        <MenuItem value="All">All Status</MenuItem>
+                        <MenuItem value="Scheduled">Scheduled</MenuItem>
+                        <MenuItem value="Completed">Completed</MenuItem>
+                    </TextField>
                 </div>
             </CardBorder>
 
-            {/* Filter Buttons */}
-            <Stack direction="row" spacing={2} mb={3}>
-                {["All", "Scheduled", "Completed"].map((btn) => (
-                    <Button
-                        key={btn}
-                        onClick={() => setFilter(btn)}
-                        variant={filter === btn ? "contained" : "outlined"}
-                        sx={{
-                            px: 3,
-                            py: 1,
-                            borderRadius: 2,
-                            bgcolor: filter === btn ? "var(--color-primary)" : "transparent",
-                            color: filter === btn ? "white" : "var(--color-text-dark)",
-                            borderColor: "var(--color-border)",
-                            fontWeight: 600,
-                            textTransform: "none",
-                            "&:hover": {
-                                bgcolor: filter === btn ? "var(--color-primary-dark)" : "var(--color-bg-hover)",
-                            },
-                        }}
-                    >
-                        {btn}
-                    </Button>
-                ))}
-            </Stack>
-
-            {/* Table */}
+            {/* Table - server-side pagination same as in-patients */}
             {isLoading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
                     <CircularProgress />
@@ -360,7 +368,7 @@ function OPConsultation_View() {
                 <TableComponent
                     title="OP Consultations"
                     columns={columns}
-                    rows={filteredConsultations.map((row) => ({
+                    rows={displayedConsultations.map((row) => ({
                         ...row,
                         status: getStatusBadge(row.status),
                     }))}
@@ -371,6 +379,12 @@ function OPConsultation_View() {
                     showAddButton={false}
                     showExportButton={false}
                     showCheckbox={false}
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
                 />
             )}
         </Box>

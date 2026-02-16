@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Box, Grid, Card, CardContent, Typography, CircularProgress, Chip, Avatar, Divider, alpha, useTheme } from "@mui/material";
+import { Box, Grid, Card, CardContent, Typography, CircularProgress, Chip, Avatar, Divider, alpha, useTheme, TablePagination } from "@mui/material";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import GreetingBanner from "../../components/card/GreetingCard";
@@ -35,6 +35,12 @@ function Receptionist_Dashboard() {
     const [loading, setLoading] = useState(true);
     const [dashboardData, setDashboardData] = useState(null);
     const [error, setError] = useState(null);
+    
+    // Pagination states for dashboard sections
+    const [appointmentsPagination, setAppointmentsPagination] = useState({ page: 0, rowsPerPage: 5 });
+    const [upcomingPagination, setUpcomingPagination] = useState({ page: 0, rowsPerPage: 5 });
+    const [invoicesPagination, setInvoicesPagination] = useState({ page: 0, rowsPerPage: 5 });
+    const [therapyPagination, setTherapyPagination] = useState({ page: 0, rowsPerPage: 5 });
 
     // Notification hooks (not showing popups anymore - using header bell icon instead)
     const {
@@ -410,7 +416,12 @@ function Receptionist_Dashboard() {
                             <Divider sx={{ mb: 2 }} />
                             {dashboardData.recentAppointments && dashboardData.recentAppointments.length > 0 ? (
                                 <Box>
-                                    {dashboardData.recentAppointments.slice(0, 5).map((apt) => (
+                                    {dashboardData.recentAppointments
+                                        .slice(
+                                            appointmentsPagination.page * appointmentsPagination.rowsPerPage,
+                                            appointmentsPagination.page * appointmentsPagination.rowsPerPage + appointmentsPagination.rowsPerPage
+                                        )
+                                        .map((apt) => (
                                         <Box
                                             key={apt._id}
                                             sx={{
@@ -471,6 +482,27 @@ function Receptionist_Dashboard() {
                                             </Box>
                                         </Box>
                                     ))}
+                                    
+                                    {/* Pagination for Recent Appointments */}
+                                    {dashboardData.recentAppointments.length > appointmentsPagination.rowsPerPage && (
+                                        <TablePagination
+                                            component="div"
+                                            count={dashboardData.recentAppointments.length}
+                                            page={appointmentsPagination.page}
+                                            rowsPerPage={appointmentsPagination.rowsPerPage}
+                                            onPageChange={(_, newPage) => setAppointmentsPagination(prev => ({ ...prev, page: newPage }))}
+                                            onRowsPerPageChange={(e) => {
+                                                setAppointmentsPagination(prev => ({
+                                                    ...prev,
+                                                    rowsPerPage: parseInt(e.target.value, 10),
+                                                    page: 0
+                                                }));
+                                            }}
+                                            rowsPerPageOptions={[5, 10, 25]}
+                                            labelRowsPerPage="Rows:"
+                                            sx={{ mt: 2 }}
+                                        />
+                                    )}
                                 </Box>
                             ) : (
                                 <Box sx={{ textAlign: "center", py: 4 }}>
@@ -502,7 +534,12 @@ function Receptionist_Dashboard() {
                             <Divider sx={{ mb: 2 }} />
                             {dashboardData.upcomingAppointments && Array.isArray(dashboardData.upcomingAppointments) && dashboardData.upcomingAppointments.length > 0 ? (
                                 <Box>
-                                    {dashboardData.upcomingAppointments.slice(0, 5).map((apt) => (
+                                    {dashboardData.upcomingAppointments
+                                        .slice(
+                                            upcomingPagination.page * upcomingPagination.rowsPerPage,
+                                            upcomingPagination.page * upcomingPagination.rowsPerPage + upcomingPagination.rowsPerPage
+                                        )
+                                        .map((apt) => (
                                         <Box
                                             key={apt._id}
                                             sx={{
@@ -558,6 +595,27 @@ function Receptionist_Dashboard() {
                                             </Box>
                                         </Box>
                                     ))}
+                                    
+                                    {/* Pagination for Upcoming Appointments */}
+                                    {dashboardData.upcomingAppointments.length > upcomingPagination.rowsPerPage && (
+                                        <TablePagination
+                                            component="div"
+                                            count={dashboardData.upcomingAppointments.length}
+                                            page={upcomingPagination.page}
+                                            rowsPerPage={upcomingPagination.rowsPerPage}
+                                            onPageChange={(_, newPage) => setUpcomingPagination(prev => ({ ...prev, page: newPage }))}
+                                            onRowsPerPageChange={(e) => {
+                                                setUpcomingPagination(prev => ({
+                                                    ...prev,
+                                                    rowsPerPage: parseInt(e.target.value, 10),
+                                                    page: 0
+                                                }));
+                                            }}
+                                            rowsPerPageOptions={[5, 10, 25]}
+                                            labelRowsPerPage="Rows:"
+                                            sx={{ mt: 2 }}
+                                        />
+                                    )}
                                 </Box>
                             ) : (
                                 <Box sx={{ textAlign: "center", py: 4 }}>
@@ -600,7 +658,12 @@ function Receptionist_Dashboard() {
                             <Divider sx={{ mb: 2 }} />
                             {dashboardData.recentInvoices && dashboardData.recentInvoices.length > 0 ? (
                                 <Box>
-                                    {dashboardData.recentInvoices.map((inv) => (
+                                    {dashboardData.recentInvoices
+                                        .slice(
+                                            invoicesPagination.page * invoicesPagination.rowsPerPage,
+                                            invoicesPagination.page * invoicesPagination.rowsPerPage + invoicesPagination.rowsPerPage
+                                        )
+                                        .map((inv) => (
                                         <Box
                                             key={inv._id}
                                             sx={{
@@ -674,6 +737,27 @@ function Receptionist_Dashboard() {
                                             </Box>
                                         </Box>
                                     ))}
+                                    
+                                    {/* Pagination for Recent Invoices */}
+                                    {dashboardData.recentInvoices.length > invoicesPagination.rowsPerPage && (
+                                        <TablePagination
+                                            component="div"
+                                            count={dashboardData.recentInvoices.length}
+                                            page={invoicesPagination.page}
+                                            rowsPerPage={invoicesPagination.rowsPerPage}
+                                            onPageChange={(_, newPage) => setInvoicesPagination(prev => ({ ...prev, page: newPage }))}
+                                            onRowsPerPageChange={(e) => {
+                                                setInvoicesPagination(prev => ({
+                                                    ...prev,
+                                                    rowsPerPage: parseInt(e.target.value, 10),
+                                                    page: 0
+                                                }));
+                                            }}
+                                            rowsPerPageOptions={[5, 10, 25]}
+                                            labelRowsPerPage="Rows:"
+                                            sx={{ mt: 2 }}
+                                        />
+                                    )}
                                 </Box>
                             ) : (
                                 <Box sx={{ textAlign: "center", py: 4 }}>
@@ -713,7 +797,12 @@ function Receptionist_Dashboard() {
                             <Divider sx={{ mb: 2 }} />
                             {dashboardData.recentTherapySessions && dashboardData.recentTherapySessions.length > 0 ? (
                                 <Box>
-                                    {dashboardData.recentTherapySessions.slice(0, 5).map((session) => (
+                                    {dashboardData.recentTherapySessions
+                                        .slice(
+                                            therapyPagination.page * therapyPagination.rowsPerPage,
+                                            therapyPagination.page * therapyPagination.rowsPerPage + therapyPagination.rowsPerPage
+                                        )
+                                        .map((session) => (
                                         <Box
                                             key={session._id}
                                             sx={{
@@ -782,6 +871,27 @@ function Receptionist_Dashboard() {
                                             </Box>
                                         </Box>
                                     ))}
+                                    
+                                    {/* Pagination for Therapy Sessions */}
+                                    {dashboardData.recentTherapySessions.length > therapyPagination.rowsPerPage && (
+                                        <TablePagination
+                                            component="div"
+                                            count={dashboardData.recentTherapySessions.length}
+                                            page={therapyPagination.page}
+                                            rowsPerPage={therapyPagination.rowsPerPage}
+                                            onPageChange={(_, newPage) => setTherapyPagination(prev => ({ ...prev, page: newPage }))}
+                                            onRowsPerPageChange={(e) => {
+                                                setTherapyPagination(prev => ({
+                                                    ...prev,
+                                                    rowsPerPage: parseInt(e.target.value, 10),
+                                                    page: 0
+                                                }));
+                                            }}
+                                            rowsPerPageOptions={[5, 10, 25]}
+                                            labelRowsPerPage="Rows:"
+                                            sx={{ mt: 2 }}
+                                        />
+                                    )}
                                 </Box>
                             ) : (
                                 <Box sx={{ textAlign: "center", py: 4 }}>

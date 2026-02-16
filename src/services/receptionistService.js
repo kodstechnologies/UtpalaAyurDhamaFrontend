@@ -16,16 +16,31 @@ const receptionistService = {
     },
 
     // Get patients for marketing
-    getMarketingPatients: async ({ page = 1, limit = 1000 } = {}) => {
+    getMarketingPatients: async ({ page = 1, limit = 1000, search = null } = {}, signal = null) => {
         try {
+            const config = {
+                headers: getAuthHeaders(),
+            };
+            if (signal) {
+                config.signal = signal;
+            }
+            
+            // Build query string with search parameter if provided
+            let queryString = `page=${page}&limit=${limit}`;
+            if (search && search.trim()) {
+                queryString += `&search=${encodeURIComponent(search.trim())}`;
+            }
+            
             const response = await axios.get(
-                getApiUrl(`marketing/patients?page=${page}&limit=${limit}`),
-                {
-                    headers: getAuthHeaders(),
-                }
+                getApiUrl(`marketing/patients?${queryString}`),
+                config
             );
             return response.data;
         } catch (error) {
+            // Don't throw if request was cancelled
+            if (axios.isCancel(error) || error.name === 'AbortError') {
+                throw error;
+            }
             console.error("Error fetching marketing patients:", error);
             throw error.response?.data || error.message;
         }

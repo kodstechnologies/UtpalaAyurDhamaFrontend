@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, TablePagination } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
@@ -28,6 +28,11 @@ function Reports_View() {
     const [endDate, setEndDate] = useState("");
     const [loading, setLoading] = useState(false);
     const [hasGenerated, setHasGenerated] = useState(false);
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
     // Calculate totals from report data (as fallback)
     const totals = useMemo(() => {
@@ -81,7 +86,7 @@ function Reports_View() {
     };
 
     // Handle generate report
-    const handleGenerateReport = async () => {
+    const handleGenerateReport = async (pageOverride = null, rowsPerPageOverride = null) => {
         if (!startDate || !endDate) {
             toast.error("Please select both a start and end date.");
             return;
@@ -105,10 +110,15 @@ function Reports_View() {
 
             console.log("Fetching report with dates:", { startDateISO, endDateISO });
 
+            const currentPage = pageOverride !== null ? pageOverride : pagination.page;
+            const currentRowsPerPage = rowsPerPageOverride !== null ? rowsPerPageOverride : pagination.rowsPerPage;
+
             const response = await paymentService.getPaymentReport({
                 startDate: startDateISO,
                 endDate: endDateISO,
                 format: "json",
+                page: currentPage + 1, // Backend uses 1-based pagination
+                limit: currentRowsPerPage,
             });
 
             console.log("Report API response:", response);
@@ -132,11 +142,33 @@ function Reports_View() {
                 setReportData(formattedTransactions);
                 setSummaryData(summary || null);
                 setHasGenerated(true);
+                
+                // Update pagination metadata
+                let totalCount = 0;
+                if (response.meta && response.meta.total !== undefined && response.meta.total !== null) {
+                    const metaTotal = Number(response.meta.total);
+                    if (!isNaN(metaTotal) && metaTotal >= 0) {
+                        totalCount = metaTotal;
+                    } else {
+                        // Fallback to transactions length if meta.total is invalid
+                        totalCount = formattedTransactions.length || 0;
+                    }
+                } else {
+                    // Fallback: use transactions length if meta is not available
+                    totalCount = formattedTransactions.length || 0;
+                }
+                
+                setPagination(prev => ({
+                    ...prev,
+                    total: totalCount,
+                    page: pageOverride !== null ? pageOverride : prev.page,
+                    rowsPerPage: rowsPerPageOverride !== null ? rowsPerPageOverride : prev.rowsPerPage,
+                }));
 
                 if (formattedTransactions.length === 0) {
                     toast.info("No transactions found for the selected date range.");
                 } else {
-                    toast.success(`Report generated successfully. Found ${formattedTransactions.length} transaction(s).`);
+                    toast.success(`Report generated successfully. Found ${response.meta?.total || formattedTransactions.length} transaction(s).`);
                 }
             } else {
                 console.error("Invalid response structure:", response);
@@ -150,6 +182,11 @@ function Reports_View() {
         } finally {
             setLoading(false);
         }
+    };
+    
+    // Reset pagination when date range changes
+    const handleDateChange = () => {
+        setPagination(prev => ({ ...prev, page: 0 }));
     };
 
     // Handle download Excel
@@ -350,7 +387,10 @@ function Reports_View() {
                                         type="date"
                                         className="form-control"
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
+                                        onChange={(e) => {
+                                            setStartDate(e.target.value);
+                                            handleDateChange();
+                                        }}
                                         max={endDate || undefined}
                                     />
                                 </div>
@@ -360,7 +400,10 @@ function Reports_View() {
                                         type="date"
                                         className="form-control"
                                         value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
+                                        onChange={(e) => {
+                                            setEndDate(e.target.value);
+                                            handleDateChange();
+                                        }}
                                         min={startDate || undefined}
                                     />
                                 </div>
@@ -597,6 +640,41 @@ function Reports_View() {
                                         </tfoot>
                                     </table>
                                 </div>
+                                
+                                {/* Pagination */}
+                                {!loading && reportData.length > 0 && (
+                                    <TablePagination
+                                        component="div"
+                                        count={typeof pagination.total === 'number' && !isNaN(pagination.total) ? pagination.total : reportData.length}
+                                        page={typeof pagination.page === 'number' && !isNaN(pagination.page) ? pagination.page : 0}
+                                        rowsPerPage={typeof pagination.rowsPerPage === 'number' && !isNaN(pagination.rowsPerPage) ? pagination.rowsPerPage : 25}
+                                        onPageChange={(_, newPage) => {
+                                            setPagination(prev => ({ ...prev, page: newPage }));
+                                            // Refetch report with new page after state update
+                                            setTimeout(() => {
+                                                if (hasGenerated && startDate && endDate) {
+                                                    handleGenerateReport(newPage, pagination.rowsPerPage);
+                                                }
+                                            }, 0);
+                                        }}
+                                        onRowsPerPageChange={(e) => {
+                                            const newRowsPerPage = parseInt(e.target.value, 10);
+                                            setPagination(prev => ({
+                                                ...prev,
+                                                rowsPerPage: newRowsPerPage,
+                                                page: 0
+                                            }));
+                                            // Refetch report with new rows per page after state update
+                                            setTimeout(() => {
+                                                if (hasGenerated && startDate && endDate) {
+                                                    handleGenerateReport(0, newRowsPerPage);
+                                                }
+                                            }, 0);
+                                        }}
+                                        rowsPerPageOptions={[10, 25, 50, 100]}
+                                        labelRowsPerPage="Rows per page:"
+                                    />
+                                )}
                             </div>
                         </div>
                     </Box>

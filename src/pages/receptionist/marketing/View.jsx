@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Box, CircularProgress, TextField, MenuItem } from "@mui/material";
+import { Box, CircularProgress, TextField, MenuItem, TablePagination } from "@mui/material";
 import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
@@ -44,8 +44,11 @@ function Marketing_View() {
     const [message, setMessage] = useState("");
     const [selectedTemplateId, setSelectedTemplateId] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
-    const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 15;
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
     const [discountText, setDiscountText] = useState("");
     const [offerDateText, setOfferDateText] = useState("");
     const [selectedImage, setSelectedImage] = useState(null);
@@ -55,46 +58,99 @@ function Marketing_View() {
 
     // Fetch patients from backend
     useEffect(() => {
+        const abortController = new AbortController();
+        let isMounted = true;
+
         const fetchData = async () => {
             setLoading(true);
             try {
-                const response = await receptionistService.getMarketingPatients({ page: 1, limit: 1000 });
+                const params = {
+                    page: pagination.page + 1, // Backend uses 1-based pagination
+                    limit: pagination.rowsPerPage 
+                };
+                
+                // Add search parameter if search is active
+                if (searchQuery && searchQuery.trim()) {
+                    params.search = searchQuery.trim();
+                }
+                
+                const response = await receptionistService.getMarketingPatients(params, abortController.signal);
+                
+                // Check if component is still mounted before updating state
+                if (!isMounted) return;
+                
                 console.log("Marketing API Response:", response);
                 if (response && response.success) {
                     setAllPatients(response.data || []);
                     setDiseases(response.meta?.diseases || []);
                     setTreatments(response.meta?.treatments || []);
+                    
+                    // Update pagination metadata
+                    if (response.meta?.total !== undefined) {
+                        setPagination(prev => ({
+                            ...prev,
+                            total: response.meta.total || 0,
+                        }));
+                    }
                 } else {
                     console.error("Failed to fetch marketing data:", response);
-                    toast.error("Failed to fetch marketing data");
-                    setAllPatients([]);
+                    if (isMounted) {
+                        toast.error("Failed to fetch marketing data");
+                        setAllPatients([]);
+                    }
                 }
             } catch (error) {
+                // Don't show error if request was cancelled
+                if (error.name === 'AbortError' || error.name === 'CanceledError' || error.message === 'canceled') {
+                    return;
+                }
+                
                 console.error("Marketing Error:", error);
-                toast.error(error?.message || "An error occurred while fetching marketing data");
-                setAllPatients([]);
+                if (isMounted) {
+                    toast.error(error?.message || "An error occurred while fetching marketing data");
+                    setAllPatients([]);
+                    setDiseases([]);
+                    setTreatments([]);
+                }
             } finally {
-                setLoading(false);
+                // Always set loading to false, even if request was cancelled
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchData();
-    }, []);
 
-    // Filter patients
+        // Cleanup function to cancel request if component unmounts or dependencies change
+        return () => {
+            isMounted = false;
+            abortController.abort();
+        };
+    }, [pagination.page, pagination.rowsPerPage, searchQuery]);
+    
+    // Reset to first page when filters or search change
+    useEffect(() => {
+        // Only reset if not already on page 0 to avoid unnecessary re-renders
+        setPagination(prev => {
+            if (prev.page === 0) return prev;
+            return { ...prev, page: 0 };
+        });
+    }, [filters.gender, filters.disease, filters.treatment, searchQuery]);
+
+    // Filter patients (client-side filtering for gender/disease/treatment only, search is server-side)
     const filteredPatients = useMemo(() => {
+        // Ensure allPatients is an array
+        if (!Array.isArray(allPatients)) {
+            return [];
+        }
         const result = allPatients.filter((patient) => {
+            // Server-side search is already applied, only apply client-side filters
             const matchesFilters =
                 (filters.gender === "" || patient.gender === filters.gender) &&
                 (filters.disease === "" || patient.disease === filters.disease) &&
                 (filters.treatment === "" || patient.lastTreatment === filters.treatment);
-            const matchesSearch =
-                searchQuery === "" ||
-                (patient.name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (patient.contact?.includes(searchQuery)) ||
-                (patient.uhid?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (patient.disease?.toLowerCase().includes(searchQuery.toLowerCase()));
-            return matchesFilters && matchesSearch;
+            return matchesFilters;
         });
 
         // Sort by last appointment date (most recent first)
@@ -113,20 +169,13 @@ function Marketing_View() {
             return 0;
         });
 
-        // Reset to first page whenever filters or search change
-        setCurrentPage(1);
         return sorted;
     }, [filters, allPatients, searchQuery]);
-
-    const totalPages = useMemo(
-        () => Math.max(1, Math.ceil(filteredPatients.length / pageSize)),
-        [filteredPatients.length]
-    );
-
-    const paginatedPatients = useMemo(() => {
-        const start = (currentPage - 1) * pageSize;
-        return filteredPatients.slice(start, start + pageSize);
-    }, [filteredPatients, currentPage]);
+    
+    // Note: Since filters are applied client-side, we display filteredPatients directly
+    // Server-side pagination fetches the base data, then we filter and display
+    // Ensure paginatedPatients is always an array
+    const paginatedPatients = Array.isArray(filteredPatients) ? filteredPatients : [];
 
     // Calculate stats
     const stats = useMemo(() => {
@@ -629,50 +678,23 @@ function Marketing_View() {
                         )}
 
                         {/* Pagination */}
-                        {filteredPatients.length > pageSize && (
-                            <div className="d-flex justify-content-between align-items-center mt-3">
-                                <small className="text-muted">
-                                    Showing{" "}
-                                    {Math.min((currentPage - 1) * pageSize + 1, filteredPatients.length)}-
-                                    {Math.min(currentPage * pageSize, filteredPatients.length)} of {filteredPatients.length} patients
-                                </small>
-                                <nav>
-                                    <ul className="pagination mb-0">
-                                        <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                                            <button
-                                                className="page-link"
-                                                onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-                                            >
-                                                Previous
-                                            </button>
-                                        </li>
-                                        {Array.from({ length: totalPages }).map((_, index) => {
-                                            const page = index + 1;
-                                            return (
-                                                <li
-                                                    key={page}
-                                                    className={`page-item ${currentPage === page ? "active" : ""}`}
-                                                >
-                                                    <button
-                                                        className="page-link"
-                                                        onClick={() => setCurrentPage(page)}
-                                                    >
-                                                        {page}
-                                                    </button>
-                                                </li>
-                                            );
-                                        })}
-                                        <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                                            <button
-                                                className="page-link"
-                                                onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-                                            >
-                                                Next
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </nav>
-                            </div>
+                        {!loading && paginatedPatients.length > 0 && (
+                            <TablePagination
+                                component="div"
+                                count={pagination.total}
+                                page={pagination.page}
+                                rowsPerPage={pagination.rowsPerPage}
+                                onPageChange={(_, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                                onRowsPerPageChange={(e) => {
+                                    setPagination(prev => ({
+                                        ...prev,
+                                        rowsPerPage: parseInt(e.target.value, 10),
+                                        page: 0
+                                    }));
+                                }}
+                                rowsPerPageOptions={[10, 25, 50, 100]}
+                                labelRowsPerPage="Rows per page:"
+                            />
                         )}
                     </div>
                 </div>

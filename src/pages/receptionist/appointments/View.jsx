@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, TablePagination } from "@mui/material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
@@ -130,6 +130,25 @@ function Appointments_View() {
     const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
     const [ipdWalkIns, setIpdWalkIns] = useState([]);
     const [isLoadingIpdWalkIns, setIsLoadingIpdWalkIns] = useState(false);
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
+    
+    // Pagination state for patients table
+    const [patientsPagination, setPatientsPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
+    
+    // Pagination state for walk-in patients table
+    const [walkInPagination, setWalkInPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
     const navigate = useNavigate();
 
@@ -139,14 +158,21 @@ function Appointments_View() {
         const abortController = new AbortController();
         
         try {
+            const params = {
+                page: patientsPagination.page + 1, // Backend uses 1-based pagination
+                limit: patientsPagination.rowsPerPage,
+            };
+            
+            // Add search parameter if search is active
+            if (filters.search && filters.search.trim() && activeTab === "allPatients") {
+                params.search = filters.search.trim();
+            }
+            
             const response = await axios.get(
                 getApiUrl("reception-patients"),
                 {
                     headers: getAuthHeaders(),
-                    params: {
-                        page: 1,
-                        limit: 1000 // Get all patients for now
-                    },
+                    params,
                     timeout: 30000, // 30 seconds timeout
                     signal: abortController.signal
                 }
@@ -177,6 +203,14 @@ function Appointments_View() {
                     primaryDoctorId: patient.patientProfile?.primaryDoctor?._id || patient.patientProfile?.primaryDoctor || "",
                 }));
                 setAllPatients(transformedPatients);
+                
+                // Update pagination metadata
+                if (response.data.meta) {
+                    setPatientsPagination(prev => ({
+                        ...prev,
+                        total: response.data.meta.total || transformedPatients.length,
+                    }));
+                }
             } else {
                 toast.error(response.data.message || "Failed to fetch patients");
             }
@@ -207,7 +241,7 @@ function Appointments_View() {
         return () => {
             abortController.abort();
         };
-    }, []);
+    }, [patientsPagination.page, patientsPagination.rowsPerPage, filters.search, activeTab]);
 
 
 
@@ -249,14 +283,30 @@ function Appointments_View() {
     }, [allPatients, appointments]);
 
     // Filter and sort patients by registration time (most recent first)
+    // Note: Server-side pagination is used, so allPatients already contains only the current page's data
+    // We only need to sort and apply client-side filtering if search is NOT active (for other tabs)
     const filteredPatients = useMemo(() => {
+        // For "All Registered Patients" tab, data is already paginated from server
+        // Just sort by registration date (most recent first)
+        if (activeTab === "allPatients") {
+            return [...allPatients].sort((a, b) => {
+                const dateA = a.registeredDate && a.registeredDate !== "N/A" 
+                    ? new Date(a.registeredDate.split("/").reverse().join("-")) 
+                    : new Date(0);
+                const dateB = b.registeredDate && b.registeredDate !== "N/A" 
+                    ? new Date(b.registeredDate.split("/").reverse().join("-")) 
+                    : new Date(0);
+                return dateB - dateA; // Most recent first
+            });
+        }
+        
+        // For other tabs, apply client-side filtering if needed
         const filtered = allPatients.filter((patient) => {
             if (!filters.search || !filters.search.trim()) {
                 return true;
             }
             
             const searchLower = filters.search.toLowerCase().trim();
-            // Search across all columns: name, contact, ID, email, age, registered date
             const name = (patient.name || "").toLowerCase();
             const contact = (patient.contact || "").toLowerCase();
             const id = (patient.id || "").toLowerCase();
@@ -284,7 +334,7 @@ function Appointments_View() {
                 : new Date(0);
             return dateB - dateA; // Most recent first
         });
-    }, [allPatients, filters]);
+    }, [allPatients, filters, activeTab]);
 
     // Fetch appointments from API
     const fetchAppointments = useCallback(async () => {
@@ -292,14 +342,26 @@ function Appointments_View() {
         const abortController = new AbortController();
         
         try {
+            const params = {
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
+            };
+            
+            // Add search parameter if search is active
+            if (filters.search && filters.search.trim() && activeTab === "appointments") {
+                params.search = filters.search.trim();
+            }
+            
+            // Add status filter if provided
+            if (filters.appointmentStatus) {
+                params.status = filters.appointmentStatus;
+            }
+            
             const response = await axios.get(
                 getApiUrl("appointments"),
                 {
                     headers: getAuthHeaders(),
-                    params: {
-                        page: 1,
-                        limit: 1000, // Get all appointments
-                    },
+                    params,
                     timeout: 30000, // 30 seconds timeout
                     signal: abortController.signal
                 }
@@ -326,10 +388,16 @@ function Appointments_View() {
                 }));
 
                 setAppointments(transformedAppointments);
+                
+                // Update pagination metadata
+                if (response.data.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: response.data.meta.total || 0,
+                    }));
+                }
             } else {
                 toast.error(response.data.message || "Failed to fetch appointments");
-                // Fallback to mock data if API fails
-                setAppointments(mockAppointments);
             }
         } catch (error) {
             // Don't show error if request was cancelled
@@ -350,8 +418,6 @@ function Appointments_View() {
             }
             
             toast.error(errorMessage);
-            // Fallback to mock data if API fails
-            setAppointments(mockAppointments);
         } finally {
             setIsLoadingAppointments(false);
         }
@@ -360,22 +426,29 @@ function Appointments_View() {
         return () => {
             abortController.abort();
         };
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, filters.search, filters.appointmentStatus, activeTab]);
 
 
     // Fetch IPD walk-in patients (inpatient records created via Walk-in Hub)
     const fetchIpdWalkIns = useCallback(async () => {
         setIsLoadingIpdWalkIns(true);
         try {
+            const params = {
+                page: walkInPagination.page + 1,
+                limit: walkInPagination.rowsPerPage,
+                status: "Admitted" // Only show currently admitted patients
+            };
+            
+            // Add search parameter if search is active for walk-in tab
+            if (filters.search && filters.search.trim() && activeTab === "walkIn") {
+                params.search = filters.search.trim();
+            }
+            
             const response = await axios.get(
                 getApiUrl("inpatients"),
                 {
                     headers: getAuthHeaders(),
-                    params: {
-                        page: 1,
-                        limit: 1000, // Get all inpatients
-                        status: "Admitted" // Only show currently admitted patients
-                    }
+                    params
                 }
             );
 
@@ -410,6 +483,14 @@ function Appointments_View() {
                 }));
 
                 setIpdWalkIns(transformedIpdWalkIns);
+                
+                // Update pagination metadata
+                if (response.data.meta) {
+                    setWalkInPagination(prev => ({
+                        ...prev,
+                        total: response.data.meta.total || transformedIpdWalkIns.length,
+                    }));
+                }
             }
         } catch (error) {
             console.error("Error fetching IPD walk-ins:", error);
@@ -417,7 +498,7 @@ function Appointments_View() {
         } finally {
             setIsLoadingIpdWalkIns(false);
         }
-    }, []);
+    }, [walkInPagination.page, walkInPagination.rowsPerPage, filters.search, activeTab]);
 
     useEffect(() => {
         fetchReceptionPatients();
@@ -425,14 +506,35 @@ function Appointments_View() {
         fetchIpdWalkIns();
     }, [fetchReceptionPatients, fetchAppointments, fetchIpdWalkIns]);
 
+    // Reset to first page when filters change
     useEffect(() => {
         if (activeTab === "appointments") {
-            // Already fetched by initial useEffect, but kept for clarity if tab logic requires re-fetching
+            setPagination(prev => ({ ...prev, page: 0 }));
         }
-    }, [activeTab, fetchAppointments]);
+        if (activeTab === "allPatients") {
+            setPatientsPagination(prev => ({ ...prev, page: 0 }));
+        }
+        if (activeTab === "walkIn") {
+            setWalkInPagination(prev => ({ ...prev, page: 0 }));
+        }
+    }, [filters.appointmentStatus, filters.search, activeTab]);
 
     // Filter and sort appointments by time (most recent first)
+    // Note: Server-side search is now used, so this only handles client-side filtering for status
     const filteredAppointments = useMemo(() => {
+        // If server-side search/filter is active, return appointments as-is (already filtered by backend)
+        if (activeTab === "appointments" && (filters.search || filters.appointmentStatus)) {
+            return appointments.sort((a, b) => {
+                try {
+                    const dateA = new Date(a.appointmentDateTime.split(" ")[0]);
+                    const dateB = new Date(b.appointmentDateTime.split(" ")[0]);
+                    return dateB - dateA; // Most recent first
+                } catch {
+                    return 0;
+                }
+            });
+        }
+        
         const now = new Date();
         now.setHours(0, 0, 0, 0);
 
@@ -809,7 +911,7 @@ function Appointments_View() {
                                             <tbody>
                                                 {filteredPatients.map((patient, index) => (
                                                     <tr key={patient.id}>
-                                                        <td>{index + 1}</td>
+                                                        <td>{patientsPagination.page * patientsPagination.rowsPerPage + index + 1}</td>
                                                         <td>
                                                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                                                 {patient.name}
@@ -999,6 +1101,27 @@ function Appointments_View() {
                                         </table>
                                     </div>
                                 )}
+                                
+                                {/* Pagination for Patients Table */}
+                                {!isLoading && (filteredPatients.length > 0 || patientsPagination.total > 0) && (
+                                    <TablePagination
+                                        component="div"
+                                        count={patientsPagination.total || filteredPatients.length}
+                                        page={patientsPagination.page}
+                                        rowsPerPage={patientsPagination.rowsPerPage}
+                                        onPageChange={(_, newPage) => setPatientsPagination(prev => ({ ...prev, page: newPage }))}
+                                        onRowsPerPageChange={(e) => {
+                                            setPatientsPagination(prev => ({
+                                                ...prev,
+                                                rowsPerPage: parseInt(e.target.value, 10),
+                                                page: 0
+                                            }));
+                                        }}
+                                        rowsPerPageOptions={[10, 25, 50, 100]}
+                                        labelRowsPerPage="Rows per page:"
+                                        sx={{ mt: 2 }}
+                                    />
+                                )}
                             </>
                         )}
 
@@ -1055,7 +1178,7 @@ function Appointments_View() {
                                             <tbody>
                                                 {filteredAppointments.map((appointment, index) => (
                                                     <tr key={appointment.id}>
-                                                        <td>{index + 1}</td>
+                                                        <td>{pagination.page * pagination.rowsPerPage + index + 1}</td>
                                                         <td>{appointment.name}</td>
                                                         <td>{formatDisplayDateTime(appointment.appointmentDateTime)}</td>
                                                         <td>{appointment.doctor}</td>
@@ -1140,6 +1263,26 @@ function Appointments_View() {
                                         </table>
                                     </div>
                                 )}
+                                
+                                {/* Pagination for Appointments */}
+                                {!isLoadingAppointments && filteredAppointments.length > 0 && activeTab === "appointments" && (
+                                    <TablePagination
+                                        component="div"
+                                        count={pagination.total}
+                                        page={pagination.page}
+                                        rowsPerPage={pagination.rowsPerPage}
+                                        onPageChange={(_, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                                        onRowsPerPageChange={(e) => {
+                                            setPagination(prev => ({
+                                                ...prev,
+                                                rowsPerPage: parseInt(e.target.value, 10),
+                                                page: 0
+                                            }));
+                                        }}
+                                        rowsPerPageOptions={[10, 25, 50, 100]}
+                                        labelRowsPerPage="Rows per page:"
+                                    />
+                                )}
                             </>
                         )}
                         {/* Walk-in Patients Tab */}
@@ -1159,11 +1302,13 @@ function Appointments_View() {
                                 </div>
                                 {(() => {
                                     // Filter OPD walk-in appointments (those with notes containing "Walk-in Hub")
+                                    // Note: If server-side search is active, appointments are already filtered
                                     const walkInAppointments = appointments.filter(apt =>
                                         apt.disease && apt.disease.includes("Walk-in Hub")
                                     );
 
                                     // Combine OPD walk-in appointments with IPD walk-in inpatient records
+                                    // Note: If server-side search is active, ipdWalkIns are already filtered
                                     const allWalkIns = [...walkInAppointments, ...ipdWalkIns];
 
                                     // Deduplicate by patient ID - show only the most recent walk-in per patient
@@ -1194,29 +1339,11 @@ function Appointments_View() {
                                     // Convert map back to array
                                     const deduplicatedWalkIns = Array.from(patientWalkInMap.values());
 
-                                    // Apply search filter if search text is provided
+                                    // Apply client-side search filter only if server-side search is not active
+                                    // (Server-side search is already applied in fetchAppointments and fetchIpdWalkIns)
                                     let filteredWalkIns = deduplicatedWalkIns;
-                                    if (filters.search && filters.search.trim()) {
-                                        const searchLower = filters.search.toLowerCase().trim();
-                                        filteredWalkIns = deduplicatedWalkIns.filter((walkIn) => {
-                                            // Search across all columns: name, contact, doctor, date/time, status, room/bed
-                                            const name = (walkIn.name || "").toLowerCase();
-                                            const contact = (walkIn.contact || "").toLowerCase();
-                                            const doctor = (walkIn.doctor || "").toLowerCase();
-                                            const dateTime = (walkIn.appointmentDateTime || "").toLowerCase();
-                                            const status = (walkIn.status || "").toLowerCase();
-                                            const roomBed = walkIn.isIpd 
-                                                ? `${walkIn.roomNumber || ""} ${walkIn.bedNumber || ""}`.toLowerCase()
-                                                : "";
-                                            
-                                            return name.includes(searchLower) ||
-                                                   contact.includes(searchLower) ||
-                                                   doctor.includes(searchLower) ||
-                                                   dateTime.includes(searchLower) ||
-                                                   status.includes(searchLower) ||
-                                                   roomBed.includes(searchLower);
-                                        });
-                                    }
+                                    // Note: Server-side search handles most filtering, but we keep client-side as fallback
+                                    // for combining appointments and inpatients
 
                                     // Sort by date/time (most recent first)
                                     const sortedWalkIns = filteredWalkIns.sort((a, b) => {
@@ -1249,9 +1376,14 @@ function Appointments_View() {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {sortedWalkIns.map((appointment, index) => (
+                                                    {sortedWalkIns
+                                                        .slice(
+                                                            walkInPagination.page * walkInPagination.rowsPerPage,
+                                                            walkInPagination.page * walkInPagination.rowsPerPage + walkInPagination.rowsPerPage
+                                                        )
+                                                        .map((appointment, index) => (
                                                         <tr key={appointment.id}>
-                                                            <td>{index + 1}</td>
+                                                            <td>{walkInPagination.page * walkInPagination.rowsPerPage + index + 1}</td>
                                                             <td>{appointment.name}</td>
                                                             <td>{formatDisplayDateTime(appointment.appointmentDateTime)}</td>
                                                             <td>{appointment.doctor}</td>
@@ -1331,6 +1463,80 @@ function Appointments_View() {
                                             </table>
                                         </div>
                                     );
+                                })()}
+                                
+                                {/* Pagination for Walk-in Patients Table */}
+                                {(() => {
+                                    // Recalculate filteredWalkIns to get count for pagination
+                                    const walkInAppointments = appointments.filter(apt =>
+                                        apt.disease && apt.disease.includes("Walk-in Hub")
+                                    );
+                                    const allWalkIns = [...walkInAppointments, ...ipdWalkIns];
+                                    const patientWalkInMap = new Map();
+                                    allWalkIns.forEach(walkIn => {
+                                        const patientId = walkIn.patientProfileId || walkIn.inpatientId || walkIn.id;
+                                        if (!patientId) return;
+                                        const existing = patientWalkInMap.get(patientId);
+                                        if (!existing) {
+                                            patientWalkInMap.set(patientId, walkIn);
+                                        } else {
+                                            try {
+                                                const existingDate = new Date(existing.appointmentDateTime.split(" ")[0]);
+                                                const newDate = new Date(walkIn.appointmentDateTime.split(" ")[0]);
+                                                if (newDate >= existingDate) {
+                                                    patientWalkInMap.set(patientId, walkIn);
+                                                }
+                                            } catch {
+                                                // Keep existing if date parsing fails
+                                            }
+                                        }
+                                    });
+                                    const deduplicatedWalkIns = Array.from(patientWalkInMap.values());
+                                    let filteredWalkIns = deduplicatedWalkIns;
+                                    if (filters.search && filters.search.trim()) {
+                                        const searchLower = filters.search.toLowerCase().trim();
+                                        filteredWalkIns = deduplicatedWalkIns.filter((walkIn) => {
+                                            const name = (walkIn.name || "").toLowerCase();
+                                            const contact = (walkIn.contact || "").toLowerCase();
+                                            const doctor = (walkIn.doctor || "").toLowerCase();
+                                            const dateTime = (walkIn.appointmentDateTime || "").toLowerCase();
+                                            const status = (walkIn.status || "").toLowerCase();
+                                            const roomBed = walkIn.isIpd 
+                                                ? `${walkIn.roomNumber || ""} ${walkIn.bedNumber || ""}`.toLowerCase()
+                                                : "";
+                                            return name.includes(searchLower) ||
+                                                   contact.includes(searchLower) ||
+                                                   doctor.includes(searchLower) ||
+                                                   dateTime.includes(searchLower) ||
+                                                   status.includes(searchLower) ||
+                                                   roomBed.includes(searchLower);
+                                        });
+                                    }
+                                    
+                                    // Calculate total count (combining appointments and inpatients)
+                                    // For accurate pagination, we'd need backend support for combined search
+                                    // For now, use client-side total
+                                    const totalWalkIns = filteredWalkIns.length;
+                                    
+                                    return totalWalkIns > walkInPagination.rowsPerPage ? (
+                                        <TablePagination
+                                            component="div"
+                                            count={totalWalkIns}
+                                            page={walkInPagination.page}
+                                            rowsPerPage={walkInPagination.rowsPerPage}
+                                            onPageChange={(_, newPage) => setWalkInPagination(prev => ({ ...prev, page: newPage }))}
+                                            onRowsPerPageChange={(e) => {
+                                                setWalkInPagination(prev => ({
+                                                    ...prev,
+                                                    rowsPerPage: parseInt(e.target.value, 10),
+                                                    page: 0
+                                                }));
+                                            }}
+                                            rowsPerPageOptions={[10, 25, 50, 100]}
+                                            labelRowsPerPage="Rows per page:"
+                                            sx={{ mt: 2 }}
+                                        />
+                                    ) : null;
                                 })()}
                             </>
                         )}

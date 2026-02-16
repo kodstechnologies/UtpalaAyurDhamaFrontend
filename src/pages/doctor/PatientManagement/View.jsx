@@ -82,20 +82,29 @@ function Patient_Management_View() {
     const [isLoading, setIsLoading] = useState(true);
     // Search and Filter states
     const [searchText, setSearchText] = useState('');
-    const [treatmentFilter, setTreatmentFilter] = useState('All Treatment Types');
+    const [statusFilter, setStatusFilter] = useState('All');
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
-    // Fetch inpatients from API
+    // Fetch inpatients from API (with server-side search and status filter)
     const fetchInpatients = useCallback(async () => {
         setIsLoading(true);
         try {
+            const params = {
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
+            };
+            if (searchText && searchText.trim()) params.search = searchText.trim();
+            if (statusFilter && statusFilter !== 'All') params.status = statusFilter;
+
             const response = await axios.get(
                 getApiUrl("inpatients"),
                 {
                     headers: getAuthHeaders(),
-                    params: {
-                        page: 1,
-                        limit: 1000, // Get all inpatients for now
-                    },
+                    params,
                 }
             );
 
@@ -117,6 +126,9 @@ function Patient_Management_View() {
                 }));
 
                 setRows(transformedInpatients);
+                // Update pagination total (backend sends meta.total)
+                const total = response.data.meta?.total ?? response.data.total ?? 0;
+                setPagination(prev => ({ ...prev, total }));
             } else {
                 toast.error(response.data.message || "Failed to fetch inpatients");
             }
@@ -126,17 +138,14 @@ function Patient_Management_View() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, searchText, statusFilter]);
 
     useEffect(() => {
         fetchInpatients();
     }, [fetchInpatients]);
-
-    // Filtered rows
-    const filteredRows = rows.filter(row =>
-        row.patientName.toLowerCase().includes(searchText.toLowerCase()) &&
-        (treatmentFilter === "All Treatment Types" || row.reason.toLowerCase().includes(treatmentFilter.toLowerCase()))
-    );
+    
+    // No client-side filtering; search and status are applied on the server
+    const displayedRows = rows;
 
     // Dynamic dashboard counts based on rows (using backend status values: Admitted, Discharged, Transferred)
     const totalPatients = rows.length;
@@ -288,23 +297,29 @@ function Patient_Management_View() {
                 <div style={{ flex: 1, marginRight: "1rem" }}>
                     <Search
                         value={searchText}
-                        onChange={(val) => setSearchText(val)}
+                        onChange={(val) => {
+                            setSearchText(val);
+                            setPagination((prev) => ({ ...prev, page: 0 }));
+                        }}
                         style={{ width: "100%" }}
                     />
                 </div>
                 {/* RIGHT SIDE — Export + Filter */}
                 <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <ExportDataButton
-                        rows={filteredRows}
+                        rows={rows}
                         columns={columns}
                         fileName="patients.xlsx"
                     />
                     <TextField
                         select
-                        value={treatmentFilter}
-                        onChange={(e) => setTreatmentFilter(e.target.value)}
+                        value={statusFilter}
+                        onChange={(e) => {
+                            setStatusFilter(e.target.value);
+                            setPagination((prev) => ({ ...prev, page: 0 }));
+                        }}
                         sx={{
-                            width: { xs: "100%", sm: 300 },
+                            width: { xs: "100%", sm: 220 },
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: 3,
                                 bgcolor: 'white',
@@ -313,13 +328,10 @@ function Patient_Management_View() {
                         }}
                         size="small"
                     >
-                        <MenuItem value="All Treatment Types">
-                            <strong>All Treatment Types</strong>
-                        </MenuItem>
-                        <MenuItem value="Diabetes">Diabetes</MenuItem>
-                        <MenuItem value="Asthma">Asthma</MenuItem>
-                        <MenuItem value="Hypertension">Hypertension</MenuItem>
-                        <MenuItem value="Arthritis">Arthritis</MenuItem>
+                        <MenuItem value="All">All Status</MenuItem>
+                        <MenuItem value="Admitted">Admitted</MenuItem>
+                        <MenuItem value="Discharged">Discharged</MenuItem>
+                        <MenuItem value="Transferred">Transferred</MenuItem>
                     </TextField>
                 </div>
             </CardBorder>
@@ -331,10 +343,16 @@ function Patient_Management_View() {
             ) : (
                 <TableComponent
                     columns={columns}
-                    rows={filteredRows}
+                    rows={displayedRows}
                     showStatusBadge={true}
                     statusField="status"
                     actions={customActions}
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={(newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                    onRowsPerPageChange={(newRowsPerPage) => setPagination(prev => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }))}
                 />
             )}
         </div>

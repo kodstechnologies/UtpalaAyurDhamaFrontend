@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, CircularProgress, Tabs, Tab, Chip, TextField, MenuItem, Select, FormControl, InputLabel } from "@mui/material";
+import { Box, CircularProgress, Tabs, Tab, Chip, TextField, MenuItem, Select, FormControl, InputLabel, TablePagination } from "@mui/material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -23,37 +23,50 @@ function Treatments_View() {
         search: "",
     });
     const [hoveredButton, setHoveredButton] = useState(null);
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
 
     // Fetch all patients from API
-    const fetchPatients = useCallback(async () => {
+    const fetchPatients = useCallback(async (signal = null) => {
         setIsLoading(true);
         try {
-            // Fetch patients
+            const params = {
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
+            };
+            
+            // Add search parameter if search is active
+            if (filters.search && filters.search.trim()) {
+                params.search = filters.search.trim();
+            }
+            
+            // Fetch patients with pagination
             const patientsResponse = await axios.get(
                 getApiUrl("patients"),
                 {
                     headers: getAuthHeaders(),
-                    params: {
-                        page: 1,
-                        limit: 1000, // Get all patients
-                    },
+                    params,
+                    signal
                 }
             );
 
-            // Fetch therapist sessions
+            // Fetch therapist sessions (for current page patients)
             const therapistSessionsResponse = await axios.get(
                 getApiUrl("therapist-sessions"),
                 { headers: getAuthHeaders() }
             );
 
-            // Fetch inpatients for nurse allocation
+            // Fetch inpatients for nurse allocation (for current page)
             const inpatientsResponse = await axios.get(
                 getApiUrl("inpatients"),
                 {
                     headers: getAuthHeaders(),
                     params: {
-                        page: 1,
-                        limit: 1000,
+                        page: pagination.page + 1,
+                        limit: pagination.rowsPerPage,
                     },
                 }
             );
@@ -133,6 +146,14 @@ function Treatments_View() {
                 });
 
                 setPatients(transformedPatients);
+                
+                // Update pagination metadata from patients response
+                if (patientsResponse.data.data) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: patientsResponse.data.data.total || transformedPatients.length,
+                    }));
+                }
             } else {
                 toast.error(patientsResponse.data.message || "Failed to fetch patients");
                 setPatients([]);
@@ -144,37 +165,38 @@ function Treatments_View() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, filters.search]);
 
     useEffect(() => {
-        fetchPatients();
+        const abortController = new AbortController();
+        fetchPatients(abortController.signal);
+        
+        return () => {
+            abortController.abort();
+        };
     }, [fetchPatients]);
+    
+    // Reset to first page when search or tab changes
+    useEffect(() => {
+        if (pagination.page !== 0) {
+            setPagination(prev => ({ ...prev, page: 0 }));
+        }
+    }, [filters.search, activeTab]);
 
     const filteredPatients = useMemo(() => {
         let filtered = patients;
 
         // Filter by tab (OPD / IPD)
+        // Note: Server-side search is now used, so this only handles tab filtering
         if (activeTab === "opd") {
             filtered = filtered.filter(p => !p.isInpatient);
         } else if (activeTab === "ipd") {
             filtered = filtered.filter(p => p.isInpatient);
         }
 
-        // Filter by search term (patient name, UHID, phone, email)
-        if (filters.search) {
-            const searchTerm = filters.search.toLowerCase();
-            filtered = filtered.filter((patient) => {
-                return (
-                    patient.patientName?.toLowerCase().includes(searchTerm) ||
-                    patient.uhid?.toLowerCase().includes(searchTerm) ||
-                    patient.phone?.includes(searchTerm) ||
-                    patient.email?.toLowerCase().includes(searchTerm)
-                );
-            });
-        }
-
+        // Server-side search is already applied, no need for client-side search filtering
         return filtered;
-    }, [patients, filters.search, activeTab]);
+    }, [patients, activeTab]);
 
     const getTypeBadge = (isInpatient) => {
         if (isInpatient) {
@@ -279,7 +301,7 @@ function Treatments_View() {
                                     <tbody>
                                         {filteredPatients.map((patient, index) => (
                                             <tr key={patient._id}>
-                                                <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>{pagination.page * pagination.rowsPerPage + index + 1}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <div className="d-flex align-items-center gap-2">
                                                         <PersonIcon fontSize="small" color="primary" />
@@ -376,6 +398,26 @@ function Treatments_View() {
                                     </tbody>
                                 </table>
                             </div>
+                        )}
+                        
+                        {/* Pagination */}
+                        {!isLoading && filteredPatients.length > 0 && (
+                            <TablePagination
+                                component="div"
+                                count={pagination.total}
+                                page={pagination.page}
+                                rowsPerPage={pagination.rowsPerPage}
+                                onPageChange={(_, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                                onRowsPerPageChange={(e) => {
+                                    setPagination(prev => ({
+                                        ...prev,
+                                        rowsPerPage: parseInt(e.target.value, 10),
+                                        page: 0
+                                    }));
+                                }}
+                                rowsPerPageOptions={[10, 25, 50, 100]}
+                                labelRowsPerPage="Rows per page:"
+                            />
                         )}
                     </div>
                 </div>

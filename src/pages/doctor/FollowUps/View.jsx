@@ -622,7 +622,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 // import { Box, Stack, Button, CircularProgress, Chip, Checkbox } from "@mui/material";
-import { Box, Stack, Button, CircularProgress, Chip, Checkbox } from "@mui/material";
+import { Box, Stack, CircularProgress, Chip, Checkbox, TextField, MenuItem } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import ReplayIcon from "@mui/icons-material/Replay";
@@ -645,10 +645,11 @@ function FollowUps_View() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [filter, setFilter] = useState("All");
+    const [pagination, setPagination] = useState({ page: 0, rowsPerPage: 25, total: 0 });
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
 
-    // Fetch follow-ups from backend
+    // Fetch follow-ups from backend (server-side pagination + search + status)
     const fetchFollowUps = useCallback(async () => {
         if (!user?._id) {
             setIsLoading(false);
@@ -657,14 +658,22 @@ function FollowUps_View() {
 
         setIsLoading(true);
         try {
-            // Fetch all follow-ups for the authenticated doctor
+            const params = {
+                page: pagination.page + 1,
+                limit: pagination.rowsPerPage,
+            };
+            if (searchText && searchText.trim()) params.search = searchText.trim();
+            if (filter && filter !== "All") params.status = filter;
+
             const response = await axios.get(
                 getApiUrl(`examinations/followups/all/by-doctor`),
-                { headers: getAuthHeaders() }
+                { headers: getAuthHeaders(), params }
             );
 
             if (response.data.success) {
                 const followUpData = response.data.data || [];
+                const total = response.data.meta?.total ?? 0;
+                setPagination((prev) => ({ ...prev, total }));
 
                 // Transform the data to match the table structure
                 const transformedFollowUps = followUpData.map((fup) => {
@@ -713,7 +722,19 @@ function FollowUps_View() {
         } finally {
             setIsLoading(false);
         }
-    }, [user]);
+    }, [user, pagination.page, pagination.rowsPerPage, searchText, filter]);
+
+    const handlePageChange = (newPage) => setPagination((prev) => ({ ...prev, page: newPage }));
+    const handleRowsPerPageChange = (newRowsPerPage) =>
+        setPagination((prev) => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }));
+    const onSearchChange = (val) => {
+        setSearchText(val);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
+    const onFilterChange = (val) => {
+        setFilter(val);
+        setPagination((prev) => ({ ...prev, page: 0 }));
+    };
 
     // Handle completing a follow-up
     const handleCompleteFollowUp = useCallback(async (row) => {
@@ -749,30 +770,15 @@ function FollowUps_View() {
         fetchFollowUps();
     }, [fetchFollowUps]);
 
-    // Filter follow-ups
-    const filteredFollowUps = useMemo(() => {
-        return followUps.filter((followUp) => {
-            const searchMatch =
-                searchText === "" ||
-                followUp.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-                followUp.patientId.toLowerCase().includes(searchText.toLowerCase()) ||
-                followUp.reason.toLowerCase().includes(searchText.toLowerCase());
+    // Display rows from API (no client-side filter)
+    const displayedFollowUps = followUps;
 
-            const statusMatch = filter === "All" || followUp.status === filter;
-
-            return searchMatch && statusMatch;
-        });
-    }, [followUps, searchText, filter]);
-
-    // Calculate statistics
-    const stats = useMemo(() => {
-        return {
-            total: followUps.length,
-            today: followUps.filter((f) => f.status === "Today").length,
-            upcoming: followUps.filter((f) => f.status === "Upcoming").length,
-            overdue: followUps.filter((f) => f.status === "Overdue").length,
-        };
-    }, [followUps]);
+    const stats = useMemo(() => ({
+        total: pagination.total,
+        today: followUps.filter((f) => f.status === "Today").length,
+        upcoming: followUps.filter((f) => f.status === "Upcoming").length,
+        overdue: followUps.filter((f) => f.status === "Overdue").length,
+    }), [followUps, pagination.total]);
 
     const getDaysUntilDisplay = (daysUntil) => {
         if (daysUntil === 0) {
@@ -922,47 +928,40 @@ function FollowUps_View() {
                 <div style={{ flex: 1, marginRight: "1rem" }}>
                     <Search
                         value={searchText}
-                        onChange={(val) => setSearchText(val)}
+                        onChange={onSearchChange}
                         style={{ width: "100%" }}
                     />
                 </div>
 
-                <div style={{ display: "flex", gap: "1rem" }}>
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <ExportDataButton
-                        rows={filteredFollowUps}
+                        rows={displayedFollowUps}
                         columns={columns}
                         fileName="follow-ups.xlsx"
                     />
+                    <TextField
+                        select
+                        value={filter}
+                        onChange={(e) => onFilterChange(e.target.value)}
+                        sx={{
+                            width: { xs: "100%", sm: 220 },
+                            "& .MuiOutlinedInput-root": {
+                                borderRadius: 3,
+                                bgcolor: "white",
+                                height: 46,
+                            },
+                        }}
+                        size="small"
+                    >
+                        <MenuItem value="All">All Status</MenuItem>
+                        <MenuItem value="Today">Today</MenuItem>
+                        <MenuItem value="Upcoming">Upcoming</MenuItem>
+                        <MenuItem value="Overdue">Overdue</MenuItem>
+                    </TextField>
                 </div>
             </CardBorder>
 
-            {/* Filter Buttons */}
-            <Stack direction="row" spacing={2} mb={3}>
-                {["All", "Today", "Upcoming"].map((btn) => (
-                    <Button
-                        key={btn}
-                        onClick={() => setFilter(btn)}
-                        variant={filter === btn ? "contained" : "outlined"}
-                        sx={{
-                            px: 3,
-                            py: 1,
-                            borderRadius: 2,
-                            bgcolor: filter === btn ? "var(--color-primary)" : "transparent",
-                            color: filter === btn ? "white" : "var(--color-text-dark)",
-                            borderColor: "var(--color-border)",
-                            fontWeight: 600,
-                            textTransform: "none",
-                            "&:hover": {
-                                bgcolor: filter === btn ? "var(--color-primary-dark)" : "var(--color-bg-hover)",
-                            },
-                        }}
-                    >
-                        {btn}
-                    </Button>
-                ))}
-            </Stack>
-
-            {/* Table */}
+            {/* Table - client-side pagination same as in-patients */}
             {isLoading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
                     <CircularProgress />
@@ -971,12 +970,19 @@ function FollowUps_View() {
                 <TableComponent
                     title="Follow-ups"
                     columns={columns}
-                    rows={filteredFollowUps}
+                    rows={displayedFollowUps}
+                    actions={actions}
                     showView={false}
                     showEdit={false}
                     showDelete={false}
                     showAddButton={false}
                     showExportButton={false}
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
                 />
             )}
         </Box>

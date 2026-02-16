@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Box, CircularProgress, Typography } from "@mui/material";
+import { Box, CircularProgress, Typography, TablePagination } from "@mui/material";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -24,6 +24,11 @@ function Outpatient_View() {
     const [outpatients, setOutpatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -41,8 +46,20 @@ function Outpatient_View() {
     const fetchOutpatients = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Fetch all patients and OPD examinations (hasInpatient: false). List is built from OPD exams
-            // so that patients who later become IPD still show their OPD visits (and OPD bills) here.
+            // Fetch patients (we need all for lookup, but can paginate later if needed)
+            // For now, fetch a reasonable amount for patient lookup
+            // Fetch paginated OPD examinations (hasInpatient: false). List is built from OPD exams
+            const examParams = {
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
+                hasInpatient: "false" // Only OPD examinations
+            };
+            
+            // Add search parameter if search is active
+            if (search && search.trim()) {
+                examParams.search = search.trim();
+            }
+            
             const [patientsResponse, allExamsResponse] = await Promise.all([
                 axios.get(
                     getApiUrl("patients"),
@@ -50,7 +67,7 @@ function Outpatient_View() {
                         headers: getAuthHeaders(),
                         params: {
                             page: 1,
-                            limit: 1000,
+                            limit: 500, // Reduced but still enough for patient lookup
                         },
                     }
                 ),
@@ -58,11 +75,7 @@ function Outpatient_View() {
                     getApiUrl("examinations"),
                     {
                         headers: getAuthHeaders(),
-                        params: {
-                            page: 1,
-                            limit: 1000,
-                            hasInpatient: "false" // Only OPD examinations
-                        },
+                        params: examParams,
                     }
                 )
             ]);
@@ -142,6 +155,22 @@ function Outpatient_View() {
 
                 console.log("Total merged outpatient rows:", mergedRows.length);
                 setOutpatients(mergedRows);
+                
+                // Update pagination metadata
+                if (allExamsResponse.data.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: allExamsResponse.data.meta.total || mergedRows.length,
+                    }));
+                }
+                
+                // Update pagination metadata from examinations response
+                if (allExamsResponse.data.meta) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: allExamsResponse.data.meta.total || 0,
+                    }));
+                }
             } else {
                 toast.error(allExamsResponse?.data?.message || "Failed to fetch outpatient visits");
             }
@@ -151,11 +180,23 @@ function Outpatient_View() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, search]);
 
     useEffect(() => {
         fetchOutpatients();
     }, [fetchOutpatients]);
+    
+    // Reset to first page when search changes
+    useEffect(() => {
+        if (pagination.page !== 0) {
+            setPagination(prev => ({ ...prev, page: 0 }));
+        }
+    }, [search]);
+    
+    // Reset to first page when search changes
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+    }, [search]);
 
     // Refresh data when navigating back from allocation page
     useEffect(() => {
@@ -193,19 +234,10 @@ function Outpatient_View() {
         };
     }, [outpatients]);
 
-    // Filter and sort outpatients by time (most recent first)
+    // Sort outpatients by time (most recent first) - search is now server-side
     const filteredData = useMemo(() => {
-        const filtered = outpatients.filter((patient) => {
-            const matchesSearch =
-                patient.name.toLowerCase().includes(search.toLowerCase()) ||
-                (patient.doctorName && patient.doctorName.toLowerCase().includes(search.toLowerCase())) ||
-                (patient.phone && patient.phone.toLowerCase().includes(search.toLowerCase()));
-            return matchesSearch;
-        });
-        
-        // Sort by time (most recent first)
-        // Use lastVisitDate if available (for examinations), otherwise use registeredDate
-        return filtered.sort((a, b) => {
+        // Server-side search is already applied, just sort client-side
+        return [...outpatients].sort((a, b) => {
             const dateA = a.lastVisitDate && a.lastVisitDate !== "N/A" 
                 ? new Date(a.lastVisitDate) 
                 : (a.registeredDate && a.registeredDate !== "N/A" ? new Date(a.registeredDate) : new Date(0));
@@ -214,7 +246,7 @@ function Outpatient_View() {
                 : (b.registeredDate && b.registeredDate !== "N/A" ? new Date(b.registeredDate) : new Date(0));
             return dateB - dateA; // Most recent first
         });
-    }, [outpatients, search]);
+    }, [outpatients]);
 
     const handleOpenAllocationModal = (patient) => {
         const params = new URLSearchParams({
@@ -322,7 +354,7 @@ function Outpatient_View() {
                                     <tbody>
                                         {filteredData.map((patient, index) => (
                                             <tr key={patient.id}>
-                                                <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>{pagination.page * pagination.rowsPerPage + index + 1}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <div className="d-flex align-items-center gap-2">
                                                         <strong>{patient.name}</strong>
@@ -592,6 +624,26 @@ function Outpatient_View() {
                                     </tbody>
                                 </table>
                             </div>
+                        )}
+                        
+                        {/* Pagination */}
+                        {!isLoading && filteredData.length > 0 && (
+                            <TablePagination
+                                component="div"
+                                count={pagination.total}
+                                page={pagination.page}
+                                rowsPerPage={pagination.rowsPerPage}
+                                onPageChange={(_, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                                onRowsPerPageChange={(e) => {
+                                    setPagination(prev => ({
+                                        ...prev,
+                                        rowsPerPage: parseInt(e.target.value, 10),
+                                        page: 0
+                                    }));
+                                }}
+                                rowsPerPageOptions={[10, 25, 50, 100]}
+                                labelRowsPerPage="Rows per page:"
+                            />
                         )}
                     </div>
                 </div>

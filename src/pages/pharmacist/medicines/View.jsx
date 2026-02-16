@@ -21,10 +21,9 @@ function MedicinesView() {
     const [searchText, setSearchText] = useState("");
     const [stockStatusFilter, setStockStatusFilter] = useState("");
     const [pagination, setPagination] = useState({
-        page: 1,
-        limit: 10000, // Increased to 10000 to fetch all medicines at once
+        page: 0,
+        rowsPerPage: 25,
         total: 0,
-        totalPages: 0,
     });
     const [deleteModal, setDeleteModal] = useState({
         isOpen: false,
@@ -37,8 +36,8 @@ function MedicinesView() {
         setIsLoading(true);
         try {
             const params = {
-                page: pagination.page,
-                limit: pagination.limit,
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
                 ...(searchText && { search: searchText }),
                 ...(stockStatusFilter && { stockStatus: stockStatusFilter }),
             };
@@ -52,7 +51,6 @@ function MedicinesView() {
                     setPagination(prev => ({
                         ...prev,
                         total: response.meta.total || 0,
-                        totalPages: response.meta.totalPages || 0,
                     }));
                 }
             } else {
@@ -67,7 +65,12 @@ function MedicinesView() {
         } finally {
             setIsLoading(false);
         }
-    }, [pagination.page, pagination.limit, searchText, stockStatusFilter]);
+    }, [pagination.page, pagination.rowsPerPage, searchText, stockStatusFilter]);
+    
+    // Reset to first page when search or filter changes
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+    }, [searchText, stockStatusFilter]);
 
     useEffect(() => {
         fetchMedicines();
@@ -191,6 +194,12 @@ function MedicinesView() {
                     actions={actions}
                     showStatusBadge={true}
                     statusField="stockStatus"
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={(newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                    onRowsPerPageChange={(newRowsPerPage) => setPagination(prev => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }))}
                 />
             )}
 

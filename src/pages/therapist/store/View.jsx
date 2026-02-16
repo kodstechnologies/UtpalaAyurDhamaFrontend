@@ -22,10 +22,9 @@ function StoreView() {
     const [currentTab, setCurrentTab] = useState("Store Stock");
 
     const [pagination, setPagination] = useState({
-        page: 1,
-        limit: 10000,
+        page: 0,
+        rowsPerPage: 25,
         total: 0,
-        totalPages: 0,
     });
     const [deleteModal, setDeleteModal] = useState({
         isOpen: false,
@@ -38,14 +37,10 @@ function StoreView() {
         setIsLoading(true);
         try {
             const params = {
-                page: pagination.page,
-                limit: pagination.limit,
+                page: pagination.page + 1, // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage,
                 ...(searchText && { search: searchText }),
                 ...(stockStatusFilter && { stockStatus: stockStatusFilter }),
-                // Pass inventoryType to backend if supported, otherwise we might see mixed results.
-                // Since we didn't update backend service to handle inventoryType filter explicitly in `getAllStoreItems` params mapping (it passes ...options to repo),
-                // and repo `findAll` uses `...query` spread, it MIGHT work if we pass it.
-                // Let's try passing it.
                 inventoryType: currentTab,
             };
 
@@ -53,29 +48,11 @@ function StoreView() {
 
             if (response && response.success) {
                 let data = response.data?.items || [];
-
-                // Client-side filtering for tabs (since backend doesn't support inventoryType filter yet or we want to cache)
-                // Ideally, we should pass inventoryType to backend API.
-                // Assuming backend API returns ALL items for now or we filter here.
-                // Or better, let's filter the rows for display only, but fetching everything?
-                // Actually, let's filter client-side for now as the pagination is likely fetching mixed types if we don't pass type.
-                // But wait, if we have 1000 items, client-side filtering page 1 might show nothing.
-                // Let's assume for now we filter in the render or pass fetch param if supported.
-                // The current service `getAllStoreItems` passes params directly to repo.
-                // But the repo `findAll` implementation wasn't checked for inventoryType support. 
-                // Let's rely on client-side filtering of the `rows` state for the display groups 
-                // BUT we should probably add `inventoryType` to fetch params later. 
-                // For now, let's filter the data received from backend before setting rows?
-                // No, better to filter while rendering or deriving state to allow tab switching without refetch if we fetch all.
-                // But pagination exists... 
-                // Let's add inventoryType to fetch params!
-
                 setRows(Array.isArray(data) ? data : []);
                 if (response.data?.meta) {
                     setPagination(prev => ({
                         ...prev,
                         total: response.data.meta.total || 0,
-                        totalPages: response.data.meta.totalPages || 0,
                     }));
                 }
             } else {
@@ -90,7 +67,12 @@ function StoreView() {
         } finally {
             setIsLoading(false);
         }
-    }, [pagination.page, pagination.limit, searchText, stockStatusFilter, currentTab]);
+    }, [pagination.page, pagination.rowsPerPage, searchText, stockStatusFilter, currentTab]);
+    
+    // Reset to first page when search, filter, or tab changes
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+    }, [searchText, stockStatusFilter, currentTab]);
 
     useEffect(() => {
         fetchItems();
@@ -237,6 +219,12 @@ function StoreView() {
                                     actions={actions}
                                     showStatusBadge={true}
                                     statusField="stockStatus"
+                                    serverSidePagination={true}
+                                    totalCount={pagination.total}
+                                    page={pagination.page}
+                                    rowsPerPage={pagination.rowsPerPage}
+                                    onPageChange={(newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                                    onRowsPerPageChange={(newRowsPerPage) => setPagination(prev => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }))}
                                 />
                             );
                         }

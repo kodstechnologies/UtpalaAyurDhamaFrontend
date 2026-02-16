@@ -16,6 +16,11 @@ function Patients() {
     const [rows, setRows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
+    const [pagination, setPagination] = useState({
+        page: 0,
+        rowsPerPage: 25,
+        total: 0,
+    });
     const [deleteModal, setDeleteModal] = useState({
         isOpen: false,
         patientId: null,
@@ -23,13 +28,21 @@ function Patients() {
         isDeleting: false
     });
 
-    // Fetch all patients from backend (all types: inpatients, outpatients, etc.)
+    // Fetch patients from backend with server-side pagination
     const fetchPatients = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Fetch all patients with a high limit to get all records
-            // Backend already sorts by createdAt descending (latest first)
-            const response = await fetch(getApiUrl("patients?limit=10000&page=1"), {
+            // Build query params with pagination and search
+            const params = new URLSearchParams({
+                page: (pagination.page + 1).toString(), // Backend uses 1-based pagination
+                limit: pagination.rowsPerPage.toString(),
+            });
+            
+            if (searchText) {
+                params.append("search", searchText);
+            }
+
+            const response = await fetch(getApiUrl(`patients?${params.toString()}`), {
                 method: "GET",
                 headers: getAuthHeaders()
             });
@@ -51,32 +64,41 @@ function Patients() {
                     dateOfBirth: profile.dateOfBirth,
                     admissionStatus: profile.admissionStatus,
                     treatmentStatus: profile.treatmentStatus,
-                    createdAt: profile.createdAt || profile.user?.createdAt || new Date(), // For sorting
-                    updatedAt: profile.updatedAt || profile.user?.updatedAt || new Date(), // For sorting
+                    createdAt: profile.createdAt || profile.user?.createdAt || new Date(),
+                    updatedAt: profile.updatedAt || profile.user?.updatedAt || new Date(),
                 })) || [];
 
-                // Sort by latest first (most recent createdAt/updatedAt)
-                transformedPatients.sort((a, b) => {
-                    const dateA = new Date(a.updatedAt || a.createdAt);
-                    const dateB = new Date(b.updatedAt || b.createdAt);
-                    return dateB - dateA; // Descending order (latest first)
-                });
-
                 setRows(transformedPatients);
+                
+                // Update pagination with total count from backend
+                // Backend returns pagination data in data.data (total, totalPages, page, limit)
+                if (data.data) {
+                    setPagination(prev => ({
+                        ...prev,
+                        total: data.data.total || transformedPatients.length,
+                    }));
+                }
             } else {
                 toast.error(data.message || "Failed to fetch patients");
+                setRows([]);
             }
         } catch (error) {
             console.error("Error fetching patients:", error);
             toast.error(error.message || "Failed to fetch patients");
+            setRows([]);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [pagination.page, pagination.rowsPerPage, searchText]);
 
     useEffect(() => {
         fetchPatients();
     }, [fetchPatients]);
+    
+    // Reset to first page when search changes
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+    }, [searchText]);
 
     // ===== TABLE COLUMNS =====
     const columns = [
@@ -114,9 +136,10 @@ function Patients() {
 
             const data = await response.json();
             if (data.success) {
-                setRows(prev => prev.filter(row => row._id !== deleteModal.patientId));
                 toast.success("Patient deleted successfully!");
                 setDeleteModal({ isOpen: false, patientId: null, patientName: "", isDeleting: false });
+                // Refresh current page data
+                fetchPatients();
             } else {
                 toast.error(data.message || "Failed to delete patient");
                 setDeleteModal(prev => ({ ...prev, isDeleting: false }));
@@ -150,17 +173,14 @@ function Patients() {
         }
     ];
 
-    // Filter rows based on search text (client-side filtering)
-    const filteredRows = useMemo(() => {
-        if (!searchText) return rows;
-        const searchLower = searchText.toLowerCase();
-        return rows.filter((row) => 
-            row.name?.toLowerCase().includes(searchLower) ||
-            row.email?.toLowerCase().includes(searchLower) ||
-            row.mobile?.toLowerCase().includes(searchLower) ||
-            row.patientId?.toLowerCase().includes(searchLower)
-        );
-    }, [rows, searchText]);
+    // Handle pagination changes
+    const handlePageChange = useCallback((newPage) => {
+        setPagination(prev => ({ ...prev, page: newPage }));
+    }, []);
+
+    const handleRowsPerPageChange = useCallback((newRowsPerPage) => {
+        setPagination(prev => ({ ...prev, rowsPerPage: newRowsPerPage, page: 0 }));
+    }, []);
 
     return (
         <div className="space-y-6 p-6">
@@ -188,7 +208,7 @@ function Patients() {
                 </div>
                 <div style={{ display: "flex", gap: "1rem" }}>
                     <ExportDataButton
-                        rows={filteredRows}
+                        rows={rows}
                         columns={columns}
                         fileName="patients.xlsx"
                     />
@@ -203,10 +223,16 @@ function Patients() {
             ) : (
                 <TableComponent
                     columns={columns}
-                    rows={filteredRows}
+                    rows={rows}
                     actions={actions}
                     showStatusBadge={true}
                     statusField="status"
+                    serverSidePagination={true}
+                    totalCount={pagination.total}
+                    page={pagination.page}
+                    rowsPerPage={pagination.rowsPerPage}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
                 />
             )}
 
