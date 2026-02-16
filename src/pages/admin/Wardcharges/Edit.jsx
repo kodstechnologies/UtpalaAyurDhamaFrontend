@@ -15,6 +15,7 @@ const WARD_CATEGORY_OPTIONS = [
     { value: "General", label: "General" },
     { value: "Duplex", label: "Duplex" },
     { value: "Special", label: "Special" },
+    { value: "Semi Special", label: "Semi Special" },
 ];
 
 function Ward_Charges_Edit() {

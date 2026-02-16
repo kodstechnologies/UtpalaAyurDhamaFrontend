@@ -22,6 +22,7 @@ const WARD_CATEGORY_OPTIONS = [
     { value: "General", label: "General" },
     { value: "Duplex", label: "Duplex" },
     { value: "Special", label: "Special" },
+    { value: "Semi Special", label: "Semi Special" },
 ];
 
 function Ward_Charges_View() {
@@ -202,7 +203,7 @@ function Ward_Charges_View() {
         <Box sx={{ p: 3 }}>
             <HeadingCard
                 title="Ward Charges"
-                subtitle="Manage daily rates for different ward categories (General, Duplex, Special)."
+                subtitle="Manage daily rates for different ward categories (General, Duplex, Special, Semi Special)."
                 breadcrumbItems={[
                     { label: "Admin", url: "/admin/dashboard" },
                     { label: "Ward Charges" }

@@ -609,6 +609,7 @@ function WalkInHub() {
                                             <MenuItem value="General">General</MenuItem>
                                             <MenuItem value="Duplex">Duplex</MenuItem>
                                             <MenuItem value="Special">Special</MenuItem>
+                                            <MenuItem value="Semi Special">Semi Special</MenuItem>
                                         </Select>
                                     </FormControl>
 
