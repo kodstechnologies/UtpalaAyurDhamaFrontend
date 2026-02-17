@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Eye, Trash2 } from "lucide-react";
@@ -11,11 +11,14 @@ import ExportDataButton from "../../components/buttons/ExportDataButton";
 import DeleteConfirmationModal from "../../components/modal/DeleteConfirmationModal";
 import { getApiUrl, getAuthHeaders } from "../../config/api";
 
+const SEARCH_DEBOUNCE_MS = 350;
+
 function Patients() {
     const navigate = useNavigate();
     const [rows, setRows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
+    const [searchInput, setSearchInput] = useState(""); // immediate input value
     const [pagination, setPagination] = useState({
         page: 0,
         rowsPerPage: 25,
@@ -27,22 +30,31 @@ function Patients() {
         patientName: "",
         isDeleting: false
     });
+    const lastSearchRef = useRef(searchText);
 
-    // Fetch patients from backend with server-side pagination
-    const fetchPatients = useCallback(async () => {
+    // Debounce search input -> searchText (used for API)
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setSearchText(searchInput.trim());
+        }, SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(t);
+    }, [searchInput]);
+
+    // Fetch patients from backend with server-side pagination and search
+    const fetchPatients = useCallback(async (pageOverride = null) => {
         setIsLoading(true);
+        const page = pageOverride !== null ? pageOverride : pagination.page;
         try {
-            // Build query params with pagination and search
             const params = new URLSearchParams({
-                page: (pagination.page + 1).toString(), // Backend uses 1-based pagination
+                page: (page + 1).toString(),
                 limit: pagination.rowsPerPage.toString(),
             });
-            
             if (searchText) {
                 params.append("search", searchText);
             }
 
-            const response = await fetch(getApiUrl(`patients?${params.toString()}`), {
+            const url = getApiUrl(`patients?${params.toString()}`);
+            const response = await fetch(url, {
                 method: "GET",
                 headers: getAuthHeaders()
             });
@@ -53,7 +65,6 @@ function Patients() {
 
             const data = await response.json();
             if (data.success && data.data) {
-                // Transform the data to match table structure
                 let transformedPatients = data.data.profiles?.map((profile) => ({
                     _id: profile._id,
                     name: profile.user?.name || "N/A",
@@ -69,15 +80,11 @@ function Patients() {
                 })) || [];
 
                 setRows(transformedPatients);
-                
-                // Update pagination with total count from backend
-                // Backend returns pagination data in data.data (total, totalPages, page, limit)
-                if (data.data) {
-                    setPagination(prev => ({
-                        ...prev,
-                        total: data.data.total || transformedPatients.length,
-                    }));
-                }
+                setPagination(prev => ({
+                    ...prev,
+                    page,
+                    total: data.data.total ?? transformedPatients.length,
+                }));
             } else {
                 toast.error(data.message || "Failed to fetch patients");
                 setRows([]);
@@ -91,14 +98,16 @@ function Patients() {
         }
     }, [pagination.page, pagination.rowsPerPage, searchText]);
 
+    // When searchText or pagination changes: if search just changed, reset to page 0 and fetch immediately; else fetch with current page
     useEffect(() => {
+        if (lastSearchRef.current !== searchText) {
+            lastSearchRef.current = searchText;
+            setPagination(prev => ({ ...prev, page: 0 }));
+            fetchPatients(0);
+            return;
+        }
         fetchPatients();
-    }, [fetchPatients]);
-    
-    // Reset to first page when search changes
-    useEffect(() => {
-        setPagination(prev => ({ ...prev, page: 0 }));
-    }, [searchText]);
+    }, [searchText, pagination.page, pagination.rowsPerPage, fetchPatients]);
 
     // ===== TABLE COLUMNS =====
     const columns = [
@@ -201,8 +210,9 @@ function Patients() {
             >
                 <div style={{ flex: 1, marginRight: "1rem" }}>
                     <Search
-                        value={searchText}
-                        onChange={(val) => setSearchText(val)}
+                        value={searchInput}
+                        onChange={(val) => setSearchInput(val)}
+                        placeholder="Search by name, mobile, email..."
                         style={{ flex: 1 }}
                     />
                 </div>

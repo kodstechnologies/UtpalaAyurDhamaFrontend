@@ -46,6 +46,12 @@ function TableComponent({
         ? safeRows 
         : safeRows.slice(clientPage * clientRowsPerPage, clientPage * clientRowsPerPage + clientRowsPerPage);
 
+    // Server-side: actual range "from-to" when backend returns fewer than rowsPerPage (e.g. after filtering)
+    const serverSideFrom = currentPage * currentRowsPerPage + 1;
+    const serverSideTo = displayedRows.length > 0
+        ? serverSideFrom + displayedRows.length - 1
+        : currentPage === 0 ? 0 : serverSideFrom - 1;
+
     const handleSelectAll = (e) => {
         if (e.target.checked) setSelected(safeRows.map((r) => r._id));
         else setSelected([]);
@@ -235,6 +241,15 @@ function TableComponent({
                 rowsPerPageOptions={serverSidePagination 
                     ? [10, 25, 50, 100] 
                     : [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]}
+                labelRowsPerPage="Rows per page:"
+                labelDisplayedRows={
+                    serverSidePagination
+                        ? () =>
+                            displayedRows.length === 0
+                                ? `0-0 of ${totalRows}`
+                                : `${serverSideFrom}-${serverSideTo} of ${totalRows}`
+                        : undefined
+                }
             />
         </Paper>
     );

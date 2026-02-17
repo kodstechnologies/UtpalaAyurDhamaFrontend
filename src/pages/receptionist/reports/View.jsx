@@ -18,7 +18,6 @@ import DownloadIcon from "@mui/icons-material/Download";
 import PrintIcon from "@mui/icons-material/Print";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 
 function Reports_View() {
@@ -235,11 +234,15 @@ function Reports_View() {
         window.print();
     };
 
-    // Get payment method icon and color
+    // Get payment method icon and color (₹ for Cash to match INR amounts)
     const getPaymentMethodIcon = (method) => {
         switch (method) {
             case "Cash":
-                return <AttachMoneyIcon fontSize="small" className="me-1" />;
+                return (
+                    <span className="me-1" style={{ fontSize: "1rem", fontWeight: 600 }} aria-label="Rupee">
+                        ₹
+                    </span>
+                );
             case "Online":
                 return <AccountBalanceWalletIcon fontSize="small" className="me-1" />;
             case "Card":
