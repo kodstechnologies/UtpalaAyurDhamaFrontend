@@ -89,9 +89,14 @@ function OPDTherapyDetails() {
     const patientName = patient?.user?.name || "Unknown";
     const patientUHID = patient?.user?.uhid || "N/A";
     const doctorName = doctor?.user?.name || "Unknown";
-    const therapistName = therapist?.user?.name || "Not Assigned";
-    const therapistSpeciality = therapist?.speciality || "";
     const therapyType = therapyPlan.treatmentName || "N/A";
+    const subTherapy = therapyPlan.subTherapy || "";
+    const relatedPlans = therapyPlan.relatedPlans || [];
+    const allTherapies = [therapyPlan, ...relatedPlans];
+
+    // Aggregate all therapy names
+    const therapyDisplay = allTherapies.map(p => p.treatmentName).join(", ");
+
     const totalSessions = therapyPlan.daysOfTreatment || 0;
     const timeline = therapyPlan.timeline || "N/A";
     const assignedDate = therapyPlan.createdAt
@@ -102,6 +107,12 @@ function OPDTherapyDetails() {
         })
         : "N/A";
     const specialInstructions = therapyPlan.specialInstructions || "No special instructions provided.";
+
+    // Handle multiple therapists
+    const therapistsList = therapyPlan.therapists || (therapyPlan.therapist ? [therapyPlan.therapist] : []);
+    const therapistDisplay = therapistsList.length > 0
+        ? therapistsList.map(t => t.user?.name || t.name || "Unknown").join(", ")
+        : "Not Assigned";
 
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
@@ -259,11 +270,18 @@ function OPDTherapyDetails() {
                                         <TherapyIcon sx={{ fontSize: 32 }} />
                                     </Box>
                                     <Box>
-                                        <Typography variant="h5" sx={{ fontWeight: 700, color: "var(--color-text-dark)", mb: 0.5 }}>
-                                            {therapyType}
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                                            {allTherapies.map((plan, idx) => (
+                                                <Chip
+                                                    key={idx}
+                                                    label={plan.treatmentName}
+                                                    color="primary"
+                                                    sx={{ fontWeight: 700, fontSize: '0.9rem' }}
+                                                />
+                                            ))}
+                                        </Box>
                                         <Typography variant="body2" color="text.secondary">
-                                            OPD Therapy Plan
+                                            OPD Therapy Plans
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -345,6 +363,13 @@ function OPDTherapyDetails() {
                                 value={therapyType}
                                 highlight
                             />
+                            {subTherapy && (
+                                <DetailRow
+                                    icon={<TherapyIcon fontSize="small" />}
+                                    label="Sub Therapy"
+                                    value={subTherapy}
+                                />
+                            )}
                             <DetailRow
                                 icon={<CalendarIcon fontSize="small" />}
                                 label="Total Sessions"
@@ -416,15 +441,15 @@ function OPDTherapyDetails() {
                             <Divider sx={{ mb: 2, borderColor: "var(--color-border)" }} />
                             <DetailRow
                                 icon={<PersonIcon fontSize="small" />}
-                                label="Assigned Therapist"
-                                value={therapistName}
+                                label="Assigned Therapists"
+                                value={therapistDisplay}
                                 highlight
                             />
-                            {therapistSpeciality && (
+                            {therapistsList.length > 0 && therapistsList[0].speciality && (
                                 <DetailRow
                                     icon={<AssignmentIcon fontSize="small" />}
-                                    label="Speciality"
-                                    value={therapistSpeciality}
+                                    label="Speciality (Primary)"
+                                    value={therapistsList[0].speciality}
                                 />
                             )}
                         </CardContent>

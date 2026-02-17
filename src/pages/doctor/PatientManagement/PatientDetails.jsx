@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { 
+import {
     Box, Typography, Card, CardContent, CircularProgress, Grid, Chip,
     Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton,
     Divider
@@ -27,7 +27,7 @@ function PatientDetails() {
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingTherapySessions, setIsLoadingTherapySessions] = useState(false);
     const [isLoadingPrescriptions, setIsLoadingPrescriptions] = useState(false);
-    
+
     // Modal states
     const [selectedCheckup, setSelectedCheckup] = useState(null);
     const [selectedTherapySession, setSelectedTherapySession] = useState(null);
@@ -77,8 +77,8 @@ function PatientDetails() {
                 // Filter sessions by inpatient ID
                 const sessions = response.data.data || [];
                 const filteredSessions = sessions.filter(
-                    session => session.inpatient?._id?.toString() === patientId || 
-                               session.inpatient?.toString() === patientId
+                    session => session.inpatient?._id?.toString() === patientId ||
+                        session.inpatient?.toString() === patientId
                 );
                 setTherapySessions(filteredSessions);
             }
@@ -106,8 +106,8 @@ function PatientDetails() {
                 const allPrescriptions = response.data.data || [];
                 const filteredPrescriptions = allPrescriptions.filter(
                     prescription => {
-                        const prescriptionInpatientId = prescription.examination?.inpatient?._id || 
-                                                       prescription.examination?.inpatient;
+                        const prescriptionInpatientId = prescription.examination?.inpatient?._id ||
+                            prescription.examination?.inpatient;
                         return prescriptionInpatientId?.toString() === patientId;
                     }
                 );
@@ -130,8 +130,8 @@ function PatientDetails() {
     // Handle view checkup details
     const handleViewCheckup = (row) => {
         // Use the original checkup data if available, otherwise use row data
-        const checkup = row.originalCheckup || inpatient?.dailyCheckups?.find((c, index) => 
-            (c._id && c._id.toString() === row._id) || 
+        const checkup = row.originalCheckup || inpatient?.dailyCheckups?.find((c, index) =>
+            (c._id && c._id.toString() === row._id) ||
             (!c._id && index.toString() === row._id)
         ) || row;
         setSelectedCheckup(checkup);
@@ -384,12 +384,14 @@ function PatientDetails() {
                             rows={therapySessions.map((session) => ({
                                 _id: session._id,
                                 treatmentName: session.treatmentName || "N/A",
-                                therapist: session.therapist?.user?.name || "Not Assigned",
+                                therapist: (session.therapists && session.therapists.length > 0)
+                                    ? session.therapists.map(t => t.user?.name || t.name || "Unknown").join(", ")
+                                    : session.therapist?.user?.name || "Not Assigned",
                                 daysOfTreatment: session.daysOfTreatment || "N/A",
                                 timeline: session.timeline || "N/A",
                                 status: session.status || "Pending",
-                                createdAt: session.createdAt 
-                                    ? new Date(session.createdAt).toLocaleDateString() 
+                                createdAt: session.createdAt
+                                    ? new Date(session.createdAt).toLocaleDateString()
                                     : "N/A",
                             }))}
                             actions={therapyActions}
@@ -432,8 +434,8 @@ function PatientDetails() {
                                 frequency: prescription.frequency || "N/A",
                                 duration: prescription.duration || "N/A",
                                 status: prescription.status === "Pending" ? "Active" : prescription.status === "Dispensed" ? "Completed" : prescription.status || "Active",
-                                createdAt: prescription.createdAt 
-                                    ? new Date(prescription.createdAt).toLocaleDateString() 
+                                createdAt: prescription.createdAt
+                                    ? new Date(prescription.createdAt).toLocaleDateString()
                                     : "N/A",
                                 rawData: prescription,
                             }))}
@@ -467,10 +469,10 @@ function PatientDetails() {
             </Card>
 
             {/* ========== DAILY CHECKUP DETAILS DIALOG ========== */}
-            <Dialog 
-                open={openCheckupDialog} 
-                onClose={() => setOpenCheckupDialog(false)} 
-                maxWidth="md" 
+            <Dialog
+                open={openCheckupDialog}
+                onClose={() => setOpenCheckupDialog(false)}
+                maxWidth="md"
                 fullWidth
             >
                 <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -517,10 +519,10 @@ function PatientDetails() {
             </Dialog>
 
             {/* ========== THERAPY SESSION DETAILS DIALOG ========== */}
-            <Dialog 
-                open={openTherapyDialog} 
-                onClose={() => setOpenTherapyDialog(false)} 
-                maxWidth="md" 
+            <Dialog
+                open={openTherapyDialog}
+                onClose={() => setOpenTherapyDialog(false)}
+                maxWidth="md"
                 fullWidth
             >
                 <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -539,10 +541,12 @@ function PatientDetails() {
                                 {renderDetailField("Treatment Name", selectedTherapySession.treatmentName || "N/A")}
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                                {renderDetailField("Therapist", selectedTherapySession.therapist?.user?.name || "Not Assigned")}
+                                {renderDetailField("Therapist", (selectedTherapySession.therapists && selectedTherapySession.therapists.length > 0)
+                                    ? selectedTherapySession.therapists.map(t => t.user?.name || t.name || "Unknown").join(", ")
+                                    : selectedTherapySession.therapist?.user?.name || "Not Assigned")}
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                                {renderDetailField("Therapist Speciality", selectedTherapySession.therapist?.speciality || "N/A")}
+                                {renderDetailField("Therapist Speciality (Primary)", selectedTherapySession.therapist?.speciality || (selectedTherapySession.therapists?.[0]?.speciality) || "N/A")}
                             </Grid>
                             <Grid item xs={12} sm={6}>
                                 {renderDetailField("Total Sessions (Days of Treatment)", selectedTherapySession.daysOfTreatment || "N/A")}
@@ -577,7 +581,7 @@ function PatientDetails() {
                                         {selectedTherapySession.days.map((day, index) => (
                                             <Box key={index} sx={{ mb: 1 }}>
                                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                    Day {index + 1}: {day.date ? new Date(day.date).toLocaleDateString() : "N/A"} 
+                                                    Day {index + 1}: {day.date ? new Date(day.date).toLocaleDateString() : "N/A"}
                                                     {day.time && ` at ${day.time}`}
                                                     {day.completed !== undefined && ` - ${day.completed ? 'Completed' : 'Pending'}`}
                                                 </Typography>

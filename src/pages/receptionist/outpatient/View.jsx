@@ -60,7 +60,7 @@ function Outpatient_View() {
                 examParams.search = search.trim();
             }
             
-            const [patientsResponse, allExamsResponse] = await Promise.all([
+            const [patientsResponse, allExamsResponse, invoicesResponse] = await Promise.all([
                 axios.get(
                     getApiUrl("patients"),
                     {
@@ -77,7 +77,18 @@ function Outpatient_View() {
                         headers: getAuthHeaders(),
                         params: examParams,
                     }
-                )
+                ),
+                // Fetch invoices to check payment status
+                axios.get(
+                    getApiUrl("invoices"),
+                    {
+                        headers: getAuthHeaders(),
+                        params: {
+                            page: 1,
+                            limit: 1000, // Get invoices for payment status check
+                        },
+                    }
+                ).catch(() => ({ data: { success: false, data: [] } })) // Don't fail if invoices fail
             ]);
 
             console.log("Patients API Response:", patientsResponse.data);
@@ -99,6 +110,38 @@ function Outpatient_View() {
                     ? allExamsResponse.data.data 
                     : (allExamsResponse.data.data?.data || []);
 
+                // Fetch invoices for current page examinations to check payment status (same pattern as inpatients)
+                const examinationIds = examinationsData
+                    .filter(exam => exam._id)
+                    .map(exam => exam._id.toString());
+
+                let invoicesMap = {};
+                if (examinationIds.length > 0) {
+                    try {
+                        // Fetch invoices and map by examination ID (same as inpatient logic)
+                        const invoicesData = invoicesResponse.data.success
+                            ? (Array.isArray(invoicesResponse.data.data) 
+                                ? invoicesResponse.data.data 
+                                : (invoicesResponse.data.data?.data || []))
+                            : [];
+                        
+                        // Create a map of examinationId -> invoice (get most recent if multiple)
+                        invoicesData.forEach((invoice) => {
+                            if (invoice.examination) {
+                                const examId = invoice.examination._id?.toString() || invoice.examination.toString();
+                                if (examinationIds.includes(examId)) {
+                                    if (!invoicesMap[examId] ||
+                                        new Date(invoice.createdAt) > new Date(invoicesMap[examId].createdAt)) {
+                                        invoicesMap[examId] = invoice;
+                                    }
+                                }
+                            }
+                        });
+                    } catch (error) {
+                        console.error("Error fetching invoices for payment status:", error);
+                    }
+                }
+
                 // Map patient ID -> patient for lookups (so we show OPD visits even if patient is/was IPD)
                 const patientByIdMap = new Map();
                 patientsData.forEach(p => {
@@ -106,15 +149,31 @@ function Outpatient_View() {
                     if (id) patientByIdMap.set(id, p);
                 });
 
-                // Build the list from OPD examinations: one row per OPD visit.
-                // Do NOT exclude patients who have an inpatient record — their OPD bill must stay visible on this page.
-                const mergedRows = [];
-                examinationsData.forEach(exam => {
+                // Transform examinations to match frontend table structure (same pattern as inpatients)
+                const transformedOutpatients = examinationsData.map((exam) => {
                     const patientId = exam.patient?._id?.toString() || exam.patient?.toString();
-                    if (!patientId) return;
+                    if (!patientId) return null;
+                    
                     const patient = patientByIdMap.get(patientId) || (exam.patient && typeof exam.patient === "object" ? exam.patient : null);
                     const patientUser = patient?.user || {};
-                    mergedRows.push({
+                    
+                    // Check payment status (same logic as inpatients)
+                    const invoice = invoicesMap[exam._id?.toString()];
+                    const isFullyPaid = invoice ? ((invoice.amountPaid || 0) >= (invoice.totalPayable || 0)) : false;
+                    
+                    // Determine discharge status based on bill and payment (same pattern as inpatients)
+                    // If examination is billed (isBilled = true), check payment status
+                    let isDischarged = false;
+                    if (exam.isBilled) {
+                        if (isFullyPaid && invoice && invoice.totalPayable > 0) {
+                            // Payment is complete - show as Discharged
+                            isDischarged = true;
+                        }
+                        // If billed but not fully paid, remains billed (not discharged)
+                    }
+                    // If not billed, remains unbilled (not discharged)
+                    
+                    return {
                         id: exam._id,
                         _id: exam._id,
                         examinationId: exam._id,
@@ -149,12 +208,15 @@ function Outpatient_View() {
                         })(),
                         hasFinalizedBill: !!exam.isBilled,
                         hasUnbilledVisit: !exam.isBilled,
+                        isDischarged: isDischarged,
+                        hasPendingPayment: invoice && !isFullyPaid, // Flag for UI indication (same as inpatients)
+                        hasBill: !!invoice, // Flag for Billed badge (same as inpatients)
                         type: "OPD",
-                    });
-                });
+                    };
+                }).filter(Boolean); // Remove null entries
 
-                console.log("Total merged outpatient rows:", mergedRows.length);
-                setOutpatients(mergedRows);
+                console.log("Total outpatient examination rows:", transformedOutpatients.length);
+                setOutpatients(transformedOutpatients);
                 
                 // Update pagination metadata
                 if (allExamsResponse.data.meta) {
@@ -212,17 +274,19 @@ function Outpatient_View() {
         let total = 0;
         let unbilledVisits = 0;
         let billedVisits = 0;
+        let dischargedVisits = 0;
 
         outpatients.forEach(patient => {
             total++;
             
-            // Count unbilled visits
-            if (patient.hasUnbilledVisit) {
+            // Count discharged (fully paid) visits first
+            if (patient.isDischarged) {
+                dischargedVisits++;
+            } else if (patient.hasUnbilledVisit) {
+                // Count unbilled visits (not discharged)
                 unbilledVisits++;
-            }
-            
-            // Count billed visits
-            if (patient.hasFinalizedBill) {
+            } else if (patient.hasFinalizedBill) {
+                // Count billed but not fully paid visits
                 billedVisits++;
             }
         });
@@ -231,6 +295,7 @@ function Outpatient_View() {
             total,
             unbilledVisits,
             billedVisits,
+            dischargedVisits,
         };
     }, [outpatients]);
 
@@ -277,7 +342,7 @@ function Outpatient_View() {
                         xs: "1fr",
                         sm: "repeat(2, 1fr)",
                         md: "repeat(2, 1fr)",
-                        lg: "repeat(3, 1fr)",
+                        lg: "repeat(4, 1fr)",
                     },
                     gap: "15px",
                     marginTop: 3,
@@ -297,6 +362,11 @@ function Outpatient_View() {
                     title="Billed Visits" 
                     count={stats.billedVisits} 
                     icon={ReceiptIcon} 
+                />
+                <DashboardCard 
+                    title="Discharged" 
+                    count={stats.dischargedVisits} 
+                    icon={LocalHospitalIcon} 
                 />
             </Box>
 
@@ -358,11 +428,15 @@ function Outpatient_View() {
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <div className="d-flex align-items-center gap-2">
                                                         <strong>{patient.name}</strong>
-                                                        {patient.hasFinalizedBill && (
+                                                        {patient.isDischarged ? (
+                                                            <span className="badge rounded-pill bg-info" style={{ fontSize: "0.65rem" }}>
+                                                                Discharged
+                                                            </span>
+                                                        ) : patient.hasFinalizedBill ? (
                                                             <span className="badge rounded-pill bg-success" style={{ fontSize: "0.65rem" }}>
                                                                 Billed
                                                             </span>
-                                                        )}
+                                                        ) : null}
                                                     </div>
                                                 </td>
                                                 <td style={{ fontSize: "0.875rem" }}>

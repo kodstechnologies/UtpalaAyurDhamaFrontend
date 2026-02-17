@@ -175,9 +175,14 @@ function Therapy_Progress() {
                         if (date === todayStr) backgroundColor = "#0dcaf0";
                     }
 
+                    // Include sub-therapy in calendar title if available
+                    const title = session.subTherapy 
+                        ? `${session.treatmentName} (${session.subTherapy}) - ${session.patient?.user?.name}`
+                        : `${session.treatmentName} - ${session.patient?.user?.name}`;
+                    
                     return {
                         id: `${session._id}-${idx}`,
-                        title: `${session.treatmentName} - ${session.patient?.user?.name}`,
+                        title: title,
                         start: startDateTime,
                         end: endDateTime,
                         backgroundColor: backgroundColor,
@@ -580,7 +585,16 @@ function Therapy_Progress() {
                                                         <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
                                                             {session.patient?.user?.name || "Unknown"}
                                                         </td>
-                                                        <td style={{ fontSize: "0.875rem" }}>{session.treatmentName}</td>
+                                                        <td style={{ fontSize: "0.875rem" }}>
+                                                            <div>
+                                                                <div style={{ fontWeight: 500 }}>{session.treatmentName}</div>
+                                                                {session.subTherapy && (
+                                                                    <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
+                                                                        Sub-Therapy: {session.subTherapy}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td style={{ fontSize: "0.875rem" }}>
                                                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                                                 <div style={{

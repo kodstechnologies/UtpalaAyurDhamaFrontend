@@ -82,10 +82,16 @@ function Therapist_Dashboard() {
             // Note: Actual duration per session may vary, but we'll use a standard estimate
             const duration = "45 mins"; // Standard therapy session duration
 
+            // Include sub-therapy in therapy name if available
+            const therapyName = session.subTherapy 
+                ? `${session.treatmentName || "Unknown Therapy"} (${session.subTherapy})`
+                : (session.treatmentName || "Unknown Therapy");
+
             return {
                 id: session._id,
                 patientName: session.patient?.user?.name || "Unknown Patient",
-                therapyName: session.treatmentName || "Unknown Therapy",
+                therapyName: therapyName,
+                subTherapy: session.subTherapy || "", // Keep subTherapy separate for filtering/display
                 date: sessionDateTime || new Date(),
                 duration: duration,
                 status: session.status,

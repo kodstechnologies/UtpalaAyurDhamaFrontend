@@ -13,6 +13,9 @@ import {
     Button,
     CircularProgress,
     Autocomplete,
+    Checkbox,
+    Chip,
+    OutlinedInput,
 } from "@mui/material";
 import SubmitButton from "../../../components/buttons/SubmitButton";
 import CancelButton from "../../../components/buttons/CancelButton";
@@ -43,12 +46,13 @@ function OPDTherapiesAddPage() {
         patientId: "",
         patientName: "",
         examinationId: "",
-        therapistId: "",
-        therapyType: "",
+        therapistId: [], // Array for multi-selection
+        therapyType: [], // Array for multi-selection
         totalSessions: "",
         assignedDate: new Date().toISOString().split("T")[0],
         timeline: "AlternateDay",
         notes: "",
+        subTherapy: "",
     });
 
     // Fetch OPD patients
@@ -173,10 +177,20 @@ function OPDTherapiesAddPage() {
                     }
                 }
 
-                // Find matching therapy
-                const matchingTherapy = therapies.find(
-                    t => t.therapyName === plan.treatmentName
-                );
+                // Resolve therapists
+                let assignedTherapistIds = [];
+                if (plan.therapists?.length > 0) {
+                    assignedTherapistIds = plan.therapists.map(t => t.user?._id || t.user || t);
+                } else if (plan.therapistId) {
+                    assignedTherapistIds = [plan.therapistId];
+                }
+
+                // Find matching therapies for all related plans
+                const relatedPlans = plan.relatedPlans || [];
+                const allTherapyNames = [plan.treatmentName, ...relatedPlans.map(rp => rp.treatmentName)];
+                const assignedTherapyIds = therapies
+                    .filter(t => allTherapyNames.includes(t.therapyName))
+                    .map(t => t._id);
 
                 // Set form data
                 setFormData((prev) => ({
@@ -184,14 +198,15 @@ function OPDTherapiesAddPage() {
                     patientId: patient?._id || "",
                     patientName: patient?.user?.name || "",
                     examinationId: examination?._id || "",
-                    therapistId: plan.therapistId || "",
-                    therapyType: matchingTherapy?._id || "",
+                    therapistId: assignedTherapistIds,
+                    therapyType: assignedTherapyIds,
                     totalSessions: plan.daysOfTreatment?.toString() || "",
                     assignedDate: plan.createdAt
                         ? new Date(plan.createdAt).toISOString().split("T")[0]
                         : new Date().toISOString().split("T")[0],
                     timeline: plan.timeline || "AlternateDay",
                     notes: plan.specialInstructions || "",
+                    subTherapy: plan.subTherapy || "",
                 }));
             }
         } catch (error) {
@@ -247,7 +262,7 @@ function OPDTherapiesAddPage() {
         e.preventDefault();
 
         // Validation
-        if (!formData.patientId || !formData.examinationId || !formData.therapyType || !formData.totalSessions) {
+        if (!formData.patientId || !formData.examinationId || formData.therapyType.length === 0 || formData.therapistId.length === 0 || !formData.totalSessions) {
             toast.error("Please fill in all required fields.");
             return;
         }
@@ -255,43 +270,47 @@ function OPDTherapiesAddPage() {
         setIsSubmitting(true);
 
         try {
-            // Ensure we are sending the name, not the ID
-            const selectedTherapy = therapies.find(t => t._id === formData.therapyType || t.therapyName === formData.therapyType);
-            const treatmentNameToSend = selectedTherapy ? selectedTherapy.therapyName : formData.therapyType;
+            const results = [];
+            for (const therapyId of formData.therapyType) {
+                const selectedTherapy = therapies.find(t => t._id === therapyId || t.therapyName === therapyId);
+                const treatmentNameToSend = selectedTherapy ? selectedTherapy.therapyName : therapyId;
 
-            const requestData = {
-                examinationId: formData.examinationId,
-                treatmentName: treatmentNameToSend,
-                daysOfTreatment: parseInt(formData.totalSessions, 10),
-                timeline: formData.timeline || "AlternateDay",
-                specialInstructions: formData.notes.trim() || "",
-                therapistId: formData.therapistId || null,
-            };
+                const requestData = {
+                    examinationId: formData.examinationId,
+                    treatmentName: treatmentNameToSend,
+                    daysOfTreatment: parseInt(formData.totalSessions, 10),
+                    timeline: formData.timeline || "AlternateDay",
+                    specialInstructions: formData.notes.trim() || "",
+                    subTherapy: formData.subTherapy.trim() || "",
+                    therapistId: formData.therapistId, // Pass the array
+                };
 
-            let response;
-            if (isEditMode) {
-                // Update existing therapy plan
-                response = await axios.patch(
-                    getApiUrl(`examinations/therapy-plans/opd/${therapyPlanId}`),
-                    requestData,
-                    { headers: getAuthHeaders() }
-                );
-            } else {
-                // Create new therapy plan
-                response = await axios.post(
-                    getApiUrl("examinations/therapy-plans/opd"),
-                    requestData,
-                    { headers: getAuthHeaders() }
-                );
+                let response;
+                if (isEditMode) {
+                    // Update existing therapy plan
+                    response = await axios.patch(
+                        getApiUrl(`examinations/therapy-plans/opd/${therapyPlanId}`),
+                        requestData,
+                        { headers: getAuthHeaders() }
+                    );
+                } else {
+                    // Create new therapy plan
+                    response = await axios.post(
+                        getApiUrl("examinations/therapy-plans/opd"),
+                        requestData,
+                        { headers: getAuthHeaders() }
+                    );
+                }
+                results.push(response.data.success);
             }
 
-            if (response.data.success) {
-                toast.success(isEditMode ? "OPD Therapy plan updated successfully!" : "OPD Therapy plan created successfully!");
+            if (results.every(r => r)) {
+                toast.success(isEditMode ? "OPD Therapy plan updated successfully!" : "OPD Therapy plans created successfully!");
                 setTimeout(() => {
                     navigate("/doctor/opd-therapies");
                 }, 1500);
             } else {
-                toast.error(response.data.message || "Failed to save therapy plan");
+                toast.error(isEditMode ? "Failed to update OPD therapy plan" : "Failed to create some OPD therapy plans");
                 setIsSubmitting(false);
             }
         } catch (error) {
@@ -424,16 +443,32 @@ function OPDTherapiesAddPage() {
                             <InputLabel>Select Therapy Type</InputLabel>
                             <Select
                                 name="therapyType"
+                                multiple
                                 value={formData.therapyType}
                                 label="Select Therapy Type"
                                 onChange={handleChange}
+                                input={<OutlinedInput label="Select Therapy Type" />}
+                                renderValue={(selected) => (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {selected.map((value) => {
+                                            const therapy = therapies.find(t => t._id === value);
+                                            return (
+                                                <Chip
+                                                    key={value}
+                                                    label={therapy ? therapy.therapyName : value}
+                                                    size="small"
+                                                />
+                                            );
+                                        })}
+                                    </Box>
+                                )}
                             >
-                                <MenuItem value="">
-                                    <em>Select Therapy Type...</em>
-                                </MenuItem>
                                 {therapies.map((therapy) => (
                                     <MenuItem key={therapy._id} value={therapy._id}>
-                                        {therapy.therapyName}
+                                        <Checkbox checked={formData.therapyType.indexOf(therapy._id) > -1} />
+                                        <Typography>
+                                            {therapy.therapyName}
+                                        </Typography>
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -466,17 +501,34 @@ function OPDTherapiesAddPage() {
                             <InputLabel>Select Therapist</InputLabel>
                             <Select
                                 name="therapistId"
+                                multiple
                                 value={formData.therapistId}
                                 label="Select Therapist"
                                 onChange={handleChange}
+                                input={<OutlinedInput label="Select Therapist" />}
+                                renderValue={(selected) => (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {selected.map((value) => {
+                                            const therapist = therapists.find(t => t._id === value);
+                                            const name = therapist?.name || (therapist?.user?.name) || value;
+                                            return (
+                                                <Chip
+                                                    key={value}
+                                                    label={name}
+                                                    size="small"
+                                                />
+                                            );
+                                        })}
+                                    </Box>
+                                )}
                             >
-                                <MenuItem value="">
-                                    <em>Select Therapist...</em>
-                                </MenuItem>
                                 {therapists.map((therapist) => (
                                     <MenuItem key={therapist._id} value={therapist._id}>
-                                        {therapist.name || (therapist.user?.name) || `Therapist ${therapist._id}`}
-                                        {therapist.specialization && ` - ${therapist.specialization}`}
+                                        <Checkbox checked={formData.therapistId.indexOf(therapist._id) > -1} />
+                                        <Typography>
+                                            {therapist.name || (therapist.user?.name) || `Therapist ${therapist._id}`}
+                                            {therapist.specialization && ` - ${therapist.specialization}`}
+                                        </Typography>
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -518,6 +570,20 @@ function OPDTherapiesAddPage() {
                             onChange={handleChange}
                             InputLabelProps={{ shrink: true }}
                             required
+                        />
+                    </Grid>
+
+                    {/* Sub Therapy */}
+                    <Grid item xs={12}>
+                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                            Sub Therapy
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            name="subTherapy"
+                            value={formData.subTherapy}
+                            onChange={handleChange}
+                            placeholder="Enter sub therapy details (e.g. oil type, special additions)"
                         />
                     </Grid>
 

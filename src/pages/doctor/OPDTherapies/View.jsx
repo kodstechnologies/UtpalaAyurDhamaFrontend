@@ -43,49 +43,52 @@ function OPDTherapies_View() {
                 setPagination((prev) => ({ ...prev, total }));
 
                 const groupedByPatient = {};
-                    
-                    therapyData.forEach((therapy) => {
-                        const patientId = therapy.examination?.patient?._id?.toString() || therapy.examination?.patient?.toString();
-                        const patientUhid = therapy.examination?.patient?.user?.uhid || therapy.examination?.patient?.patientId || "N/A";
-                        const key = patientId || patientUhid;
-                        
-                        if (!groupedByPatient[key]) {
-                            groupedByPatient[key] = {
-                                _id: key, // Use patient ID as the row ID
-                                patientName: therapy.examination?.patient?.user?.name || "Unknown",
-                                patientUhid: patientUhid,
-                                patientId: patientId,
-                                therapyDate: therapy.createdAt
-                            ? new Date(therapy.createdAt).toISOString().split("T")[0]
-                                    : new Date().toISOString().split("T")[0],
-                                therapies: [], // Array to store all therapies for this patient
-                            };
-                        }
-                        
-                        // Add this therapy to the patient's list
-                        groupedByPatient[key].therapies.push({
-                            _id: therapy._id,
-                            treatmentName: therapy.treatmentName || "N/A",
-                            daysOfTreatment: therapy.daysOfTreatment || 0,
-                            timeline: therapy.timeline || "AlternateDay",
-                            specialInstructions: therapy.specialInstructions || "",
-                            examinationId: therapy.examination?._id || null,
-                            sessionId: therapy.sessionId || null,
-                            createdAt: therapy.createdAt,
-                            rawData: therapy,
-                        });
-                        
-                        // Update date to the latest therapy date
-                        if (therapy.createdAt) {
-                            const therapyDate = new Date(therapy.createdAt).toISOString().split("T")[0];
-                            if (therapyDate > groupedByPatient[key].therapyDate) {
-                                groupedByPatient[key].therapyDate = therapyDate;
-                            }
-                        }
+
+                therapyData.forEach((therapy) => {
+                    const patientId = therapy.examination?.patient?._id?.toString() || therapy.examination?.patient?.toString();
+                    const patientUhid = therapy.examination?.patient?.user?.uhid || therapy.examination?.patient?.patientId || "N/A";
+                    const key = patientId || patientUhid;
+
+                    if (!groupedByPatient[key]) {
+                        groupedByPatient[key] = {
+                            _id: key, // Use patient ID as the row ID
+                            patientName: therapy.examination?.patient?.user?.name || "Unknown",
+                            patientUhid: patientUhid,
+                            patientId: patientId,
+                            therapyDate: therapy.createdAt
+                                ? new Date(therapy.createdAt).toISOString().split("T")[0]
+                                : new Date().toISOString().split("T")[0],
+                            therapies: [], // Array to store all therapies for this patient
+                        };
+                    }
+
+                    // Add this therapy to the patient's list
+                    groupedByPatient[key].therapies.push({
+                        _id: therapy._id,
+                        treatmentName: therapy.treatmentName || "N/A",
+                        daysOfTreatment: therapy.daysOfTreatment || 0,
+                        therapistName: (therapy.therapists && therapy.therapists.length > 0)
+                            ? therapy.therapists.map(t => t.user?.name || t.name || "Unknown").join(", ")
+                            : therapy.therapist?.user?.name || "Not Assigned",
+                        timeline: therapy.timeline || "AlternateDay",
+                        specialInstructions: therapy.specialInstructions || "",
+                        examinationId: therapy.examination?._id || null,
+                        sessionId: therapy.sessionId || null,
+                        createdAt: therapy.createdAt,
+                        rawData: therapy,
                     });
-                    
-                    // Convert grouped object to array
-                    const groupedTherapies = Object.values(groupedByPatient);
+
+                    // Update date to the latest therapy date
+                    if (therapy.createdAt) {
+                        const therapyDate = new Date(therapy.createdAt).toISOString().split("T")[0];
+                        if (therapyDate > groupedByPatient[key].therapyDate) {
+                            groupedByPatient[key].therapyDate = therapyDate;
+                        }
+                    }
+                });
+
+                // Convert grouped object to array
+                const groupedTherapies = Object.values(groupedByPatient);
 
                 setTherapies(groupedTherapies);
             } else {
@@ -130,16 +133,16 @@ function OPDTherapies_View() {
         { field: "patientName", header: "Patient Name" },
         { field: "patientUhid", header: "UHID" },
         { field: "therapyDate", header: "Date" },
-        { 
-            field: "treatmentName", 
+        {
+            field: "treatmentName",
             header: "Treatments",
             render: (row) => {
                 if (!row.therapies || row.therapies.length === 0) {
                     return "N/A";
                 }
                 return (
-                    <Box sx={{ 
-                        display: "grid", 
+                    <Box sx={{
+                        display: "grid",
                         gridTemplateColumns: "repeat(4, max-content)",
                         gap: 0.5,
                         maxWidth: "100%",
@@ -161,8 +164,8 @@ function OPDTherapies_View() {
                 );
             }
         },
-        { 
-            field: "daysOfTreatment", 
+        {
+            field: "daysOfTreatment",
             header: "Total Days",
             render: (row) => {
                 if (!row.therapies || row.therapies.length === 0) {

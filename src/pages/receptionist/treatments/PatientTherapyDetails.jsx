@@ -81,19 +81,123 @@ function PatientTherapyDetails() {
         if (!patientId) return;
 
         try {
-            const response = await axios.get(
-                getApiUrl("therapist-sessions"),
-                { headers: getAuthHeaders() }
-            );
+            // Fetch sessions, invoices, inpatients, and examinations in parallel
+            const [sessionsResponse, invoicesResponse, inpatientsResponse, examinationsResponse] = await Promise.all([
+                axios.get(
+                    getApiUrl("therapist-sessions"),
+                    { headers: getAuthHeaders() }
+                ),
+                // Fetch invoices to check payment status for OPD discharge
+                axios.get(
+                    getApiUrl("invoices"),
+                    {
+                        headers: getAuthHeaders(),
+                        params: { page: 1, limit: 1000 },
+                    }
+                ).catch(() => ({ data: { success: false, data: [] } })),
+                // Fetch inpatients to check discharge status for IPD
+                axios.get(
+                    getApiUrl("inpatients"),
+                    {
+                        headers: getAuthHeaders(),
+                        params: { page: 1, limit: 1000 },
+                    }
+                ).catch(() => ({ data: { success: false, data: [] } })),
+                // Fetch examinations to check isBilled status for OPD
+                axios.get(
+                    getApiUrl("examinations"),
+                    {
+                        headers: getAuthHeaders(),
+                        params: { page: 1, limit: 1000 },
+                    }
+                ).catch(() => ({ data: { success: false, data: [] } }))
+            ]);
 
-            if (response.data.success) {
-                const sessions = response.data.data || [];
+            if (sessionsResponse.data.success) {
+                const sessions = sessionsResponse.data.data || [];
+                
+                // Create maps for discharge status checking
+                const invoicesMap = new Map();
+                if (invoicesResponse.data.success) {
+                    const invoices = Array.isArray(invoicesResponse.data.data) 
+                        ? invoicesResponse.data.data 
+                        : (invoicesResponse.data.data?.data || []);
+                    invoices.forEach(invoice => {
+                        if (invoice.examination) {
+                            const examId = invoice.examination._id?.toString() || invoice.examination.toString();
+                            invoicesMap.set(examId, invoice);
+                        }
+                    });
+                }
+                
+                const examinationsMap = new Map();
+                if (examinationsResponse.data.success) {
+                    const examinations = Array.isArray(examinationsResponse.data.data) 
+                        ? examinationsResponse.data.data 
+                        : (examinationsResponse.data.data?.data || []);
+                    examinations.forEach(exam => {
+                        const examId = exam._id?.toString();
+                        if (examId) {
+                            examinationsMap.set(examId, exam);
+                        }
+                    });
+                }
+                
+                const inpatientsMap = new Map();
+                if (inpatientsResponse.data.success) {
+                    const inpatients = Array.isArray(inpatientsResponse.data.data) 
+                        ? inpatientsResponse.data.data 
+                        : (inpatientsResponse.data.data?.data || []);
+                    inpatients.forEach(inpatient => {
+                        const patientId = inpatient.patient?._id?.toString() || inpatient.patient?.toString();
+                        if (patientId) {
+                            inpatientsMap.set(patientId, inpatient);
+                        }
+                    });
+                }
+                
                 // Filter sessions by patient profile ID
-                const filteredSessions = sessions.filter(
+                let filteredSessions = sessions.filter(
                     (session) =>
                         (session.patient?._id?.toString() === patientId) ||
                         (session.patient?.toString() === patientId)
                 );
+                
+                // Filter out sessions from discharged visits
+                filteredSessions = filteredSessions.filter((session) => {
+                    const examinationId = session.examination?._id?.toString() || session.examination?.toString();
+                    const isIPD = !!session.inpatient || session.patient?.inpatient === true;
+                    
+                    if (isIPD) {
+                        // For IPD: check if inpatient is discharged
+                        const inpatient = inpatientsMap.get(patientId);
+                        if (inpatient && inpatient.status === "Discharged") {
+                            // Check if this session belongs to this discharged inpatient
+                            const sessionInpatientId = session.inpatient?._id?.toString() || session.inpatient?.toString();
+                            const inpatientId = inpatient._id?.toString();
+                            if (sessionInpatientId === inpatientId) {
+                                return false; // Filter out - this is from a discharged visit
+                            }
+                        }
+                    } else {
+                        // For OPD: check if examination is billed AND fully paid
+                        if (examinationId) {
+                            const examination = examinationsMap.get(examinationId);
+                            const invoice = invoicesMap.get(examinationId);
+                            
+                            // Only filter out if examination is billed AND invoice is fully paid
+                            if (examination && examination.isBilled && invoice) {
+                                const isFullyPaid = (invoice.amountPaid || 0) >= (invoice.totalPayable || 0);
+                                if (isFullyPaid && invoice.totalPayable > 0) {
+                                    return false; // Filter out - this is from a discharged visit
+                                }
+                            }
+                        }
+                    }
+                    
+                    return true; // Keep this session - it's from an active visit
+                });
+                
                 setTherapySessions(filteredSessions);
             }
         } catch (error) {

@@ -13,6 +13,9 @@ import {
     Grid,
     Divider,
     CircularProgress,
+    Checkbox,
+    Chip,
+    OutlinedInput,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import axios from "axios";
@@ -37,8 +40,8 @@ function AddTherapyPlanPage() {
     const [formData, setFormData] = useState({
         patientName: "",
         patientId: "",
-        therapistId: "",
-        therapyType: "",
+        therapistId: [], // Array for multi-selection
+        therapyType: [], // Array for multi-selection
         totalSessions: "",
         assignedDate: new Date().toISOString().split("T")[0], // Default to today
         notes: "",
@@ -169,26 +172,27 @@ function AddTherapyPlanPage() {
                         if (planResponse.data.success && planResponse.data.data) {
                             const plan = planResponse.data.data;
 
-                            // Find therapist user ID from the session
-                            const therapistUserId = latestSession.therapist?.user?._id ||
-                                latestSession.therapist?.user ||
-                                (typeof latestSession.therapist === 'string' ? latestSession.therapist : null);
+                            // Resolve therapists (could be more than one in the session now)
+                            let assignedTherapistIds = [];
+                            if (latestSession.therapists?.length > 0) {
+                                assignedTherapistIds = latestSession.therapists.map(t => t.user?._id || t.user || t);
+                            } else if (latestSession.therapist) {
+                                const legacyId = latestSession.therapist.user?._id || latestSession.therapist.user || latestSession.therapist || "";
+                                if (legacyId) assignedTherapistIds = [legacyId];
+                            }
 
-                            // Match therapist by user ID - therapists list contains User objects with _id
-                            const matchingTherapist = therapists.find(
-                                therapist => therapist._id?.toString() === therapistUserId?.toString()
-                            );
-
-                            // Find therapy by name
-                            const matchingTherapy = therapies.find(
-                                t => t.therapyName === plan.treatmentName
-                            );
+                            // Find matching therapies for all related plans
+                            const relatedPlans = plan.relatedPlans || [];
+                            const allTherapyNames = [plan.treatmentName, ...relatedPlans.map(rp => rp.treatmentName)];
+                            const assignedTherapyIds = therapies
+                                .filter(t => allTherapyNames.includes(t.therapyName))
+                                .map(t => t._id);
 
                             // Set form data
                             setFormData((prev) => ({
                                 ...prev,
-                                therapistId: matchingTherapist?._id || therapistUserId || "",
-                                therapyType: matchingTherapy?._id || "",
+                                therapistId: assignedTherapistIds,
+                                therapyType: assignedTherapyIds,
                                 totalSessions: plan.daysOfTreatment?.toString() || "",
                                 assignedDate: plan.createdAt
                                     ? new Date(plan.createdAt).toISOString().split("T")[0]
@@ -229,8 +233,8 @@ function AddTherapyPlanPage() {
         e.preventDefault();
 
         // Validation
-        if (!formData.patientName || !formData.patientId || !formData.therapistId ||
-            !formData.therapyType || !formData.totalSessions || !formData.assignedDate) {
+        if (!formData.patientName || !formData.patientId || formData.therapistId.length === 0 ||
+            formData.therapyType.length === 0 || !formData.totalSessions || !formData.assignedDate) {
             toast.error("Please fill in all required fields.");
             return;
         }
@@ -244,43 +248,45 @@ function AddTherapyPlanPage() {
         setIsSubmitting(true);
 
         try {
-            // Map form data to backend API structure
-            // Ensure we are sending the name, not the ID
-            const selectedTherapy = therapies.find(t => t._id === formData.therapyType || t.therapyName === formData.therapyType);
-            const treatmentNameToSend = selectedTherapy ? selectedTherapy.therapyName : formData.therapyType;
+            const results = [];
+            for (const therapyId of formData.therapyType) {
+                const selectedTherapy = therapies.find(t => t._id === therapyId);
+                const treatmentNameToSend = selectedTherapy ? selectedTherapy.therapyName : therapyId;
 
-            const requestData = {
-                treatmentName: treatmentNameToSend, // Use therapy name
-                daysOfTreatment: parseInt(formData.totalSessions, 10),
-                timeline: "AlternateDay", // Default timeline - can be updated if needed
-                specialInstructions: formData.notes.trim() || "",
-                therapistId: formData.therapistId,
-            };
+                const requestData = {
+                    treatmentName: treatmentNameToSend,
+                    daysOfTreatment: parseInt(formData.totalSessions, 10),
+                    timeline: "AlternateDay",
+                    specialInstructions: formData.notes.trim() || "",
+                    therapistId: formData.therapistId, // Pass the array
+                };
 
-            let response;
-            if (isEditMode && existingTreatmentPlanId) {
-                // Update existing treatment plan
-                response = await axios.patch(
-                    getApiUrl(`treatment-plans/${existingTreatmentPlanId}`),
-                    requestData,
-                    { headers: getAuthHeaders() }
-                );
-            } else {
-                // Create new therapy plan
-                response = await axios.post(
-                    getApiUrl(`inpatients/${inpatientId}/therapy-plans`),
-                    requestData,
-                    { headers: getAuthHeaders() }
-                );
+                let response;
+                if (isEditMode && existingTreatmentPlanId) {
+                    // Update the primary plan (we only support editing one at a time via this UI for now)
+                    response = await axios.patch(
+                        getApiUrl(`treatment-plans/${existingTreatmentPlanId}`),
+                        requestData,
+                        { headers: getAuthHeaders() }
+                    );
+                } else {
+                    // Create new therapy plan
+                    response = await axios.post(
+                        getApiUrl(`inpatients/${inpatientId}/therapy-plans`),
+                        requestData,
+                        { headers: getAuthHeaders() }
+                    );
+                }
+                results.push(response.data.success);
             }
 
-            if (response.data.success) {
-                toast.success(isEditMode ? "Therapy plan updated successfully!" : "Therapy plan added successfully!");
+            if (results.every(r => r)) {
+                toast.success(isEditMode ? "Therapy plan updated successfully!" : "Therapy plans added successfully!");
                 setTimeout(() => {
                     navigate(-1);
                 }, 1500);
             } else {
-                toast.error(response.data.message || (isEditMode ? "Failed to update therapy plan" : "Failed to add therapy plan"));
+                toast.error(isEditMode ? "Failed to update therapy plan" : "Failed to add some therapy plans");
                 setIsSubmitting(false);
             }
         } catch (error) {
@@ -333,15 +339,30 @@ function AddTherapyPlanPage() {
                                 <FormControl fullWidth>
                                     <Select
                                         name="therapistId"
+                                        multiple
                                         value={formData.therapistId}
                                         onChange={handleChange}
-                                        displayEmpty
+                                        input={<OutlinedInput label="Select Therapist" />}
+                                        renderValue={(selected) => (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {selected.map((value) => {
+                                                    const therapist = therapists.find(t => t._id === value);
+                                                    return (
+                                                        <Chip
+                                                            key={value}
+                                                            label={therapist ? (therapist.name || therapist._id) : value}
+                                                            size="small"
+                                                        />
+                                                    );
+                                                })}
+                                            </Box>
+                                        )}
                                         disabled={isLoadingTherapists}
                                         required
                                         sx={{
                                             backgroundColor: "var(--color-bg-input)",
                                             borderRadius: "10px",
-                                            height: "44px",
+                                            minHeight: "44px",
                                             "& .MuiOutlinedInput-notchedOutline": {
                                                 borderColor: "var(--color-border)",
                                             },
@@ -354,15 +375,13 @@ function AddTherapyPlanPage() {
                                             },
                                         }}
                                     >
-                                        <MenuItem value="">
-                                            <Typography sx={{ color: "var(--color-text)" }}>
-                                                Select Therapist *
-                                            </Typography>
-                                        </MenuItem>
                                         {therapists.map((therapist) => (
                                             <MenuItem key={therapist._id} value={therapist._id}>
-                                                {therapist.name || `Therapist ${therapist._id}`}
-                                                {therapist.specialization && ` - ${therapist.specialization}`}
+                                                <Checkbox checked={formData.therapistId.indexOf(therapist._id) > -1} />
+                                                <Typography>
+                                                    {therapist.name || `Therapist ${therapist._id}`}
+                                                    {therapist.specialization && ` - ${therapist.specialization}`}
+                                                </Typography>
                                             </MenuItem>
                                         ))}
                                     </Select>
@@ -414,15 +433,30 @@ function AddTherapyPlanPage() {
                                 <FormControl fullWidth>
                                     <Select
                                         name="therapyType"
+                                        multiple
                                         value={formData.therapyType}
                                         onChange={handleChange}
-                                        displayEmpty
+                                        input={<OutlinedInput label="Select Therapy Type" />}
+                                        renderValue={(selected) => (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {selected.map((value) => {
+                                                    const therapy = therapies.find(t => t._id === value);
+                                                    return (
+                                                        <Chip
+                                                            key={value}
+                                                            label={therapy ? therapy.therapyName : value}
+                                                            size="small"
+                                                        />
+                                                    );
+                                                })}
+                                            </Box>
+                                        )}
                                         disabled={isLoadingTherapies}
                                         required
                                         sx={{
                                             backgroundColor: "var(--color-bg-input)",
                                             borderRadius: "10px",
-                                            height: "44px",
+                                            minHeight: "44px",
                                             "& .MuiOutlinedInput-notchedOutline": {
                                                 borderColor: "var(--color-border)",
                                             },
@@ -435,14 +469,12 @@ function AddTherapyPlanPage() {
                                             },
                                         }}
                                     >
-                                        <MenuItem value="">
-                                            <Typography sx={{ color: "var(--color-text)" }}>
-                                                Select Therapy Type *
-                                            </Typography>
-                                        </MenuItem>
                                         {therapies.map((therapy) => (
                                             <MenuItem key={therapy._id} value={therapy._id}>
-                                                {therapy.therapyName}
+                                                <Checkbox checked={formData.therapyType.indexOf(therapy._id) > -1} />
+                                                <Typography>
+                                                    {therapy.therapyName}
+                                                </Typography>
                                             </MenuItem>
                                         ))}
                                     </Select>

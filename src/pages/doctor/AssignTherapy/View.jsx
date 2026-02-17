@@ -45,56 +45,58 @@ function AssignTherapy_View() {
                 setPagination((prev) => ({ ...prev, total }));
 
                 const groupedByPatient = {};
-                    
-                    therapyData.forEach((therapy) => {
-                        const patientId = therapy.examination?.patient?._id?.toString() || therapy.examination?.patient?.toString();
-                        const patientUhid = therapy.examination?.patient?.user?.uhid || therapy.examination?.patient?.patientId || "N/A";
-                        const key = patientId || patientUhid;
-                        
-                        if (!groupedByPatient[key]) {
-                            groupedByPatient[key] = {
-                                _id: key, // Use patient ID as the row ID
-                                patientName: therapy.examination?.patient?.user?.name || "Unknown",
-                                patientId: patientUhid,
-                                patientIdRaw: patientId,
-                                assignedDate: therapy.createdAt
-                                    ? new Date(therapy.createdAt).toISOString().split("T")[0]
-                                    : "N/A",
-                                therapies: [], // Array to store all therapies for this patient
-                                status: "Active", // Default status
-                            };
-                        }
-                        
-                        // Add this therapy to the patient's list
-                        groupedByPatient[key].therapies.push({
-                            _id: therapy._id,
-                            therapyType: therapy.treatmentName || "N/A",
-                            totalSessions: therapy.daysOfTreatment || 0,
-                            therapistName: therapy.therapist?.user?.name || "Urgent (Pending)",
-                            sessionsCompleted: therapy.progressCount || 0,
-                            sessionId: therapy.sessionId || null,
-                            timeline: therapy.timeline || "AlternateDay",
-                            createdAt: therapy.createdAt,
-                            rawData: therapy,
-                        });
-                        
-                        // Update date to the latest therapy date
-                        if (therapy.createdAt) {
-                            const therapyDate = new Date(therapy.createdAt).toISOString().split("T")[0];
-                            if (therapyDate > groupedByPatient[key].assignedDate) {
-                                groupedByPatient[key].assignedDate = therapyDate;
-                            }
-                        }
-                        
-                        // Update status - if inpatient is discharged, show Completed
-                        const therapyStatus = therapy.examination?.inpatient?.status === "Discharged" ? "Completed" : "Active";
-                        if (therapyStatus === "Completed" || groupedByPatient[key].status === "Completed") {
-                            groupedByPatient[key].status = "Completed";
-                        }
+
+                therapyData.forEach((therapy) => {
+                    const patientId = therapy.examination?.patient?._id?.toString() || therapy.examination?.patient?.toString();
+                    const patientUhid = therapy.examination?.patient?.user?.uhid || therapy.examination?.patient?.patientId || "N/A";
+                    const key = patientId || patientUhid;
+
+                    if (!groupedByPatient[key]) {
+                        groupedByPatient[key] = {
+                            _id: key, // Use patient ID as the row ID
+                            patientName: therapy.examination?.patient?.user?.name || "Unknown",
+                            patientId: patientUhid,
+                            patientIdRaw: patientId,
+                            assignedDate: therapy.createdAt
+                                ? new Date(therapy.createdAt).toISOString().split("T")[0]
+                                : "N/A",
+                            therapies: [], // Array to store all therapies for this patient
+                            status: "Active", // Default status
+                        };
+                    }
+
+                    // Add this therapy to the patient's list
+                    groupedByPatient[key].therapies.push({
+                        _id: therapy._id,
+                        therapyType: therapy.treatmentName || "N/A",
+                        totalSessions: therapy.daysOfTreatment || 0,
+                        therapistName: (therapy.therapists && therapy.therapists.length > 0)
+                            ? therapy.therapists.map(t => t.user?.name || t.name || "Unknown").join(", ")
+                            : therapy.therapist?.user?.name || "Urgent (Pending)",
+                        sessionsCompleted: therapy.progressCount || 0,
+                        sessionId: therapy.sessionId || null,
+                        timeline: therapy.timeline || "AlternateDay",
+                        createdAt: therapy.createdAt,
+                        rawData: therapy,
                     });
-                    
-                    // Convert grouped object to array
-                    const groupedAssignments = Object.values(groupedByPatient);
+
+                    // Update date to the latest therapy date
+                    if (therapy.createdAt) {
+                        const therapyDate = new Date(therapy.createdAt).toISOString().split("T")[0];
+                        if (therapyDate > groupedByPatient[key].assignedDate) {
+                            groupedByPatient[key].assignedDate = therapyDate;
+                        }
+                    }
+
+                    // Update status - if inpatient is discharged, show Completed
+                    const therapyStatus = therapy.examination?.inpatient?.status === "Discharged" ? "Completed" : "Active";
+                    if (therapyStatus === "Completed" || groupedByPatient[key].status === "Completed") {
+                        groupedByPatient[key].status = "Completed";
+                    }
+                });
+
+                // Convert grouped object to array
+                const groupedAssignments = Object.values(groupedByPatient);
 
                 setAssignments(groupedAssignments);
             } else {
@@ -136,16 +138,16 @@ function AssignTherapy_View() {
     const columns = [
         { field: "patientName", header: "Patient Name" },
         { field: "patientId", header: "Patient ID" },
-        { 
-            field: "therapyType", 
+        {
+            field: "therapyType",
             header: "Therapies",
             render: (row) => {
                 if (!row.therapies || row.therapies.length === 0) {
                     return "N/A";
                 }
                 return (
-                    <Box sx={{ 
-                        display: "grid", 
+                    <Box sx={{
+                        display: "grid",
                         gridTemplateColumns: "repeat(4, max-content)",
                         gap: 0.5,
                         maxWidth: "100%",
@@ -168,8 +170,8 @@ function AssignTherapy_View() {
             }
         },
         { field: "assignedDate", header: "Assigned Date" },
-        { 
-            field: "sessionsProgress", 
+        {
+            field: "sessionsProgress",
             header: "Total Sessions",
             render: (row) => {
                 if (!row.therapies || row.therapies.length === 0) {

@@ -161,6 +161,11 @@ function PatientTherapyDetailsPage() {
                                             </Typography>
                                             <Typography variant="body1" fontWeight={600}>
                                                 {session.treatmentName}
+                                                {session.subTherapy && (
+                                                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                                        Sub-Therapy: {session.subTherapy}
+                                                    </Typography>
+                                                )}
                                             </Typography>
                                         </Box>
                                     </Box>
