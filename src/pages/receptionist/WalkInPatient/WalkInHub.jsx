@@ -33,9 +33,9 @@ function WalkInHub() {
     const patientName = searchParams.get("patientName") || "";
     const existingDoctorId = searchParams.get("doctorId") || "";
 
-    const [mode, setMode] = useState("OPD");
-    const [formData, setFormData] = useState({
-        doctorProfileId: "", // Don't initialize from URL - will be loaded from patient profile
+    // Initial empty form state - used when patient is discharged (re-appointment = fresh form)
+    const getEmptyFormState = () => ({
+        doctorProfileId: "",
         nurseProfileId: "",
         appointmentTime: "",
         appointmentDate: new Date().toLocaleDateString("en-CA"),
@@ -52,6 +52,9 @@ function WalkInHub() {
             startDate: new Date().toLocaleDateString("en-CA"),
         }
     });
+
+    const [mode, setMode] = useState("OPD");
+    const [formData, setFormData] = useState(getEmptyFormState());
 
     const [doctors, setDoctors] = useState([]);
     const [nurses, setNurses] = useState([]);
@@ -106,6 +109,66 @@ function WalkInHub() {
                 const patient = patientRes.data.data;
                 console.log("[WalkInHub] Patient profile loaded:", patient);
                 console.log("[WalkInHub] Patient allocatedNurse:", patient.allocatedNurse);
+
+                // Check if patient is discharged - if so, show empty form for fresh re-appointment
+                let isDischarged = false;
+                try {
+                    // IPD: check if there is an active admission
+                    const inpatientsRes = await axios.get(
+                        getApiUrl(`inpatients/patient/${patientProfileId}`),
+                        { headers: getAuthHeaders() }
+                    );
+                    const inpatientsList = inpatientsRes.data.success
+                        ? (Array.isArray(inpatientsRes.data.data) ? inpatientsRes.data.data : [inpatientsRes.data.data].filter(Boolean))
+                        : [];
+                    const hasActiveAdmission = inpatientsList.some(ip => ip && ip.status === "Admitted");
+
+                    if (patient.admissionStatus === "In-patient" || inpatientsList.length > 0) {
+                        // IPD context: discharged = no active admission
+                        if (!hasActiveAdmission) {
+                            isDischarged = true;
+                        }
+                    } else {
+                        // OPD: check if latest examination is billed and fully paid
+                        const examsRes = await axios.get(
+                            getApiUrl(`examinations?patientId=${patientProfileId}&limit=1&hasInpatient=false`),
+                            { headers: getAuthHeaders() }
+                        );
+                        const exams = examsRes.data.success && examsRes.data.data
+                            ? (Array.isArray(examsRes.data.data) ? examsRes.data.data : examsRes.data.data?.data || [])
+                            : [];
+                        const latestExam = exams[0];
+                        if (latestExam && latestExam.isBilled) {
+                            const invRes = await axios.get(
+                                getApiUrl("invoices"),
+                                { headers: getAuthHeaders(), params: { page: 1, limit: 500 } }
+                            ).catch(() => ({ data: { success: false, data: [] } }));
+                            const invoices = invRes.data.success
+                                ? (Array.isArray(invRes.data.data) ? invRes.data.data : invRes.data.data?.data || [])
+                                : [];
+                            const invoiceForExam = invoices.find(
+                                inv => (inv.examination?._id || inv.examination)?.toString() === (latestExam._id || latestExam).toString()
+                            );
+                            if (invoiceForExam) {
+                                const paid = (invoiceForExam.amountPaid || 0) >= (invoiceForExam.totalPayable || 0);
+                                if (paid && (invoiceForExam.totalPayable || 0) > 0) {
+                                    isDischarged = true;
+                                }
+                            }
+                        }
+                    }
+                } catch (dischargeErr) {
+                    console.warn("[WalkInHub] Error checking discharge status:", dischargeErr);
+                }
+
+                if (isDischarged) {
+                    // Patient is discharged - re-appointment = fresh form, all fields empty
+                    setMode("OPD");
+                    setFormData(getEmptyFormState());
+                    setIsLoadingExistingData(false);
+                    return;
+                }
+
                 let currentInpatientId = null; // Store inpatient ID for therapist lookup
 
                 // Determine mode based on admission status
