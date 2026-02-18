@@ -202,16 +202,16 @@ function Inpatient_View() {
         });
     }, [search, statusFilter]);
 
-    // Calculate statistics
+    // Calculate statistics: total from server (all pages), status counts from current page (backend may add meta.admitted/meta.discharged later)
     const stats = useMemo(() => {
         return {
-            total: inpatients.length,
+            total: pagination.total,
             admitted: inpatients.filter((p) => p.admitStatus === "Admitted").length,
             underObservation: inpatients.filter((p) => p.admitStatus === "Under Observation").length,
             pendingAllocation: inpatients.filter((p) => p.admitStatus === "Pending Allocation").length,
             discharged: inpatients.filter((p) => p.admitStatus === "Discharged").length,
         };
-    }, [inpatients]);
+    }, [inpatients, pagination.total]);
 
     // Filter by status only (search is now server-side)
     const filteredData = useMemo(() => {

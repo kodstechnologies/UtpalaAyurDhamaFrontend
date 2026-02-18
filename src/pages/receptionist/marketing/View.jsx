@@ -66,25 +66,25 @@ function Marketing_View() {
             try {
                 const params = {
                     page: pagination.page + 1, // Backend uses 1-based pagination
-                    limit: pagination.rowsPerPage 
+                    limit: pagination.rowsPerPage
                 };
-                
+
                 // Add search parameter if search is active
                 if (searchQuery && searchQuery.trim()) {
                     params.search = searchQuery.trim();
                 }
-                
+
                 const response = await receptionistService.getMarketingPatients(params, abortController.signal);
-                
+
                 // Check if component is still mounted before updating state
                 if (!isMounted) return;
-                
+
                 console.log("Marketing API Response:", response);
                 if (response && response.success) {
                     setAllPatients(response.data || []);
                     setDiseases(response.meta?.diseases || []);
                     setTreatments(response.meta?.treatments || []);
-                    
+
                     // Update pagination metadata
                     if (response.meta?.total !== undefined) {
                         setPagination(prev => ({
@@ -104,7 +104,7 @@ function Marketing_View() {
                 if (error.name === 'AbortError' || error.name === 'CanceledError' || error.message === 'canceled') {
                     return;
                 }
-                
+
                 console.error("Marketing Error:", error);
                 if (isMounted) {
                     toast.error(error?.message || "An error occurred while fetching marketing data");
@@ -128,7 +128,7 @@ function Marketing_View() {
             abortController.abort();
         };
     }, [pagination.page, pagination.rowsPerPage, searchQuery]);
-    
+
     // Reset to first page when filters or search change
     useEffect(() => {
         // Only reset if not already on page 0 to avoid unnecessary re-renders
@@ -157,7 +157,7 @@ function Marketing_View() {
         const sorted = result.sort((a, b) => {
             const dateA = a.appointmentDate && a.appointmentDate !== "N/A" ? new Date(a.appointmentDate) : null;
             const dateB = b.appointmentDate && b.appointmentDate !== "N/A" ? new Date(b.appointmentDate) : null;
-            
+
             // If both have dates, sort descending (most recent first)
             if (dateA && dateB) {
                 return dateB.getTime() - dateA.getTime();
@@ -171,23 +171,23 @@ function Marketing_View() {
 
         return sorted;
     }, [filters, allPatients, searchQuery]);
-    
+
     // Note: Since filters are applied client-side, we display filteredPatients directly
     // Server-side pagination fetches the base data, then we filter and display
     // Ensure paginatedPatients is always an array
     const paginatedPatients = Array.isArray(filteredPatients) ? filteredPatients : [];
 
-    // Calculate stats
+    // Calculate stats: total from server (all pages), filtered/selected/validContact from current data
     const stats = useMemo(() => {
         return {
-            total: allPatients.length,
+            total: pagination.total,
             filtered: filteredPatients.length,
             selected: selectedPatientIds.length,
             withValidContact: filteredPatients.filter(
                 (p) => p.contact && p.contact !== "N/A" && p.contact.replace(/\D/g, "").length >= 10
             ).length,
         };
-    }, [allPatients, filteredPatients, selectedPatientIds]);
+    }, [allPatients, filteredPatients, selectedPatientIds, pagination.total]);
 
     // Handle filter change
     const handleFilterChange = (e) => {

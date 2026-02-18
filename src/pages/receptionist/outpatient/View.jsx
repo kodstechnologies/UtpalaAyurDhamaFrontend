@@ -217,15 +217,7 @@ function Outpatient_View() {
 
                 console.log("Total outpatient examination rows:", transformedOutpatients.length);
                 setOutpatients(transformedOutpatients);
-                
-                // Update pagination metadata
-                if (allExamsResponse.data.meta) {
-                    setPagination(prev => ({
-                        ...prev,
-                        total: allExamsResponse.data.meta.total || mergedRows.length,
-                    }));
-                }
-                
+
                 // Update pagination metadata from examinations response
                 if (allExamsResponse.data.meta) {
                     setPagination(prev => ({
@@ -250,14 +242,7 @@ function Outpatient_View() {
     
     // Reset to first page when search changes
     useEffect(() => {
-        if (pagination.page !== 0) {
-            setPagination(prev => ({ ...prev, page: 0 }));
-        }
-    }, [search]);
-    
-    // Reset to first page when search changes
-    useEffect(() => {
-        setPagination(prev => ({ ...prev, page: 0 }));
+        setPagination(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
     }, [search]);
 
     // Refresh data when navigating back from allocation page
@@ -269,35 +254,29 @@ function Outpatient_View() {
         }
     }, [location.state, fetchOutpatients, navigate, location.pathname]);
 
-    // Calculate statistics
+    // Calculate statistics: total from server (all pages), unbilled/billed/discharged from current page
     const stats = useMemo(() => {
-        let total = 0;
         let unbilledVisits = 0;
         let billedVisits = 0;
         let dischargedVisits = 0;
 
         outpatients.forEach(patient => {
-            total++;
-            
-            // Count discharged (fully paid) visits first
             if (patient.isDischarged) {
                 dischargedVisits++;
             } else if (patient.hasUnbilledVisit) {
-                // Count unbilled visits (not discharged)
                 unbilledVisits++;
             } else if (patient.hasFinalizedBill) {
-                // Count billed but not fully paid visits
                 billedVisits++;
             }
         });
 
         return {
-            total,
+            total: pagination.total,
             unbilledVisits,
             billedVisits,
             dischargedVisits,
         };
-    }, [outpatients]);
+    }, [outpatients, pagination.total]);
 
     // Sort outpatients by time (most recent first) - search is now server-side
     const filteredData = useMemo(() => {

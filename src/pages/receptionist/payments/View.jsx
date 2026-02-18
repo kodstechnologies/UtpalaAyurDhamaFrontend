@@ -52,42 +52,43 @@ function Payments_View() {
             console.log("Invoice API Response:", response);
             if (response && response.success) {
                 const invoicesData = Array.isArray(response.data) ? response.data : [];
+                const totalCount = response.meta?.total ?? invoicesData.length;
+
                 setInvoices(invoicesData);
-                
-                // Update pagination metadata
+
                 if (response.meta) {
                     setPagination(prev => ({
                         ...prev,
                         total: response.meta.total || 0,
                     }));
                 }
-                
-                return invoicesData;
+
+                // Return data and meta so stats use server total (all pages), not current page only
+                return { data: invoicesData, meta: response.meta, totalCount };
             } else {
                 console.warn("Invoice API response missing success or data:", response);
                 setInvoices([]);
-                return [];
+                return { data: [], meta: null, totalCount: 0 };
             }
         } catch (error) {
             console.error("Error fetching invoices:", error);
             console.error("Error response:", error.response);
             toast.error(error.response?.data?.message || "Failed to fetch invoices");
             setInvoices([]);
-            return [];
+            return { data: [], meta: null, totalCount: 0 };
         }
     };
 
     const loadAllData = async () => {
         setLoading(true);
-        const invData = await fetchInvoices();
+        const { data: invData, totalCount } = await fetchInvoices();
 
-        // Calculate Totals from current page invoices (for display)
-        // Note: For accurate totals, we'd need a separate summary endpoint
+        // Total invoices from server (all pages); income/balance from current page unless backend adds summary
         const totalIncome = invData.reduce((sum, inv) => sum + (inv.totalPayable || 0), 0);
 
         setStats({
-            totalInvoices: pagination.total || invData.length, // Use total from pagination if available
-            totalIncome, // This is only for current page, consider fetching summary separately if needed
+            totalInvoices: totalCount,
+            totalIncome,
             netBalance: totalIncome
         });
 
@@ -97,7 +98,7 @@ function Payments_View() {
     useEffect(() => {
         loadAllData();
     }, [pagination.page, pagination.rowsPerPage, invoiceSearch]);
-    
+
     // Reset to first page when search changes
     useEffect(() => {
         setPagination(prev => ({ ...prev, page: 0 }));
@@ -238,7 +239,7 @@ function Payments_View() {
                                                 const isPaid = (inv.amountPaid || 0) >= (inv.totalPayable || 0);
                                                 const isPartiallyPaid = (inv.amountPaid || 0) > 0 && (inv.amountPaid || 0) < (inv.totalPayable || 0);
                                                 const balanceDue = (inv.totalPayable || 0) - (inv.amountPaid || 0);
-                                                
+
                                                 return (
                                                     <tr key={inv._id}>
                                                         <td>{formatDate(inv.createdAt)}</td>
@@ -306,7 +307,7 @@ function Payments_View() {
                                     <p className="text-muted mt-2">No invoices found.</p>
                                 </div>
                             )}
-                            
+
                             {/* Pagination */}
                             {!loading && invoices.length > 0 && (
                                 <TablePagination
