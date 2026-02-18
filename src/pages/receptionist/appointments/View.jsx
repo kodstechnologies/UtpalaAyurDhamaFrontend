@@ -252,12 +252,12 @@ function Appointments_View() {
         { label: "Appointments" },
     ];
 
-    // Calculate statistics
+    // Calculate statistics (use pagination total for Total Patients, not current page length)
     const statistics = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         return {
-            totalPatients: allPatients.length,
+            totalPatients: patientsPagination.total ?? allPatients.length,
             todayAppointments: appointments.filter((apt) => {
                 const aptDate = new Date(apt.appointmentDateTime.split(" ")[0]);
                 aptDate.setHours(0, 0, 0, 0);
@@ -280,7 +280,7 @@ function Appointments_View() {
                 }
             }).length,
         };
-    }, [allPatients, appointments]);
+    }, [patientsPagination.total, allPatients, appointments]);
 
     // Filter and sort patients by registration time (most recent first)
     // Note: Server-side pagination is used, so allPatients already contains only the current page's data
