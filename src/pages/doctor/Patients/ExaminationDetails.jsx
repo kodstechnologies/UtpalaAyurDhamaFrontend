@@ -213,7 +213,9 @@ function ExaminationDetails() {
                     subtitle="Examination record not found"
                     breadcrumbItems={[
                         { label: "Doctor", url: "/doctor/dashboard" },
-                        { label: "OP Consultation", url: "/doctor/op-consultation" },
+                        location.state?.from === "in-patients"
+                            ? { label: "In Patients", url: "/doctor/in-patients" }
+                            : { label: "OP Consultation", url: "/doctor/op-consultation" },
                         { label: "Examination Details" },
                     ]}
                 />
@@ -224,7 +226,7 @@ function ExaminationDetails() {
                     <Button
                         variant="contained"
                         startIcon={<ArrowBack />}
-                        onClick={() => navigate("/doctor/op-consultation")}
+                        onClick={() => navigate(location.state?.from === "in-patients" ? "/doctor/in-patients" : "/doctor/op-consultation")}
                         sx={{ mt: 2 }}
                     >
                         Go Back
@@ -260,7 +262,9 @@ function ExaminationDetails() {
                     subtitle={`Examination record for ${patient.name}`}
                     breadcrumbItems={[
                         { label: "Doctor", url: "/doctor/dashboard" },
-                        { label: "OP Consultation", url: "/doctor/op-consultation" },
+                        location.state?.from === "in-patients"
+                            ? { label: "In Patients", url: "/doctor/in-patients" }
+                            : { label: "OP Consultation", url: "/doctor/op-consultation" },
                         { label: "Examination Details" },
                     ]}
                 />
@@ -268,7 +272,7 @@ function ExaminationDetails() {
                     <Button
                         variant="outlined"
                         startIcon={<ArrowBack />}
-                        onClick={() => navigate("/doctor/op-consultation")}
+                        onClick={() => navigate(location.state?.from === "in-patients" ? "/doctor/in-patients" : "/doctor/op-consultation")}
                     >
                         Back
                     </Button>

@@ -48,6 +48,8 @@ function WalkInHub() {
             timeline: "Daily",
             specialInstructions: "",
             subTherapy: "",
+            duration: "",
+            treatmentDescription: "",
             therapistId: [],
             startDate: new Date().toLocaleDateString("en-CA"),
         }
@@ -192,6 +194,32 @@ function WalkInHub() {
 
                             currentInpatientId = inpatient._id; // Store for therapist lookup
 
+                            // Fetch latest IPD examination so we show the doctor set in billing (Edit Doctor)
+                            let latestIpdExamDoctorId = "";
+                            try {
+                                const ipdExamsRes = await axios.get(
+                                    getApiUrl(`examinations/inpatient/${inpatient._id}`),
+                                    { headers: getAuthHeaders() }
+                                );
+                                const ipdExams = ipdExamsRes.data?.success && ipdExamsRes.data?.data
+                                    ? (Array.isArray(ipdExamsRes.data.data) ? ipdExamsRes.data.data : [])
+                                    : [];
+                                // Sort by date (newest first) to get the latest examination
+                                const sortedIpdExams = ipdExams.sort((a, b) => {
+                                    const dateA = new Date(a.updatedAt || a.createdAt || 0);
+                                    const dateB = new Date(b.updatedAt || b.createdAt || 0);
+                                    return dateB - dateA; // Descending order (newest first)
+                                });
+                                const latestIpdExam = sortedIpdExams[0];
+                                if (latestIpdExam?.doctor) {
+                                    latestIpdExamDoctorId = typeof latestIpdExam.doctor === "object"
+                                        ? (latestIpdExam.doctor._id || latestIpdExam.doctor)?.toString?.()
+                                        : String(latestIpdExam.doctor);
+                                }
+                            } catch (e) {
+                                console.warn("[WalkInHub] Error fetching IPD examinations for doctor:", e);
+                            }
+
                             // Format date for input
                             const formatDateForInput = (date) => {
                                 if (!date) return new Date().toLocaleDateString("en-CA");
@@ -229,8 +257,8 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                // Always prioritize primary doctor from patient profile
-                                doctorProfileId: patient.primaryDoctor?._id || inpatient.doctor?._id || "",
+                                // Latest IPD examination doctor (set in billing) > URL > patient/inpatient doctor
+                                doctorProfileId: latestIpdExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || inpatient.doctor?._id || "",
                                 nurseProfileId: nurseId,
                                 wardCategory: inpatient.wardCategory || "General",
                                 roomNumber: inpatient.roomNumber || "",
@@ -243,6 +271,24 @@ function WalkInHub() {
                     }
                 } else {
                     setMode("OPD");
+
+                    // Fetch latest OPD examination so we show the doctor set in billing (Edit Doctor)
+                    let latestExamDoctorId = "";
+                    try {
+                        const examsRes = await axios.get(
+                            getApiUrl(`examinations?patientId=${patientProfileId}&limit=1&hasInpatient=false`),
+                            { headers: getAuthHeaders() }
+                        );
+                        const examsData = examsRes.data.success && examsRes.data.data
+                            ? (Array.isArray(examsRes.data.data) ? examsRes.data.data : examsRes.data.data?.data || [])
+                            : [];
+                        const latestExam = examsData[0];
+                        if (latestExam?.doctor) {
+                            latestExamDoctorId = typeof latestExam.doctor === "object" ? (latestExam.doctor._id || latestExam.doctor)?.toString?.() : String(latestExam.doctor);
+                        }
+                    } catch (e) {
+                        console.warn("[WalkInHub] Error fetching latest examination for doctor:", e);
+                    }
 
                     // Fetch latest appointment for OPD
                     try {
@@ -285,8 +331,8 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                // Always prioritize primary doctor from patient profile
-                                doctorProfileId: patient.primaryDoctor?._id || appointment.doctor?._id || "",
+                                // Latest examination doctor (set in billing) > URL > appointment > primary
+                                doctorProfileId: latestExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || appointment.doctor?._id || "",
                                 nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                                 appointmentTime: formatTimeForInput(appointment.appointmentTime),
                                 appointmentDate: formatDateForInput(appointment.appointmentDate),
@@ -306,8 +352,8 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                // Always use primary doctor from patient profile, ignore URL parameter
-                                doctorProfileId: patient.primaryDoctor?._id || "",
+                                // Latest examination doctor (set in billing) > URL > primary
+                                doctorProfileId: latestExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || "",
                                 nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                             }));
                         }
@@ -322,8 +368,8 @@ function WalkInHub() {
 
                         setFormData(prev => ({
                             ...prev,
-                            // Always prioritize primary doctor from patient profile, ignore URL parameter
-                            doctorProfileId: patient.primaryDoctor?._id || "",
+                            // Latest examination doctor (set in billing) > URL > primary
+                            doctorProfileId: latestExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || "",
                             nurseProfileId: nurseId, // Load nurse assignment for OPD patients
                         }));
                     }
@@ -377,6 +423,8 @@ function WalkInHub() {
                                 timeline: firstPlan.timeline || "Daily",
                                 specialInstructions: firstPlan.specialInstructions || "",
                                 subTherapy: firstPlan.subTherapy || "",
+                                duration: firstPlan.duration || "",
+                                treatmentDescription: firstPlan.treatmentDescription || "",
                                 therapistId: assignedTherapistIds,
                                 startDate: formatDateForInput(firstPlan.startDate),
                             }
@@ -398,6 +446,8 @@ function WalkInHub() {
                                 timeline: patient.therapyTimeline || "Daily",
                                 specialInstructions: patient.therapyInstructions || "",
                                 subTherapy: patient.subTherapy || "",
+                                duration: patient.duration || "",
+                                treatmentDescription: patient.treatmentDescription || "",
                                 therapistId: patient.primaryTherapist ? [patient.primaryTherapist._id || patient.primaryTherapist] : [],
                                 startDate: formatDateForInput(patient.therapyStartDate),
                             }
@@ -413,7 +463,7 @@ function WalkInHub() {
         } finally {
             setIsLoadingExistingData(false);
         }
-    }, [patientProfileId]); // Removed existingDoctorId dependency - always load from patient profile
+    }, [patientProfileId, existingDoctorId]);
 
     useEffect(() => {
         fetchData();
@@ -757,6 +807,7 @@ function WalkInHub() {
                                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Initial Therapy</Typography>
                             </Box>
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                {/* Row 1: Select Therapy and Sub Therapy */}
                                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
                                     <FormControl sx={{ flex: 2, minWidth: "300px" }}>
                                         <InputLabel>Select Therapy</InputLabel>
@@ -787,6 +838,18 @@ function WalkInHub() {
                                     </FormControl>
 
                                     <TextField
+                                        sx={{ flex: 1, minWidth: "250px" }}
+                                        label="Sub Therapy"
+                                        name="therapy.subTherapy"
+                                        value={formData.therapyData.subTherapy}
+                                        onChange={handleChange}
+                                        placeholder="e.g. Oil Type, Specific Medicines"
+                                    />
+                                </Box>
+
+                                {/* Row 2: Session, Timeline, Duration */}
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                    <TextField
                                         label="Session"
                                         type="number"
                                         name="therapy.daysOfTreatment"
@@ -810,8 +873,32 @@ function WalkInHub() {
                                             <MenuItem value="Monthly">Monthly</MenuItem>
                                         </Select>
                                     </FormControl>
+
+                                    <TextField
+                                        sx={{ flex: 1, minWidth: "200px" }}
+                                        label="Duration"
+                                        name="therapy.duration"
+                                        value={formData.therapyData.duration}
+                                        onChange={handleChange}
+                                        placeholder="e.g. 45 mins, 1 hour"
+                                    />
                                 </Box>
 
+                                {/* Row 3: Treatment Description */}
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                    <TextField
+                                        sx={{ flex: 1, minWidth: "100%" }}
+                                        label="Treatment Description"
+                                        name="therapy.treatmentDescription"
+                                        value={formData.therapyData.treatmentDescription}
+                                        onChange={handleChange}
+                                        multiline
+                                        rows={3}
+                                        placeholder="Enter detailed description of the treatment..."
+                                    />
+                                </Box>
+
+                                {/* Row 4: Assign Therapist, Special Instructions, Start Date */}
                                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
                                     <FormControl sx={{ flex: 1, minWidth: "250px" }}>
                                         <InputLabel>Assign Therapist</InputLabel>
@@ -846,15 +933,6 @@ function WalkInHub() {
                                             })}
                                         </Select>
                                     </FormControl>
-
-                                    <TextField
-                                        sx={{ flex: 1, minWidth: "250px" }}
-                                        label="Sub Therapy"
-                                        name="therapy.subTherapy"
-                                        value={formData.therapyData.subTherapy}
-                                        onChange={handleChange}
-                                        placeholder="e.g. Oil Type, Specific Medicines"
-                                    />
 
                                     <TextField
                                         sx={{ flex: 1, minWidth: "250px" }}

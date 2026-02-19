@@ -93,6 +93,8 @@ function IPDTherapyDetails() {
     const doctorName = doctor?.user?.name || "Unknown";
     const therapyType = therapyPlan.treatmentName || "N/A";
     const subTherapy = therapyPlan.subTherapy || "";
+    const duration = therapyPlan.duration || "";
+    const treatmentDescription = therapyPlan.treatmentDescription || "";
     const relatedPlans = therapyPlan.relatedPlans || [];
     const allTherapies = [therapyPlan, ...relatedPlans];
 
@@ -422,6 +424,13 @@ function IPDTherapyDetails() {
                                     value={subTherapy}
                                 />
                             )}
+                            {duration && (
+                                <DetailRow
+                                    icon={<TimeIcon fontSize="small" />}
+                                    label="Duration"
+                                    value={duration}
+                                />
+                            )}
                             <DetailRow
                                 icon={<CalendarIcon fontSize="small" />}
                                 label="Total Sessions"
@@ -440,6 +449,13 @@ function IPDTherapyDetails() {
                                 }
                             />
                             <DetailRow icon={<CalendarIcon fontSize="small" />} label="Assigned Date" value={assignedDate} />
+                            {treatmentDescription && (
+                                <DetailRow
+                                    icon={<NotesIcon fontSize="small" />}
+                                    label="Treatment Description"
+                                    value={treatmentDescription}
+                                />
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>

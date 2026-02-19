@@ -15,6 +15,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import EditIcon from "@mui/icons-material/Edit";
+import DescriptionIcon from "@mui/icons-material/Description";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
@@ -218,6 +220,48 @@ function Patient_Management_View() {
     const handleViewRecords = (row) => {
         navigate(`/doctor/in-patients/add-daily-checkup?inpatientId=${row._id}&patientName=${encodeURIComponent(row.patientName)}`);
     };
+    // Handler: Edit patient examination - fetch examination by inpatient and navigate
+    const handleEditExamination = async (row) => {
+        try {
+            const response = await axios.get(
+                getApiUrl(`examinations/inpatient/${row._id}`),
+                { headers: getAuthHeaders() }
+            );
+            const examinations = response?.data?.data;
+            const examinationId = Array.isArray(examinations) && examinations.length > 0
+                ? examinations[0]._id
+                : examinations?._id;
+            if (examinationId) {
+                navigate(`/doctor/edit-examination/${examinationId}`, { state: { from: "in-patients" } });
+            } else {
+                toast.warning("No examination record found for this patient yet.");
+            }
+        } catch (error) {
+            console.error("Error fetching examination:", error);
+            toast.error(error?.response?.data?.message || "Failed to load examination");
+        }
+    };
+    // Handler: View examination details - fetch examination by inpatient and navigate
+    const handleExaminationDetails = async (row) => {
+        try {
+            const response = await axios.get(
+                getApiUrl(`examinations/inpatient/${row._id}`),
+                { headers: getAuthHeaders() }
+            );
+            const examinations = response?.data?.data;
+            const examinationId = Array.isArray(examinations) && examinations.length > 0
+                ? examinations[0]._id
+                : examinations?._id;
+            if (examinationId) {
+                navigate(`/doctor/examination-details/${examinationId}`, { state: { from: "in-patients" } });
+            } else {
+                toast.warning("No examination record found for this patient yet.");
+            }
+        } catch (error) {
+            console.error("Error fetching examination:", error);
+            toast.error(error?.response?.data?.message || "Failed to load examination");
+        }
+    };
     // Custom Actions Array
     const customActions = [
         {
@@ -227,9 +271,21 @@ function Patient_Management_View() {
             tooltip: "View Records",
         },
         {
+            icon: <EditIcon fontSize="small" />,
+            color: "var(--color-info, #0288d1)",
+            onClick: handleEditExamination,
+            tooltip: "Edit Examination",
+        },
+        {
+            icon: <DescriptionIcon fontSize="small" />,
+            color: "var(--color-secondary, #9e9e9e)",
+            onClick: handleExaminationDetails,
+            tooltip: "Examination Details",
+        },
+        {
             icon: <VisibilityIcon fontSize="small" />,
             color: "var(--color-primary)",
-            onClick: handleDetails, // ⭐ NOW REDIRECTS TO VIEW PAGE
+            onClick: handleDetails,
             tooltip: "Patient Details",
         },
         {

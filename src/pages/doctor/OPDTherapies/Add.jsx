@@ -53,6 +53,8 @@ function OPDTherapiesAddPage() {
         timeline: "AlternateDay",
         notes: "",
         subTherapy: "",
+        duration: "",
+        treatmentDescription: "",
     });
 
     // Fetch OPD patients
@@ -207,6 +209,8 @@ function OPDTherapiesAddPage() {
                     timeline: plan.timeline || "AlternateDay",
                     notes: plan.specialInstructions || "",
                     subTherapy: plan.subTherapy || "",
+                    duration: plan.duration || "",
+                    treatmentDescription: plan.treatmentDescription || "",
                 }));
             }
         } catch (error) {
@@ -282,6 +286,8 @@ function OPDTherapiesAddPage() {
                     timeline: formData.timeline || "AlternateDay",
                     specialInstructions: formData.notes.trim() || "",
                     subTherapy: formData.subTherapy.trim() || "",
+                    duration: formData.duration.trim() || "",
+                    treatmentDescription: formData.treatmentDescription.trim() || "",
                     therapistId: formData.therapistId, // Pass the array
                 };
 
@@ -584,6 +590,36 @@ function OPDTherapiesAddPage() {
                             value={formData.subTherapy}
                             onChange={handleChange}
                             placeholder="Enter sub therapy details (e.g. oil type, special additions)"
+                        />
+                    </Grid>
+
+                    {/* Duration */}
+                    <Grid item xs={12}>
+                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                            Duration
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            name="duration"
+                            value={formData.duration}
+                            onChange={handleChange}
+                            placeholder="e.g. 45 mins, 1 hour"
+                        />
+                    </Grid>
+
+                    {/* Treatment Description */}
+                    <Grid item xs={12}>
+                        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                            Treatment Description
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            name="treatmentDescription"
+                            value={formData.treatmentDescription}
+                            onChange={handleChange}
+                            multiline
+                            rows={3}
+                            placeholder="Enter detailed description of the treatment..."
                         />
                     </Grid>
 

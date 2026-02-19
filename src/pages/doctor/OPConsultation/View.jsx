@@ -65,11 +65,12 @@ function OPConsultation_View() {
 
                 console.log("Fetched Appointments:", appointments); // Debug log to inspect structure
 
-                // Check for examinations for each appointment
+                // Check for examinations for each appointment; exclude patients converted to IPD
                 const consultationsWithExamination = await Promise.all(
                     appointments.map(async (appointment) => {
                         let hasExamination = false;
                         let examinationId = null;
+                        let isAdmitted = false;
 
                         try {
                             const examResponse = await axios.get(
@@ -77,8 +78,14 @@ function OPConsultation_View() {
                                 { headers: getAuthHeaders() }
                             );
                             if (examResponse.data.success && examResponse.data.data) {
-                                hasExamination = true;
-                                examinationId = examResponse.data.data._id;
+                                const exam = examResponse.data.data;
+                                // Exclude if patient was converted to IPD (examination linked to inpatient)
+                                if (exam.inpatient) {
+                                    isAdmitted = true;
+                                } else {
+                                    hasExamination = true;
+                                    examinationId = exam._id;
+                                }
                             }
                         } catch (error) {
                             // No examination found (404) is expected, not an error
@@ -104,11 +111,15 @@ function OPConsultation_View() {
                             examinationId, // Examination ID if exists
                             // Store full appointment object for navigation
                             fullAppointment: appointment,
+                            isAdmitted, // Patient converted to IPD - exclude from OP list
                         };
                     })
                 );
 
-                setConsultations(consultationsWithExamination);
+                // Exclude patients converted to IPD (should appear in In Patients, not OP Consultation)
+                const opdOnly = consultationsWithExamination.filter((c) => !c.isAdmitted);
+
+                setConsultations(opdOnly);
                 setPagination((prev) => ({ ...prev, total }));
             } else {
                 toast.error(response.data.message || "Failed to fetch appointments");

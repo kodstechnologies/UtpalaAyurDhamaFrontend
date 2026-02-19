@@ -69,16 +69,16 @@ function EditExamination() {
                 }
             } else {
                 toast.error("Examination not found.");
-                navigate("/doctor/op-consultation");
+                navigate(location.state?.from === "in-patients" ? "/doctor/in-patients" : "/doctor/op-consultation");
             }
         } catch (error) {
             console.error("Error fetching examination details:", error);
             toast.error(error.response?.data?.message || "Failed to load examination details");
-            navigate("/doctor/op-consultation");
+            navigate(location.state?.from === "in-patients" ? "/doctor/in-patients" : "/doctor/op-consultation");
         } finally {
             setIsLoading(false);
         }
-    }, [examinationId, navigate]);
+    }, [examinationId, navigate, location.state?.from]);
 
     useEffect(() => {
         fetchExaminationDetails();
@@ -100,7 +100,9 @@ function EditExamination() {
                     subtitle="Examination record not found"
                     breadcrumbItems={[
                         { label: "Doctor", url: "/doctor/dashboard" },
-                        { label: "OP Consultation", url: "/doctor/op-consultation" },
+                        location.state?.from === "in-patients"
+                            ? { label: "In Patients", url: "/doctor/in-patients" }
+                            : { label: "OP Consultation", url: "/doctor/op-consultation" },
                         { label: "Edit Examination" },
                     ]}
                 />
@@ -111,7 +113,7 @@ function EditExamination() {
                     <Button
                         variant="contained"
                         startIcon={<ArrowBack />}
-                        onClick={() => navigate("/doctor/op-consultation")}
+                        onClick={() => navigate(location.state?.from === "in-patients" ? "/doctor/in-patients" : "/doctor/op-consultation")}
                         sx={{ mt: 2 }}
                     >
                         Go Back
@@ -129,7 +131,9 @@ function EditExamination() {
                     subtitle={`Edit examination record for ${patient.name}`}
                     breadcrumbItems={[
                         { label: "Doctor", url: "/doctor/dashboard" },
-                        { label: "OP Consultation", url: "/doctor/op-consultation" },
+                        location.state?.from === "in-patients"
+                            ? { label: "In Patients", url: "/doctor/in-patients" }
+                            : { label: "OP Consultation", url: "/doctor/op-consultation" },
                         { label: "Edit Examination" },
                     ]}
                 />
@@ -137,7 +141,11 @@ function EditExamination() {
                     <Button
                         variant="outlined"
                         startIcon={<ArrowBack />}
-                        onClick={() => navigate("/doctor/op-consultation")}
+                        onClick={() => {
+                            // Go back to In Patients if navigated from there, else OP Consultation
+                            const fromInPatients = location.state?.from === "in-patients";
+                            navigate(fromInPatients ? "/doctor/in-patients" : "/doctor/op-consultation");
+                        }}
                     >
                         Back
                     </Button>
@@ -200,15 +208,18 @@ function EditExamination() {
                     isEditMode={true}
                     onSubmitSuccess={() => {
                         toast.success("Examination updated successfully!");
-                        // Navigate back to examination details using examinationId in URL
-                        navigate(`/doctor/examination-details/${examinationId}`, {
-                            state: {
-                                examinationId: examinationId,
-                                appointment: examination.appointment,
-                                refresh: Date.now(), // Force refresh
-                            },
-                            replace: false, // Don't replace history to allow back navigation
-                        });
+                        if (location.state?.from === "in-patients") {
+                            navigate("/doctor/in-patients");
+                        } else {
+                            navigate(`/doctor/examination-details/${examinationId}`, {
+                                state: {
+                                    examinationId: examinationId,
+                                    appointment: examination.appointment,
+                                    refresh: Date.now(),
+                                },
+                                replace: false,
+                            });
+                        }
                     }}
                 />
             </div>

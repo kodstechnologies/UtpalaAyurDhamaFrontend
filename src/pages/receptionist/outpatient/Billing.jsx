@@ -39,6 +39,56 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloseIcon from "@mui/icons-material/Close";
 
 const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, useHeaderAction = false }) => {
+    // Group therapy charges by examination (or treatmentPlan if no examination)
+    const groupedCharges = useMemo(() => {
+        if (!charges || !Array.isArray(charges)) {
+            return [];
+        }
+        if (category !== "therapy") {
+            return charges; // No grouping needed for other categories
+        }
+
+        const groups = new Map();
+        
+        charges.forEach((charge) => {
+            // Create a unique key: examinationId (or treatmentPlanId, or date+therapist if neither exists)
+            const examinationId = charge.examinationId || charge.examination || "";
+            const treatmentPlanId = charge.treatmentPlanId || charge.treatmentPlan || "";
+            const date = charge.date ? new Date(charge.date).toISOString().split('T')[0] : "";
+            const therapistName = charge.therapistName || "";
+            
+            // Group by examination first, then treatmentPlan, then by date+therapist
+            const groupKey = examinationId || treatmentPlanId || `${date}-${therapistName}`;
+            
+            if (!groups.has(groupKey)) {
+                groups.set(groupKey, {
+                    ...charge, // Use first charge's common fields
+                    therapies: [],
+                    totalTherapyCharge: 0,
+                    totalTherapistCharge: 0,
+                    totalAmount: 0,
+                });
+            }
+            
+            const group = groups.get(groupKey);
+            group.therapies.push({
+                therapyName: charge.therapyName || charge.description || "",
+                subTherapy: charge.subTherapy || "",
+                therapyCharge: Number(charge.therapyCharge || 0),
+                therapistCharge: Number(charge.therapistCharge || 0),
+                amount: Number(charge.amount || 0),
+                status: charge.status,
+                sessionId: charge.sessionId || charge.id,
+            });
+            
+            group.totalTherapyCharge += Number(charge.therapyCharge || 0);
+            group.totalTherapistCharge += Number(charge.therapistCharge || 0);
+            group.totalAmount += Number(charge.amount || 0);
+        });
+        
+        return Array.from(groups.values());
+    }, [charges, category]);
+
     // Safety check for charges array
     if (!charges || !Array.isArray(charges)) {
         return (
@@ -53,7 +103,12 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
         );
     }
 
-    const totalAmount = charges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
+    const totalAmount = groupedCharges.reduce((sum, ch) => {
+        if (category === "therapy" && ch.totalAmount) {
+            return sum + ch.totalAmount;
+        }
+        return sum + Number(ch.amount || 0);
+    }, 0);
 
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
@@ -151,12 +206,65 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                             </tr>
                         </thead>
                         <tbody>
-                            {charges.map((charge) => (
-                                <tr key={charge.id}>
+                            {groupedCharges.map((charge, idx) => {
+                                // Calculate the correct amount for grouped charges
+                                const displayAmount = category === "therapy" && charge.totalAmount 
+                                    ? charge.totalAmount 
+                                    : (charge.amount || 0);
+                                
+                                return (
+                                    <tr key={charge.id || `group-${idx}`}>
                                     <td style={{ fontSize: "0.875rem" }}>{formatDate(charge.date || charge.dispensedAt || charge.createdAt)}</td>
                                     {category === "therapy" ? (
                                         <>
-                                            <td style={{ fontSize: "0.875rem" }}>{charge.therapyName || charge.description}</td>
+                                            <td style={{ fontSize: "0.875rem" }}>
+                                                {charge.therapies && charge.therapies.length > 0 ? (
+                                                    <div>
+                                                        {(() => {
+                                                            // Check if all therapies have the same sub-therapy
+                                                            const uniqueSubTherapies = [...new Set(charge.therapies.map(t => t.subTherapy || ""))];
+                                                            const hasCommonSubTherapy = uniqueSubTherapies.length === 1 && uniqueSubTherapies[0] !== "";
+                                                            
+                                                            if (hasCommonSubTherapy) {
+                                                                // Show main therapies side by side, sub-therapy once below
+                                                                return (
+                                                                    <div>
+                                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+                                                                            {charge.therapies.map((therapy, tIdx) => (
+                                                                                <span key={tIdx} style={{ fontWeight: 500 }}>
+                                                                                    {therapy.therapyName}
+                                                                                    {tIdx < charge.therapies.length - 1 && <span style={{ margin: "0 4px", color: "#6c757d" }}>•</span>}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                        <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "4px" }}>
+                                                                            Sub-Therapy: {uniqueSubTherapies[0]}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            } else {
+                                                                // Show each therapy with its own sub-therapy
+                                                                return (
+                                                                    <div>
+                                                                        {charge.therapies.map((therapy, tIdx) => (
+                                                                            <div key={tIdx} style={{ marginBottom: tIdx < charge.therapies.length - 1 ? "6px" : "0" }}>
+                                                                                <div style={{ fontWeight: 500 }}>{therapy.therapyName}</div>
+                                                                                {therapy.subTherapy && (
+                                                                                    <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
+                                                                                        Sub-Therapy: {therapy.subTherapy}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        })()}
+                                                    </div>
+                                                ) : (
+                                                    charge.therapyName || charge.description || "N/A"
+                                                )}
+                                            </td>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
                                                 {charge.status ? (
@@ -168,10 +276,10 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                                 )}
                                             </td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.therapyCharge ?? 0)}
+                                                {formatCurrency(charge.totalTherapyCharge ?? charge.therapyCharge ?? 0)}
                                             </td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.therapistCharge ?? 0)}
+                                                {formatCurrency(charge.totalTherapistCharge ?? charge.therapistCharge ?? 0)}
                                             </td>
                                         </>
                                     ) : category === "pharmacy" ? (
@@ -206,7 +314,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                         <td style={{ fontSize: "0.875rem" }}>{charge.doctorName || "—"}</td>
                                     )}
                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
-                                        {formatCurrency(charge.amount)}
+                                        {formatCurrency(displayAmount)}
                                     </td>
                                     {!useHeaderAction && isEditable && onEdit && (
                                         <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
@@ -227,8 +335,9 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                             </button>
                                         </td>
                                     )}
-                                </tr>
-                            ))}
+                                    </tr>
+                                );
+                            })}
                             {charges.length === 0 && (
                                 <tr>
                                     <td colSpan={columnCount + (isEditable && onEdit ? 1 : 0)} className="text-center text-muted py-4">
@@ -269,6 +378,7 @@ function OutpatientBilling() {
     const [selectedTherapist, setSelectedTherapist] = useState("");
     const [therapyCost, setTherapyCost] = useState("");
     const [therapistCharge, setTherapistCharge] = useState("");
+    const [therapyEditRows, setTherapyEditRows] = useState([]); // For grouped therapies: [{ therapyName, sessionId, therapyCharge, therapistCharge }]
     const [replaceTherapists, setReplaceTherapists] = useState(false); // Flag to replace all therapists
     const [consultationAmount, setConsultationAmount] = useState("");
     const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
@@ -501,16 +611,38 @@ function OutpatientBilling() {
         const therapistId = charge.therapistId || charge.therapist?._id || charge.therapist || "";
         setSelectedTherapist(therapistId);
 
-        // Initialize costs
-        setTherapyCost((charge.therapyCharge || 0).toString());
-        setTherapistCharge((charge.therapistCharge || 0).toString());
+        // Multiple therapies: one row per therapy with its own cost and therapist charge
+        if (charge.therapies && charge.therapies.length > 1) {
+            setTherapyEditRows(charge.therapies.map((t) => ({
+                therapyName: t.therapyName || "Therapy",
+                sessionId: t.sessionId || "",
+                therapyCharge: String(t.therapyCharge ?? 0),
+                therapistCharge: String(t.therapistCharge ?? 0),
+            })));
+            setTherapyCost("");
+            setTherapistCharge("");
+        } else {
+            setTherapyEditRows([]);
+            const therapyCostVal = charge.totalTherapyCharge !== undefined ? charge.totalTherapyCharge : (charge.therapyCharge || 0);
+            const therapistCostVal = charge.totalTherapistCharge !== undefined ? charge.totalTherapistCharge : (charge.therapistCharge || 0);
+            setTherapyCost(therapyCostVal.toString());
+            setTherapistCharge(therapistCostVal.toString());
+        }
         
-        // Reset replace mode
         setReplaceTherapists(false);
 
         if (!therapists.length) {
             fetchTherapists();
         }
+    };
+
+    // Update a single row in therapyEditRows (for grouped edit)
+    const updateTherapyEditRow = (index, field, value) => {
+        setTherapyEditRows((prev) => {
+            const next = [...prev];
+            if (next[index]) next[index] = { ...next[index], [field]: value };
+            return next;
+        });
     };
 
     // Update doctor consultation
@@ -568,40 +700,81 @@ function OutpatientBilling() {
             return;
         }
 
+        const isValidObjectId = (id) => {
+            if (!id || typeof id !== 'string') return false;
+            return /^[0-9a-fA-F]{24}$/.test(id) && !id.includes('-');
+        };
+
+        // Multiple therapies: update each session with its row's cost and therapist charge
+        if (therapyEditRows.length > 0) {
+            const invalid = therapyEditRows.find((r) => !r.sessionId || !isValidObjectId(r.sessionId));
+            if (invalid) {
+                toast.error("Invalid therapy session record. Please refresh the page and try again.");
+                return;
+            }
+            const invalidCost = therapyEditRows.find((r) => parseFloat(r.therapyCharge || 0) < 0 || parseFloat(r.therapistCharge || 0) < 0);
+            if (invalidCost) {
+                toast.error("Please enter valid cost and charge for all therapies.");
+                return;
+            }
+
+            setIsUpdating(true);
+            try {
+                let successCount = 0;
+                for (const row of therapyEditRows) {
+                    const response = await axios.patch(
+                        getApiUrl(`therapist-sessions/${row.sessionId}`),
+                        {
+                            therapist: selectedTherapist,
+                            cost: parseFloat(row.therapyCharge || 0),
+                            therapistCharge: parseFloat(row.therapistCharge || 0),
+                            replaceTherapists: replaceTherapists,
+                        },
+                        { headers: getAuthHeaders() }
+                    );
+                    if (response.data && response.data.success) successCount++;
+                }
+                if (successCount === therapyEditRows.length) {
+                    toast.success(`All ${successCount} therapy session(s) updated successfully!`);
+                    setEditTherapistDialog({ open: false, charge: null });
+                    setSelectedTherapist("");
+                    setTherapyEditRows([]);
+                    setReplaceTherapists(false);
+                    await fetchBillingDetails();
+                } else {
+                    toast.warning(`Updated ${successCount} of ${therapyEditRows.length} session(s). Please refresh and retry if needed.`);
+                    await fetchBillingDetails();
+                }
+            } catch (error) {
+                console.error("Error updating therapist sessions:", error);
+                toast.error(error.response?.data?.message || error.message || "Failed to update therapist");
+            } finally {
+                setIsUpdating(false);
+            }
+            return;
+        }
+
+        // Single therapy
         if (!therapyCost || parseFloat(therapyCost) < 0) {
             toast.error("Please enter a valid therapy cost");
             return;
         }
 
-        // CRITICAL: Always use sessionId field, never use 'id' field
-        // The 'id' field may contain composite IDs like "sessionId-0" for display purposes
-        // Only 'sessionId' contains the actual MongoDB ObjectId
         const sessionId = editTherapistDialog.charge?.sessionId;
-
-        // Validate ObjectId format (24 hex characters, no hyphens)
-        const isValidObjectId = (id) => {
-            if (!id || typeof id !== 'string') return false;
-            // ObjectId format: 24 hex characters, no hyphens
-            return /^[0-9a-fA-F]{24}$/.test(id) && !id.includes('-');
-        };
-
         if (!sessionId || !isValidObjectId(sessionId)) {
             toast.error("Invalid therapy session record. Please refresh the page and try again.");
-            console.error("Invalid sessionId:", sessionId, "Charge object:", editTherapistDialog.charge);
             return;
         }
 
         setIsUpdating(true);
         try {
-            // Update the therapist session's therapist AND cost
-            // Using PATCH /therapist-sessions/:id
             const response = await axios.patch(
                 getApiUrl(`therapist-sessions/${sessionId}`),
                 {
                     therapist: selectedTherapist,
                     cost: parseFloat(therapyCost),
                     therapistCharge: parseFloat(therapistCharge || 0),
-                    replaceTherapists: replaceTherapists // Flag to replace all therapists instead of adding
+                    replaceTherapists: replaceTherapists,
                 },
                 { headers: getAuthHeaders() }
             );
@@ -617,8 +790,6 @@ function OutpatientBilling() {
                 setTherapyCost("");
                 setTherapistCharge("");
                 setReplaceTherapists(false);
-
-                // Refresh billing data
                 await fetchBillingDetails();
             } else {
                 toast.error(response.data?.message || "Failed to update therapist");
@@ -1091,7 +1262,7 @@ function OutpatientBilling() {
             {/* Edit Therapist Dialog */}
             <Dialog
                 open={editTherapistDialog.open}
-                onClose={() => !isUpdating && setEditTherapistDialog({ open: false, charge: null })}
+                onClose={() => { if (!isUpdating) { setEditTherapistDialog({ open: false, charge: null }); setTherapyEditRows([]); } }}
                 maxWidth="sm"
                 fullWidth
             >
@@ -1111,8 +1282,17 @@ function OutpatientBilling() {
                 <DialogContent sx={{ mt: 2 }}>
                     <Box sx={{ mb: 2 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            Therapy: <strong>{editTherapistDialog.charge?.therapyName || "N/A"}</strong>
+                            Therapy: <strong>
+                                {editTherapistDialog.charge?.therapies && editTherapistDialog.charge.therapies.length > 0
+                                    ? editTherapistDialog.charge.therapies.map((t, idx) => t.therapyName).join(" • ")
+                                    : (editTherapistDialog.charge?.therapyName || "N/A")}
+                            </strong>
                         </Typography>
+                        {editTherapistDialog.charge?.therapies && editTherapistDialog.charge.therapies.length > 1 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, fontStyle: "italic" }}>
+                                Edit cost and therapist charge for each therapy below. Therapist selection applies to all.
+                            </Typography>
+                        )}
                         <Typography variant="body2" color="text.secondary">
                             Current Therapist: <strong>{editTherapistDialog.charge?.therapistName || "N/A"}</strong>
                         </Typography>
@@ -1144,28 +1324,65 @@ function OutpatientBilling() {
                             })}
                         </Select>
                     </FormControl>
-                    <TextField
-                        fullWidth
-                        label="Therapy Cost (INR)"
-                        type="number"
-                        value={therapyCost}
-                        onChange={(e) => setTherapyCost(e.target.value)}
-                        variant="outlined"
-                        inputProps={{ min: 0, step: 1 }}
-                        disabled={isUpdating}
-                        sx={{ mt: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Therapist Charge (INR)"
-                        type="number"
-                        value={therapistCharge}
-                        onChange={(e) => setTherapistCharge(e.target.value)}
-                        variant="outlined"
-                        inputProps={{ min: 0, step: 1 }}
-                        disabled={isUpdating}
-                        sx={{ mt: 2 }}
-                    />
+                    {therapyEditRows.length > 0 ? (
+                        <Box sx={{ mt: 2 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>Per-therapy cost &amp; charge</Typography>
+                            {therapyEditRows.map((row, index) => (
+                                <Box key={index} sx={{ mb: 2, p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>{row.therapyName}</Typography>
+                                    <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                                        <TextField
+                                            label="Therapy Cost (INR)"
+                                            type="number"
+                                            value={row.therapyCharge}
+                                            onChange={(e) => updateTherapyEditRow(index, "therapyCharge", e.target.value)}
+                                            variant="outlined"
+                                            size="small"
+                                            inputProps={{ min: 0, step: 1 }}
+                                            disabled={isUpdating}
+                                            sx={{ minWidth: 140 }}
+                                        />
+                                        <TextField
+                                            label="Therapist Charge (INR)"
+                                            type="number"
+                                            value={row.therapistCharge}
+                                            onChange={(e) => updateTherapyEditRow(index, "therapistCharge", e.target.value)}
+                                            variant="outlined"
+                                            size="small"
+                                            inputProps={{ min: 0, step: 1 }}
+                                            disabled={isUpdating}
+                                            sx={{ minWidth: 140 }}
+                                        />
+                                    </Box>
+                                </Box>
+                            ))}
+                        </Box>
+                    ) : (
+                        <>
+                            <TextField
+                                fullWidth
+                                label="Therapy Cost (INR)"
+                                type="number"
+                                value={therapyCost}
+                                onChange={(e) => setTherapyCost(e.target.value)}
+                                variant="outlined"
+                                inputProps={{ min: 0, step: 1 }}
+                                disabled={isUpdating}
+                                sx={{ mt: 2 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Therapist Charge (INR)"
+                                type="number"
+                                value={therapistCharge}
+                                onChange={(e) => setTherapistCharge(e.target.value)}
+                                variant="outlined"
+                                inputProps={{ min: 0, step: 1 }}
+                                disabled={isUpdating}
+                                sx={{ mt: 2 }}
+                            />
+                        </>
+                    )}
                     <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255, 193, 7, 0.1)', borderRadius: '8px', border: '1px solid rgba(255, 193, 7, 0.3)' }}>
                         <FormControlLabel
                             control={
@@ -1191,7 +1408,9 @@ function OutpatientBilling() {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Total Therapy Cost:</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 700, color: '#8B4513' }}>
-                                {formatCurrency(parseFloat(therapyCost || 0) + parseFloat(therapistCharge || 0))}
+                                {therapyEditRows.length > 0
+                                    ? formatCurrency(therapyEditRows.reduce((sum, r) => sum + parseFloat(r.therapyCharge || 0) + parseFloat(r.therapistCharge || 0), 0))
+                                    : formatCurrency(parseFloat(therapyCost || 0) + parseFloat(therapistCharge || 0))}
                             </Typography>
                         </Box>
                     </Box>

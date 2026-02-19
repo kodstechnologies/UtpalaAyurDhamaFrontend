@@ -138,6 +138,36 @@ function ViewPatientDetailsPage() {
                                     </span>
                                 </Typography>
                             </Box>
+                            {session.subTherapy && (
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Sub Therapy
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {session.subTherapy}
+                                    </Typography>
+                                </Box>
+                            )}
+                            {session.duration && (
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Duration
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {session.duration}
+                                    </Typography>
+                                </Box>
+                            )}
+                            {session.treatmentDescription && (
+                                <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+                                        Treatment Description
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {session.treatmentDescription}
+                                    </Typography>
+                                </Box>
+                            )}
                             <Box>
                                 <Typography variant="caption" color="text.secondary">
                                     Consulting Doctor

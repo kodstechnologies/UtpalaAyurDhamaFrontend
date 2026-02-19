@@ -36,11 +36,33 @@ function Execution() {
     const [progressData, setProgressData] = useState(null);
     const [updatingSlot, setUpdatingSlot] = useState(null);
     const checkIntervalRef = useRef(null); // Store interval for auto-start/auto-complete checks
+    const autoCompleteTimersRef = useRef({}); // Store timers for auto-completion by slot date
+
+    // Utility function to parse duration string to milliseconds
+    const parseDurationToMs = (durationStr) => {
+        if (!durationStr || typeof durationStr !== 'string') return null;
+        
+        const normalized = durationStr.trim().toLowerCase();
+        
+        // Match patterns like "45 mins", "45 minutes", "1 hour", "1.5 hours", "30 min", etc.
+        const minuteMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/);
+        const hourMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:hour|hours|hr|hrs)/);
+        
+        if (minuteMatch) {
+            const minutes = parseFloat(minuteMatch[1]);
+            return minutes * 60 * 1000; // Convert to milliseconds
+        } else if (hourMatch) {
+            const hours = parseFloat(hourMatch[1]);
+            return hours * 60 * 60 * 1000; // Convert to milliseconds
+        }
+        
+        return null; // Invalid format
+    };
 
     const fetchProgress = async () => {
         setIsLoading(true);
         try {
-            // Fetch both progress data and session data to get sessionTime
+            // Fetch both progress data and session data to get sessionTime and duration
             const [progressResponse, sessionResponse] = await Promise.all([
                 axios.get(getApiUrl(`therapist-sessions/${id}/progress`), { headers: getAuthHeaders() }),
                 axios.get(getApiUrl(`therapist-sessions/${id}`), { headers: getAuthHeaders() })
@@ -49,9 +71,14 @@ function Execution() {
             if (progressResponse.data.success && sessionResponse.data.success) {
                 const progressData = progressResponse.data.data;
                 const sessionData = sessionResponse.data.data;
-                // Add sessionTime to progressData for easier access
+                // Add sessionTime and duration to progressData for easier access
                 progressData.sessionTime = sessionData.sessionTime || "10:00";
+                progressData.duration = sessionData.duration || "";
                 setProgressData(progressData);
+                
+                // Set up auto-completion timers for sessions already in progress
+                setupTimersForInProgressSessions(progressData);
+                
                 // Check for auto-start and auto-complete after fetching
                 checkAutoStartAndComplete(progressData);
             }
@@ -118,11 +145,16 @@ function Execution() {
             }
         }, 60000); // Check every minute
 
-        // Cleanup interval on unmount
+        // Cleanup interval and timers on unmount
         return () => {
             if (checkIntervalRef.current) {
                 clearInterval(checkIntervalRef.current);
             }
+            // Clear all auto-completion timers
+            Object.values(autoCompleteTimersRef.current).forEach(timer => {
+                if (timer) clearTimeout(timer);
+            });
+            autoCompleteTimersRef.current = {};
         };
     }, [id]);
 
@@ -142,6 +174,11 @@ function Execution() {
             if (checkIntervalRef.current) {
                 clearInterval(checkIntervalRef.current);
             }
+            // Clear all auto-completion timers when progressData changes
+            Object.values(autoCompleteTimersRef.current).forEach(timer => {
+                if (timer) clearTimeout(timer);
+            });
+            autoCompleteTimersRef.current = {};
         };
     }, [progressData]);
 
@@ -198,6 +235,11 @@ function Execution() {
 
             if (response.data.success) {
                 toast.success(`Session automatically started`);
+                
+                // Set up auto-completion timer if duration is available
+                const slotDateKey = slotDate.toISOString().split('T')[0];
+                setupAutoCompleteTimer(slotDateKey, slot, currentData);
+                
                 fetchProgress();
             }
         } catch (error) {
@@ -267,6 +309,126 @@ function Execution() {
         }
     };
 
+    // Setup auto-completion timers for sessions already in progress when page loads
+    const setupTimersForInProgressSessions = (data) => {
+        if (!data || !data.days || !data.duration) return;
+        
+        const durationMs = parseDurationToMs(data.duration);
+        if (!durationMs || durationMs <= 0) return;
+        
+        const now = new Date();
+        
+        data.days.forEach(day => {
+            // Check if session is in progress (has startTime but no endTime and not completed)
+            if (day.startTime && !day.endTime && !day.completed) {
+                const startTime = new Date(day.startTime);
+                const elapsedMs = now.getTime() - startTime.getTime();
+                const remainingMs = durationMs - elapsedMs;
+                
+                if (remainingMs > 0) {
+                    // Session is still in progress, set timer for remaining time
+                    const dayDate = new Date(day.date);
+                    dayDate.setHours(0, 0, 0, 0);
+                    const slotDateKey = dayDate.toISOString().split('T')[0];
+                    
+                    // Find corresponding slot
+                    const slot = data.slots?.find(s => {
+                        const sDate = new Date(s.date);
+                        sDate.setHours(0, 0, 0, 0);
+                        return sDate.getTime() === dayDate.getTime();
+                    });
+                    
+                    if (slot) {
+                        console.log(`[AutoComplete] Session already in progress, setting timer for remaining ${remainingMs / 1000 / 60} minutes`);
+                        setupAutoCompleteTimer(slotDateKey, slot, data, remainingMs);
+                    }
+                } else {
+                    // Duration has already passed, auto-complete immediately
+                    console.log(`[AutoComplete] Duration already passed, auto-completing immediately`);
+                    const dayDate = new Date(day.date);
+                    dayDate.setHours(0, 0, 0, 0);
+                    const slot = data.slots?.find(s => {
+                        const sDate = new Date(s.date);
+                        sDate.setHours(0, 0, 0, 0);
+                        return sDate.getTime() === dayDate.getTime();
+                    });
+                    if (slot) {
+                        handleStopSession(slot);
+                    }
+                }
+            }
+        });
+    };
+
+    // Setup auto-completion timer for a session
+    const setupAutoCompleteTimer = (slotDateKey, slot, dataToUse = null, customDurationMs = null) => {
+        // Clear any existing timer for this slot
+        if (autoCompleteTimersRef.current[slotDateKey]) {
+            clearTimeout(autoCompleteTimersRef.current[slotDateKey]);
+            delete autoCompleteTimersRef.current[slotDateKey];
+        }
+
+        // Use custom duration if provided, otherwise parse from string
+        let durationMs = customDurationMs;
+        
+        if (!durationMs) {
+            // Get duration from progressData or passed data
+            const durationStr = (dataToUse?.duration || progressData?.duration || "").trim();
+            if (!durationStr) {
+                console.log(`[AutoComplete] No duration specified for session, skipping auto-completion`);
+                return;
+            }
+
+            durationMs = parseDurationToMs(durationStr);
+            if (!durationMs || durationMs <= 0) {
+                console.warn(`[AutoComplete] Invalid duration format: "${durationStr}", skipping auto-completion`);
+                return;
+            }
+        }
+        
+        const durationStr = dataToUse?.duration || progressData?.duration || "";
+        console.log(`[AutoComplete] Setting timer for ${durationMs / 1000 / 60} minutes (${durationStr || 'custom duration'})`);
+        
+        // Set timer to auto-complete after duration
+        autoCompleteTimersRef.current[slotDateKey] = setTimeout(async () => {
+            console.log(`[AutoComplete] Timer expired, auto-completing session for ${slotDateKey}`);
+            
+            // Check if session is still in progress before auto-completing
+            try {
+                const checkResponse = await axios.get(
+                    getApiUrl(`therapist-sessions/${id}/progress`),
+                    { headers: getAuthHeaders() }
+                );
+                
+                if (checkResponse.data.success) {
+                    const currentData = checkResponse.data.data;
+                    const currentDays = currentData.days || [];
+                    const slotDate = new Date(slot.date);
+                    slotDate.setHours(0, 0, 0, 0);
+                    
+                    const dayRecord = currentDays.find(day => {
+                        const dayDate = new Date(day.date);
+                        dayDate.setHours(0, 0, 0, 0);
+                        return dayDate.getTime() === slotDate.getTime();
+                    });
+                    
+                    // Only auto-complete if session is still in progress and not already completed
+                    if (dayRecord && dayRecord.startTime && !dayRecord.completed && !dayRecord.endTime) {
+                        await handleStopSession(slot);
+                        toast.info(`Session automatically completed after ${durationStr}`);
+                    } else {
+                        console.log(`[AutoComplete] Session already completed or not in progress, skipping`);
+                    }
+                }
+            } catch (error) {
+                console.error("[AutoComplete] Error checking session status before auto-completion:", error);
+            }
+            
+            // Clean up timer reference
+            delete autoCompleteTimersRef.current[slotDateKey];
+        }, durationMs);
+    };
+
     const handleStartSession = async (slot) => {
         // Prevent starting sessions scheduled for future dates
         const slotDate = new Date(slot.date);
@@ -322,6 +484,11 @@ function Execution() {
 
             if (response.data.success) {
                 toast.success(`Session started`);
+                
+                // Set up auto-completion timer if duration is available
+                const slotDateKey = slotDateForUpdate.toISOString().split('T')[0];
+                setupAutoCompleteTimer(slotDateKey, slot, progressData);
+                
                 fetchProgress();
             }
         } catch (error) {
@@ -335,9 +502,17 @@ function Execution() {
     const handleStopSession = async (slot) => {
         setUpdatingSlot(slot.dateLabel);
         try {
-            const currentDays = progressData.days || [];
+            // Clear auto-completion timer if session is being stopped manually
             const slotDate = new Date(slot.date);
             slotDate.setHours(0, 0, 0, 0);
+            const slotDateKey = slotDate.toISOString().split('T')[0];
+            if (autoCompleteTimersRef.current[slotDateKey]) {
+                clearTimeout(autoCompleteTimersRef.current[slotDateKey]);
+                delete autoCompleteTimersRef.current[slotDateKey];
+                console.log(`[AutoComplete] Cleared timer for manually stopped session: ${slotDateKey}`);
+            }
+
+            const currentDays = progressData.days || [];
             const now = new Date();
 
             const updatedDays = currentDays.map(day => {

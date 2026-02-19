@@ -63,7 +63,63 @@ const RupeeIcon = (props) => {
 };
 
 const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, useHeaderAction = false }) => {
-    const totalAmount = charges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
+    // Group therapy charges by examination (or treatmentPlan if no examination)
+    // Note: useMemo must be called before any early returns
+    const groupedCharges = useMemo(() => {
+        if (!charges || !Array.isArray(charges)) {
+            return [];
+        }
+        if (category !== "therapy") {
+            return charges; // No grouping needed for other categories
+        }
+
+        const groups = new Map();
+        
+        charges.forEach((charge) => {
+            // Create a unique key: examinationId (or treatmentPlanId, or date+therapist if neither exists)
+            const examinationId = charge.examinationId || charge.examination || "";
+            const treatmentPlanId = charge.treatmentPlanId || charge.treatmentPlan || "";
+            const date = charge.date ? new Date(charge.date).toISOString().split('T')[0] : "";
+            const therapistName = charge.therapistName || "";
+            
+            // Group by examination first, then treatmentPlan, then by date+therapist
+            const groupKey = examinationId || treatmentPlanId || `${date}-${therapistName}`;
+            
+            if (!groups.has(groupKey)) {
+                groups.set(groupKey, {
+                    ...charge, // Use first charge's common fields
+                    therapies: [],
+                    totalTherapyCharge: 0,
+                    totalTherapistCharge: 0,
+                    totalAmount: 0,
+                });
+            }
+            
+            const group = groups.get(groupKey);
+            group.therapies.push({
+                therapyName: charge.therapyName || charge.description || "",
+                subTherapy: charge.subTherapy || "",
+                therapyCharge: Number(charge.therapyCharge || 0),
+                therapistCharge: Number(charge.therapistCharge || 0),
+                amount: Number(charge.amount || 0),
+                status: charge.status,
+                sessionId: charge.sessionId || charge.id,
+            });
+            
+            group.totalTherapyCharge += Number(charge.therapyCharge || 0);
+            group.totalTherapistCharge += Number(charge.therapistCharge || 0);
+            group.totalAmount += Number(charge.amount || 0);
+        });
+        
+        return Array.from(groups.values());
+    }, [charges, category]);
+
+    const totalAmount = groupedCharges.reduce((sum, ch) => {
+        if (category === "therapy" && ch.totalAmount) {
+            return sum + ch.totalAmount;
+        }
+        return sum + Number(ch.amount || 0);
+    }, 0);
 
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
@@ -173,12 +229,65 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                             </tr>
                         </thead>
                         <tbody>
-                            {charges.map((charge) => (
-                                <tr key={charge.id}>
+                            {groupedCharges.map((charge, idx) => {
+                                // Calculate the correct amount for grouped charges
+                                const displayAmount = category === "therapy" && charge.totalAmount 
+                                    ? charge.totalAmount 
+                                    : (charge.amount || 0);
+                                
+                                return (
+                                <tr key={charge.id || `group-${idx}`}>
                                     <td style={{ fontSize: "0.875rem" }}>{formatDate(charge.date || charge.dispensedAt || charge.createdAt)}</td>
                                     {category === "therapy" ? (
                                         <>
-                                            <td style={{ fontSize: "0.875rem" }}>{charge.therapyName || charge.description}</td>
+                                            <td style={{ fontSize: "0.875rem" }}>
+                                                {charge.therapies && charge.therapies.length > 0 ? (
+                                                    <div>
+                                                        {(() => {
+                                                            // Check if all therapies have the same sub-therapy
+                                                            const uniqueSubTherapies = [...new Set(charge.therapies.map(t => t.subTherapy || ""))];
+                                                            const hasCommonSubTherapy = uniqueSubTherapies.length === 1 && uniqueSubTherapies[0] !== "";
+                                                            
+                                                            if (hasCommonSubTherapy) {
+                                                                // Show main therapies side by side, sub-therapy once below
+                                                                return (
+                                                                    <div>
+                                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+                                                                            {charge.therapies.map((therapy, tIdx) => (
+                                                                                <span key={tIdx} style={{ fontWeight: 500 }}>
+                                                                                    {therapy.therapyName}
+                                                                                    {tIdx < charge.therapies.length - 1 && <span style={{ margin: "0 4px", color: "#6c757d" }}>•</span>}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                        <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "4px" }}>
+                                                                            Sub-Therapy: {uniqueSubTherapies[0]}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            } else {
+                                                                // Show each therapy with its own sub-therapy
+                                                                return (
+                                                                    <div>
+                                                                        {charge.therapies.map((therapy, tIdx) => (
+                                                                            <div key={tIdx} style={{ marginBottom: tIdx < charge.therapies.length - 1 ? "6px" : "0" }}>
+                                                                                <div style={{ fontWeight: 500 }}>{therapy.therapyName}</div>
+                                                                                {therapy.subTherapy && (
+                                                                                    <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
+                                                                                        Sub-Therapy: {therapy.subTherapy}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        })()}
+                                                    </div>
+                                                ) : (
+                                                    charge.therapyName || charge.description || "N/A"
+                                                )}
+                                            </td>
                                             <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
                                                 {charge.status ? (
@@ -190,10 +299,10 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                                 )}
                                             </td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.therapyCharge ?? 0)}
+                                                {formatCurrency(charge.totalTherapyCharge ?? charge.therapyCharge ?? 0)}
                                             </td>
                                             <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.therapistCharge ?? 0)}
+                                                {formatCurrency(charge.totalTherapistCharge ?? charge.therapistCharge ?? 0)}
                                             </td>
                                         </>
                                     ) : category === "pharmacy" ? (
@@ -260,11 +369,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                         </td>
                                     )}
                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
-                                        {formatCurrency(category === "therapy" ? (
-                                            charge.amount ||
-                                            ((charge.therapyCharge !== undefined ? charge.therapyCharge : charge.amount || 0) +
-                                                (charge.therapistCharge !== undefined ? charge.therapistCharge : 0))
-                                        ) : charge.amount)}
+                                        {formatCurrency(displayAmount)}
                                     </td>
                                     {!useHeaderAction && isEditable && onEdit && (
                                         <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
@@ -286,8 +391,9 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                                             </button>
                                         </td>
                                     )}
-                                </tr>
-                            ))}
+                                    </tr>
+                                );
+                            })}
                             {charges.length === 0 && (
                                 <tr>
                                     <td colSpan={columnCount + (isEditable && onEdit ? 1 : 0)} className="text-center text-muted py-4">
@@ -721,11 +827,11 @@ function InpatientBilling() {
         setIsUpdatingConsultation(true);
         try {
             let apiUrl;
-            if (charge.type === "outpatient") {
-                // For outpatient consultations appearing in unified view
+            if (charge.type === "outpatient" || charge.chargeSource === "examination") {
+                // Outpatient or IPD examination consultation: use examinations API (Edit Doctor updates exam)
                 apiUrl = getApiUrl(`examinations/${charge.id}/consultation`);
             } else {
-                // For inpatient daily checkups
+                // IPD daily checkup consultation
                 const checkupId = charge.id.includes("-") ? charge.id.split("-")[1] : charge.id;
                 apiUrl = getApiUrl(`inpatients/${inpatientId}/checkups/${checkupId}/consultation`);
             }

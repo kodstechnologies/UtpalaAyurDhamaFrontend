@@ -20,7 +20,8 @@ function ViewPatientPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
     const [sessions, setSessions] = useState([]);
-    const [examinations, setExaminations] = useState([]); // For walk-in doctor assignments
+    const [examinations, setExaminations] = useState([]); // For walk-in doctor assignments (OPD)
+    const [ipdExaminations, setIpdExaminations] = useState([]); // For IPD examinations
     const [doctors, setDoctors] = useState([]);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [selectedDoctorId, setSelectedDoctorId] = useState("");
@@ -39,13 +40,88 @@ function ViewPatientPage() {
 
     const fetchClinicalData = async (profileId) => {
         try {
+            // First, check if patient has an active inpatient record
+            let inpatientId = null;
+            try {
+                const inpatientsRes = await axios.get(
+                    getApiUrl(`inpatients/patient/${profileId}`),
+                    { headers: getAuthHeaders() }
+                );
+                if (inpatientsRes.data.success) {
+                    const inpatientsList = inpatientsRes.data.data || [];
+                    // Handle both array and single object responses
+                    const inpatientsArray = Array.isArray(inpatientsList) ? inpatientsList : [inpatientsList].filter(Boolean);
+                    const activeInpatient = inpatientsArray.find(ip => ip && (ip.status === "Admitted" || ip.status === "admitted"));
+                    if (activeInpatient) {
+                        inpatientId = activeInpatient._id;
+                        console.log("[ViewPatient] Found active inpatient:", inpatientId);
+                    } else {
+                        console.log("[ViewPatient] No active inpatient found. Statuses:", inpatientsArray.map(ip => ip?.status));
+                    }
+                }
+            } catch (inpatientErr) {
+                // Patient might not have an inpatient record, which is fine
+                console.log("[ViewPatient] Error checking inpatient record:", inpatientErr.message);
+            }
+
+            // Fetch OPD examinations, appointments, and sessions
+            // Fetch appointments with multiple statuses (Scheduled, Confirmed, Ongoing) - backend may need to handle this
+            // For now, fetch all appointments and filter on frontend
             const [apptRes, sessionRes, examRes] = await Promise.all([
-                axios.get(getApiUrl(`appointments?patientId=${profileId}&status=Scheduled`), { headers: getAuthHeaders() }),
+                axios.get(getApiUrl(`appointments?patientId=${profileId}`), { headers: getAuthHeaders() }), // Remove status filter to get all
                 axios.get(getApiUrl(`therapist-sessions?patientId=${profileId}&limit=5`), { headers: getAuthHeaders() }),
                 axios.get(getApiUrl(`examinations?patientId=${profileId}&limit=5&hasInpatient=false`), { headers: getAuthHeaders() })
             ]);
 
-            if (apptRes.data.success) setAppointments(apptRes.data.data || []);
+            if (apptRes.data.success) {
+                const allAppointments = apptRes.data.data || [];
+                console.log("[ViewPatient] All appointments fetched:", allAppointments.length, allAppointments.map(a => ({
+                    date: a.appointmentDate,
+                    status: a.status,
+                    doctor: a.doctor?.user?.name
+                })));
+                
+                // Filter to show only upcoming appointments (future dates or today)
+                const now = new Date();
+                now.setHours(0, 0, 0, 0); // Start of today
+                
+                const upcomingAppointments = allAppointments
+                    .filter(appt => {
+                        if (!appt.appointmentDate) {
+                            console.log("[ViewPatient] Appointment missing date:", appt);
+                            return false;
+                        }
+                        const apptDate = new Date(appt.appointmentDate);
+                        apptDate.setHours(0, 0, 0, 0);
+                        const isUpcoming = apptDate >= now;
+                        // Include Scheduled, Confirmed, and Ongoing statuses (exclude Completed, Cancelled, No Show)
+                        const isValidStatus = ["Scheduled", "Confirmed", "Ongoing"].includes(appt.status);
+                        
+                        if (!isUpcoming) {
+                            console.log("[ViewPatient] Appointment is in the past:", appt.appointmentDate, "vs", now);
+                        }
+                        if (!isValidStatus) {
+                            console.log("[ViewPatient] Appointment has invalid status:", appt.status);
+                        }
+                        
+                        return isUpcoming && isValidStatus;
+                    })
+                    .sort((a, b) => {
+                        // Sort by date (earliest first)
+                        const dateA = new Date(a.appointmentDate || 0);
+                        const dateB = new Date(b.appointmentDate || 0);
+                        return dateA - dateB;
+                    });
+                
+                console.log("[ViewPatient] Upcoming appointments filtered:", upcomingAppointments.length, upcomingAppointments.map(a => ({
+                    date: a.appointmentDate,
+                    status: a.status,
+                    doctor: a.doctor?.user?.name
+                })));
+                setAppointments(upcomingAppointments);
+            } else {
+                console.log("[ViewPatient] Failed to fetch appointments:", apptRes.data);
+            }
             if (sessionRes.data.success) {
                 // Filter by patient ID to ensure data accuracy (prevent backend leakage)
                 const filteredSessions = (sessionRes.data.data || []).filter(s =>
@@ -62,6 +138,35 @@ function ViewPatientPage() {
                     !e.isBilled // Only show unbilled examinations (recent walk-in visits)
                 );
                 setExaminations(filteredExams);
+            }
+
+            // If patient has an active inpatient record, fetch IPD examinations
+            if (inpatientId) {
+                try {
+                    const ipdExamRes = await axios.get(
+                        getApiUrl(`examinations/inpatient/${inpatientId}`),
+                        { headers: getAuthHeaders() }
+                    );
+                    if (ipdExamRes.data.success) {
+                        const ipdExams = ipdExamRes.data.data || [];
+                        // Sort by date (newest first) - prioritize updatedAt for billing edits
+                        const sortedIpdExams = Array.isArray(ipdExams) 
+                            ? ipdExams.sort((a, b) => {
+                                const dateA = new Date(a.updatedAt || a.createdAt || 0);
+                                const dateB = new Date(b.updatedAt || b.createdAt || 0);
+                                return dateB - dateA; // Descending order (newest first)
+                            })
+                            : [];
+                        console.log("[ViewPatient] IPD examinations fetched:", sortedIpdExams.length, "Latest doctor:", sortedIpdExams[0]?.doctor?.user?.name || sortedIpdExams[0]?.doctor);
+                        setIpdExaminations(sortedIpdExams);
+                    }
+                } catch (ipdExamErr) {
+                    console.error("[ViewPatient] Error fetching IPD examinations:", ipdExamErr);
+                    setIpdExaminations([]);
+                }
+            } else {
+                console.log("[ViewPatient] No active inpatient record found for patient:", profileId);
+                setIpdExaminations([]);
             }
         } catch (error) {
             console.error("Error fetching clinical data:", error);
@@ -246,19 +351,46 @@ function ViewPatientPage() {
                                     </Typography>
                                 </Box>
                                 {(() => {
-                                    // Get doctor info from primaryDoctor, examination (walk-in), or appointment
+                                    // Use the EXACT same logic as Upcoming Appointment section
                                     const primaryDoctor = patient.patientProfile?.primaryDoctor;
-                                    const examDoctor = examinations.length > 0 ? examinations[0].doctor : null;
-                                    const apptDoctor = appointments.length > 0 ? appointments[0].doctor : null;
-                                    
-                                    const doctor = primaryDoctor || examDoctor || apptDoctor;
-                                    const doctorName = primaryDoctor 
+                                    const primaryDoctorName = primaryDoctor 
                                         ? `Dr. ${primaryDoctor.firstName} ${primaryDoctor.lastName}`
-                                        : (doctor?.user?.name || doctor?.name || "None assigned");
-                                    const doctorSpecialization = primaryDoctor?.specialization || doctor?.specialization;
+                                        : null;
                                     
-                                    // Get examination date/time for walk-in patients
-                                    const examDate = examinations.length > 0 ? examinations[0].createdAt : null;
+                                    // Get doctor from same sources as Upcoming Appointment section
+                                    // Priority: IPD exam doctor > OPD exam doctor > appointment doctor > primary doctor
+                                    const ipdExamDoctor = ipdExaminations.length > 0 ? ipdExaminations[0].doctor : null;
+                                    const examDoctor = examinations.length > 0 ? examinations[0].doctor : null;
+                                    
+                                    // Use the EXACT same logic as Upcoming Appointment section
+                                    let doctorName = "None assigned";
+                                    
+                                    // If there's an appointment, use appointment doctor (same as Upcoming Appointment section)
+                                    if (appointments.length > 0) {
+                                        const appt = appointments[0];
+                                        doctorName = appt.doctor?.user?.name || primaryDoctorName || "Assigned Doctor";
+                                    }
+                                    // Otherwise check IPD examinations
+                                    else if (ipdExamDoctor) {
+                                        doctorName = ipdExamDoctor?.user?.name || ipdExamDoctor?.name || primaryDoctorName || "Assigned Doctor";
+                                    }
+                                    // Then check OPD examinations
+                                    else if (examDoctor) {
+                                        doctorName = examDoctor?.user?.name || examDoctor?.name || primaryDoctorName || "Assigned Doctor";
+                                    }
+                                    // Finally use primary doctor
+                                    else if (primaryDoctorName) {
+                                        doctorName = primaryDoctorName;
+                                    }
+                                    
+                                    // Get the doctor object for specialization
+                                    const doctor = ipdExamDoctor || examDoctor || (appointments.length > 0 ? appointments[0].doctor : null) || primaryDoctor;
+                                    const doctorSpecialization = doctor?.specialization;
+                                    
+                                    // Get examination date/time for walk-in patients (prefer IPD exam date)
+                                    const examDate = ipdExaminations.length > 0 
+                                        ? ipdExaminations[0].createdAt 
+                                        : (examinations.length > 0 ? examinations[0].createdAt : null);
                                     
                                     return (
                                         <Box>
@@ -297,11 +429,11 @@ function ViewPatientPage() {
                                     // Check for formal appointments first
                                     if (appointments.length > 0) {
                                         const appt = appointments[0];
-                                        // Use primary doctor name if available, otherwise use appointment doctor
-                                        const displayDoctorName = primaryDoctorName || appt.doctor?.user?.name || "Assigned Doctor";
-                                        const reminderDoctorName = primaryDoctor 
+                                        // Prefer appointment doctor (so Edit Doctor is reflected), then primary
+                                        const displayDoctorName = appt.doctor?.user?.name || primaryDoctorName || "Assigned Doctor";
+                                        const reminderDoctorName = appt.doctor?.user?.name || (primaryDoctor 
                                             ? `${primaryDoctor.firstName} ${primaryDoctor.lastName}`
-                                            : (appt.doctor?.user?.name || "Doctor");
+                                            : "Doctor");
                                         
                                         return (
                                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -338,22 +470,22 @@ function ViewPatientPage() {
                                     }
                                     
                                     // If no formal appointments, check for walk-in examinations with doctor
-                                    // But prioritize primary doctor over examination doctor
-                                    if (examinations.length > 0) {
-                                        const exam = examinations[0];
+                                    // Prefer IPD examinations over OPD examinations
+                                    const examToUse = ipdExaminations.length > 0 ? ipdExaminations[0] : (examinations.length > 0 ? examinations[0] : null);
+                                    if (examToUse) {
+                                        const exam = examToUse;
                                         const examDate = exam.createdAt || exam.appointment?.appointmentDate;
                                         const examTime = exam.appointment?.appointmentTime || "";
                                         
-                                        // Get doctor info - prioritize primary doctor, then examination doctor
+                                        // Prefer examination doctor (so Edit Doctor in billing is reflected), then primary
                                         const primaryDoctor = patient.patientProfile?.primaryDoctor;
                                         const examDoctor = exam.doctor;
                                         
-                                        // Use primary doctor name if available, otherwise use examination doctor
                                         let doctorName = "Assigned Doctor";
-                                        if (primaryDoctor) {
+                                        if (examDoctor) {
+                                            doctorName = examDoctor?.user?.name || examDoctor?.name || (examDoctor.firstName && examDoctor.lastName ? `Dr. ${examDoctor.firstName} ${examDoctor.lastName}` : "Assigned Doctor");
+                                        } else if (primaryDoctor) {
                                             doctorName = `Dr. ${primaryDoctor.firstName} ${primaryDoctor.lastName}`;
-                                        } else if (examDoctor) {
-                                            doctorName = examDoctor?.user?.name || examDoctor?.name || "Assigned Doctor";
                                         }
                                         
                                         return (
@@ -376,9 +508,8 @@ function ViewPatientPage() {
                                                     startIcon={<MessageIcon />}
                                                     sx={{ textTransform: "none", borderRadius: "20px" }}
                                                     onClick={() => {
-                                                        const doctorNameForReminder = primaryDoctor 
-                                                            ? `${primaryDoctor.firstName} ${primaryDoctor.lastName}`
-                                                            : (examDoctor?.user?.name || examDoctor?.name || "Doctor").replace("Dr. ", "");
+                                                        const doctorNameForReminder = (examDoctor?.user?.name || examDoctor?.name || (examDoctor?.firstName && examDoctor?.lastName ? `${examDoctor.firstName} ${examDoctor.lastName}` : null))?.replace("Dr. ", "") 
+                                                            || (primaryDoctor ? `${primaryDoctor.firstName} ${primaryDoctor.lastName}` : "Doctor");
                                                         const params = new URLSearchParams({
                                                             patientId,
                                                             patientName: patient.patientName,
