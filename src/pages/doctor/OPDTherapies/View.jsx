@@ -118,11 +118,9 @@ function OPDTherapies_View() {
 
     // Calculate statistics
     const stats = useMemo(() => {
-        const today = new Date().toISOString().split("T")[0];
         const totalTherapies = therapies.reduce((sum, t) => sum + (t.therapies?.length || 0), 0);
         return {
             total: pagination.total,
-            today: therapies.filter((t) => t.therapyDate === today).length,
             alternateDay: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "AlternateDay").length || 0), 0),
             weekly: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "Weekly").length || 0), 0),
             daily: therapies.reduce((sum, t) => sum + (t.therapies?.filter(th => th.timeline === "Daily").length || 0), 0),
@@ -257,7 +255,6 @@ function OPDTherapies_View() {
                 ]}
             />
 
-            {/* Statistics Cards */}
             <Stack
                 direction={{ xs: "column", sm: "row" }}
                 spacing={3}
@@ -268,7 +265,6 @@ function OPDTherapies_View() {
                 }}
             >
                 <DashboardCard title="Total Therapies" count={stats.total} icon={HealingIcon} />
-                <DashboardCard title="Today's Therapies" count={stats.today} icon={EventIcon} />
                 <DashboardCard title="Alternate Day" count={stats.alternateDay} icon={HealingIcon} />
                 <DashboardCard title="Weekly" count={stats.weekly} icon={HealingIcon} />
                 <DashboardCard title="Daily" count={stats.daily} icon={HealingIcon} />
