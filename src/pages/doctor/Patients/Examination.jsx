@@ -35,6 +35,7 @@ import {
 } from "@mui/icons-material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import diseaseService from "../../../services/diseaseService";
 import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
 
@@ -92,6 +93,10 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+
+    // Diseases for chief complaint dropdown
+    const [diseases, setDiseases] = useState([]);
+    const [isDiseasesLoading, setIsDiseasesLoading] = useState(false);
 
     // Generate localStorage key based on appointment ID
     const storageKey = appointmentId ? `examination_${appointmentId}` : null;
@@ -158,6 +163,43 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
         lifestyle: "",
         followUp: "",
     });
+
+    // Fetch diseases for chief complaint dropdown
+    useEffect(() => {
+        const fetchDiseases = async () => {
+            try {
+                setIsDiseasesLoading(true);
+                const response = await diseaseService.getAllDiseases({
+                    page: 1,
+                    limit: 500,
+                    isActive: true,
+                });
+
+                if (response?.success && Array.isArray(response.data)) {
+                    setDiseases(response.data);
+                }
+            } catch (error) {
+                console.error("Error fetching diseases for chief complaint dropdown:", error);
+                toast.error("Unable to load diseases list for chief complaints.");
+            } finally {
+                setIsDiseasesLoading(false);
+            }
+        };
+
+        fetchDiseases();
+    }, []);
+
+    // Ensure existing chiefComplaint (for edit mode) is present in dropdown options
+    useEffect(() => {
+        if (!formData.chiefComplaint || diseases.length === 0) return;
+        const exists = diseases.some((d) => d.name === formData.chiefComplaint);
+        if (!exists) {
+            setDiseases((prev) => [
+                ...prev,
+                { _id: `custom-${Date.now()}`, name: formData.chiefComplaint },
+            ]);
+        }
+    }, [formData.chiefComplaint, diseases]);
 
     // Load examination data when in edit mode
     useEffect(() => {
@@ -734,16 +776,29 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                             <Grid container spacing={2}>
                                 <Grid item xs={12}>
                                     <TextField
+                                        select
                                         fullWidth
                                         label="Chief Complaint"
                                         variant="outlined"
-                                        multiline
-                                        rows={3}
                                         value={formData.chiefComplaint}
                                         onChange={handleChange("chiefComplaint")}
-                                        disabled={!isEditing}
+                                        disabled={!isEditing || isDiseasesLoading}
                                         size="small"
-                                    />
+                                        helperText={
+                                            isDiseasesLoading
+                                                ? "Loading diseases..."
+                                                : "Select the primary disease or complaint"
+                                        }
+                                    >
+                                        <MenuItem value="">
+                                            <em>Select Disease</em>
+                                        </MenuItem>
+                                        {diseases.map((disease) => (
+                                            <MenuItem key={disease._id || disease.name} value={disease.name}>
+                                                {disease.name}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
                                 </Grid>
                                 <Grid item xs={6}>
                                     <TextField
