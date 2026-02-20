@@ -22,9 +22,11 @@ import {
     Checkbox,
     ListItemText,
     OutlinedInput,
-    Chip
+    Chip,
+    IconButton,
+    InputAdornment
 } from "@mui/material";
-import { User, Activity, Clipboard, Stethoscope, Clock, Thermometer } from "lucide-react";
+import { User, Activity, Clipboard, Stethoscope, Clock, Thermometer, Plus, Trash2 } from "lucide-react";
 
 function WalkInHub() {
     const navigate = useNavigate();
@@ -32,6 +34,19 @@ function WalkInHub() {
     const patientProfileId = searchParams.get("patientProfileId") || "";
     const patientName = searchParams.get("patientName") || "";
     const existingDoctorId = searchParams.get("doctorId") || "";
+
+    // Empty therapy object template
+    const getEmptyTherapy = () => ({
+        treatmentName: [],
+        subTherapy: "",
+        daysOfTreatment: "",
+        timeline: "Daily",
+        duration: "",
+        treatmentDescription: "",
+        therapistId: [],
+        specialInstructions: "",
+        startDate: new Date().toLocaleDateString("en-CA"),
+    });
 
     // Initial empty form state - used when patient is discharged (re-appointment = fresh form)
     const getEmptyFormState = () => ({
@@ -42,17 +57,7 @@ function WalkInHub() {
         wardCategory: "General",
         roomNumber: "",
         bedNumber: "",
-        therapyData: {
-            treatmentName: [],
-            daysOfTreatment: 0,
-            timeline: "Daily",
-            specialInstructions: "",
-            subTherapy: "",
-            duration: "",
-            treatmentDescription: "",
-            therapistId: [],
-            startDate: new Date().toLocaleDateString("en-CA"),
-        }
+        therapies: [getEmptyTherapy()] // Changed from singular therapyData to therapies array
     });
 
     const [mode, setMode] = useState("OPD");
@@ -61,7 +66,7 @@ function WalkInHub() {
     const [doctors, setDoctors] = useState([]);
     const [nurses, setNurses] = useState([]);
     const [therapists, setTherapists] = useState([]);
-    const [therapies, setTherapies] = useState([]);
+    const [therapiesList, setTherapiesList] = useState([]); // Renamed from 'therapies' to avoid confusion
 
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
@@ -80,12 +85,10 @@ function WalkInHub() {
             if (doctorsRes.data.success) setDoctors(doctorsRes.data.data || []);
             if (nursesRes.data.success) {
                 const nursesData = nursesRes.data.data || [];
-                console.log("[WalkInHub] Fetched nurses:", nursesData);
-                console.log("[WalkInHub] Sample nurse structure:", nursesData[0]);
                 setNurses(nursesData);
             }
             if (therapistsRes.data.success) setTherapists(therapistsRes.data.data || []);
-            if (therapiesRes.data.success) setTherapies(therapiesRes.data.data || []);
+            if (therapiesRes.data.success) setTherapiesList(therapiesRes.data.data || []);
 
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -109,29 +112,33 @@ function WalkInHub() {
 
             if (patientRes.data.success && patientRes.data.data) {
                 const patient = patientRes.data.data;
-                console.log("[WalkInHub] Patient profile loaded:", patient);
-                console.log("[WalkInHub] Patient allocatedNurse:", patient.allocatedNurse);
 
-                // Check if patient is discharged - if so, show empty form for fresh re-appointment
-                let isDischarged = false;
+                // Check active admission status first
+                let hasActiveAdmission = false;
+                let inpatientsList = [];
                 try {
-                    // IPD: check if there is an active admission
                     const inpatientsRes = await axios.get(
                         getApiUrl(`inpatients/patient/${patientProfileId}`),
                         { headers: getAuthHeaders() }
                     );
-                    const inpatientsList = inpatientsRes.data.success
+                    inpatientsList = inpatientsRes.data.success
                         ? (Array.isArray(inpatientsRes.data.data) ? inpatientsRes.data.data : [inpatientsRes.data.data].filter(Boolean))
                         : [];
-                    const hasActiveAdmission = inpatientsList.some(ip => ip && ip.status === "Admitted");
+                    hasActiveAdmission = inpatientsList.some(ip => ip && ip.status === "Admitted");
+                } catch (e) {
+                    console.warn("Error checking inpatient status:", e);
+                }
 
-                    if (patient.admissionStatus === "In-patient" || inpatientsList.length > 0) {
+                // Check if patient is discharged - if so, show empty form for fresh re-appointment
+                let isDischarged = false;
+                try {
+                    if (patient.admissionStatus === "In-patient" || patient.inpatient === true || hasActiveAdmission) {
                         // IPD context: discharged = no active admission
                         if (!hasActiveAdmission) {
                             isDischarged = true;
                         }
                     } else {
-                        // OPD: check if latest examination is billed and fully paid
+                        // OPD check
                         const examsRes = await axios.get(
                             getApiUrl(`examinations?patientId=${patientProfileId}&limit=1&hasInpatient=false`),
                             { headers: getAuthHeaders() }
@@ -164,20 +171,18 @@ function WalkInHub() {
                 }
 
                 if (isDischarged) {
-                    // Patient is discharged - re-appointment = fresh form, all fields empty
                     setMode("OPD");
                     setFormData(getEmptyFormState());
                     setIsLoadingExistingData(false);
                     return;
                 }
 
-                let currentInpatientId = null; // Store inpatient ID for therapist lookup
+                let currentInpatientId = null;
 
-                // Determine mode based on admission status
-                if (patient.admissionStatus === "In-patient") {
+                // Determine mode based on admission status - Check ALL indicators
+                if (patient.admissionStatus === "In-patient" || patient.inpatient === true || hasActiveAdmission) {
                     setMode("IPD");
 
-                    // Fetch latest inpatient record
                     try {
                         const inpatientsRes = await axios.get(
                             getApiUrl(`inpatients/patient/${patientProfileId}`),
@@ -185,16 +190,15 @@ function WalkInHub() {
                         );
 
                         if (inpatientsRes.data.success) {
-                            // Handle both array and single object responses
                             const inpatient = Array.isArray(inpatientsRes.data.data)
                                 ? inpatientsRes.data.data.find(ip => ip.status === "Admitted") || inpatientsRes.data.data[0]
                                 : inpatientsRes.data.data;
 
                             if (!inpatient) return;
 
-                            currentInpatientId = inpatient._id; // Store for therapist lookup
+                            currentInpatientId = inpatient._id;
 
-                            // Fetch latest IPD examination so we show the doctor set in billing (Edit Doctor)
+                            // Fetch latest IPD examination
                             let latestIpdExamDoctorId = "";
                             try {
                                 const ipdExamsRes = await axios.get(
@@ -204,11 +208,11 @@ function WalkInHub() {
                                 const ipdExams = ipdExamsRes.data?.success && ipdExamsRes.data?.data
                                     ? (Array.isArray(ipdExamsRes.data.data) ? ipdExamsRes.data.data : [])
                                     : [];
-                                // Sort by date (newest first) to get the latest examination
+
                                 const sortedIpdExams = ipdExams.sort((a, b) => {
                                     const dateA = new Date(a.updatedAt || a.createdAt || 0);
                                     const dateB = new Date(b.updatedAt || b.createdAt || 0);
-                                    return dateB - dateA; // Descending order (newest first)
+                                    return dateB - dateA;
                                 });
                                 const latestIpdExam = sortedIpdExams[0];
                                 if (latestIpdExam?.doctor) {
@@ -217,47 +221,32 @@ function WalkInHub() {
                                         : String(latestIpdExam.doctor);
                                 }
                             } catch (e) {
-                                console.warn("[WalkInHub] Error fetching IPD examinations for doctor:", e);
+                                console.warn("[WalkInHub] Error fetching IPD examinations:", e);
                             }
 
-                            // Format date for input
                             const formatDateForInput = (date) => {
                                 if (!date) return new Date().toLocaleDateString("en-CA");
                                 const d = new Date(date);
                                 return d.toLocaleDateString("en-CA");
                             };
 
-                            // Extract nurse ID - handle both populated object and ObjectId string
-                            // PatientProfile stores NurseProfile ID, so we need to extract that
                             let nurseId = "";
-                            console.log("[WalkInHub] Inpatient allocatedNurse:", inpatient.allocatedNurse);
-                            console.log("[WalkInHub] Patient allocatedNurse:", patient.allocatedNurse);
-
                             if (inpatient.allocatedNurse) {
-                                // Inpatient record has allocatedNurse - could be populated object or ObjectId
                                 if (typeof inpatient.allocatedNurse === 'object' && inpatient.allocatedNurse._id) {
                                     nurseId = inpatient.allocatedNurse._id.toString();
-                                    console.log("[WalkInHub] Extracted nurse ID from inpatient (object):", nurseId);
                                 } else {
                                     nurseId = inpatient.allocatedNurse.toString();
-                                    console.log("[WalkInHub] Extracted nurse ID from inpatient (string):", nurseId);
                                 }
                             } else if (patient.allocatedNurse) {
-                                // PatientProfile has allocatedNurse - could be populated object or ObjectId
                                 if (typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) {
                                     nurseId = patient.allocatedNurse._id.toString();
-                                    console.log("[WalkInHub] Extracted nurse ID from patient (object):", nurseId);
                                 } else {
                                     nurseId = patient.allocatedNurse.toString();
-                                    console.log("[WalkInHub] Extracted nurse ID from patient (string):", nurseId);
                                 }
                             }
 
-                            console.log("[WalkInHub] Final nurseId to set:", nurseId);
-
                             setFormData(prev => ({
                                 ...prev,
-                                // Latest IPD examination doctor (set in billing) > URL > patient/inpatient doctor
                                 doctorProfileId: latestIpdExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || inpatient.doctor?._id || "",
                                 nurseProfileId: nurseId,
                                 wardCategory: inpatient.wardCategory || "General",
@@ -272,7 +261,7 @@ function WalkInHub() {
                 } else {
                     setMode("OPD");
 
-                    // Fetch latest OPD examination so we show the doctor set in billing (Edit Doctor)
+                    // Fetch latest OPD examination
                     let latestExamDoctorId = "";
                     try {
                         const examsRes = await axios.get(
@@ -287,10 +276,10 @@ function WalkInHub() {
                             latestExamDoctorId = typeof latestExam.doctor === "object" ? (latestExam.doctor._id || latestExam.doctor)?.toString?.() : String(latestExam.doctor);
                         }
                     } catch (e) {
-                        console.warn("[WalkInHub] Error fetching latest examination for doctor:", e);
+                        console.warn("[WalkInHub] Error fetching latest examination:", e);
                     }
 
-                    // Fetch latest appointment for OPD
+                    // Fetch latest appointment
                     try {
                         const appointmentsRes = await axios.get(
                             getApiUrl(`appointments?patientId=${patientProfileId}&limit=1`),
@@ -298,28 +287,21 @@ function WalkInHub() {
                         );
 
                         if (appointmentsRes.data.success && appointmentsRes.data.data?.length > 0) {
-                            // Get the most recent appointment (already sorted by appointmentDate desc)
                             const appointment = appointmentsRes.data.data[0];
 
-                            // Format time for input (HH:MM)
                             const formatTimeForInput = (timeStr) => {
                                 if (!timeStr) return "";
-                                // If time is in HH:MM format, return as is
                                 if (timeStr.match(/^\d{2}:\d{2}$/)) return timeStr;
-                                // If it's a Date object or ISO string, extract time
                                 const d = new Date(timeStr);
                                 return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
                             };
 
-                            // Format date for input
                             const formatDateForInput = (date) => {
                                 if (!date) return new Date().toLocaleDateString("en-CA");
                                 const d = new Date(date);
                                 return d.toLocaleDateString("en-CA");
                             };
 
-                            // Extract nurse ID - handle both populated object and ObjectId string
-                            // PatientProfile stores NurseProfile ID, so we need to extract that
                             let nurseId = "";
                             if (patient.allocatedNurse) {
                                 if (typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) {
@@ -331,16 +313,12 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                // Latest examination doctor (set in billing) > URL > appointment > primary
                                 doctorProfileId: latestExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || appointment.doctor?._id || "",
-                                nurseProfileId: nurseId, // Load nurse assignment for OPD patients
+                                nurseProfileId: nurseId,
                                 appointmentTime: formatTimeForInput(appointment.appointmentTime),
                                 appointmentDate: formatDateForInput(appointment.appointmentDate),
                             }));
                         } else {
-                            // No appointment found, use patient profile data
-                            // Extract nurse ID - handle both populated object and ObjectId string
-                            // PatientProfile stores NurseProfile ID, so we need to extract that
                             let nurseId = "";
                             if (patient.allocatedNurse) {
                                 if (typeof patient.allocatedNurse === 'object' && patient.allocatedNurse._id) {
@@ -352,15 +330,12 @@ function WalkInHub() {
 
                             setFormData(prev => ({
                                 ...prev,
-                                // Latest examination doctor (set in billing) > URL > primary
                                 doctorProfileId: latestExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || "",
-                                nurseProfileId: nurseId, // Load nurse assignment for OPD patients
+                                nurseProfileId: nurseId,
                             }));
                         }
                     } catch (err) {
                         console.error("Error fetching appointment data:", err);
-                        // Fallback to patient profile data
-                        // Extract nurse ID - handle both populated object and ObjectId string
                         let nurseId = "";
                         if (patient.allocatedNurse) {
                             nurseId = patient.allocatedNurse._id || patient.allocatedNurse || "";
@@ -368,20 +343,14 @@ function WalkInHub() {
 
                         setFormData(prev => ({
                             ...prev,
-                            // Latest examination doctor (set in billing) > URL > primary
                             doctorProfileId: latestExamDoctorId || existingDoctorId || patient.primaryDoctor?._id || "",
-                            nurseProfileId: nurseId, // Load nurse assignment for OPD patients
+                            nurseProfileId: nurseId,
                         }));
                     }
                 }
 
-                // Load therapy data from treatment plans instead of just patient profile
+                // Load therapy data
                 try {
-                    const plansUrl = mode === "OPD"
-                        ? getApiUrl(`examinations/therapy-plans/opd`) // This might need a query param
-                        : getApiUrl(`examinations/therapy-plans`); // Generic lookup
-
-                    // Actually, let's fetch by patient profile ID to be safe
                     const plansRes = await axios.get(
                         getApiUrl(`examinations/therapy-plans/patient/${patientProfileId}`),
                         { headers: getAuthHeaders() }
@@ -389,48 +358,60 @@ function WalkInHub() {
 
                     if (plansRes.data.success && plansRes.data.data?.length > 0) {
                         const plans = plansRes.data.data;
-                        const firstPlan = plans[0];
 
-                        let assignedTherapistIds = [];
-                        if (firstPlan.sessionId) {
-                            try {
-                                const sessionRes = await axios.get(getApiUrl(`therapist-sessions/${firstPlan.sessionId}`), { headers: getAuthHeaders() });
-                                if (sessionRes.data.success && sessionRes.data.data) {
-                                    const session = sessionRes.data.data;
-                                    if (session.therapists?.length > 0) {
-                                        assignedTherapistIds = session.therapists.map(t => t.user?._id || t.user || t);
-                                    } else if (session.therapist) {
-                                        const legacyId = session.therapist.user?._id || session.therapist.user || session.therapist || "";
-                                        if (legacyId) assignedTherapistIds = [legacyId];
+                        // Map all plans to the therapy array structure
+                        // We need to fetch assigned therapists for each plan ideally
+                        // For optimization, we might just assume basic structure or fetch details if needed
+                        // Here we map basic details.
+
+                        const mappedTherapies = await Promise.all(plans.map(async (plan) => {
+                            let assignedTherapistIds = [];
+                            if (plan.sessionId) {
+                                try {
+                                    const sessionRes = await axios.get(getApiUrl(`therapist-sessions/${plan.sessionId}`), { headers: getAuthHeaders() });
+                                    if (sessionRes.data.success && sessionRes.data.data) {
+                                        const session = sessionRes.data.data;
+                                        if (session.therapists?.length > 0) {
+                                            assignedTherapistIds = session.therapists.map(t => t.user?._id || t.user || t);
+                                        } else if (session.therapist) {
+                                            const legacyId = session.therapist.user?._id || session.therapist.user || session.therapist || "";
+                                            if (legacyId) assignedTherapistIds = [legacyId];
+                                        }
                                     }
+                                } catch (e) {
+                                    // ignore
                                 }
-                            } catch (e) {
-                                console.error("Error fetching session for therapists:", e);
+                            } else if (plan.therapistId) {
+                                // If stored directly
+                                assignedTherapistIds = Array.isArray(plan.therapistId) ? plan.therapistId : [plan.therapistId];
                             }
-                        }
 
-                        const formatDateForInput = (date) => {
-                            if (!date) return new Date().toLocaleDateString("en-CA");
-                            const d = new Date(date);
-                            return d.toLocaleDateString("en-CA");
-                        };
+                            const formatDateForInput = (date) => {
+                                if (!date) return new Date().toLocaleDateString("en-CA");
+                                const d = new Date(date);
+                                return d.toLocaleDateString("en-CA");
+                            };
+
+                            return {
+                                _id: plan._id, // vital for preventing duplication
+                                treatmentName: Array.isArray(plan.treatmentName) ? plan.treatmentName : (plan.treatmentName ? [plan.treatmentName] : []),
+                                daysOfTreatment: plan.daysOfTreatment || 0,
+                                timeline: plan.timeline || "Daily",
+                                specialInstructions: plan.specialInstructions || "",
+                                subTherapy: plan.subTherapy || "",
+                                duration: plan.duration || "",
+                                treatmentDescription: plan.treatmentDescription || "",
+                                therapistId: assignedTherapistIds,
+                                startDate: formatDateForInput(plan.startDate),
+                            };
+                        }));
 
                         setFormData(prev => ({
                             ...prev,
-                            therapyData: {
-                                treatmentName: plans.map(p => p.treatmentName),
-                                daysOfTreatment: firstPlan.daysOfTreatment || 0,
-                                timeline: firstPlan.timeline || "Daily",
-                                specialInstructions: firstPlan.specialInstructions || "",
-                                subTherapy: firstPlan.subTherapy || "",
-                                duration: firstPlan.duration || "",
-                                treatmentDescription: firstPlan.treatmentDescription || "",
-                                therapistId: assignedTherapistIds,
-                                startDate: formatDateForInput(firstPlan.startDate),
-                            }
+                            therapies: mappedTherapies.length > 0 ? mappedTherapies : [getEmptyTherapy()]
                         }));
                     } else if (patient.assignedTherapy) {
-                        // Fallback to patient profile if no plans found
+                        // Fallback to patient profile data
                         const formatDateForInput = (date) => {
                             if (!date) return new Date().toLocaleDateString("en-CA");
                             const d = new Date(date);
@@ -439,8 +420,7 @@ function WalkInHub() {
 
                         setFormData(prev => ({
                             ...prev,
-                            therapyData: {
-                                ...prev.therapyData,
+                            therapies: [{
                                 treatmentName: [patient.assignedTherapy?.therapyName || patient.assignedTherapy || ""],
                                 daysOfTreatment: patient.therapyDurationDays || 0,
                                 timeline: patient.therapyTimeline || "Daily",
@@ -450,7 +430,7 @@ function WalkInHub() {
                                 treatmentDescription: patient.treatmentDescription || "",
                                 therapistId: patient.primaryTherapist ? [patient.primaryTherapist._id || patient.primaryTherapist] : [],
                                 startDate: formatDateForInput(patient.therapyStartDate),
-                            }
+                            }]
                         }));
                     }
                 } catch (planErr) {
@@ -459,7 +439,6 @@ function WalkInHub() {
             }
         } catch (error) {
             console.error("Error loading existing assignments:", error);
-            // Don't show error toast - just silently fail and let user fill manually
         } finally {
             setIsLoadingExistingData(false);
         }
@@ -469,23 +448,12 @@ function WalkInHub() {
         fetchData();
     }, [fetchData]);
 
-    // Load existing assignments when patientProfileId is available
     useEffect(() => {
         if (patientProfileId && !isLoadingData) {
             loadExistingAssignments();
         }
     }, [patientProfileId, isLoadingData, loadExistingAssignments]);
 
-    // Debug: Log formData changes
-    useEffect(() => {
-        console.log("[WalkInHub] formData.nurseProfileId changed:", formData.nurseProfileId);
-        console.log("[WalkInHub] Available nurses:", nurses.map(n => ({
-            id: n.profileId || n._id,
-            name: n.user?.name || n.name,
-            profileId: n.profileId,
-            _id: n._id
-        })));
-    }, [formData.nurseProfileId, nurses]);
 
     const handleModeChange = (event, newMode) => {
         if (newMode !== null) {
@@ -495,34 +463,32 @@ function WalkInHub() {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        if (name === "therapy.treatmentName") {
-            setFormData(prev => ({
-                ...prev,
-                therapyData: {
-                    ...prev.therapyData,
-                    treatmentName: typeof value === 'string' ? value.split(',') : value,
-                }
-            }));
-        } else if (name === "therapy.therapistId") {
-            setFormData(prev => ({
-                ...prev,
-                therapyData: {
-                    ...prev.therapyData,
-                    therapistId: typeof value === 'string' ? value.split(',') : value,
-                }
-            }));
-        } else if (name.startsWith("therapy.")) {
-            const field = name.split(".")[1];
-            setFormData(prev => ({
-                ...prev,
-                therapyData: {
-                    ...prev.therapyData,
-                    [field]: value
-                }
-            }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-        }
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleTherapyChange = (index, field, value) => {
+        setFormData(prev => {
+            const updatedTherapies = [...prev.therapies];
+            updatedTherapies[index] = {
+                ...updatedTherapies[index],
+                [field]: value
+            };
+            return { ...prev, therapies: updatedTherapies };
+        });
+    };
+
+    const handleAddTherapy = () => {
+        setFormData(prev => ({
+            ...prev,
+            therapies: [...prev.therapies, getEmptyTherapy()]
+        }));
+    };
+
+    const handleRemoveTherapy = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            therapies: prev.therapies.filter((_, i) => i !== index)
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -532,8 +498,6 @@ function WalkInHub() {
             toast.error("Patient identification is missing");
             return;
         }
-
-
 
         const payload = {
             mode,
@@ -545,11 +509,12 @@ function WalkInHub() {
             bedNumber: mode === "IPD" ? formData.bedNumber : undefined,
             appointmentTime: formData.appointmentTime || undefined,
             appointmentDate: formData.appointmentDate,
-            therapyData: formData.therapyData.treatmentName?.length > 0 ? {
-                ...formData.therapyData,
-                therapistId: formData.therapyData.therapistId || undefined,
-                startDate: formData.therapyData.startDate || undefined
-            } : undefined
+            // Filter out existing therapies (have _id) and empty ones to prevent duplication
+            therapies: formData.therapies.filter(t => {
+                const hasId = !!t._id;
+                const hasName = t.treatmentName && (Array.isArray(t.treatmentName) ? t.treatmentName.length > 0 : t.treatmentName.trim().length > 0);
+                return !hasId && hasName;
+            })
         };
 
         setIsSubmitting(true);
@@ -727,29 +692,16 @@ function WalkInHub() {
                                         >
                                             <MenuItem value="">Unassigned</MenuItem>
                                             {nurses.map(nurse => {
-                                                // Nurses API returns _id as User ID and profileId as NurseProfile ID
-                                                // PatientProfile stores NurseProfile ID in allocatedNurse field
-                                                // We need to match using profileId since PatientProfile stores NurseProfile ID
-
-                                                // Try to get profileId - it might be in different places
                                                 let nurseProfileId = "";
                                                 if (nurse.profileId) {
                                                     nurseProfileId = nurse.profileId.toString();
                                                 } else if (nurse._id && typeof nurse._id === 'object' && nurse._id.toString) {
-                                                    // If _id is an ObjectId, it might be the profile ID in some cases
                                                     nurseProfileId = nurse._id.toString();
                                                 } else if (nurse._id) {
-                                                    // Fallback: use _id as string
                                                     nurseProfileId = nurse._id.toString();
                                                 }
 
                                                 const nurseName = nurse.user?.name || nurse.name || "Nurse";
-
-                                                // Debug logging for matching
-                                                if (nurseProfileId && formData.nurseProfileId &&
-                                                    nurseProfileId === formData.nurseProfileId.toString()) {
-                                                    console.log("[WalkInHub] ✓ Matching nurse found:", nurseName, "ProfileID:", nurseProfileId, "FormValue:", formData.nurseProfileId);
-                                                }
 
                                                 return (
                                                     <MenuItem key={nurseProfileId || nurse._id} value={nurseProfileId}>
@@ -802,158 +754,204 @@ function WalkInHub() {
 
                         {/* Section 4: Therapy (Optional) */}
                         <Box sx={{ mb: 4 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                                <Clipboard size={20} color="var(--color-primary-a)" />
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Initial Therapy</Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    <Clipboard size={20} color="var(--color-primary-a)" />
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Therapy Planning</Typography>
+                                </Box>
                             </Box>
-                            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                                {/* Row 1: Select Therapy and Sub Therapy */}
-                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                                    <FormControl sx={{ flex: 2, minWidth: "300px" }}>
-                                        <InputLabel>Select Therapy</InputLabel>
-                                        <Select
-                                            name="therapy.treatmentName"
-                                            multiple
-                                            value={formData.therapyData.treatmentName}
-                                            onChange={handleChange}
-                                            input={<OutlinedInput label="Select Therapy" />}
-                                            renderValue={(selected) => (
-                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                    {selected.map((value) => {
-                                                        const therapy = therapies.find(t => t._id === value || t.therapyName === value);
+
+                            {formData.therapies.map((therapy, index) => (
+                                <Paper
+                                    key={index}
+                                    elevation={0}
+                                    sx={{
+                                        p: 3,
+                                        mb: 3,
+                                        borderRadius: '12px',
+                                        border: '1px solid var(--color-border-a)',
+                                        backgroundColor: '#fafafa',
+                                        position: 'relative'
+                                    }}
+                                >
+                                    {/* Remove Button for index > 0 or if you want to allow removing the first one too */}
+                                    {formData.therapies.length > 1 && (
+                                        <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleRemoveTherapy(index)}
+                                                sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
+                                            >
+                                                <Trash2 size={18} />
+                                            </IconButton>
+                                        </Box>
+                                    )}
+
+                                    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                        {/* Row 1: Select Therapy and Sub Therapy */}
+                                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                            <FormControl sx={{ flex: 2, minWidth: "300px" }}>
+                                                <InputLabel>Select Therapy</InputLabel>
+                                                <Select
+                                                    multiple
+                                                    value={therapy.treatmentName}
+                                                    onChange={(e) => handleTherapyChange(index, 'treatmentName', typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                                                    input={<OutlinedInput label="Select Therapy" />}
+                                                    renderValue={(selected) => (
+                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                            {selected.map((value) => {
+                                                                const t = therapiesList.find(item => item._id === value || item.therapyName === value);
+                                                                return (
+                                                                    <Chip key={value} label={t?.therapyName || value} size="small" />
+                                                                );
+                                                            })}
+                                                        </Box>
+                                                    )}
+                                                >
+                                                    {therapiesList.map((t) => (
+                                                        <MenuItem key={t._id} value={t.therapyName}>
+                                                            <Checkbox checked={therapy.treatmentName.indexOf(t.therapyName) > -1} />
+                                                            <ListItemText primary={t.therapyName} />
+                                                        </MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+
+                                            <TextField
+                                                sx={{ flex: 1, minWidth: "250px" }}
+                                                label="Sub Therapy"
+                                                value={therapy.subTherapy}
+                                                onChange={(e) => handleTherapyChange(index, 'subTherapy', e.target.value)}
+                                                placeholder="e.g. Oil Type, Specific Medicines"
+                                            />
+                                        </Box>
+
+                                        {/* Row 2: Session, Timeline, Duration */}
+                                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                            <TextField
+                                                label="Session"
+                                                type="number"
+                                                value={therapy.daysOfTreatment}
+                                                onChange={(e) => handleTherapyChange(index, 'daysOfTreatment', e.target.value)}
+                                                sx={{ flex: 1, minWidth: "150px" }}
+                                                inputProps={{ min: 0 }}
+                                            />
+
+                                            <FormControl sx={{ flex: 1, minWidth: "150px" }}>
+                                                <InputLabel>Timeline</InputLabel>
+                                                <Select
+                                                    value={therapy.timeline}
+                                                    onChange={(e) => handleTherapyChange(index, 'timeline', e.target.value)}
+                                                    label="Timeline"
+                                                >
+                                                    <MenuItem value="Daily">Daily</MenuItem>
+                                                    <MenuItem value="AlternateDay">Alternate Days</MenuItem>
+                                                    <MenuItem value="Weekly">Weekly</MenuItem>
+                                                    <MenuItem value="Monthly">Monthly</MenuItem>
+                                                </Select>
+                                            </FormControl>
+
+                                            <TextField
+                                                sx={{ flex: 1, minWidth: "200px" }}
+                                                label="Duration"
+                                                type="number"
+                                                value={therapy.duration}
+                                                onChange={(e) => handleTherapyChange(index, 'duration', e.target.value)}
+                                                placeholder="e.g. 45"
+                                                InputProps={{
+                                                    endAdornment: <InputAdornment position="end">min</InputAdornment>,
+                                                    inputProps: { min: 0 }
+                                                }}
+                                            />
+                                        </Box>
+
+                                        {/* Row 3: Treatment Description */}
+                                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                            <TextField
+                                                sx={{ flex: 1, minWidth: "100%" }}
+                                                label="Treatment Description"
+                                                value={therapy.treatmentDescription}
+                                                onChange={(e) => handleTherapyChange(index, 'treatmentDescription', e.target.value)}
+                                                multiline
+                                                rows={3}
+                                                placeholder="Enter detailed description of the treatment..."
+                                            />
+                                        </Box>
+
+                                        {/* Row 4: Assign Therapist, Special Instructions, Start Date */}
+                                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                            <FormControl sx={{ flex: 1, minWidth: "250px" }}>
+                                                <InputLabel>Assign Therapist</InputLabel>
+                                                <Select
+                                                    multiple
+                                                    value={therapy.therapistId}
+                                                    onChange={(e) => handleTherapyChange(index, 'therapistId', typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                                                    input={<OutlinedInput label="Assign Therapist" />}
+                                                    renderValue={(selected) => (
+                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                            {selected.map((value) => {
+                                                                const therapist = therapists.find(th => (th.user?._id || th._id) === value);
+                                                                return (
+                                                                    <Chip key={value} label={therapist?.user?.name || "Therapist"} size="small" />
+                                                                );
+                                                            })}
+                                                        </Box>
+                                                    )}
+                                                >
+                                                    {therapists.map((th) => {
+                                                        const thId = th.user?._id || th._id;
                                                         return (
-                                                            <Chip key={value} label={therapy?.therapyName || value} size="small" />
+                                                            <MenuItem key={thId} value={thId}>
+                                                                <Checkbox checked={therapy.therapistId.indexOf(thId) > -1} />
+                                                                <ListItemText
+                                                                    primary={th.user?.name || "Therapist"}
+                                                                    secondary={th.specialization || th.speciality || "General"}
+                                                                />
+                                                            </MenuItem>
                                                         );
                                                     })}
-                                                </Box>
-                                            )}
-                                        >
-                                            {therapies.map((t) => (
-                                                <MenuItem key={t._id} value={t.therapyName}>
-                                                    <Checkbox checked={formData.therapyData.treatmentName.indexOf(t.therapyName) > -1} />
-                                                    <ListItemText primary={t.therapyName} />
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
+                                                </Select>
+                                            </FormControl>
 
-                                    <TextField
-                                        sx={{ flex: 1, minWidth: "250px" }}
-                                        label="Sub Therapy"
-                                        name="therapy.subTherapy"
-                                        value={formData.therapyData.subTherapy}
-                                        onChange={handleChange}
-                                        placeholder="e.g. Oil Type, Specific Medicines"
-                                    />
-                                </Box>
+                                            <TextField
+                                                sx={{ flex: 1, minWidth: "250px" }}
+                                                label="Special Instructions"
+                                                value={therapy.specialInstructions}
+                                                onChange={(e) => handleTherapyChange(index, 'specialInstructions', e.target.value)}
+                                            />
 
-                                {/* Row 2: Session, Timeline, Duration */}
-                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                                    <TextField
-                                        label="Session"
-                                        type="number"
-                                        name="therapy.daysOfTreatment"
-                                        value={formData.therapyData.daysOfTreatment}
-                                        onChange={handleChange}
-                                        sx={{ flex: 1, minWidth: "150px" }}
-                                        inputProps={{ min: 0 }}
-                                    />
+                                            <TextField
+                                                sx={{ flex: 1, minWidth: "250px" }}
+                                                label="Start Date"
+                                                type="date"
+                                                value={therapy.startDate}
+                                                onChange={(e) => handleTherapyChange(index, 'startDate', e.target.value)}
+                                                InputLabelProps={{
+                                                    shrink: true,
+                                                }}
+                                            />
+                                        </Box>
+                                    </Box>
+                                </Paper>
+                            ))}
 
-                                    <FormControl sx={{ flex: 1, minWidth: "150px" }}>
-                                        <InputLabel>Timeline</InputLabel>
-                                        <Select
-                                            name="therapy.timeline"
-                                            value={formData.therapyData.timeline}
-                                            onChange={handleChange}
-                                            label="Timeline"
-                                        >
-                                            <MenuItem value="Daily">Daily</MenuItem>
-                                            <MenuItem value="AlternateDay">Alternate Days</MenuItem>
-                                            <MenuItem value="Weekly">Weekly</MenuItem>
-                                            <MenuItem value="Monthly">Monthly</MenuItem>
-                                        </Select>
-                                    </FormControl>
-
-                                    <TextField
-                                        sx={{ flex: 1, minWidth: "200px" }}
-                                        label="Duration"
-                                        name="therapy.duration"
-                                        value={formData.therapyData.duration}
-                                        onChange={handleChange}
-                                        placeholder="e.g. 45 mins, 1 hour"
-                                    />
-                                </Box>
-
-                                {/* Row 3: Treatment Description */}
-                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                                    <TextField
-                                        sx={{ flex: 1, minWidth: "100%" }}
-                                        label="Treatment Description"
-                                        name="therapy.treatmentDescription"
-                                        value={formData.therapyData.treatmentDescription}
-                                        onChange={handleChange}
-                                        multiline
-                                        rows={3}
-                                        placeholder="Enter detailed description of the treatment..."
-                                    />
-                                </Box>
-
-                                {/* Row 4: Assign Therapist, Special Instructions, Start Date */}
-                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                                    <FormControl sx={{ flex: 1, minWidth: "250px" }}>
-                                        <InputLabel>Assign Therapist</InputLabel>
-                                        <Select
-                                            name="therapy.therapistId"
-                                            multiple
-                                            value={formData.therapyData.therapistId}
-                                            onChange={handleChange}
-                                            input={<OutlinedInput label="Assign Therapist" />}
-                                            renderValue={(selected) => (
-                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                    {selected.map((value) => {
-                                                        const therapist = therapists.find(th => (th.user?._id || th._id) === value);
-                                                        return (
-                                                            <Chip key={value} label={therapist?.user?.name || "Therapist"} size="small" />
-                                                        );
-                                                    })}
-                                                </Box>
-                                            )}
-                                        >
-                                            {therapists.map((th) => {
-                                                const thId = th.user?._id || th._id;
-                                                return (
-                                                    <MenuItem key={thId} value={thId}>
-                                                        <Checkbox checked={formData.therapyData.therapistId.indexOf(thId) > -1} />
-                                                        <ListItemText
-                                                            primary={th.user?.name || "Therapist"}
-                                                            secondary={th.specialization || th.speciality || "General"}
-                                                        />
-                                                    </MenuItem>
-                                                );
-                                            })}
-                                        </Select>
-                                    </FormControl>
-
-                                    <TextField
-                                        sx={{ flex: 1, minWidth: "250px" }}
-                                        label="Special Instructions"
-                                        name="therapy.specialInstructions"
-                                        value={formData.therapyData.specialInstructions}
-                                        onChange={handleChange}
-                                    />
-
-                                    <TextField
-                                        sx={{ flex: 1, minWidth: "250px" }}
-                                        label="Start Date"
-                                        type="date"
-                                        name="therapy.startDate"
-                                        value={formData.therapyData.startDate}
-                                        onChange={handleChange}
-                                        InputLabelProps={{
-                                            shrink: true,
-                                        }}
-                                    />
-                                </Box>
+                            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+                                <Button
+                                    startIcon={<Plus size={18} />}
+                                    variant="outlined"
+                                    size="small"
+                                    onClick={handleAddTherapy}
+                                    sx={{
+                                        borderColor: 'var(--color-primary-a)',
+                                        color: 'var(--color-primary-a)',
+                                        '&:hover': {
+                                            borderColor: 'var(--color-primary-a)',
+                                            backgroundColor: 'rgba(139, 69, 19, 0.04)'
+                                        }
+                                    }}
+                                >
+                                    Add Another Therapy
+                                </Button>
                             </Box>
                         </Box>
 

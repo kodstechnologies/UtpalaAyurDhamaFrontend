@@ -88,103 +88,28 @@ function Therapy_Progress() {
         }
     };
 
-    // Group sessions by patient + examination (or treatmentPlan if no examination)
-    const groupedSessions = useMemo(() => {
-        const groups = new Map();
-        
-        sessions.forEach((session) => {
-            // Create a unique key: patientId + examinationId (or treatmentPlanId)
-            const patientId = session.patient?._id?.toString() || session.patient?.toString() || "";
-            const examinationId = session.examination?._id?.toString() || session.examination?.toString() || "";
-            const treatmentPlanId = session.treatmentPlan?._id?.toString() || session.treatmentPlan?.toString() || "";
-            
-            // Use examination as primary grouping key, fallback to treatmentPlan
-            const groupKey = examinationId || treatmentPlanId || `patient-${patientId}`;
-            const fullKey = `${patientId}-${groupKey}`;
-            
-            if (!groups.has(fullKey)) {
-                groups.set(fullKey, {
-                    patient: session.patient,
-                    examination: session.examination,
-                    treatmentPlan: session.treatmentPlan,
-                    sessions: [],
-                    // Use the first session's common fields
-                    inpatient: session.inpatient,
-                    status: session.status,
-                    sessionDate: session.sessionDate,
-                    sessionTime: session.sessionTime,
-                    timeline: session.timeline,
-                    createdAt: session.createdAt,
-                });
-            }
-            
-            groups.get(fullKey).sessions.push(session);
-        });
-        
-        // Convert map to array and process each group
-        return Array.from(groups.values()).map((group) => {
-            // Aggregate therapies
-            const therapies = group.sessions.map(s => ({
-                treatmentName: s.treatmentName || "N/A",
-                subTherapy: s.subTherapy || "",
-                duration: s.duration || "",
-                treatmentDescription: s.treatmentDescription || "",
-                daysOfTreatment: s.daysOfTreatment || 0,
-                days: s.days || [],
-                status: s.status,
-                _id: s._id,
-            }));
-            
-            // Calculate total sessions - use the maximum daysOfTreatment from all therapies
-            // (since they're assigned together, they share the same session count)
-            const totalSessions = Math.max(...group.sessions.map(s => s.daysOfTreatment || 0), 0);
-            
-            // Aggregate completed sessions from all therapies
-            const totalCompleted = group.sessions.reduce((sum, s) => {
-                const completed = Array.isArray(s.days) ? s.days.filter(d => d.completed).length : 0;
-                return sum + completed;
-            }, 0);
-            
-            // Determine overall status (use most advanced status)
-            const statusPriority = { "Completed": 4, "In Progress": 3, "Scheduled": 2, "Pending": 1, "Cancelled": 0 };
-            const overallStatus = group.sessions.reduce((prev, curr) => {
-                const prevPriority = statusPriority[prev.status] || 0;
-                const currPriority = statusPriority[curr.status] || 0;
-                return currPriority > prevPriority ? curr.status : prev.status;
-            }, group.sessions[0]?.status || "Pending");
-            
-            return {
-                ...group,
-                therapies,
-                totalSessions,
-                totalCompleted,
-                status: overallStatus,
-                // Use first session's ID for navigation/actions
-                primarySessionId: group.sessions[0]?._id,
-                // All session IDs for reference
-                sessionIds: group.sessions.map(s => s._id),
-            };
-        });
-    }, [sessions]);
+
 
     const filteredSessions = useMemo(() => {
-        if (!search) return groupedSessions;
+        if (!search) return sessions;
         const searchLower = search.toLowerCase();
-        return groupedSessions.filter(
-            (group) => {
-                const patientName = group.patient?.user?.name || "";
-                const uhid = group.patient?.user?.uhid || "";
-                const therapyNames = group.therapies.map(t => t.treatmentName).join(" ");
-                const status = group.status || "";
+        return sessions.filter(
+            (session) => {
+                const patientName = session.patient?.user?.name || "";
+                const uhid = session.patient?.user?.uhid || "";
+                const therapyName = session.treatmentName || "";
+                const status = session.status || "";
                 return (
                     patientName.toLowerCase().includes(searchLower) ||
                     uhid.toLowerCase().includes(searchLower) ||
-                    therapyNames.toLowerCase().includes(searchLower) ||
+                    therapyName.toLowerCase().includes(searchLower) ||
                     status.toLowerCase().includes(searchLower)
                 );
             }
         );
-    }, [groupedSessions, search]);
+    }, [sessions, search]);
+
+
 
     const handleStartSession = async (sessionId) => {
         toast.info("Initializing session execution...", { autoClose: 1000 });
@@ -255,10 +180,10 @@ function Therapy_Progress() {
                     }
 
                     // Include sub-therapy in calendar title if available
-                    const title = session.subTherapy 
+                    const title = session.subTherapy
                         ? `${session.treatmentName} (${session.subTherapy}) - ${session.patient?.user?.name}`
                         : `${session.treatmentName} - ${session.patient?.user?.name}`;
-                    
+
                     return {
                         id: `${session._id}-${idx}`,
                         title: title,
@@ -655,61 +580,30 @@ function Therapy_Progress() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredSessions.map((group, index) => {
-                                                const isIPD = !!group.inpatient || group.patient?.inpatient;
-                                                // Use primary session for actions (first session in group)
-                                                const primarySession = group.sessions[0];
-                                                
+                                            {filteredSessions.map((session, index) => {
+                                                const isIPD = !!session.inpatient || session.patient?.inpatient;
+
+                                                // Calculate progress for this session
+                                                const totalSessions = session.daysOfTreatment || 0;
+                                                const totalCompleted = Array.isArray(session.days)
+                                                    ? session.days.filter(d => d.completed).length
+                                                    : 0;
+
                                                 return (
-                                                    <tr key={group.primarySessionId || `group-${index}`}>
+                                                    <tr key={session._id}>
                                                         <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
-                                                        <td style={{ fontSize: "0.875rem" }}>{group.patient?.user?.uhid || "N/A"}</td>
+                                                        <td style={{ fontSize: "0.875rem" }}>{session.patient?.user?.uhid || "N/A"}</td>
                                                         <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                            {group.patient?.user?.name || "Unknown"}
+                                                            {session.patient?.user?.name || "Unknown"}
                                                         </td>
                                                         <td style={{ fontSize: "0.875rem" }}>
                                                             <div>
-                                                                {/* Group therapies by sub-therapy if they share the same one */}
-                                                                {(() => {
-                                                                    // Check if all therapies have the same sub-therapy
-                                                                    const uniqueSubTherapies = [...new Set(group.therapies.map(t => t.subTherapy || ""))];
-                                                                    const hasCommonSubTherapy = uniqueSubTherapies.length === 1 && uniqueSubTherapies[0] !== "";
-                                                                    
-                                                                    if (hasCommonSubTherapy) {
-                                                                        // Show main therapies side by side, sub-therapy once below
-                                                                        return (
-                                                                            <div>
-                                                                                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
-                                                                                    {group.therapies.map((therapy, idx) => (
-                                                                                        <span key={idx} style={{ fontWeight: 500 }}>
-                                                                                            {therapy.treatmentName}
-                                                                                            {idx < group.therapies.length - 1 && <span style={{ margin: "0 4px", color: "#6c757d" }}>•</span>}
-                                                                                        </span>
-                                                                                    ))}
-                                                                                </div>
-                                                                                <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "4px" }}>
-                                                                                    Sub-Therapy: {uniqueSubTherapies[0]}
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    } else {
-                                                                        // Show each therapy with its own sub-therapy
-                                                                        return (
-                                                                            <div>
-                                                                                {group.therapies.map((therapy, idx) => (
-                                                                                    <div key={idx} style={{ marginBottom: idx < group.therapies.length - 1 ? "8px" : "0" }}>
-                                                                                        <div style={{ fontWeight: 500 }}>{therapy.treatmentName}</div>
-                                                                                        {therapy.subTherapy && (
-                                                                                            <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
-                                                                                                Sub-Therapy: {therapy.subTherapy}
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        );
-                                                                    }
-                                                                })()}
+                                                                <div style={{ fontWeight: 500 }}>{session.treatmentName || "N/A"}</div>
+                                                                {(session.subTherapy) && (
+                                                                    <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
+                                                                        Sub-Therapy: {session.subTherapy}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td style={{ fontSize: "0.875rem" }}>
@@ -722,7 +616,7 @@ function Therapy_Progress() {
                                                                     padding: "2px 8px",
                                                                     borderRadius: "4px"
                                                                 }}>
-                                                                    {group.totalCompleted} / {group.totalSessions}
+                                                                    {totalCompleted} / {totalSessions}
                                                                 </div>
                                                                 <Typography variant="caption" color="text.secondary">Sessions</Typography>
                                                             </Box>
@@ -743,14 +637,14 @@ function Therapy_Progress() {
                                                         </td>
                                                         <td style={{ fontSize: "0.875rem" }}>
                                                             <span
-                                                                className={`badge ${getStatusBadgeClass(group.status)}`}
+                                                                className={`badge ${getStatusBadgeClass(session.status)}`}
                                                                 style={{
                                                                     borderRadius: "50px",
                                                                     padding: "4px 10px",
                                                                     fontSize: "0.75rem",
                                                                 }}
                                                             >
-                                                                {group.status}
+                                                                {session.status}
                                                             </span>
                                                         </td>
                                                         <td style={{ fontSize: "0.875rem" }}>
@@ -759,8 +653,8 @@ function Therapy_Progress() {
                                                                     <button
                                                                         type="button"
                                                                         className="btn btn-sm"
-                                                                        onClick={() => handleViewDetails(primarySession)}
-                                                                        onMouseEnter={() => setHoveredButton(`view-${group.primarySessionId}`)}
+                                                                        onClick={() => handleViewDetails(session)}
+                                                                        onMouseEnter={() => setHoveredButton(`view-${session._id}`)}
                                                                         onMouseLeave={() => setHoveredButton(null)}
                                                                         style={{
                                                                             backgroundColor: "#D4A574",
@@ -779,7 +673,7 @@ function Therapy_Progress() {
                                                                     >
                                                                         <VisibilityIcon fontSize="small" />
                                                                     </button>
-                                                                    {hoveredButton === `view-${group.primarySessionId}` && (
+                                                                    {hoveredButton === `view-${session._id}` && (
                                                                         <div
                                                                             style={{
                                                                                 position: "absolute",
@@ -799,13 +693,13 @@ function Therapy_Progress() {
                                                                         </div>
                                                                     )}
                                                                 </div>
-                                                                {group.status === "Pending" || group.status === "Scheduled" ? (
+                                                                {(session.status === "Pending" || session.status === "Scheduled") ? (
                                                                     <div style={{ position: "relative", display: "inline-block" }}>
                                                                         <button
                                                                             type="button"
                                                                             className="btn btn-sm"
-                                                                            onClick={() => handleStartSession(group.primarySessionId)}
-                                                                            onMouseEnter={() => setHoveredButton(`start-${group.primarySessionId}`)}
+                                                                            onClick={() => handleStartSession(session._id)}
+                                                                            onMouseEnter={() => setHoveredButton(`start-${session._id}`)}
                                                                             onMouseLeave={() => setHoveredButton(null)}
                                                                             style={{
                                                                                 backgroundColor: "#28a745",
@@ -820,11 +714,12 @@ function Therapy_Progress() {
                                                                                 display: "flex",
                                                                                 alignItems: "center",
                                                                                 justifyContent: "center",
+                                                                                cursor: "pointer",
                                                                             }}
                                                                         >
                                                                             <PlayArrowIcon fontSize="small" />
                                                                         </button>
-                                                                        {hoveredButton === `start-${group.primarySessionId}` && (
+                                                                        {hoveredButton === `start-${session._id}` && (
                                                                             <div
                                                                                 style={{
                                                                                     position: "absolute",
@@ -833,7 +728,7 @@ function Therapy_Progress() {
                                                                                     transform: "translateX(-50%)",
                                                                                     backgroundColor: "rgba(0, 0, 0, 0.8)",
                                                                                     color: "white",
-                                                                                    padding: "4px 8px",
+                                                                                    padding: "10px",
                                                                                     borderRadius: "4px",
                                                                                     whiteSpace: "nowrap",
                                                                                     zIndex: 1000,
@@ -844,13 +739,13 @@ function Therapy_Progress() {
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                ) : group.status === "In Progress" ? (
+                                                                ) : session.status === "In Progress" ? (
                                                                     <div style={{ position: "relative", display: "inline-block" }}>
                                                                         <button
                                                                             type="button"
                                                                             className="btn btn-sm"
-                                                                            onClick={() => navigate(`/therapist/therapy-progress/execution/${group.primarySessionId}`)}
-                                                                            onMouseEnter={() => setHoveredButton(`stop-${group.primarySessionId}`)}
+                                                                            onClick={() => navigate(`/therapist/therapy-progress/execution/${session._id}`)}
+                                                                            onMouseEnter={() => setHoveredButton(`stop-${session._id}`)}
                                                                             onMouseLeave={() => setHoveredButton(null)}
                                                                             style={{
                                                                                 backgroundColor: "#ffc107",
@@ -869,7 +764,7 @@ function Therapy_Progress() {
                                                                         >
                                                                             <StopIcon fontSize="small" />
                                                                         </button>
-                                                                        {hoveredButton === `stop-${group.primarySessionId}` && (
+                                                                        {hoveredButton === `stop-${session._id}` && (
                                                                             <div
                                                                                 style={{
                                                                                     position: "absolute",
@@ -889,13 +784,13 @@ function Therapy_Progress() {
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                ) : group.status === "Completed" ? (
+                                                                ) : session.status === "Completed" ? (
                                                                     <div style={{ position: "relative", display: "inline-block" }}>
                                                                         <button
                                                                             type="button"
                                                                             className="btn btn-sm"
-                                                                            onClick={() => navigate(`/therapist/therapy-progress/execution/${group.primarySessionId}`)}
-                                                                            onMouseEnter={() => setHoveredButton(`review-${group.primarySessionId}`)}
+                                                                            onClick={() => navigate(`/therapist/therapy-progress/execution/${session._id}`)}
+                                                                            onMouseEnter={() => setHoveredButton(`review-${session._id}`)}
                                                                             onMouseLeave={() => setHoveredButton(null)}
                                                                             style={{
                                                                                 backgroundColor: "#17a2b8",
@@ -914,7 +809,7 @@ function Therapy_Progress() {
                                                                         >
                                                                             <HistoryIcon fontSize="small" />
                                                                         </button>
-                                                                        {hoveredButton === `review-${group.primarySessionId}` && (
+                                                                        {hoveredButton === `review-${session._id}` && (
                                                                             <div
                                                                                 style={{
                                                                                     position: "absolute",

@@ -49,17 +49,17 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
         }
 
         const groups = new Map();
-        
+
         charges.forEach((charge) => {
             // Create a unique key: examinationId (or treatmentPlanId, or date+therapist if neither exists)
             const examinationId = charge.examinationId || charge.examination || "";
             const treatmentPlanId = charge.treatmentPlanId || charge.treatmentPlan || "";
             const date = charge.date ? new Date(charge.date).toISOString().split('T')[0] : "";
             const therapistName = charge.therapistName || "";
-            
+
             // Group by examination first, then treatmentPlan, then by date+therapist
             const groupKey = examinationId || treatmentPlanId || `${date}-${therapistName}`;
-            
+
             if (!groups.has(groupKey)) {
                 groups.set(groupKey, {
                     ...charge, // Use first charge's common fields
@@ -69,7 +69,7 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                     totalAmount: 0,
                 });
             }
-            
+
             const group = groups.get(groupKey);
             group.therapies.push({
                 therapyName: charge.therapyName || charge.description || "",
@@ -80,12 +80,12 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                 status: charge.status,
                 sessionId: charge.sessionId || charge.id,
             });
-            
+
             group.totalTherapyCharge += Number(charge.therapyCharge || 0);
             group.totalTherapistCharge += Number(charge.therapistCharge || 0);
             group.totalAmount += Number(charge.amount || 0);
         });
-        
+
         return Array.from(groups.values());
     }, [charges, category]);
 
@@ -208,133 +208,133 @@ const ChargesPanel = ({ title, charges, category, onEdit, isEditable = true, use
                         <tbody>
                             {groupedCharges.map((charge, idx) => {
                                 // Calculate the correct amount for grouped charges
-                                const displayAmount = category === "therapy" && charge.totalAmount 
-                                    ? charge.totalAmount 
+                                const displayAmount = category === "therapy" && charge.totalAmount
+                                    ? charge.totalAmount
                                     : (charge.amount || 0);
-                                
+
                                 return (
                                     <tr key={charge.id || `group-${idx}`}>
-                                    <td style={{ fontSize: "0.875rem" }}>{formatDate(charge.date || charge.dispensedAt || charge.createdAt)}</td>
-                                    {category === "therapy" ? (
-                                        <>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                {charge.therapies && charge.therapies.length > 0 ? (
-                                                    <div>
-                                                        {(() => {
-                                                            // Check if all therapies have the same sub-therapy
-                                                            const uniqueSubTherapies = [...new Set(charge.therapies.map(t => t.subTherapy || ""))];
-                                                            const hasCommonSubTherapy = uniqueSubTherapies.length === 1 && uniqueSubTherapies[0] !== "";
-                                                            
-                                                            if (hasCommonSubTherapy) {
-                                                                // Show main therapies side by side, sub-therapy once below
-                                                                return (
-                                                                    <div>
-                                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+                                        <td style={{ fontSize: "0.875rem" }}>{formatDate(charge.date || charge.dispensedAt || charge.createdAt)}</td>
+                                        {category === "therapy" ? (
+                                            <>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {charge.therapies && charge.therapies.length > 0 ? (
+                                                        <div>
+                                                            {(() => {
+                                                                // Check if all therapies have the same sub-therapy
+                                                                const uniqueSubTherapies = [...new Set(charge.therapies.map(t => t.subTherapy || ""))];
+                                                                const hasCommonSubTherapy = uniqueSubTherapies.length === 1 && uniqueSubTherapies[0] !== "";
+
+                                                                if (hasCommonSubTherapy) {
+                                                                    // Show main therapies side by side, sub-therapy once below
+                                                                    return (
+                                                                        <div>
+                                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+                                                                                {charge.therapies.map((therapy, tIdx) => (
+                                                                                    <span key={tIdx} style={{ fontWeight: 500 }}>
+                                                                                        {therapy.therapyName}
+                                                                                        {tIdx < charge.therapies.length - 1 && <span style={{ margin: "0 4px", color: "#6c757d" }}>•</span>}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                            <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "4px" }}>
+                                                                                Sub-Therapy: {uniqueSubTherapies[0]}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                } else {
+                                                                    // Show each therapy with its own sub-therapy
+                                                                    return (
+                                                                        <div>
                                                                             {charge.therapies.map((therapy, tIdx) => (
-                                                                                <span key={tIdx} style={{ fontWeight: 500 }}>
-                                                                                    {therapy.therapyName}
-                                                                                    {tIdx < charge.therapies.length - 1 && <span style={{ margin: "0 4px", color: "#6c757d" }}>•</span>}
-                                                                                </span>
+                                                                                <div key={tIdx} style={{ marginBottom: tIdx < charge.therapies.length - 1 ? "6px" : "0" }}>
+                                                                                    <div style={{ fontWeight: 500 }}>{therapy.therapyName}</div>
+                                                                                    {therapy.subTherapy && (
+                                                                                        <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
+                                                                                            Sub-Therapy: {therapy.subTherapy}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
                                                                             ))}
                                                                         </div>
-                                                                        <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "4px" }}>
-                                                                            Sub-Therapy: {uniqueSubTherapies[0]}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            } else {
-                                                                // Show each therapy with its own sub-therapy
-                                                                return (
-                                                                    <div>
-                                                                        {charge.therapies.map((therapy, tIdx) => (
-                                                                            <div key={tIdx} style={{ marginBottom: tIdx < charge.therapies.length - 1 ? "6px" : "0" }}>
-                                                                                <div style={{ fontWeight: 500 }}>{therapy.therapyName}</div>
-                                                                                {therapy.subTherapy && (
-                                                                                    <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
-                                                                                        Sub-Therapy: {therapy.subTherapy}
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                );
-                                                            }
-                                                        })()}
-                                                    </div>
-                                                ) : (
-                                                    charge.therapyName || charge.description || "N/A"
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
-                                                {charge.status ? (
-                                                    <span className={getStatusBadgeClass(charge.status)} style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
-                                                        {charge.status}
-                                                    </span>
-                                                ) : (
-                                                    <span style={{ color: "#888" }}>—</span>
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.totalTherapyCharge ?? charge.therapyCharge ?? 0)}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
-                                                {formatCurrency(charge.totalTherapistCharge ?? charge.therapistCharge ?? 0)}
-                                            </td>
-                                        </>
-                                    ) : category === "pharmacy" ? (
-                                        <>
-                                            <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                {charge.medication || "N/A"}
-                                                {charge.remarks && (
-                                                    <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "4px", fontStyle: "italic" }}>
-                                                        <strong>Remarks:</strong> {charge.remarks}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem" }}>{charge.dosage || "N/A"}</td>
-                                            <td style={{ fontSize: "0.875rem" }}>{charge.frequency || "N/A"}</td>
-                                            <td style={{ fontSize: "0.875rem" }}>{charge.duration || "N/A"}</td>
-                                            <td style={{ fontSize: "0.875rem" }}>
-                                                {charge.foodTiming ? (
-                                                    <span className={`badge ${charge.foodTiming === "Before Food" ? "bg-warning" : "bg-info"}`} style={{ fontSize: "0.7rem" }}>
-                                                        {charge.foodTiming}
-                                                    </span>
-                                                ) : (
-                                                    "N/A"
-                                                )}
-                                            </td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.dispensedQuantity !== undefined ? charge.dispensedQuantity : (charge.quantity || 0)}</td>
-                                            <td style={{ fontSize: "0.875rem", textAlign: "right" }}>{formatCurrency(charge.unitPrice || 0)}</td>
-                                        </>
-                                    ) : (
-                                        <td style={{ fontSize: "0.875rem" }}>{charge.description || charge.medication}</td>
-                                    )}
-                                    {category === "consultation" && (
-                                        <td style={{ fontSize: "0.875rem" }}>{charge.doctorName || "—"}</td>
-                                    )}
-                                    <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
-                                        {formatCurrency(displayAmount)}
-                                    </td>
-                                    {!useHeaderAction && isEditable && onEdit && (
-                                        <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm"
-                                                onClick={() => onEdit(charge)}
-                                                style={{
-                                                    backgroundColor: "#D4A574",
-                                                    color: "#000",
-                                                    borderRadius: "8px",
-                                                    padding: "4px 8px",
-                                                    fontWeight: 500,
-                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                                                }}
-                                            >
-                                                <EditIcon fontSize="small" />
-                                            </button>
+                                                                    );
+                                                                }
+                                                            })()}
+                                                        </div>
+                                                    ) : (
+                                                        charge.therapyName || charge.description || "N/A"
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
+                                                <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
+                                                    {charge.status ? (
+                                                        <span className={getStatusBadgeClass(charge.status)} style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
+                                                            {charge.status}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: "#888" }}>—</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
+                                                    {formatCurrency(charge.totalTherapyCharge ?? charge.therapyCharge ?? 0)}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
+                                                    {formatCurrency(charge.totalTherapistCharge ?? charge.therapistCharge ?? 0)}
+                                                </td>
+                                            </>
+                                        ) : category === "pharmacy" ? (
+                                            <>
+                                                <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                                                    {charge.medication || "N/A"}
+                                                    {charge.remarks && (
+                                                        <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "4px", fontStyle: "italic" }}>
+                                                            <strong>Remarks:</strong> {charge.remarks}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>{charge.dosage || "N/A"}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>{charge.frequency || "N/A"}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>{charge.duration || "N/A"}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {charge.foodTiming ? (
+                                                        <span className={`badge ${charge.foodTiming === "Before Food" ? "bg-warning" : "bg-info"}`} style={{ fontSize: "0.7rem" }}>
+                                                            {charge.foodTiming}
+                                                        </span>
+                                                    ) : (
+                                                        "N/A"
+                                                    )}
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem", textAlign: "center" }}>{charge.dispensedQuantity !== undefined ? charge.dispensedQuantity : (charge.quantity || 0)}</td>
+                                                <td style={{ fontSize: "0.875rem", textAlign: "right" }}>{formatCurrency(charge.unitPrice || 0)}</td>
+                                            </>
+                                        ) : (
+                                            <td style={{ fontSize: "0.875rem" }}>{charge.description || charge.medication}</td>
+                                        )}
+                                        {category === "consultation" && (
+                                            <td style={{ fontSize: "0.875rem" }}>{charge.doctorName || "—"}</td>
+                                        )}
+                                        <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
+                                            {formatCurrency(displayAmount)}
                                         </td>
-                                    )}
+                                        {!useHeaderAction && isEditable && onEdit && (
+                                            <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm"
+                                                    onClick={() => onEdit(charge)}
+                                                    style={{
+                                                        backgroundColor: "#D4A574",
+                                                        color: "#000",
+                                                        borderRadius: "8px",
+                                                        padding: "4px 8px",
+                                                        fontWeight: 500,
+                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                    }}
+                                                >
+                                                    <EditIcon fontSize="small" />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
@@ -606,7 +606,7 @@ function OutpatientBilling() {
     // Handle edit therapist
     const handleEditTherapist = (charge) => {
         setEditTherapistDialog({ open: true, charge });
-        
+
         // Initialize therapist selection - use therapistId if available, otherwise try to extract from session
         const therapistId = charge.therapistId || charge.therapist?._id || charge.therapist || "";
         setSelectedTherapist(therapistId);
@@ -628,7 +628,7 @@ function OutpatientBilling() {
             setTherapyCost(therapyCostVal.toString());
             setTherapistCharge(therapistCostVal.toString());
         }
-        
+
         setReplaceTherapists(false);
 
         if (!therapists.length) {
@@ -781,8 +781,8 @@ function OutpatientBilling() {
 
             if (response.data && response.data.success) {
                 toast.success(
-                    replaceTherapists 
-                        ? "Therapist replaced and cost updated successfully!" 
+                    replaceTherapists
+                        ? "Therapist replaced and cost updated successfully!"
                         : "Therapist added and cost updated successfully!"
                 );
                 setEditTherapistDialog({ open: false, charge: null });
@@ -1399,7 +1399,7 @@ function OutpatientBilling() {
                             }
                         />
                         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, ml: 4 }}>
-                            {replaceTherapists 
+                            {replaceTherapists
                                 ? "All existing therapists will be removed and replaced with the selected therapist."
                                 : "The selected therapist will be added to the existing therapists list."}
                         </Typography>

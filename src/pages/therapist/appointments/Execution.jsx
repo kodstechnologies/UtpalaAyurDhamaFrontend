@@ -40,14 +40,22 @@ function Execution() {
 
     // Utility function to parse duration string to milliseconds
     const parseDurationToMs = (durationStr) => {
-        if (!durationStr || typeof durationStr !== 'string') return null;
-        
+        if (!durationStr) return null;
+
+        // Handle raw number (string or number type) as minutes
+        if (!isNaN(durationStr)) {
+            const minutes = parseFloat(durationStr);
+            return minutes * 60 * 1000;
+        }
+
+        if (typeof durationStr !== 'string') return null;
+
         const normalized = durationStr.trim().toLowerCase();
-        
+
         // Match patterns like "45 mins", "45 minutes", "1 hour", "1.5 hours", "30 min", etc.
         const minuteMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minute|minutes)/);
         const hourMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:hour|hours|hr|hrs)/);
-        
+
         if (minuteMatch) {
             const minutes = parseFloat(minuteMatch[1]);
             return minutes * 60 * 1000; // Convert to milliseconds
@@ -55,7 +63,7 @@ function Execution() {
             const hours = parseFloat(hourMatch[1]);
             return hours * 60 * 60 * 1000; // Convert to milliseconds
         }
-        
+
         return null; // Invalid format
     };
 
@@ -75,10 +83,10 @@ function Execution() {
                 progressData.sessionTime = sessionData.sessionTime || "10:00";
                 progressData.duration = sessionData.duration || "";
                 setProgressData(progressData);
-                
+
                 // Set up auto-completion timers for sessions already in progress
                 setupTimersForInProgressSessions(progressData);
-                
+
                 // Check for auto-start and auto-complete after fetching
                 checkAutoStartAndComplete(progressData);
             }
@@ -107,7 +115,7 @@ function Execution() {
         for (const slot of data.slots) {
             const slotDate = new Date(slot.date);
             slotDate.setHours(0, 0, 0, 0);
-            
+
             // Get the day record for this slot
             const dayRecord = data.days?.find(day => {
                 const dayDate = new Date(day.date);
@@ -126,7 +134,7 @@ function Execution() {
             else if (slotDate.getTime() === today.getTime()) {
                 const scheduledDateTime = new Date(slotDate);
                 scheduledDateTime.setHours(scheduledHour, scheduledMinute, 0, 0);
-                
+
                 // If current time >= scheduled time and not started, auto-start
                 if (now >= scheduledDateTime && !dayRecord?.startTime) {
                     await handleAutoStart(slot, data);
@@ -137,7 +145,7 @@ function Execution() {
 
     useEffect(() => {
         fetchProgress();
-        
+
         // Set up periodic check every minute for auto-start/auto-complete
         checkIntervalRef.current = setInterval(() => {
             if (progressData) {
@@ -235,11 +243,11 @@ function Execution() {
 
             if (response.data.success) {
                 toast.success(`Session automatically started`);
-                
+
                 // Set up auto-completion timer if duration is available
                 const slotDateKey = slotDate.toISOString().split('T')[0];
                 setupAutoCompleteTimer(slotDateKey, slot, currentData);
-                
+
                 fetchProgress();
             }
         } catch (error) {
@@ -258,7 +266,7 @@ function Execution() {
                 if (!response.data.success) return;
                 currentData = response.data.data;
             }
-            
+
             const currentDays = currentData.days || [];
             const slotDate = new Date(slot.date);
             slotDate.setHours(0, 0, 0, 0);
@@ -311,33 +319,42 @@ function Execution() {
 
     // Setup auto-completion timers for sessions already in progress when page loads
     const setupTimersForInProgressSessions = (data) => {
-        if (!data || !data.days || !data.duration) return;
-        
+        console.log("[AutoComplete] Setting up timers with data:", { duration: data?.duration, days: data?.days });
+
+        if (!data || !data.days || !data.duration) {
+            console.log("[AutoComplete] Missing data for timers");
+            return;
+        }
+
         const durationMs = parseDurationToMs(data.duration);
+        console.log("[AutoComplete] Parsed durationMs:", durationMs);
+
         if (!durationMs || durationMs <= 0) return;
-        
+
         const now = new Date();
-        
+
         data.days.forEach(day => {
+            console.log("[AutoComplete] Checking day:", day);
             // Check if session is in progress (has startTime but no endTime and not completed)
             if (day.startTime && !day.endTime && !day.completed) {
                 const startTime = new Date(day.startTime);
                 const elapsedMs = now.getTime() - startTime.getTime();
                 const remainingMs = durationMs - elapsedMs;
-                
+                console.log(`[AutoComplete] Session in progress. Started: ${startTime}, Elapsed: ${elapsedMs}, Remaining: ${remainingMs}`);
+
                 if (remainingMs > 0) {
                     // Session is still in progress, set timer for remaining time
                     const dayDate = new Date(day.date);
                     dayDate.setHours(0, 0, 0, 0);
                     const slotDateKey = dayDate.toISOString().split('T')[0];
-                    
+
                     // Find corresponding slot
                     const slot = data.slots?.find(s => {
                         const sDate = new Date(s.date);
                         sDate.setHours(0, 0, 0, 0);
                         return sDate.getTime() === dayDate.getTime();
                     });
-                    
+
                     if (slot) {
                         console.log(`[AutoComplete] Session already in progress, setting timer for remaining ${remainingMs / 1000 / 60} minutes`);
                         setupAutoCompleteTimer(slotDateKey, slot, data, remainingMs);
@@ -353,7 +370,7 @@ function Execution() {
                         return sDate.getTime() === dayDate.getTime();
                     });
                     if (slot) {
-                        handleStopSession(slot);
+                        handleAutoComplete(slot, data);
                     }
                 }
             }
@@ -370,7 +387,7 @@ function Execution() {
 
         // Use custom duration if provided, otherwise parse from string
         let durationMs = customDurationMs;
-        
+
         if (!durationMs) {
             // Get duration from progressData or passed data
             const durationStr = (dataToUse?.duration || progressData?.duration || "").trim();
@@ -385,36 +402,36 @@ function Execution() {
                 return;
             }
         }
-        
+
         const durationStr = dataToUse?.duration || progressData?.duration || "";
         console.log(`[AutoComplete] Setting timer for ${durationMs / 1000 / 60} minutes (${durationStr || 'custom duration'})`);
-        
+
         // Set timer to auto-complete after duration
         autoCompleteTimersRef.current[slotDateKey] = setTimeout(async () => {
             console.log(`[AutoComplete] Timer expired, auto-completing session for ${slotDateKey}`);
-            
+
             // Check if session is still in progress before auto-completing
             try {
                 const checkResponse = await axios.get(
                     getApiUrl(`therapist-sessions/${id}/progress`),
                     { headers: getAuthHeaders() }
                 );
-                
+
                 if (checkResponse.data.success) {
                     const currentData = checkResponse.data.data;
                     const currentDays = currentData.days || [];
                     const slotDate = new Date(slot.date);
                     slotDate.setHours(0, 0, 0, 0);
-                    
+
                     const dayRecord = currentDays.find(day => {
                         const dayDate = new Date(day.date);
                         dayDate.setHours(0, 0, 0, 0);
                         return dayDate.getTime() === slotDate.getTime();
                     });
-                    
+
                     // Only auto-complete if session is still in progress and not already completed
                     if (dayRecord && dayRecord.startTime && !dayRecord.completed && !dayRecord.endTime) {
-                        await handleStopSession(slot);
+                        await handleAutoComplete(slot, currentData);
                         toast.info(`Session automatically completed after ${durationStr}`);
                     } else {
                         console.log(`[AutoComplete] Session already completed or not in progress, skipping`);
@@ -423,7 +440,7 @@ function Execution() {
             } catch (error) {
                 console.error("[AutoComplete] Error checking session status before auto-completion:", error);
             }
-            
+
             // Clean up timer reference
             delete autoCompleteTimersRef.current[slotDateKey];
         }, durationMs);
@@ -435,12 +452,12 @@ function Execution() {
         slotDate.setHours(0, 0, 0, 0);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         if (slotDate.getTime() > today.getTime()) {
             toast.error(`Cannot start session scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. Please wait until the scheduled date.`);
             return;
         }
-        
+
         setUpdatingSlot(slot.dateLabel);
         try {
             const currentDays = progressData.days || [];
@@ -484,11 +501,11 @@ function Execution() {
 
             if (response.data.success) {
                 toast.success(`Session started`);
-                
+
                 // Set up auto-completion timer if duration is available
                 const slotDateKey = slotDateForUpdate.toISOString().split('T')[0];
                 setupAutoCompleteTimer(slotDateKey, slot, progressData);
-                
+
                 fetchProgress();
             }
         } catch (error) {
@@ -788,6 +805,19 @@ function Execution() {
                                         </Box>
                                     </Box>
                                 </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                        <Avatar sx={{ bgcolor: "#FFF5F5", color: "#E53E3E" }}>
+                                            <AccessTimeIcon />
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary">DURATION</Typography>
+                                            <Typography variant="body1" fontWeight={600}>
+                                                {progressData.duration ? `${progressData.duration} (Auto-stop enabled)` : "Not set"}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Grid>
                             </Grid>
                         </CardContent>
                     </Card>
@@ -801,14 +831,14 @@ function Execution() {
                             {slots.map((slot, index) => {
                                 const dayRecord = getDayRecord(slot);
                                 const isInProgress = dayRecord && dayRecord.startTime && !dayRecord.endTime && !dayRecord.completed;
-                                
+
                                 // Check if the session date is in the future
                                 const slotDate = new Date(slot.date);
                                 slotDate.setHours(0, 0, 0, 0);
                                 const today = new Date();
                                 today.setHours(0, 0, 0, 0);
                                 const isFutureDate = slotDate.getTime() > today.getTime();
-                                
+
                                 return (
                                     <Card
                                         key={index}
@@ -888,7 +918,7 @@ function Execution() {
                                                                 textTransform: "none",
                                                                 bgcolor: isFutureDate ? "#CBD5E0" : "#3182CE",
                                                                 boxShadow: isFutureDate ? "none" : "0 4px 6px rgba(49, 130, 206, 0.2)",
-                                                                "&:hover": { 
+                                                                "&:hover": {
                                                                     bgcolor: isFutureDate ? "#CBD5E0" : "#2B6CB0",
                                                                     cursor: isFutureDate ? "not-allowed" : "pointer"
                                                                 },

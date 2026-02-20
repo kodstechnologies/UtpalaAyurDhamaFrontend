@@ -50,17 +50,17 @@ function Inpatient_View() {
                 page: pagination.page + 1, // Backend uses 1-based pagination
                 limit: pagination.rowsPerPage,
             };
-            
+
             // Add status filter if not "All"
             if (statusFilter !== "All") {
                 params.status = statusFilter;
             }
-            
+
             // Add search parameter if search is active
             if (search && search.trim()) {
                 params.search = search.trim();
             }
-            
+
             const response = await axios.get(
                 getApiUrl("inpatients"),
                 {
@@ -71,7 +71,7 @@ function Inpatient_View() {
 
             if (response.data.success) {
                 const inpatientsData = response.data.data || [];
-                
+
                 // Update pagination metadata
                 if (response.data.meta) {
                     setPagination(prev => ({
@@ -155,6 +155,7 @@ function Inpatient_View() {
                     return {
                         id: inpatient._id,
                         _id: inpatient._id,
+                        createdAt: inpatient.createdAt, // Add createdAt for precise sorting
                         patientProfileId: patientProfileId?.toString() || null,
                         name: inpatient.patient?.user?.name || "Unknown",
                         age: inpatient.patient?.user?.age || "N/A",
@@ -190,7 +191,7 @@ function Inpatient_View() {
     useEffect(() => {
         fetchInpatients();
     }, [fetchInpatients]);
-    
+
     // Reset to first page when search or status filter changes
     useEffect(() => {
         setPagination(prev => {
@@ -220,11 +221,11 @@ function Inpatient_View() {
             const matchesStatus = statusFilter === "All" || patient.admitStatus === statusFilter;
             return matchesStatus;
         });
-        
-        // Sort by admission date (most recent first)
+
+        // Sort by createdAt date (most recent first)
         return filtered.sort((a, b) => {
-            const dateA = a.admittedOn && a.admittedOn !== "N/A" ? new Date(a.admittedOn) : new Date(0);
-            const dateB = b.admittedOn && b.admittedOn !== "N/A" ? new Date(b.admittedOn) : new Date(0);
+            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
             return dateB - dateA; // Most recent first
         });
     }, [inpatients, statusFilter]);
@@ -661,7 +662,7 @@ function Inpatient_View() {
                                 </table>
                             </div>
                         )}
-                        
+
                         {/* Pagination */}
                         {!isLoading && filteredData.length > 0 && (
                             <TablePagination
