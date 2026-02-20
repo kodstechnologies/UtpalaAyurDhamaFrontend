@@ -35,7 +35,7 @@ function Treatments_View() {
                 // Note: treatment-list endpoint doesn't support pagination yet, so we'll fetch all and paginate client-side
                 // If backend adds pagination, update this
             };
-            
+
             // Add type filter based on active tab
             if (activeTab === "opd") {
                 params.type = "OPD";
@@ -43,7 +43,7 @@ function Treatments_View() {
                 params.type = "IPD";
             }
             // "all" means no type filter
-            
+
             // Fetch therapist sessions (treatment-list endpoint returns visit-wise data)
             // Also fetch invoices, inpatients, and examinations to check discharge status
             const [sessionsResponse, invoicesResponse, inpatientsResponse, examinationsResponse] = await Promise.all([
@@ -86,12 +86,12 @@ function Treatments_View() {
 
             if (sessionsResponse.data.success) {
                 const sessionsData = sessionsResponse.data.data || [];
-                
+
                 // Create maps for discharge status checking
                 const invoicesMap = new Map();
                 if (invoicesResponse.data.success) {
-                    const invoices = Array.isArray(invoicesResponse.data.data) 
-                        ? invoicesResponse.data.data 
+                    const invoices = Array.isArray(invoicesResponse.data.data)
+                        ? invoicesResponse.data.data
                         : (invoicesResponse.data.data?.data || []);
                     invoices.forEach(invoice => {
                         if (invoice.examination) {
@@ -100,11 +100,11 @@ function Treatments_View() {
                         }
                     });
                 }
-                
+
                 const examinationsMap = new Map();
                 if (examinationsResponse.data.success) {
-                    const examinations = Array.isArray(examinationsResponse.data.data) 
-                        ? examinationsResponse.data.data 
+                    const examinations = Array.isArray(examinationsResponse.data.data)
+                        ? examinationsResponse.data.data
                         : (examinationsResponse.data.data?.data || []);
                     examinations.forEach(exam => {
                         const examId = exam._id?.toString();
@@ -113,11 +113,11 @@ function Treatments_View() {
                         }
                     });
                 }
-                
+
                 const inpatientsMap = new Map();
                 if (inpatientsResponse.data.success) {
-                    const inpatients = Array.isArray(inpatientsResponse.data.data) 
-                        ? inpatientsResponse.data.data 
+                    const inpatients = Array.isArray(inpatientsResponse.data.data)
+                        ? inpatientsResponse.data.data
                         : (inpatientsResponse.data.data?.data || []);
                     inpatients.forEach(inpatient => {
                         const patientId = inpatient.patient?._id?.toString() || inpatient.patient?.toString();
@@ -126,27 +126,27 @@ function Treatments_View() {
                         }
                     });
                 }
-                
+
                 // Transform sessions to match frontend table structure (visit-wise)
                 const transformedSessions = sessionsData.map((session) => {
                     const patient = session.patient || {};
                     const patientUser = patient.user || {};
-                    
+
                     // Use backend-provided fields first, then fallback to nested structure
                     const patientName = session.patientName || patientUser.name || patient?.name || "Unknown";
                     const patientPhone = session.patientPhone || patientUser.phone || patient?.phone || "N/A";
                     const patientUHID = session.patientUHID || patientUser.uhid || patient?.uhid || "N/A";
                     const patientEmail = patientUser.email || patient?.email || "N/A";
-                    
+
                     // Get therapists list - check both therapists array and single therapist
                     const therapists = (session.therapists && session.therapists.length > 0)
                         ? session.therapists
                         : (session.therapist ? [session.therapist] : []);
-                    
+
                     const therapistNames = therapists
                         .map(t => t?.user?.name || t?.name || session.therapistName)
                         .filter(Boolean);
-                    
+
                     // Get allocated nurse
                     let allocatedNurseName = "N/A";
                     if (patient.allocatedNurse?.user?.name) {
@@ -154,29 +154,30 @@ function Treatments_View() {
                     } else if (session.inpatient?.allocatedNurse?.user?.name) {
                         allocatedNurseName = session.inpatient.allocatedNurse.user.name;
                     }
-                    
+
                     // Format session date
-                    const sessionDate = session.sessionDate 
+                    const sessionDate = session.sessionDate
                         ? new Date(session.sessionDate).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                             year: "numeric",
                         })
-                        : (session.createdAt 
+                        : (session.createdAt
                             ? new Date(session.createdAt).toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
                             })
                             : "N/A");
-                    
+
                     // Determine if IPD or OPD - use backend-provided type first
                     const isIPD = session.type === "IPD" || !!session.inpatient || patient?.inpatient === true;
-                    
+                    const inpatientId = session.inpatient?._id?.toString() || session.inpatient?.toString();
+
                     // Check discharge status
                     let isDischarged = false;
                     const examinationId = session.examination?._id?.toString() || session.examination?.toString();
-                    
+
                     if (isIPD) {
                         // For IPD: check inpatient status
                         const inpatient = inpatientsMap.get(patient._id?.toString() || patient?.toString());
@@ -188,7 +189,7 @@ function Treatments_View() {
                         if (examinationId) {
                             const examination = examinationsMap.get(examinationId);
                             const invoice = invoicesMap.get(examinationId);
-                            
+
                             // Only mark as discharged if examination is billed AND invoice is fully paid
                             if (examination && examination.isBilled && invoice) {
                                 const isFullyPaid = (invoice.amountPaid || 0) >= (invoice.totalPayable || 0);
@@ -198,7 +199,7 @@ function Treatments_View() {
                             }
                         }
                     }
-                    
+
                     return {
                         _id: session._id,
                         sessionId: session._id,
@@ -222,11 +223,12 @@ function Treatments_View() {
                         timeline: session.timeline || "N/A",
                         createdAt: session.createdAt || new Date(),
                         examinationId: examinationId,
+                        inpatientId: inpatientId,
                         isDischarged: isDischarged,
                         invoice: examinationId ? invoicesMap.get(examinationId) : null,
                     };
                 });
-                
+
                 // Apply client-side search filter (before grouping)
                 let filteredSessions = transformedSessions;
                 if (search && search.trim()) {
@@ -242,23 +244,37 @@ function Treatments_View() {
                         );
                     });
                 }
-                
+
                 // Also apply search after grouping (for grouped visit fields)
                 // This ensures search works on aggregated fields like treatmentNames and subTherapies
-                
+
                 // Group sessions by visit (patient + visit date)
                 const visitGroups = new Map();
-                
+
                 filteredSessions.forEach((session) => {
                     // Create a visit key: patientId + visitDate (normalized to date only)
-                    const visitDate = session.sessionDate 
+                    const visitDate = session.sessionDate
                         ? new Date(session.sessionDate).toISOString().split("T")[0]
-                        : (session.createdAt 
+                        : (session.createdAt
                             ? new Date(session.createdAt).toISOString().split("T")[0]
                             : new Date().toISOString().split("T")[0]);
-                    
-                    const visitKey = `${session.patientId}_${visitDate}`;
-                    
+
+                    // Grouping criteria: 
+                    // 1. Same patient
+                    // 2. Same visit (examination for OPD, inpatient record for IPD)
+                    // 3. Same discharge status (to keep discharged and active rows separate)
+                    let visitKey = `${session.patientId}_`;
+                    if (session.isIPD && session.inpatientId) {
+                        visitKey += `IPD_${session.inpatientId}`;
+                    } else if (session.examinationId) {
+                        visitKey += `OPD_${session.examinationId}`;
+                    } else {
+                        visitKey += `DATE_${visitDate}`;
+                    }
+
+                    // Add discharge status to key to ensure they are separate
+                    visitKey += `_${session.isDischarged ? 'discharged' : 'active'}`;
+
                     if (!visitGroups.has(visitKey)) {
                         // Create a new visit group
                         visitGroups.set(visitKey, {
@@ -286,14 +302,14 @@ function Treatments_View() {
                             invoice: session.invoice, // Track invoice for OPD discharge check
                         });
                     }
-                    
+
                     const visit = visitGroups.get(visitKey);
-                    
+
                     // Update discharge status if this session indicates discharge
                     if (session.isDischarged) {
                         visit.isDischarged = true;
                     }
-                    
+
                     // Add treatment (avoid duplicates)
                     const treatmentKey = `${session.treatmentName}_${session.subTherapy || ""}`;
                     const existingTreatment = visit.treatments.find(
@@ -305,25 +321,25 @@ function Treatments_View() {
                             subTherapy: session.subTherapy || "",
                         });
                     }
-                    
+
                     // Add therapists (unique)
                     session.therapists.forEach(therapist => visit.therapists.add(therapist));
-                    
+
                     // Track statuses
                     visit.statuses.add(session.status);
-                    
+
                     // Update to most recent status (if session is newer)
                     if (new Date(session.createdAt) > new Date(visit.createdAt)) {
                         visit.status = session.status;
                         visit.createdAt = session.createdAt;
                     }
-                    
+
                     // Track session IDs
                     if (session.sessionId) {
                         visit.sessionIds.push(session.sessionId);
                     }
                 });
-                
+
                 // Convert grouped visits to array and format for display
                 const groupedVisits = Array.from(visitGroups.values()).map(visit => {
                     // Get the most relevant status (prioritize: In Progress > Scheduled > Completed > Pending)
@@ -334,13 +350,13 @@ function Treatments_View() {
                         "Pending": 1,
                         "Cancelled": 0,
                     };
-                    
+
                     const statusesArray = Array.from(visit.statuses);
                     const sortedStatuses = statusesArray.sort((a, b) => {
                         return (statusPriority[b] || 0) - (statusPriority[a] || 0);
                     });
                     const displayStatus = sortedStatuses[0] || visit.status;
-                    
+
                     return {
                         _id: visit._id,
                         patientId: visit.patientId,
@@ -368,7 +384,7 @@ function Treatments_View() {
                         createdAt: visit.createdAt,
                     };
                 });
-                
+
                 // Apply search filter on grouped visits (for aggregated fields)
                 let finalGroupedVisits = groupedVisits;
                 if (search && search.trim()) {
@@ -385,22 +401,22 @@ function Treatments_View() {
                         );
                     });
                 }
-                
+
                 // Sort by creation date (newest first)
                 finalGroupedVisits.sort((a, b) => {
                     const dateA = new Date(a.createdAt);
                     const dateB = new Date(b.createdAt);
                     return dateB - dateA;
                 });
-                
+
                 // Store all grouped visits for accurate tab counts
                 setAllSessionsData(finalGroupedVisits);
-                
+
                 // Client-side pagination
                 const startIndex = pagination.page * pagination.rowsPerPage;
                 const endIndex = startIndex + pagination.rowsPerPage;
                 const paginatedVisits = finalGroupedVisits.slice(startIndex, endIndex);
-                
+
                 setSessions(paginatedVisits);
                 setPagination(prev => ({
                     ...prev,
@@ -414,7 +430,7 @@ function Treatments_View() {
             if (error.name === 'AbortError') {
                 return; // Request was cancelled
             }
-            
+
             // Handle 401 Unauthorized - JWT expired
             if (error.response?.status === 401) {
                 const errorMessage = error.response?.data?.message || error.message || "Session expired";
@@ -433,15 +449,15 @@ function Treatments_View() {
                 setSessions([]);
                 return;
             }
-            
+
             console.error("Error fetching treatment sessions:", error);
             const errorMessage = error.response?.data?.message || error.message || "Failed to fetch treatment sessions";
-            
+
             // Don't show error toast for network errors if it's just a token issue
             if (!errorMessage.toLowerCase().includes("expired") && !errorMessage.toLowerCase().includes("jwt")) {
                 toast.error(errorMessage);
             }
-            
+
             setSessions([]);
         } finally {
             setIsLoading(false);
@@ -451,12 +467,12 @@ function Treatments_View() {
     useEffect(() => {
         const abortController = new AbortController();
         fetchSessions(abortController.signal);
-        
+
         return () => {
             abortController.abort();
         };
     }, [fetchSessions]);
-    
+
     // Reset to first page when search or tab changes
     useEffect(() => {
         if (pagination.page !== 0) {
@@ -476,7 +492,7 @@ function Treatments_View() {
         if (isDischarged) {
             return <span className="badge rounded-pill bg-info" style={{ fontSize: "0.65rem" }}>Discharged</span>;
         }
-        
+
         const statusLower = (status || "").toLowerCase();
         if (statusLower.includes("completed")) {
             return <span className="badge rounded-pill bg-success" style={{ fontSize: "0.65rem" }}>Completed</span>;
@@ -716,7 +732,7 @@ function Treatments_View() {
                                 </table>
                             </div>
                         )}
-                        
+
                         {/* Pagination */}
                         {!isLoading && sessions.length > 0 && (
                             <TablePagination
