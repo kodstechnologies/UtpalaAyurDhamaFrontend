@@ -37,7 +37,7 @@ function WalkInHub() {
 
     // Empty therapy object template
     const getEmptyTherapy = () => ({
-        treatmentName: [],
+        treatmentName: "",
         subTherapy: "",
         daysOfTreatment: "",
         timeline: "Daily",
@@ -394,7 +394,7 @@ function WalkInHub() {
 
                             return {
                                 _id: plan._id, // vital for preventing duplication
-                                treatmentName: Array.isArray(plan.treatmentName) ? plan.treatmentName : (plan.treatmentName ? [plan.treatmentName] : []),
+                                treatmentName: Array.isArray(plan.treatmentName) ? (plan.treatmentName[0] || "") : (plan.treatmentName || ""),
                                 daysOfTreatment: plan.daysOfTreatment || 0,
                                 timeline: plan.timeline || "Daily",
                                 specialInstructions: plan.specialInstructions || "",
@@ -421,7 +421,7 @@ function WalkInHub() {
                         setFormData(prev => ({
                             ...prev,
                             therapies: [{
-                                treatmentName: [patient.assignedTherapy?.therapyName || patient.assignedTherapy || ""],
+                                treatmentName: patient.assignedTherapy?.therapyName || patient.assignedTherapy || "",
                                 daysOfTreatment: patient.therapyDurationDays || 0,
                                 timeline: patient.therapyTimeline || "Daily",
                                 specialInstructions: patient.therapyInstructions || "",
@@ -512,7 +512,7 @@ function WalkInHub() {
             // Filter out existing therapies (have _id) and empty ones to prevent duplication
             therapies: formData.therapies.filter(t => {
                 const hasId = !!t._id;
-                const hasName = t.treatmentName && (Array.isArray(t.treatmentName) ? t.treatmentName.length > 0 : t.treatmentName.trim().length > 0);
+                const hasName = t.treatmentName && (typeof t.treatmentName === 'string' ? t.treatmentName.trim().length > 0 : Array.isArray(t.treatmentName) && t.treatmentName.length > 0);
                 return !hasId && hasName;
             })
         };
@@ -793,24 +793,12 @@ function WalkInHub() {
                                             <FormControl sx={{ flex: 2, minWidth: "300px" }}>
                                                 <InputLabel>Select Therapy</InputLabel>
                                                 <Select
-                                                    multiple
                                                     value={therapy.treatmentName}
-                                                    onChange={(e) => handleTherapyChange(index, 'treatmentName', typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
-                                                    input={<OutlinedInput label="Select Therapy" />}
-                                                    renderValue={(selected) => (
-                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                            {selected.map((value) => {
-                                                                const t = therapiesList.find(item => item._id === value || item.therapyName === value);
-                                                                return (
-                                                                    <Chip key={value} label={t?.therapyName || value} size="small" />
-                                                                );
-                                                            })}
-                                                        </Box>
-                                                    )}
+                                                    onChange={(e) => handleTherapyChange(index, 'treatmentName', e.target.value)}
+                                                    label="Select Therapy"
                                                 >
                                                     {therapiesList.map((t) => (
                                                         <MenuItem key={t._id} value={t.therapyName}>
-                                                            <Checkbox checked={therapy.treatmentName.indexOf(t.therapyName) > -1} />
                                                             <ListItemText primary={t.therapyName} />
                                                         </MenuItem>
                                                     ))}

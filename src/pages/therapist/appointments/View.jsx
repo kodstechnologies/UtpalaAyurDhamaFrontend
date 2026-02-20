@@ -698,7 +698,7 @@ function Therapy_Progress() {
                                                                         <button
                                                                             type="button"
                                                                             className="btn btn-sm"
-                                                                            onClick={() => handleStartSession(session._id)}
+                                                                            onClick={() => navigate(`/therapist/therapy-progress/execution/${session._id}`)}
                                                                             onMouseEnter={() => setHoveredButton(`start-${session._id}`)}
                                                                             onMouseLeave={() => setHoveredButton(null)}
                                                                             style={{

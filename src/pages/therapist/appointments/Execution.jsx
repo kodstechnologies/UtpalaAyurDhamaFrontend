@@ -130,7 +130,7 @@ function Execution() {
             if (slotDate.getTime() < today.getTime()) {
                 await handleAutoComplete(slot, data);
             }
-            // Check if scheduled date is today and time has arrived (auto-start)
+            /* Auto-start logic removed to ensure manual control by therapist
             else if (slotDate.getTime() === today.getTime()) {
                 const scheduledDateTime = new Date(slotDate);
                 scheduledDateTime.setHours(scheduledHour, scheduledMinute, 0, 0);
@@ -140,6 +140,7 @@ function Execution() {
                     await handleAutoStart(slot, data);
                 }
             }
+            */
         }
     };
 
