@@ -36,7 +36,7 @@ function WalkInHub() {
     const existingDoctorId = searchParams.get("doctorId") || "";
 
     // Empty therapy object template
-    const getEmptyTherapy = () => ({
+    const getEmptyTherapy = (initialDate = "") => ({
         treatmentName: "",
         subTherapy: "",
         daysOfTreatment: "",
@@ -45,20 +45,23 @@ function WalkInHub() {
         treatmentDescription: "",
         therapistId: [],
         specialInstructions: "",
-        startDate: new Date().toLocaleDateString("en-CA"),
+        startDate: initialDate || new Date().toLocaleDateString("en-CA"),
     });
 
-    // Initial empty form state - used when patient is discharged (re-appointment = fresh form)
-    const getEmptyFormState = () => ({
-        doctorProfileId: "",
-        nurseProfileId: "",
-        appointmentTime: "",
-        appointmentDate: new Date().toLocaleDateString("en-CA"),
-        wardCategory: "General",
-        roomNumber: "",
-        bedNumber: "",
-        therapies: [getEmptyTherapy()] // Changed from singular therapyData to therapies array
-    });
+    // Initial empty form state
+    const getEmptyFormState = () => {
+        const today = new Date().toLocaleDateString("en-CA");
+        return {
+            doctorProfileId: "",
+            nurseProfileId: "",
+            appointmentTime: "",
+            appointmentDate: today,
+            wardCategory: "General",
+            roomNumber: "",
+            bedNumber: "",
+            therapies: [getEmptyTherapy(today)]
+        };
+    };
 
     const [mode, setMode] = useState("OPD");
     const [formData, setFormData] = useState(getEmptyFormState());
@@ -408,7 +411,7 @@ function WalkInHub() {
 
                         setFormData(prev => ({
                             ...prev,
-                            therapies: mappedTherapies.length > 0 ? mappedTherapies : [getEmptyTherapy()]
+                            therapies: mappedTherapies.length > 0 ? mappedTherapies : [getEmptyTherapy(prev.appointmentDate)]
                         }));
                     } else if (patient.assignedTherapy) {
                         // Fallback to patient profile data
@@ -463,7 +466,17 @@ function WalkInHub() {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
+            // When appointment date changes, sync therapy Start Dates that are still "today" to the new date
+            if (name === "appointmentDate" && value) {
+                const todayStr = new Date().toLocaleDateString("en-CA");
+                next.therapies = prev.therapies.map((t) =>
+                    t.startDate === todayStr ? { ...t, startDate: value } : t
+                );
+            }
+            return next;
+        });
     };
 
     const handleTherapyChange = (index, field, value) => {
@@ -480,7 +493,7 @@ function WalkInHub() {
     const handleAddTherapy = () => {
         setFormData(prev => ({
             ...prev,
-            therapies: [...prev.therapies, getEmptyTherapy()]
+            therapies: [...prev.therapies, getEmptyTherapy(prev.appointmentDate)]
         }));
     };
 
@@ -514,7 +527,11 @@ function WalkInHub() {
                 const hasId = !!t._id;
                 const hasName = t.treatmentName && (typeof t.treatmentName === 'string' ? t.treatmentName.trim().length > 0 : Array.isArray(t.treatmentName) && t.treatmentName.length > 0);
                 return !hasId && hasName;
-            })
+            }),
+            // Persist Start Date changes for existing therapy rows (those with _id)
+            therapyUpdates: formData.therapies
+                .filter(t => t._id && t.startDate != null)
+                .map(t => ({ planId: t._id, startDate: t.startDate }))
         };
 
         setIsSubmitting(true);

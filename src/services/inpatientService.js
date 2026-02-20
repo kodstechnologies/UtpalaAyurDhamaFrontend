@@ -68,8 +68,11 @@ const downloadDischargeReport = async (id) => {
     return response;
 };
 
-const downloadOutpatientBillingReport = async (patientId) => {
-    const response = await axios.get(getApiUrl(`inpatients/patient/${patientId}/billing/outpatient/report`), {
+const downloadOutpatientBillingReport = async (patientId, examinationId = null) => {
+    const url = getApiUrl(`inpatients/patient/${patientId}/billing/outpatient/report`);
+    const params = examinationId ? { examinationId } : {};
+    const response = await axios.get(url, {
+        params,
         headers: getAuthHeaders(),
         responseType: 'blob', // Important for PDF download
     });

@@ -319,13 +319,14 @@ function InvoiceDetails() {
                 }
                 response = await inpatientService.downloadDischargeReport(inpatientId);
             } else if (invoice.patient) {
-                // Outpatient invoice
+                // Outpatient invoice - pass examination so report shows only this bill's charges
                 const patientId = invoice.patient._id || invoice.patient;
                 if (!patientId) {
                     toast.error("Invalid patient ID");
                     return;
                 }
-                response = await inpatientService.downloadOutpatientBillingReport(patientId);
+                const examinationId = invoice.examination?._id || invoice.examination || null;
+                response = await inpatientService.downloadOutpatientBillingReport(patientId, examinationId);
             } else {
                 toast.error("Unable to determine invoice type for printing discharge report");
                 return;
@@ -404,13 +405,14 @@ function InvoiceDetails() {
                 response = await inpatientService.downloadDischargeReport(inpatientId);
                 fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
             } else if (invoice.patient) {
-                // Outpatient invoice
+                // Outpatient invoice - pass examination so report shows only this bill's charges
                 const patientId = invoice.patient._id || invoice.patient;
                 if (!patientId) {
                     toast.error("Invalid patient ID");
                     return;
                 }
-                response = await inpatientService.downloadOutpatientBillingReport(patientId);
+                const examinationId = invoice.examination?._id || invoice.examination || null;
+                response = await inpatientService.downloadOutpatientBillingReport(patientId, examinationId);
                 fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
             } else {
                 toast.error("Unable to determine invoice type for report download");
