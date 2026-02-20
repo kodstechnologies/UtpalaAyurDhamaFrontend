@@ -124,6 +124,20 @@ const Ward_Charges_Edit = lazy(() =>
     import("../../pages/admin/Wardcharges/Edit")
 );
 
+// ================= DISEASES =================
+const Diseases_View = lazy(() =>
+    import("../../pages/admin/Diseases/View")
+);
+const Diseases_Add = lazy(() =>
+    import("../../pages/admin/Diseases/Add")
+);
+const Diseases_Edit = lazy(() =>
+    import("../../pages/admin/Diseases/Edit")
+);
+const Diseases_Details = lazy(() =>
+    import("../../pages/admin/Diseases/Details")
+);
+
 // ================= ANALYTICS =================
 const Admissions_View = lazy(() =>
     import("../../pages/admin/analytics/Admissions")
@@ -759,6 +773,62 @@ export const adminRoutes = [
                     />
                 </Helmet>
                 <Ward_Charges_Edit />
+            </>
+        ),
+    },
+
+    // Diseases ===================  ==========================
+    {
+        path: "/admin/diseases/view",
+        element: (
+            <>
+                <Helmet>
+                    <title>Diseases | UTPALA</title>
+                    <meta name="description" content="Diseases reference list overview." />
+                </Helmet>
+                <Diseases_View />
+            </>
+        ),
+    },
+    {
+        path: "/admin/diseases/view/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Disease Details | UTPALA</title>
+                    <meta name="description" content="View a single disease details." />
+                </Helmet>
+                <Diseases_Details />
+            </>
+        ),
+    },
+    {
+        path: "/admin/diseases/add",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Disease | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Add a new disease to the reference list."
+                    />
+                </Helmet>
+                <Diseases_Add />
+            </>
+        ),
+    },
+    {
+        path: "/admin/diseases/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Disease | UTPALA</title>
+                    <meta
+                        name="description"
+                        content="Edit existing disease information."
+                    />
+                </Helmet>
+                <Diseases_Edit />
             </>
         ),
     },

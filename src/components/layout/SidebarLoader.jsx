@@ -105,6 +105,14 @@ export const sidebarMenus = {
             ],
         },
         {
+            key: "diseases",
+            label: "Diseases",
+            icon: <HealingIcon style={{ color: "var(--color-icons)" }} />,
+            children: [
+                { key: "diseases_view", label: "Diseases", to: "/admin/diseases/view" },
+            ],
+        },
+        {
             key: "Report",
             label: "Reports",
             icon: <AnalyticsIcon style={{ color: "var(--color-icons)" }} />,
