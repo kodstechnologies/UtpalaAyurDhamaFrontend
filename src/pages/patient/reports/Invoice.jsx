@@ -652,50 +652,82 @@ function InvoicePage() {
                                 </Box>
                             </Box>
 
-                            {/* PROFESSIONAL PAYMENT INSTRUCTIONS */}
+                            {/* Notes (left) + Authorized Signature (right) - same as bill image */}
                             <Box
                                 sx={{
                                     mt: 3,
-                                    p: 2.5,
-                                    bgcolor: "var(--color-bg-a)",
-                                    borderRadius: 2,
-                                    border: "1px solid var(--color-border)",
+                                    display: "flex",
+                                    flexWrap: { xs: "wrap", md: "nowrap" },
+                                    gap: 3,
+                                    alignItems: "flex-end",
+                                    justifyContent: "space-between",
                                 }}
                             >
-                                <Typography
+                                <Box sx={{ flex: "1 1 55%", minWidth: 0 }}>
+                                    <Typography
+                                        sx={{
+                                            fontWeight: 700,
+                                            color: "var(--color-text-dark)",
+                                            fontSize: "0.95rem",
+                                            mb: 1
+                                        }}
+                                    >
+                                        Notes:
+                                    </Typography>
+                                    <Box
+                                        component="ul"
+                                        sx={{
+                                            m: 0,
+                                            pl: 2.5,
+                                            color: "var(--color-text-muted)",
+                                            fontSize: "0.9rem",
+                                            lineHeight: 1.7
+                                        }}
+                                    >
+                                        <li>Ensure to verify the invoice before you leave.</li>
+                                        <li>If you have any questions or concerns about this invoice, please contact or E-mail us.</li>
+                                        <li>Thank you for your continued trust and support!</li>
+                                        <li>We greatly appreciate your visit. You&apos;re a valued customer at UTPALA AYURDHAMA, and we look forward to continuing future service with you.</li>
+                                        <li>To know more about our service please visit https://utpalaayurdhama.com</li>
+                                        <li>Please visit us again...!</li>
+                                    </Box>
+                                </Box>
+                                <Box
                                     sx={{
-                                        fontWeight: 700,
-                                        color: "var(--color-text-dark)",
-                                        fontSize: "0.95rem",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                        mb: 1.5
+                                        flex: "0 0 auto",
+                                        textAlign: "center",
+                                        minWidth: 200,
                                     }}
                                 >
-                                    Payment Instructions
-                                </Typography>
-                                <Typography
-                                    sx={{
-                                        color: "var(--color-text-muted)",
-                                        fontSize: "0.9rem",
-                                        lineHeight: 1.7
-                                    }}
-                                >
-                                    {instructions}
-                                </Typography>
-                            </Box>
-
-                            {/* Footer Note */}
-                            <Box sx={{ mt: 3, textAlign: "center" }}>
-                                <Typography
-                                    sx={{
-                                        color: "var(--color-text-muted)",
-                                        fontSize: "0.85rem",
-                                        fontStyle: "italic"
-                                    }}
-                                >
-                                    Thank you for choosing Utpala Ayurdhama
-                                </Typography>
+                                    <Typography
+                                        sx={{
+                                            fontSize: "0.9rem",
+                                            fontWeight: 600,
+                                            color: "var(--color-text-dark)",
+                                            mb: 1
+                                        }}
+                                    >
+                                        For UTPALA AYURDHAMA
+                                    </Typography>
+                                    <Box
+                                        sx={{
+                                            width: 220,
+                                            height: 56,
+                                            borderBottom: "1px solid",
+                                            borderColor: "var(--color-border-dark)",
+                                            mx: "auto",
+                                            mb: 0.5,
+                                        }}
+                                    />
+                                    <Typography
+                                        sx={{
+                                            fontSize: "0.8rem",
+                                            color: "var(--color-text-muted)",
+                                        }}
+                                    >
+                                        Authorized Signature
+                                    </Typography>
+                                </Box>
                             </Box>
                         </CardContent>
                     </Card>
