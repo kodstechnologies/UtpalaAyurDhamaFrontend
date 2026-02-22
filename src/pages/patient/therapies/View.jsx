@@ -92,7 +92,7 @@ const Therapies_View = () => {
                             therapyId: therapy._id,
                             duration: therapy.duration,
                             status: d.status || "upcoming",
-                            timing: therapy.sessionTime || "10:00 AM" // Fallback if no specific time per slot
+                            timing: d.time || "" // Use specific time per slot from backend
                         }]);
                     }
                 }
@@ -385,10 +385,12 @@ const Therapies_View = () => {
                                                     fontSize: '0.7rem'
                                                 }}
                                             />
-                                            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: '#666' }}>
-                                                <AccessTime sx={{ fontSize: '0.9rem' }} />
-                                                <Typography variant="caption" sx={{ fontWeight: 600 }}>{session.timing}</Typography>
-                                            </Stack>
+                                            {session.status !== 'upcoming' && session.timing && (
+                                                <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: '#666' }}>
+                                                    <AccessTime sx={{ fontSize: '0.9rem' }} />
+                                                    <Typography variant="caption" sx={{ fontWeight: 600 }}>{session.timing}</Typography>
+                                                </Stack>
+                                            )}
                                         </Stack>
                                     </Box>
                                 </Stack>

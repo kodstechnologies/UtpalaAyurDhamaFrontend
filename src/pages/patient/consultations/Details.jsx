@@ -184,7 +184,10 @@ function ConsultationDetails() {
         );
     }
 
-    if (!consultationData.appointment) {
+    const { appointment, examination, prescriptions, therapySessions, appointmentInvoice, doctorConsultationFee } = consultationData;
+
+    // We allow rendering if either appointment or examination exists
+    if (!appointment && !examination) {
         return (
             <div style={{ paddingBottom: "30px" }}>
                 <HeadingCard
@@ -199,10 +202,10 @@ function ConsultationDetails() {
                 <Card sx={{ boxShadow: 3, borderRadius: 2, marginTop: 3 }}>
                     <CardContent sx={{ padding: 4, textAlign: "center" }}>
                         <Typography variant="h6" color="text.secondary" sx={{ marginBottom: 2 }}>
-                            Appointment data not found
+                            Consultation data not found
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ marginBottom: 3 }}>
-                            Unable to load appointment information. Please try again later.
+                            Unable to load consultation information. Please try again later.
                         </Typography>
                         <Button
                             variant="contained"
@@ -217,8 +220,6 @@ function ConsultationDetails() {
             </div>
         );
     }
-
-    const { appointment, examination, prescriptions, therapySessions, appointmentInvoice, doctorConsultationFee } = consultationData;
 
     return (
         <div style={{ paddingBottom: "30px" }}>

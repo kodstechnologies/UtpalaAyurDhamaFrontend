@@ -303,6 +303,13 @@ function Prescription({ onSubmitSuccess }) {
                                         onChange={handleChange("followUpDate")}
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
+                                        inputProps={{
+                                            min: (() => {
+                                                const tomorrow = new Date();
+                                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                                return tomorrow.toISOString().split("T")[0];
+                                            })()
+                                        }}
                                     />
                                 </Grid>
                                 <Grid item xs={12}>

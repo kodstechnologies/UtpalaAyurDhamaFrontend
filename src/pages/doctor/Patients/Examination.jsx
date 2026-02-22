@@ -551,7 +551,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 // Explicitly exclude treatments - they should be added separately via API
                 treatments: undefined
             };
-            
+
             // Remove treatments if it somehow got included
             delete examinationData.treatments;
 
@@ -570,7 +570,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
             let response;
             let wasUpdate = false;
             let finalExaminationId = examinationId; // Track the final examination ID to use for navigation
-            
+
             if (isEditMode) {
                 // Update existing examination using PATCH
                 wasUpdate = true;
@@ -643,7 +643,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 console.log("User ID from params:", userId);
                 console.log("Appointment ID:", appointmentId);
                 console.log("Was update:", wasUpdate);
-                
+
                 if (!newExaminationId) {
                     console.error("Warning: Examination saved but no ID returned:", savedExamination);
                     toast.error("Examination saved but could not retrieve ID. Please refresh the page.");
@@ -1050,29 +1050,6 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                         value={formData.digestion}
                                         onChange={handleChange("digestion")}
                                         disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Bowel Movement"
-                                        variant="outlined"
-                                        value={formData.bowel}
-                                        onChange={handleChange("bowel")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid item xs={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Urine (Mutra)"
-                                        variant="outlined"
-                                        value={formData.urine}
-                                        onChange={handleChange("urine")}
-                                        disabled={!isEditing}
-                                        size="small"
                                     />
                                 </Grid>
                                 <Grid item xs={6}>
@@ -1373,6 +1350,13 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                         disabled={!isEditing}
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
+                                        inputProps={{
+                                            min: (() => {
+                                                const tomorrow = new Date();
+                                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                                return tomorrow.toISOString().split("T")[0];
+                                            })()
+                                        }}
                                     />
                                 </Grid>
                             </Grid>
@@ -1438,6 +1422,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                                     <MenuItem value="">Select Ward</MenuItem>
                                                     <MenuItem value="General">General</MenuItem>
                                                     <MenuItem value="Duplex">Duplex</MenuItem>
+                                                    <MenuItem value="Semi Special">Semi Special</MenuItem>
                                                     <MenuItem value="Special">Special</MenuItem>
                                                 </Select>
                                             </FormControl>

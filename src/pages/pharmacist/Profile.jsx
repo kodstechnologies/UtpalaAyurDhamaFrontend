@@ -357,25 +357,12 @@ function PharmacistProfile() {
                                     </Box>
 
                                     <Box flex={1}>
-                                        {isEditing ? (
-                                            <TextField
-                                                fullWidth
-                                                label={label}
-                                                size="small"
-                                                value={editData[field]}
-                                                onChange={handleInputChange(field)}
-                                                inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
-                                            />
-                                        ) : (
-                                            <>
-                                                <Typography variant="caption" color="#857466">
-                                                    {label}
-                                                </Typography>
-                                                <Typography fontWeight={600} color="#5C3D2E">
-                                                    {profileData[field]}
-                                                </Typography>
-                                            </>
-                                        )}
+                                        <Typography variant="caption" color="#857466">
+                                            {label}
+                                        </Typography>
+                                        <Typography fontWeight={600} color="#5C3D2E">
+                                            {profileData[field]}
+                                        </Typography>
                                     </Box>
                                 </Stack>
                             ))}
@@ -515,8 +502,8 @@ function PharmacistProfile() {
                         </Box>
                     </label>
 
-                    <Button 
-                        fullWidth 
+                    <Button
+                        fullWidth
                         onClick={handleUploadPicture}
                         disabled={!selectedFile || isUploading}
                         sx={{ mt: 3, bgcolor: "#5C3D2E", color: "#EFEAD8" }}

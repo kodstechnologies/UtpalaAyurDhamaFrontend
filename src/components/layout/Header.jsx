@@ -44,23 +44,23 @@ function ResponsiveAppBar() {
   const [anchorElUser, setAnchorElUser] = React.useState(null);
   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
-  
+
   // Get notifications from hook (for all staff roles)
   const staffRoles = ['receptionist', 'doctor', 'nurse', 'therapist', 'pharmacist'];
   const userRole = role?.toLowerCase() || '';
   const isStaff = userRole && staffRoles.includes(userRole);
   const isReceptionist = userRole === 'receptionist';
   const { paymentReminders, dobReminders } = useNotifications();
-  
+
   // Receptionist gets both payment and DOB reminders, other staff only get DOB reminders
-  const totalNotifications = isReceptionist 
+  const totalNotifications = isReceptionist
     ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0))
     : (dobReminders?.length || 0);
   const hasNotifications = isStaff && totalNotifications > 0;
-  
+
   // Blinking animation state
   const [isBlinking, setIsBlinking] = React.useState(false);
-  
+
   // Define keyframes for blinking animation
   const bellBlink = keyframes`
     0%, 100% { 
@@ -72,7 +72,7 @@ function ResponsiveAppBar() {
       opacity: 0.7;
     }
   `;
-  
+
   const badgePulse = keyframes`
     0%, 100% { 
       transform: scale(1);
@@ -83,20 +83,20 @@ function ResponsiveAppBar() {
       opacity: 0.8;
     }
   `;
-  
+
   // Blink 10 times every 1 minute when there are notifications
   React.useEffect(() => {
     if (!hasNotifications) {
       setIsBlinking(false);
       return;
     }
-    
+
     // Function to trigger 10 blinks in sequence
     const triggerBlinks = () => {
       let blinkCount = 0;
       const blinkDuration = 300; // Each blink animation lasts 0.3 seconds
       const blinkGap = 200; // 200ms gap between each blink
-      
+
       const blinkSequence = () => {
         if (blinkCount < 10) {
           setIsBlinking(true);
@@ -109,18 +109,18 @@ function ResponsiveAppBar() {
           }, blinkDuration);
         }
       };
-      
+
       blinkSequence();
     };
-    
+
     // Blink immediately when notifications appear
     triggerBlinks();
-    
+
     // Blink 10 times every 1 minute
     const blinkInterval = setInterval(() => {
       triggerBlinks();
     }, 60 * 1000); // Every 1 minute
-    
+
     return () => {
       clearInterval(blinkInterval);
     };
@@ -139,7 +139,7 @@ function ResponsiveAppBar() {
   React.useEffect(() => {
     const fetchProfileData = async () => {
       if (!user || !role) return;
-      
+
       try {
         const response = await profileService.getMyProfile();
         if (response && response.success && response.data) {
@@ -147,7 +147,7 @@ function ResponsiveAppBar() {
           const profileData = response.data;
           // Handle both flat and nested structures
           const latestProfilePicture = profileData.profilePicture || profileData.user?.profilePicture;
-          
+
           // Always update to ensure we have the latest data
           dispatch(updateUser({
             profilePicture: latestProfilePicture,
@@ -164,7 +164,7 @@ function ResponsiveAppBar() {
     // Fetch on mount to get latest profile picture
     fetchProfileData();
   }, [dispatch, user?._id, role]); // Re-fetch if user ID or role changes
-  
+
   // Get profile picture from user object (handle both flat and nested structures)
   const profilePicture = user?.profilePicture || user?.user?.profilePicture || null;
   const userName = user?.name || user?.user?.name || 'User';
@@ -269,7 +269,7 @@ function ResponsiveAppBar() {
                   src={logo}
                   alt="UTPALA Logo"
                   style={{
-                    height: "2.5rem",
+                    height: "3rem",
                     width: "auto",
                     display: "block",
                     objectFit: "contain",

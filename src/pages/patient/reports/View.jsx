@@ -62,17 +62,15 @@ function Reports_View() {
             // Navigate to patient invoice detail page with ID
             navigate(`/patient/reports/invoice/${report._id}`);
         } else if (report.type === "prescription") {
-            // Navigate to consultation details using examination ID
-            if (report.examinationId) {
-                navigate(`/patient/consultations/${report.examinationId}`);
-            } else {
-                // If no examination ID, navigate to consultations list
-                navigate(`/patient/consultations`);
-            }
+            // Navigate to consultation details using appointment ID or examination ID
+            const targetId = report.appointmentId || report.examinationId || report._id;
+            navigate(`/patient/consultations/${targetId}`);
         } else if (report.type === "examination") {
-            // Navigate to consultation details
-            navigate(`/patient/consultations/${report.examinationId || report._id}`);
-        } else {
+            // Navigate to consultation details using appointment ID or examination ID
+            const targetId = report.appointmentId || report.examinationId || report._id;
+            navigate(`/patient/consultations/${targetId}`);
+        }
+        else {
             // Default: navigate to invoice detail if invoice number exists
             if (report.invoiceNumber) {
                 navigate(`/patient/reports/invoice/${report._id}`);

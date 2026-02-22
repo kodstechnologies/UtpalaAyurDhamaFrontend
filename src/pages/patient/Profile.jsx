@@ -763,12 +763,12 @@ function PatientProfile() {
 
                             <Stack spacing={3}>
                                 {[
-                                    { icon: User, label: "Full Name", field: "name" },
-                                    { icon: Mail, label: "Email Address", field: "email" },
-                                    { icon: Phone, label: "Phone Number", field: "phone" },
+                                    { icon: User, label: "Full Name", field: "name", disabled: true },
+                                    { icon: Mail, label: "Email Address", field: "email", disabled: true },
+                                    { icon: Phone, label: "Phone Number", field: "phone", disabled: true },
                                     { icon: MapPin, label: "Location", field: "location" },
                                     { icon: Calendar, label: "Date of Birth", field: "dateOfBirth", editField: "dob", inputType: "date" },
-                                ].map(({ icon: Icon, label, field, editField, inputType }) => (
+                                ].map(({ icon: Icon, label, field, editField, inputType, disabled }) => (
                                     <Stack key={field} direction="row" spacing={2} alignItems="center">
                                         <Box sx={{ bgcolor: '#F4F0E5', p: 1, borderRadius: 2 }}>
                                             <Icon size={20} color="#556B2F" />
@@ -782,8 +782,10 @@ function PatientProfile() {
                                                     value={editData[editField || field]}
                                                     onChange={handleInputChange(editField || field)}
                                                     size="small"
+                                                    disabled={disabled}
                                                     InputLabelProps={inputType === "date" ? { shrink: true } : {}}
                                                     inputProps={field === "phone" || field === "emergencyContact" ? { maxLength: 10 } : {}}
+
                                                     sx={{
                                                         '& .MuiOutlinedInput-root': {
                                                             '&:hover fieldset': { borderColor: '#556B2F' },

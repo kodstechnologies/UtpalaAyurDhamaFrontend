@@ -51,7 +51,7 @@ function FollowUps_View() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             followUpDate.setHours(0, 0, 0, 0);
-            
+
             const diffTime = followUpDate - today;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             return diffDays;
@@ -63,7 +63,7 @@ function FollowUps_View() {
     const fetchFollowUps = useCallback(async () => {
         // Get user ID from Redux or localStorage
         const userId = user?._id || JSON.parse(localStorage.getItem("user") || "{}")?._id;
-        
+
         if (!userId) {
             setIsLoading(false);
             toast.error("User information not found. Please log in again.");
@@ -88,14 +88,14 @@ function FollowUps_View() {
             if (data.success && data.data) {
                 // Transform follow-ups to include all necessary info
                 const allFollowUps = [];
-                
+
                 // Process items array
                 if (data.data.items && Array.isArray(data.data.items)) {
                     data.data.items.forEach((item, index) => {
                         if (item.date) {
                             const daysUntil = getDaysUntil(item.date);
                             const isUpcoming = daysUntil !== null && daysUntil >= 0;
-                            
+
                             allFollowUps.push({
                                 _id: `followup-${index}`,
                                 date: item.date,
@@ -103,6 +103,8 @@ function FollowUps_View() {
                                 daysUntil: daysUntil,
                                 isUpcoming: isUpcoming,
                                 status: item.completed ? "completed" : (isUpcoming ? "upcoming" : "past"),
+                                patientName: item.patientName || "",
+                                isFamilyMember: item.isFamilyMember || false,
                             });
                         }
                     });
@@ -114,7 +116,7 @@ function FollowUps_View() {
                     const dateB = new Date(b.date);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
-                    
+
                     // If both are upcoming, sort earliest first
                     if (a.isUpcoming && b.isUpcoming) {
                         return dateA - dateB;
@@ -226,8 +228,8 @@ function FollowUps_View() {
                         {filter === "upcoming"
                             ? "You don't have any upcoming follow-ups scheduled."
                             : filter === "past"
-                            ? "You don't have any past follow-ups."
-                            : "You don't have any follow-ups scheduled yet. Follow-ups will appear here once your doctors schedule them."}
+                                ? "You don't have any past follow-ups."
+                                : "You don't have any follow-ups scheduled yet. Follow-ups will appear here once your doctors schedule them."}
                     </Typography>
                 </Box>
             ) : (
@@ -269,6 +271,15 @@ function FollowUps_View() {
                                             color={getStatusColor(followUp.status, followUp.daysUntil)}
                                             size="small"
                                         />
+                                        {followUp.isFamilyMember && (
+                                            <Chip
+                                                icon={<User size={14} />}
+                                                label="Family Member"
+                                                variant="outlined"
+                                                size="small"
+                                                color="secondary"
+                                            />
+                                        )}
                                     </Box>
 
                                     {/* Date */}
@@ -276,6 +287,14 @@ function FollowUps_View() {
                                         <Calendar size={20} style={{ color: "var(--color-primary)" }} />
                                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
                                             {formatDate(followUp.date)}
+                                        </Typography>
+                                    </Box>
+
+                                    {/* Patient Name */}
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                                        <User size={16} style={{ color: "var(--color-text-muted)" }} />
+                                        <Typography variant="body2" sx={{ fontWeight: 500, color: "var(--color-text-dark)" }}>
+                                            Patient: {followUp.patientName || "Primary User"}
                                         </Typography>
                                     </Box>
 
@@ -298,8 +317,8 @@ function FollowUps_View() {
                                                     ? followUp.daysUntil === 0
                                                         ? "Today"
                                                         : followUp.daysUntil === 1
-                                                        ? "Tomorrow"
-                                                        : `${followUp.daysUntil} days remaining`
+                                                            ? "Tomorrow"
+                                                            : `${followUp.daysUntil} days remaining`
                                                     : `${Math.abs(followUp.daysUntil)} days ago`}
                                             </Typography>
                                         </Box>

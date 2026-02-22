@@ -527,8 +527,8 @@ function OutpatientPrescriptions() {
     const patientGender = patient?.gender || "N/A";
     const doctorName = prescriptions[0]?.doctor?.user?.name || "Unknown";
     // Get diagnosis - prefer diagnoses array, fallback to complaints
-    const diagnosis = examination?.diagnoses?.length > 0 
-        ? examination.diagnoses.join(", ") 
+    const diagnosis = examination?.diagnoses?.length > 0
+        ? examination.diagnoses.join(", ")
         : examination?.complaints || "N/A";
     const prescriptionDate = examination?.createdAt || prescriptions[0]?.createdAt;
     // Check if all prescriptions are dispensed
@@ -631,21 +631,21 @@ function OutpatientPrescriptions() {
         for (const presc of selectedPrescriptions) {
             const selected = newSelection[presc._id];
             const dispensedQuantityStr = selected.quantity;
-            
+
             // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
             const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
             const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
-            
+
             if (dispensedQuantity <= 0) {
                 continue; // Skip invalid quantities, will be caught by empty quantity check
             }
-            
+
             // Find the medicine
             const medicine = findMedicineInMap(presc.medication);
             if (!medicine) {
                 continue; // Skip if medicine not found, will be caught by unavailable check
             }
-            
+
             // Check stock quantity
             const currentStock = medicine.quantity || 0;
             if (currentStock <= 0) {
@@ -654,7 +654,7 @@ function OutpatientPrescriptions() {
                 outOfStockMedicines.push(presc.medication);
             }
         }
-        
+
         // If any medicine is out of stock, show error and prevent dispensing
         if (outOfStockMedicines.length > 0) {
             outOfStockMedicines.forEach((medicineName) => {
@@ -674,7 +674,7 @@ function OutpatientPrescriptions() {
     const handleDispenseConfirm = async () => {
         setConfirmDialogOpen(false);
         const selectedPrescriptions = pendingSelectedPrescriptions;
-        
+
         if (!selectedPrescriptions || selectedPrescriptions.length === 0) {
             return;
         }
@@ -690,12 +690,12 @@ function OutpatientPrescriptions() {
 
                 console.log(`Updating prescription ${presc._id} with quantity: ${dispensedQuantity}`);
 
-                // Update the prescription with the dispensed quantity (as string)
+                // Update the prescription with the dispensed quantity incrementally
                 return axios.patch(
                     getApiUrl(`examinations/prescriptions/${presc._id}`),
                     {
-                        status: "Dispensed",
                         dispensedQuantity: dispensedQuantity,
+                        isIncremental: true,
                     },
                     { headers: getAuthHeaders() }
                 ).then((response) => {
@@ -1012,10 +1012,12 @@ function OutpatientPrescriptions() {
                                     </TableHead>
                                     <TableBody>
                                         {prescriptions.map((presc, idx) => {
-                                            const isDispensed = presc.status === "Dispensed";
+                                            const isFullyDispensed = presc.status === "Dispensed";
+                                            const dispensedQty = presc.dispensedQuantity || 0;
+                                            const prescribedQuantity = presc.quantity || 1;
+                                            const isPartiallyDispensed = !isFullyDispensed && dispensedQty > 0;
                                             const isSelected = selectedMedicines[presc._id]?.selected || false;
                                             const dispenseQuantity = selectedMedicines[presc._id]?.quantity || "";
-                                            const prescribedQuantity = presc.quantity || 1;
 
                                             return (
                                                 <TableRow
@@ -1023,16 +1025,16 @@ function OutpatientPrescriptions() {
                                                     sx={{
                                                         "&:last-child td": { borderBottom: 0 },
                                                         backgroundColor: isSelected ? alpha(theme.palette.primary.main, 0.05) : "transparent",
-                                                        opacity: isDispensed ? 0.6 : 1,
+                                                        opacity: isFullyDispensed ? 0.6 : 1,
                                                         "& td": {
-                                                            color: isDispensed ? "text.disabled" : "text.primary",
+                                                            color: isFullyDispensed ? "text.disabled" : "text.primary",
                                                         },
                                                     }}
                                                 >
                                                     <TableCell padding="checkbox">
                                                         <Checkbox
                                                             checked={isSelected}
-                                                            disabled={isDispensed || !isMedicineAvailable(presc.medication)}
+                                                            disabled={isFullyDispensed || !isMedicineAvailable(presc.medication)}
                                                             onChange={(e) => handleMedicineSelect(presc._id, e.target.checked)}
                                                             title={!isMedicineAvailable(presc.medication) ? "This medicine is not available in the collection" : ""}
                                                         />
@@ -1040,7 +1042,16 @@ function OutpatientPrescriptions() {
                                                     <TableCell>
                                                         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexDirection: "column" }}>
                                                             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                                                                {isDispensed && (
+                                                                {isPartiallyDispensed && (
+                                                                    <Chip
+                                                                        label="Partial"
+                                                                        size="small"
+                                                                        color="warning"
+                                                                        variant="filled"
+                                                                        sx={{ fontSize: "0.7rem", height: "20px", fontWeight: 600 }}
+                                                                    />
+                                                                )}
+                                                                {isFullyDispensed && (
                                                                     <Chip
                                                                         label="Dispensed"
                                                                         size="small"
@@ -1134,7 +1145,7 @@ function OutpatientPrescriptions() {
                                                             size="small"
                                                             value={dispenseQuantity}
                                                             onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
-                                                            disabled={isDispensed}
+                                                            disabled={isFullyDispensed}
                                                             inputProps={{
                                                                 style: { textAlign: "center" },
                                                             }}
@@ -1189,11 +1200,11 @@ function OutpatientPrescriptions() {
                                                                     />
                                                                 );
                                                             }
-                                                            
+
                                                             // Check actual stock quantity
                                                             const medicine = findMedicineInMap(presc.medication);
                                                             const stockQuantity = medicine?.quantity || 0;
-                                                            
+
                                                             if (stockQuantity <= 0) {
                                                                 return (
                                                                     <Chip
@@ -1209,7 +1220,7 @@ function OutpatientPrescriptions() {
                                                                     />
                                                                 );
                                                             }
-                                                            
+
                                                             return (
                                                                 <Chip
                                                                     label="Available"
@@ -1319,7 +1330,7 @@ function OutpatientPrescriptions() {
                 maxWidth="sm"
                 fullWidth
             >
-                <DialogTitle sx={{ 
+                <DialogTitle sx={{
                     backgroundColor: theme.palette.primary.main,
                     color: theme.palette.primary.contrastText,
                     fontWeight: 600
@@ -1332,8 +1343,8 @@ function OutpatientPrescriptions() {
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, gap: 1 }}>
-                    <Button 
-                        onClick={() => setConfirmDialogOpen(false)} 
+                    <Button
+                        onClick={() => setConfirmDialogOpen(false)}
                         variant="outlined"
                         color="inherit"
                         sx={{
@@ -1347,9 +1358,9 @@ function OutpatientPrescriptions() {
                     >
                         Cancel
                     </Button>
-                    <Button 
-                        onClick={handleDispenseConfirm} 
-                        variant="contained" 
+                    <Button
+                        onClick={handleDispenseConfirm}
+                        variant="contained"
                         color="primary"
                         autoFocus
                         sx={{

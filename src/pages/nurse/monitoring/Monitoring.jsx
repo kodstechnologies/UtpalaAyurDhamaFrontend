@@ -29,7 +29,7 @@ function Monitoring() {
     useEffect(() => {
         fetchAllPatients();
     }, [pagination.page, pagination.rowsPerPage]);
-    
+
     // Reset to first page when search changes
     useEffect(() => {
         setPagination(prev => ({ ...prev, page: 0 }));
@@ -42,7 +42,7 @@ function Monitoring() {
             const [inpatientsResponse, outpatientsResponse] = await Promise.all([
                 axios.get(
                     getApiUrl("inpatients"),
-                    { 
+                    {
                         headers: getAuthHeaders(),
                         params: {
                             status: "Admitted",
@@ -90,6 +90,7 @@ function Monitoring() {
                         admissionDate: inpatient.admissionDate
                             ? new Date(inpatient.admissionDate).toLocaleDateString("en-GB")
                             : "N/A",
+                        rawDate: inpatient.admissionDate || inpatient.createdAt || null,
                         doctor: inpatient.doctor?.user?.name || "Not Assigned",
                         patientType: "Inpatient",
                         rawData: inpatient,
@@ -111,6 +112,7 @@ function Monitoring() {
                         admissionDate: outpatient.createdAt
                             ? new Date(outpatient.createdAt).toLocaleDateString("en-GB")
                             : "N/A",
+                        rawDate: outpatient.createdAt || null,
                         doctor: outpatient.primaryDoctor?.user?.name || "Not Assigned",
                         patientType: "Outpatient",
                         rawData: outpatient,
@@ -120,8 +122,14 @@ function Monitoring() {
             }
 
             console.log("All patients (inpatients + outpatients):", allPatients);
+            // Sort by rawDate descending so recently added/admitted patients appear first
+            allPatients.sort((a, b) => {
+                const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+                const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+                return dateB - dateA;
+            });
             setPatients(allPatients);
-            
+
             // Update pagination metadata from inpatients response
             if (inpatientsResponse.data.meta) {
                 // Note: Total only counts inpatients, outpatients are added separately

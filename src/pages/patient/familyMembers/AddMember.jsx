@@ -46,6 +46,11 @@ function AddMemberPage() {
             return;
         }
 
+        if (parseInt(formData.age, 10) < 1) {
+            toast.error("Age must be at least 1.");
+            return;
+        }
+
         if (formData.phone.length < 10) {
             toast.error("Please enter a valid contact number (10 digits).");
             return;
@@ -263,6 +268,7 @@ function AddMemberPage() {
                                     value={formData.age}
                                     onChange={handleChange}
                                     required
+                                    inputProps={{ min: 1 }}
                                 />
                             </Box>
                         </Grid>

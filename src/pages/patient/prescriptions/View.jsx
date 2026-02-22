@@ -70,31 +70,52 @@ function Prescriptions_View() {
             setIsLoading(true);
             try {
                 const response = await prescriptionService.getPrescriptionsByUserId(userId);
-                
+
                 if (response.success && response.data) {
                     // Transform the prescription data for table display
                     const transformedData = response.data.map((prescription, index) => {
-                        const prescriptionDate = prescription.createdAt 
-                            ? new Date(prescription.createdAt).toLocaleDateString('en-US', { 
-                                year: 'numeric', 
-                                month: 'short', 
-                                day: 'numeric' 
+                        const prescriptionDate = prescription.createdAt
+                            ? new Date(prescription.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
                             })
                             : "N/A";
-                        
+
                         // Generate prescription ID from _id
-                        const prescriptionId = prescription._id 
+                        const prescriptionId = prescription._id
                             ? `RX-${prescription._id.toString().slice(-8).toUpperCase()}`
                             : `RX-${index + 1}`;
-                        
+
                         // Get consultation/examination ID
-                        const consultationId = prescription.examination?._id 
+                        const consultationId = prescription.examination?._id
                             ? `CONS-${prescription.examination._id.toString().slice(-5)}`
                             : prescription.examination || "N/A";
-                        
+
                         return {
                             _id: prescription._id, // Use real MongoDB _id
-                            patientName: prescription.patient?.user?.name || prescription.examination?.patient?.user?.name || "Unknown",
+                            patientName: (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {prescription.patient?.user?.name || prescription.examination?.patient?.user?.name || "Unknown"}
+                                    {prescription.isFamilyMember && (
+                                        <Box
+                                            component="span"
+                                            sx={{
+                                                fontSize: '0.65rem',
+                                                backgroundColor: 'rgba(0, 128, 0, 0.1)',
+                                                color: 'green',
+                                                px: 0.8,
+                                                py: 0.2,
+                                                borderRadius: 1,
+                                                fontWeight: 'bold',
+                                                border: '1px solid rgba(0, 128, 0, 0.2)'
+                                            }}
+                                        >
+                                            Family Member
+                                        </Box>
+                                    )}
+                                </Box>
+                            ),
                             prescriptionId: prescriptionId,
                             date: prescriptionDate,
                             doctor: prescription.doctor?.user?.name || prescription.examination?.doctor?.user?.name || "Unknown",
@@ -103,7 +124,7 @@ function Prescriptions_View() {
                             examinationId: prescription.examination?._id || prescription.examination,
                         };
                     });
-                    
+
                     setRows(transformedData);
                 } else {
                     toast.error(response.message || "Failed to fetch prescriptions");
@@ -129,7 +150,7 @@ function Prescriptions_View() {
             toast.info("No prescriptions to print");
             return;
         }
-        
+
         const printWindow = window.open('', '_blank');
         const printContent = `
             <!DOCTYPE html>

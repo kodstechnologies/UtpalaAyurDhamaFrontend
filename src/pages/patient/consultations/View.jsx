@@ -83,7 +83,28 @@ function Consultations_View() {
 
                     return {
                         _id: consultation._id,
-                        patientName,
+                        patientName: (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {consultation.patient?.user?.name || "N/A"}
+                                {consultation.isFamilyMember && (
+                                    <Box
+                                        component="span"
+                                        sx={{
+                                            fontSize: '0.65rem',
+                                            backgroundColor: 'rgba(0, 128, 0, 0.1)',
+                                            color: 'green',
+                                            px: 0.8,
+                                            py: 0.2,
+                                            borderRadius: 1,
+                                            fontWeight: 'bold',
+                                            border: '1px solid rgba(0, 128, 0, 0.2)'
+                                        }}
+                                    >
+                                        Family Member
+                                    </Box>
+                                )}
+                            </Box>
+                        ),
                         patientId,
                         doctor: doctorName,
                         date: appointmentDate,
