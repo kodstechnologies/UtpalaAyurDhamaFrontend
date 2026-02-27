@@ -68,10 +68,20 @@ function Consultations_View() {
                     const patientId = consultation.patient?.user?.uhid || consultation.patient?.patientId || "N/A";
 
                     // Get doctor name - sanitize to avoid "Dr. Dr."
-                    let rawDoctorName = consultation.doctor?.user?.name || "N/A";
-                    const doctorName = rawDoctorName !== "N/A"
-                        ? (rawDoctorName.toLowerCase().startsWith("dr.") ? rawDoctorName : `Dr. ${rawDoctorName}`)
-                        : "N/A";
+                    const dr = consultation.doctor || consultation.doc;
+                    let doctorName = "N/A";
+                    if (dr) {
+                        const firstName = dr.firstName || "";
+                        const lastName = dr.lastName || "";
+                        const fullName = `${firstName} ${lastName}`.trim();
+
+                        if (fullName) {
+                            doctorName = fullName.toLowerCase().startsWith("dr.") ? fullName : ` ${fullName}`;
+                        } else if (dr.user?.name) {
+                            const name = dr.user.name;
+                            doctorName = name.toLowerCase().startsWith("dr.") ? name : `${name}`;
+                        }
+                    }
 
                     // Get chief complaint from examination or appointment notes
                     const chiefComplaint = consultation.chiefComplaint || consultation.notes || "Not specified";

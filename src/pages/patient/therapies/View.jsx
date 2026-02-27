@@ -91,6 +91,7 @@ const Therapies_View = () => {
                             therapistName: therapy.therapistName,
                             therapyId: therapy._id,
                             duration: therapy.duration,
+                            therapyFor: therapy.therapyFor,
                             status: d.status || "upcoming",
                             timing: d.time || "" // Use specific time per slot from backend
                         }]);
@@ -415,6 +416,17 @@ const Therapies_View = () => {
                                             <Box>
                                                 <Typography variant="caption" sx={{ color: '#999', fontWeight: 700, textTransform: 'uppercase' }}>Assigned Therapist</Typography>
                                                 <Typography variant="body2" sx={{ fontWeight: 700, color: '#5C3D2E' }}>{session.therapistName || "Not Assigned"}</Typography>
+                                            </Box>
+                                        </Stack>
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Avatar sx={{ bgcolor: '#EFE7DA', width: 32, height: 32 }}>
+                                                <Info sx={{ color: '#5C3D2E', fontSize: '1rem' }} />
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="caption" sx={{ color: '#999', fontWeight: 700, textTransform: 'uppercase' }}>Therapy For</Typography>
+                                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#5C3D2E' }}>{session.therapyFor || "Self"}</Typography>
                                             </Box>
                                         </Stack>
                                     </Grid>
