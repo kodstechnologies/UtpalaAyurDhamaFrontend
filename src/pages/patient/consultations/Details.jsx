@@ -493,7 +493,11 @@ function ConsultationDetails() {
                                 {therapySessions.slice(0, 10).map((session) => (
                                     <TableRow key={session._id}>
                                         <TableCell>{formatDate(session.sessionDate)}</TableCell>
-                                        <TableCell>{session.therapist?.user?.name || "N/A"}</TableCell>
+                                        <TableCell>
+                                            {session.therapists && session.therapists.length > 0
+                                                ? session.therapists.map(t => t.user?.name || "N/A").join(", ")
+                                                : session.therapist?.user?.name || "N/A"}
+                                        </TableCell>
                                         <TableCell>{session.treatmentPlan?.treatmentName || "N/A"}</TableCell>
                                         <TableCell>
                                             <Chip label={session.status || "N/A"} size="small" color={getStatusColor(session.status)} />
