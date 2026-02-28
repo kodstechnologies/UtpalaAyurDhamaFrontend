@@ -1,6 +1,27 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Card, CardContent, Typography, Divider, Table, TableBody, TableCell, TableHead, TableRow, Paper, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, MenuItem } from "@mui/material";
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  CircularProgress,
+  MenuItem,
+} from "@mui/material";
 import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -18,1078 +39,1497 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import PaymentIcon from "@mui/icons-material/Payment";
 
 function InvoiceDetails() {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    const [invoice, setInvoice] = useState(null);
-    const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-    const [paymentAmount, setPaymentAmount] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState("Cash");
-    const [transactionId, setTransactionId] = useState("");
-    const [cardLastFourDigits, setCardLastFourDigits] = useState("");
-    const [isRecordingPayment, setIsRecordingPayment] = useState(false);
-    const [downloadingReport, setDownloadingReport] = useState(false);
-    const [printingReport, setPrintingReport] = useState(false);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [invoice, setInvoice] = useState(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [transactionId, setTransactionId] = useState("");
+  const [cardLastFourDigits, setCardLastFourDigits] = useState("");
+  const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const [printingReport, setPrintingReport] = useState(false);
 
-    // Breadcrumb items
-    const breadcrumbItems = [
-        { label: "Home", url: "/" },
-        { label: "Payments", url: "/receptionist/payments" },
-        { label: "Invoice Details" },
-    ];
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { label: "Home", url: "/" },
+    { label: "Payments", url: "/receptionist/payments" },
+    { label: "Invoice Details" },
+  ];
 
-    const fetchInvoiceDetails = async () => {
-        if (!id) return;
+  const fetchInvoiceDetails = async () => {
+    if (!id) return;
 
-        try {
-            setLoading(true);
-            const response = await invoiceService.getInvoiceById(id);
+    try {
+      setLoading(true);
+      const response = await invoiceService.getInvoiceById(id);
 
-            if (response && response.success && response.data) {
-                setInvoice(response.data);
-            } else {
-                toast.error("Failed to load invoice details");
-                navigate("/receptionist/payments");
-            }
-        } catch (error) {
-            console.error("Error fetching invoice details:", error);
-            toast.error(error.response?.data?.message || "Failed to load invoice details");
-            navigate("/receptionist/payments");
-        } finally {
-            setLoading(false);
-        }
-    };
+      if (response && response.success && response.data) {
+        setInvoice(response.data);
+      } else {
+        toast.error("Failed to load invoice details");
+        navigate("/receptionist/payments");
+      }
+    } catch (error) {
+      console.error("Error fetching invoice details:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to load invoice details",
+      );
+      navigate("/receptionist/payments");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    useEffect(() => {
-        fetchInvoiceDetails();
-    }, [id, navigate]);
+  useEffect(() => {
+    fetchInvoiceDetails();
+  }, [id, navigate]);
 
-    const handleOpenPaymentDialog = () => {
-        const balanceDue = (invoice?.totalPayable || 0) - (invoice?.amountPaid || 0);
-        setPaymentAmount(balanceDue > 0 ? balanceDue.toString() : "");
-        setPaymentDialogOpen(true);
-    };
+  const handleOpenPaymentDialog = () => {
+    const balanceDue =
+      (invoice?.totalPayable || 0) - (invoice?.amountPaid || 0);
+    setPaymentAmount(balanceDue > 0 ? balanceDue.toString() : "");
+    setPaymentDialogOpen(true);
+  };
 
-    const handleClosePaymentDialog = () => {
+  const handleClosePaymentDialog = () => {
+    setPaymentDialogOpen(false);
+    setPaymentAmount("");
+    setPaymentMethod("Cash");
+    setTransactionId("");
+    setCardLastFourDigits("");
+  };
+
+  const handleRecordPayment = async () => {
+    if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+
+    // Validate transaction ID for Online, Bank Transfer, Card
+    if (
+      (paymentMethod === "Online" ||
+        paymentMethod === "Bank Transfer" ||
+        paymentMethod === "Card") &&
+      !transactionId
+    ) {
+      toast.error("Transaction ID is required for this payment method");
+      return;
+    }
+
+    // Validate card last 4 digits for Card
+    if (
+      paymentMethod === "Card" &&
+      (!cardLastFourDigits || cardLastFourDigits.length !== 4)
+    ) {
+      toast.error("Please enter the last 4 digits of the card");
+      return;
+    }
+
+    const balanceDue =
+      (invoice?.totalPayable || 0) - (invoice?.amountPaid || 0);
+    const paymentValue = parseFloat(paymentAmount);
+
+    if (paymentValue > balanceDue) {
+      toast.error(
+        `Payment amount cannot exceed balance due of ${formatCurrency(balanceDue)}`,
+      );
+      return;
+    }
+
+    try {
+      setIsRecordingPayment(true);
+      const response = await invoiceService.recordPayment(
+        id,
+        paymentValue,
+        paymentMethod,
+        transactionId || undefined,
+        cardLastFourDigits || undefined,
+      );
+
+      if (response && response.success) {
+        toast.success("Payment recorded successfully!");
         setPaymentDialogOpen(false);
         setPaymentAmount("");
         setPaymentMethod("Cash");
         setTransactionId("");
         setCardLastFourDigits("");
-    };
+        // Refresh invoice data
+        await fetchInvoiceDetails();
+      } else {
+        toast.error(response?.message || "Failed to record payment");
+      }
+    } catch (error) {
+      console.error("Error recording payment:", error);
+      toast.error(error.response?.data?.message || "Failed to record payment");
+    } finally {
+      setIsRecordingPayment(false);
+    }
+  };
 
-    const handleRecordPayment = async () => {
-        if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
-            toast.error("Please enter a valid payment amount");
-            return;
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount || 0);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Categorize invoice items - ALWAYS prioritize category field from backend
+  const categorizeItem = (item) => {
+    // CRITICAL: Always use category field if available (backend sets this correctly)
+    if (item.category) {
+      const categoryMap = {
+        consultation: "Doctor Consultation",
+        therapy: "Therapy",
+        pharmacy: "Medicines",
+        food: "Food Charges",
+        ward: "Bed Charges",
+      };
+      const mappedCategory = categoryMap[item.category.toLowerCase()];
+      if (mappedCategory) {
+        return mappedCategory;
+      }
+      // If category exists but not in map, format it properly
+      return (
+        item.category.charAt(0).toUpperCase() +
+        item.category.slice(1).toLowerCase()
+      );
+    }
+
+    // Fallback to name-based categorization ONLY if category is missing
+    // Order matters: Check most specific patterns first, then general ones
+    const itemName = item.name || "";
+    if (!itemName) return "Other";
+    const name = itemName.toLowerCase().trim();
+
+    // Food - Check FIRST (before consultation) to avoid mis-categorization
+    if (
+      name.includes("breakfast") ||
+      name.includes("lunch") ||
+      name.includes("dinner") ||
+      name.includes("snack") ||
+      name.includes("meal") ||
+      name.includes("food charge") ||
+      name.includes("food")
+    ) {
+      return "Food Charges";
+    }
+
+    // Ward/Bed - Check SECOND (before consultation) to avoid mis-categorization
+    if (
+      name.includes("ward charge") ||
+      name.includes("general ward") ||
+      name.includes("bed charge") ||
+      name.includes("room charge") ||
+      name.includes("accommodation") ||
+      name.includes("ward") ||
+      name.includes("bed") ||
+      name.includes("one bed")
+    ) {
+      return "Bed Charges";
+    }
+
+    // Medicine/Pharmacy - Check THIRD (has specific indicators)
+    // If it has medicine details (dosage, frequency, etc.), it's definitely a medicine
+    if (item.dosage || item.frequency || item.duration || item.foodTiming) {
+      return "Medicines";
+    }
+
+    if (
+      name.includes("medicine") ||
+      name.includes("medication") ||
+      name.includes("tablet") ||
+      name.includes("capsule") ||
+      name.includes("syrup") ||
+      name.includes("injection") ||
+      name.includes("drops") ||
+      name.includes("ointment") ||
+      name.includes("cream") ||
+      name.includes("drug") ||
+      name.includes("pill")
+    ) {
+      return "Medicines";
+    }
+
+    // Therapy - Check FOURTH (specific therapy patterns)
+    if (
+      name.includes("therapy") ||
+      name.includes("therapy charge") ||
+      name.includes("opd therapy") ||
+      name.includes("ipd therapy") ||
+      name.includes("therapeutic") ||
+      name.includes("treatment session") ||
+      (name.includes("treatment") &&
+        (name.includes("charge") || name.includes("session"))) ||
+      name === "opd therapy charge" ||
+      name === "therapy charge" ||
+      // Common therapy names
+      name.includes("cardiology") ||
+      name.includes("physiotherapy") ||
+      name.includes("acupuncture") ||
+      name.includes("massage") ||
+      name.includes("yoga") ||
+      name.includes("panchakarma") ||
+      name.includes("shirodhara") ||
+      name.includes("abhyanga") ||
+      name.includes("basti") ||
+      // Check if item has therapy-related metadata
+      (item.description && item.description.toLowerCase().includes("therapy"))
+    ) {
+      return "Therapy";
+    }
+
+    // Doctor Consultation - Check LAST (most general, avoid false positives)
+    // Only match explicit consultation patterns
+    if (
+      name.includes("consultation") ||
+      name.includes("opd consultation") ||
+      name.includes("ipd consultation") ||
+      name.includes("consultation charge") ||
+      (name.includes("doctor") &&
+        (name.includes("fee") || name.includes("charge"))) ||
+      // Check if item has consultation-related metadata (for old invoices)
+      (item.description &&
+        (item.description.toLowerCase().includes("consultation") ||
+          item.description.toLowerCase().includes("examination")))
+    ) {
+      return "Doctor Consultation";
+    }
+
+    // Default to "Other" - don't assume consultation for items without clear category
+    return "Other";
+  };
+
+  // Group items by category
+  const groupItemsByCategory = (items) => {
+    if (!items || !Array.isArray(items)) return {};
+
+    const grouped = {};
+    items.forEach((item, index) => {
+      const category = categorizeItem(item); // Pass the whole item, not just name
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push({ ...item, originalIndex: index });
+    });
+
+    return grouped;
+  };
+
+  // Get category order for display
+  const getCategoryOrder = () => {
+    return [
+      "Doctor Consultation",
+      "Therapy",
+      "Medicines",
+      "Food Charges",
+      "Bed Charges",
+      "Other",
+    ];
+  };
+
+  const handleDownloadPdf = async () => {
+    if (invoice?.prescription) {
+      try {
+        const response = await invoiceService.downloadInvoicePdf(
+          invoice.prescription._id || invoice.prescription,
+        );
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Invoice_${invoice.invoiceNumber}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success("Invoice PDF downloaded successfully");
+      } catch (error) {
+        console.error("Download error:", error);
+        toast.error("Failed to download invoice PDF");
+      }
+    } else {
+      toast.info("PDF download not available for this invoice");
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!invoice || (!invoice.inpatient && !invoice.patient)) {
+      toast.error(
+        "Unable to determine invoice type for printing discharge report",
+      );
+      return;
+    }
+
+    try {
+      setPrintingReport(true);
+      let response;
+
+      // Check if it's an inpatient invoice
+      if (invoice.inpatient) {
+        const inpatientId = invoice.inpatient._id || invoice.inpatient;
+        if (!inpatientId) {
+          toast.error("Invalid inpatient ID");
+          return;
         }
-
-        // Validate transaction ID for Online, Bank Transfer, Card
-        if ((paymentMethod === "Online" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") && !transactionId) {
-            toast.error("Transaction ID is required for this payment method");
-            return;
+        response = await inpatientService.downloadDischargeReport(inpatientId);
+      } else if (invoice.patient) {
+        // Outpatient invoice - pass examination so report shows only this bill's charges
+        const patientId = invoice.patient._id || invoice.patient;
+        if (!patientId) {
+          toast.error("Invalid patient ID");
+          return;
         }
+        const examinationId =
+          invoice.examination?._id || invoice.examination || null;
+        response = await inpatientService.downloadOutpatientBillingReport(
+          patientId,
+          examinationId,
+        );
+      } else {
+        toast.error(
+          "Unable to determine invoice type for printing discharge report",
+        );
+        return;
+      }
 
-        // Validate card last 4 digits for Card
-        if (paymentMethod === "Card" && (!cardLastFourDigits || cardLastFourDigits.length !== 4)) {
-            toast.error("Please enter the last 4 digits of the card");
-            return;
-        }
+      // Check if response is valid
+      if (!response || !response.data) {
+        toast.error("Invalid response from server");
+        return;
+      }
 
-        const balanceDue = (invoice?.totalPayable || 0) - (invoice?.amountPaid || 0);
-        const paymentValue = parseFloat(paymentAmount);
+      // response.data is already a Blob when responseType is 'blob'
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url, "_blank");
 
-        if (paymentValue > balanceDue) {
-            toast.error(`Payment amount cannot exceed balance due of ${formatCurrency(balanceDue)}`);
-            return;
-        }
-
-        try {
-            setIsRecordingPayment(true);
-            const response = await invoiceService.recordPayment(id, paymentValue, paymentMethod, transactionId || undefined, cardLastFourDigits || undefined);
-
-            if (response && response.success) {
-                toast.success("Payment recorded successfully!");
-                setPaymentDialogOpen(false);
-                setPaymentAmount("");
-                setPaymentMethod("Cash");
-                setTransactionId("");
-                setCardLastFourDigits("");
-                // Refresh invoice data
-                await fetchInvoiceDetails();
-            } else {
-                toast.error(response?.message || "Failed to record payment");
-            }
-        } catch (error) {
-            console.error("Error recording payment:", error);
-            toast.error(error.response?.data?.message || "Failed to record payment");
-        } finally {
-            setIsRecordingPayment(false);
-        }
-    };
-
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(amount || 0);
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return "N/A";
-        const date = new Date(dateString);
-        return date.toLocaleDateString("en-IN", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };
-
-    // Categorize invoice items - ALWAYS prioritize category field from backend
-    const categorizeItem = (item) => {
-        // CRITICAL: Always use category field if available (backend sets this correctly)
-        if (item.category) {
-            const categoryMap = {
-                "consultation": "Doctor Consultation",
-                "therapy": "Therapy",
-                "pharmacy": "Medicines",
-                "food": "Food Charges",
-                "ward": "Bed Charges",
-            };
-            const mappedCategory = categoryMap[item.category.toLowerCase()];
-            if (mappedCategory) {
-                return mappedCategory;
-            }
-            // If category exists but not in map, format it properly
-            return item.category.charAt(0).toUpperCase() + item.category.slice(1).toLowerCase();
-        }
-
-        // Fallback to name-based categorization ONLY if category is missing
-        // Order matters: Check most specific patterns first, then general ones
-        const itemName = item.name || "";
-        if (!itemName) return "Other";
-        const name = itemName.toLowerCase().trim();
-
-        // Food - Check FIRST (before consultation) to avoid mis-categorization
-        if (name.includes("breakfast") ||
-            name.includes("lunch") ||
-            name.includes("dinner") ||
-            name.includes("snack") ||
-            name.includes("meal") ||
-            name.includes("food charge") ||
-            name.includes("food")) {
-            return "Food Charges";
-        }
-
-        // Ward/Bed - Check SECOND (before consultation) to avoid mis-categorization
-        if (name.includes("ward charge") ||
-            name.includes("general ward") ||
-            name.includes("bed charge") ||
-            name.includes("room charge") ||
-            name.includes("accommodation") ||
-            name.includes("ward") ||
-            name.includes("bed") ||
-            name.includes("one bed")) {
-            return "Bed Charges";
-        }
-
-        // Medicine/Pharmacy - Check THIRD (has specific indicators)
-        // If it has medicine details (dosage, frequency, etc.), it's definitely a medicine
-        if (item.dosage || item.frequency || item.duration || item.foodTiming) {
-            return "Medicines";
-        }
-
-        if (name.includes("medicine") ||
-            name.includes("medication") ||
-            name.includes("tablet") ||
-            name.includes("capsule") ||
-            name.includes("syrup") ||
-            name.includes("injection") ||
-            name.includes("drops") ||
-            name.includes("ointment") ||
-            name.includes("cream") ||
-            name.includes("drug") ||
-            name.includes("pill")) {
-            return "Medicines";
-        }
-
-        // Therapy - Check FOURTH (specific therapy patterns)
-        if (name.includes("therapy") ||
-            name.includes("therapy charge") ||
-            name.includes("opd therapy") ||
-            name.includes("ipd therapy") ||
-            name.includes("therapeutic") ||
-            name.includes("treatment session") ||
-            (name.includes("treatment") && (name.includes("charge") || name.includes("session"))) ||
-            name === "opd therapy charge" ||
-            name === "therapy charge" ||
-            // Common therapy names
-            name.includes("cardiology") ||
-            name.includes("physiotherapy") ||
-            name.includes("acupuncture") ||
-            name.includes("massage") ||
-            name.includes("yoga") ||
-            name.includes("panchakarma") ||
-            name.includes("shirodhara") ||
-            name.includes("abhyanga") ||
-            name.includes("basti") ||
-            // Check if item has therapy-related metadata
-            (item.description && item.description.toLowerCase().includes("therapy"))) {
-            return "Therapy";
-        }
-
-        // Doctor Consultation - Check LAST (most general, avoid false positives)
-        // Only match explicit consultation patterns
-        if (name.includes("consultation") ||
-            name.includes("opd consultation") ||
-            name.includes("ipd consultation") ||
-            name.includes("consultation charge") ||
-            (name.includes("doctor") && (name.includes("fee") || name.includes("charge"))) ||
-            // Check if item has consultation-related metadata (for old invoices)
-            (item.description && (item.description.toLowerCase().includes("consultation") || item.description.toLowerCase().includes("examination")))) {
-            return "Doctor Consultation";
-        }
-
-        // Default to "Other" - don't assume consultation for items without clear category
-        return "Other";
-    };
-
-    // Group items by category
-    const groupItemsByCategory = (items) => {
-        if (!items || !Array.isArray(items)) return {};
-
-        const grouped = {};
-        items.forEach((item, index) => {
-            const category = categorizeItem(item); // Pass the whole item, not just name
-            if (!grouped[category]) {
-                grouped[category] = [];
-            }
-            grouped[category].push({ ...item, originalIndex: index });
-        });
-
-        return grouped;
-    };
-
-    // Get category order for display
-    const getCategoryOrder = () => {
-        return ["Doctor Consultation", "Therapy", "Medicines", "Food Charges", "Bed Charges", "Other"];
-    };
-
-    const handleDownloadPdf = async () => {
-        if (invoice?.prescription) {
-            try {
-                const response = await invoiceService.downloadInvoicePdf(invoice.prescription._id || invoice.prescription);
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                const link = document.createElement("a");
-                link.href = url;
-                link.setAttribute("download", `Invoice_${invoice.invoiceNumber}.pdf`);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                toast.success("Invoice PDF downloaded successfully");
-            } catch (error) {
-                console.error("Download error:", error);
-                toast.error("Failed to download invoice PDF");
-            }
-        } else {
-            toast.info("PDF download not available for this invoice");
-        }
-    };
-
-    const handlePrint = async () => {
-        if (!invoice || (!invoice.inpatient && !invoice.patient)) {
-            toast.error("Unable to determine invoice type for printing discharge report");
-            return;
-        }
-
-        try {
-            setPrintingReport(true);
-            let response;
-
-            // Check if it's an inpatient invoice
-            if (invoice.inpatient) {
-                const inpatientId = invoice.inpatient._id || invoice.inpatient;
-                if (!inpatientId) {
-                    toast.error("Invalid inpatient ID");
-                    return;
-                }
-                response = await inpatientService.downloadDischargeReport(inpatientId);
-            } else if (invoice.patient) {
-                // Outpatient invoice - pass examination so report shows only this bill's charges
-                const patientId = invoice.patient._id || invoice.patient;
-                if (!patientId) {
-                    toast.error("Invalid patient ID");
-                    return;
-                }
-                const examinationId = invoice.examination?._id || invoice.examination || null;
-                response = await inpatientService.downloadOutpatientBillingReport(patientId, examinationId);
-            } else {
-                toast.error("Unable to determine invoice type for printing discharge report");
-                return;
-            }
-
-            // Check if response is valid
-            if (!response || !response.data) {
-                toast.error("Invalid response from server");
-                return;
-            }
-
-            // response.data is already a Blob when responseType is 'blob'
-            const blob = response.data;
-            const url = window.URL.createObjectURL(blob);
-            const printWindow = window.open(url, '_blank');
-
-            if (printWindow) {
-                printWindow.onload = () => {
-                    setTimeout(() => {
-                        printWindow.print();
-                        // Clean up the URL after a delay
-                        setTimeout(() => {
-                            window.URL.revokeObjectURL(url);
-                        }, 1000);
-                    }, 500);
-                };
-            } else {
-                toast.error("Please allow popups to print the discharge report");
-                window.URL.revokeObjectURL(url);
-            }
-
-            toast.success("Opening discharge report for printing...");
-        } catch (error) {
-            console.error("Print error:", error);
-            let errorMessage = "Failed to print discharge report.";
-
-            // Handle blob error responses
-            if (error.response && error.response.data instanceof Blob) {
-                try {
-                    const errorText = await error.response.data.text();
-                    const errorJson = JSON.parse(errorText);
-                    errorMessage = errorJson.message || errorMessage;
-                } catch (parseError) {
-                    errorMessage = error.response.statusText || `Server error: ${error.response.status}`;
-                }
-            } else if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            toast.error(errorMessage);
-        } finally {
-            setPrintingReport(false);
-        }
-    };
-
-    const handleDownloadDischargeReport = async () => {
-        if (!invoice || (!invoice.inpatient && !invoice.patient)) {
-            toast.error("Unable to determine invoice type for report download");
-            return;
-        }
-
-        try {
-            setDownloadingReport(true);
-            let response;
-            let fileName;
-
-            // Check if it's an inpatient invoice
-            if (invoice.inpatient) {
-                const inpatientId = invoice.inpatient._id || invoice.inpatient;
-                if (!inpatientId) {
-                    toast.error("Invalid inpatient ID");
-                    return;
-                }
-                response = await inpatientService.downloadDischargeReport(inpatientId);
-                fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
-            } else if (invoice.patient) {
-                // Outpatient invoice - pass examination so report shows only this bill's charges
-                const patientId = invoice.patient._id || invoice.patient;
-                if (!patientId) {
-                    toast.error("Invalid patient ID");
-                    return;
-                }
-                const examinationId = invoice.examination?._id || invoice.examination || null;
-                response = await inpatientService.downloadOutpatientBillingReport(patientId, examinationId);
-                fileName = `Discharge_${invoice.patient?.user?.name || 'Report'}.pdf`;
-            } else {
-                toast.error("Unable to determine invoice type for report download");
-                return;
-            }
-
-            // Check if response is valid
-            if (!response || !response.data) {
-                toast.error("Invalid response from server");
-                return;
-            }
-
-            // response.data is already a Blob when responseType is 'blob'
-            const blob = response.data;
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-
-            // Clean up
+      if (printWindow) {
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+            // Clean up the URL after a delay
             setTimeout(() => {
-                link.remove();
-                window.URL.revokeObjectURL(url);
-            }, 100);
+              window.URL.revokeObjectURL(url);
+            }, 1000);
+          }, 500);
+        };
+      } else {
+        toast.error("Please allow popups to print the discharge report");
+        window.URL.revokeObjectURL(url);
+      }
 
-            toast.success("Discharge report downloaded successfully!");
-        } catch (error) {
-            console.error("Download error:", error);
-            let errorMessage = "Failed to download discharge report.";
+      toast.success("Opening discharge report for printing...");
+    } catch (error) {
+      console.error("Print error:", error);
+      let errorMessage = "Failed to print discharge report.";
 
-            // Handle blob error responses
-            if (error.response && error.response.data instanceof Blob) {
-                try {
-                    const errorText = await error.response.data.text();
-                    const errorJson = JSON.parse(errorText);
-                    errorMessage = errorJson.message || errorMessage;
-                } catch (parseError) {
-                    errorMessage = error.response.statusText || `Server error: ${error.response.status}`;
-                }
-            } else if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            toast.error(errorMessage);
-        } finally {
-            setDownloadingReport(false);
+      // Handle blob error responses
+      if (error.response && error.response.data instanceof Blob) {
+        try {
+          const errorText = await error.response.data.text();
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch (parseError) {
+          errorMessage =
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
         }
-    };
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
 
-    if (loading) {
-        return (
-            <Box sx={{ padding: "20px", display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-            </Box>
+      toast.error(errorMessage);
+    } finally {
+      setPrintingReport(false);
+    }
+  };
+
+  const handleDownloadDischargeReport = async () => {
+    if (!invoice || (!invoice.inpatient && !invoice.patient)) {
+      toast.error("Unable to determine invoice type for report download");
+      return;
+    }
+
+    try {
+      setDownloadingReport(true);
+      let response;
+      let fileName;
+
+      // Check if it's an inpatient invoice
+      if (invoice.inpatient) {
+        const inpatientId = invoice.inpatient._id || invoice.inpatient;
+        if (!inpatientId) {
+          toast.error("Invalid inpatient ID");
+          return;
+        }
+        response = await inpatientService.downloadDischargeReport(inpatientId);
+        fileName = `Discharge_${invoice.patient?.user?.name || "Report"}.pdf`;
+      } else if (invoice.patient) {
+        // Outpatient invoice - pass examination so report shows only this bill's charges
+        const patientId = invoice.patient._id || invoice.patient;
+        if (!patientId) {
+          toast.error("Invalid patient ID");
+          return;
+        }
+        const examinationId =
+          invoice.examination?._id || invoice.examination || null;
+        response = await inpatientService.downloadOutpatientBillingReport(
+          patientId,
+          examinationId,
         );
-    }
+        fileName = `Discharge_${invoice.patient?.user?.name || "Report"}.pdf`;
+      } else {
+        toast.error("Unable to determine invoice type for report download");
+        return;
+      }
 
-    if (!invoice) {
-        return (
-            <Box sx={{ padding: "20px" }}>
-                <div className="alert alert-danger">Invoice not found.</div>
-            </Box>
-        );
-    }
+      // Check if response is valid
+      if (!response || !response.data) {
+        toast.error("Invalid response from server");
+        return;
+      }
 
-    const discountAmount = invoice.subtotal * ((invoice.discountRate || 0) / 100);
-    const taxableAmount = invoice.subtotal - discountAmount;
-    
-    // CRITICAL FIX: GST should only be applied to pharmacy items, not consultation or therapy
-    // Calculate pharmacy subtotal (items with category "pharmacy")
-    const pharmacySubtotal = (invoice.items || [])
-        .filter(item => item.category === "pharmacy")
-        .reduce((sum, item) => sum + (item.total || 0), 0);
-    
-    // Apply discount proportionally to pharmacy items
-    let pharmacyTaxableAmount = pharmacySubtotal;
-    if (discountAmount > 0 && invoice.subtotal > 0) {
-        // Apply discount proportionally based on pharmacy's share of subtotal
-        const pharmacyDiscount = (pharmacySubtotal / invoice.subtotal) * discountAmount;
-        pharmacyTaxableAmount = Math.max(0, pharmacySubtotal - pharmacyDiscount);
-    }
-    
-    // Calculate tax only on pharmacy items
-    const taxAmount = pharmacyTaxableAmount * ((invoice.taxRate || 0) / 100);
+      // response.data is already a Blob when responseType is 'blob'
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
 
+      // Clean up
+      setTimeout(() => {
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }, 100);
+
+      toast.success("Discharge report downloaded successfully!");
+    } catch (error) {
+      console.error("Download error:", error);
+      let errorMessage = "Failed to download discharge report.";
+
+      // Handle blob error responses
+      if (error.response && error.response.data instanceof Blob) {
+        try {
+          const errorText = await error.response.data.text();
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch (parseError) {
+          errorMessage =
+            error.response.statusText ||
+            `Server error: ${error.response.status}`;
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
+  if (loading) {
     return (
-        <Box sx={{ padding: "20px" }} className="invoice-details-page">
-            {/* ⭐ Breadcrumb */}
-            <Breadcrumb items={breadcrumbItems} />
+      <Box
+        sx={{
+          padding: "20px",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "400px",
+        }}
+      >
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </Box>
+    );
+  }
 
-            {/* ⭐ Page Heading */}
-            <HeadingCardingCard
-                category="INVOICE DETAILS"
-                title={`Invoice #${invoice.invoiceNumber}`}
-                subtitle="View complete invoice information and details"
-            />
+  if (!invoice) {
+    return (
+      <Box sx={{ padding: "20px" }}>
+        <div className="alert alert-danger">Invoice not found.</div>
+      </Box>
+    );
+  }
 
-            {/* ⭐ Action Buttons */}
-            <Box sx={{ display: "flex", gap: 2, marginBottom: 3, flexWrap: "wrap" }}>
-                <Button
-                    variant="outlined"
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => navigate("/receptionist/payments")}
-                    sx={{
-                        borderColor: "#D4A574",
-                        color: "#D4A574",
-                        "&:hover": {
-                            borderColor: "#B8935A",
-                            backgroundColor: "rgba(212, 165, 116, 0.1)",
-                        },
-                    }}
+  // Discount applies on full subtotal (all categories)
+  const discountAmount =
+    invoice.discountType === "fixed"
+      ? invoice.discountValue || 0
+      : invoice.subtotal *
+        ((invoice.discountValue || invoice.discountRate || 0) / 100);
+  const taxableAmount = Math.max(0, invoice.subtotal - discountAmount);
+
+  // GST applies on pharmacy items only (full pharmacy amount, no proportional discount deduction)
+  const pharmacySubtotal = (invoice.items || [])
+    .filter((item) => item.category === "pharmacy")
+    .reduce((sum, item) => sum + (item.total || 0), 0);
+
+  const taxAmount = pharmacySubtotal * ((invoice.taxRate || 0) / 100);
+
+  return (
+    <Box sx={{ padding: "20px" }} className="invoice-details-page">
+      {/* ⭐ Breadcrumb */}
+      <Breadcrumb items={breadcrumbItems} />
+
+      {/* ⭐ Page Heading */}
+      <HeadingCardingCard
+        category="INVOICE DETAILS"
+        title={`Invoice #${invoice.invoiceNumber}`}
+        subtitle="View complete invoice information and details"
+      />
+
+      {/* ⭐ Action Buttons */}
+      <Box sx={{ display: "flex", gap: 2, marginBottom: 3, flexWrap: "wrap" }}>
+        <Button
+          variant="outlined"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate("/receptionist/payments")}
+          sx={{
+            borderColor: "#D4A574",
+            color: "#D4A574",
+            "&:hover": {
+              borderColor: "#B8935A",
+              backgroundColor: "rgba(212, 165, 116, 0.1)",
+            },
+          }}
+        >
+          Back to Payments
+        </Button>
+        {invoice.totalPayable - (invoice.amountPaid || 0) > 0 && (
+          <Button
+            variant="contained"
+            startIcon={<PaymentIcon />}
+            onClick={handleOpenPaymentDialog}
+            sx={{
+              backgroundColor: "#ff9800",
+              "&:hover": {
+                backgroundColor: "#f57c00",
+              },
+            }}
+          >
+            Record Payment
+          </Button>
+        )}
+        {invoice.prescription && (
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadPdf}
+            sx={{
+              borderColor: "#1976d2",
+              color: "#1976d2",
+              "&:hover": {
+                borderColor: "#1565c0",
+                backgroundColor: "rgba(25, 118, 210, 0.1)",
+              },
+            }}
+          >
+            Download PDF
+          </Button>
+        )}
+        {(invoice.inpatient || invoice.patient) && (
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadDischargeReport}
+            disabled={downloadingReport}
+            sx={{
+              backgroundColor: "#1976d2",
+              "&:hover": {
+                backgroundColor: "#1565c0",
+              },
+            }}
+          >
+            {downloadingReport ? (
+              <>
+                <span
+                  className="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                Preparing PDF...
+              </>
+            ) : (
+              <>Download Discharge Report</>
+            )}
+          </Button>
+        )}
+        {(invoice.inpatient || invoice.patient) && (
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={handlePrint}
+            disabled={printingReport}
+            sx={{
+              backgroundColor: "#4CAF50",
+              "&:hover": {
+                backgroundColor: "#45a049",
+              },
+            }}
+          >
+            {printingReport ? (
+              <>
+                <CircularProgress size={16} sx={{ mr: 1 }} />
+                Preparing...
+              </>
+            ) : (
+              <>Print Discharge Report</>
+            )}
+          </Button>
+        )}
+      </Box>
+
+      {/* ⭐ Invoice Card */}
+      <Card sx={{ boxShadow: 3, borderRadius: 2, marginBottom: 3 }}>
+        <CardContent sx={{ padding: 4 }}>
+          {/* Header Section */}
+          <Box sx={{ marginBottom: 4 }}>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 700, color: "#1a1a1a", marginBottom: 1 }}
+            >
+              Utpala Ayurdhama
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#666", marginBottom: 0.5 }}
+            >
+              Healthcare & Wellness Center
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#666" }}>
+              Invoice # {invoice.invoiceNumber}
+            </Typography>
+          </Box>
+
+          <Divider sx={{ marginY: 3 }} />
+
+          {/* Patient & Invoice Info Section */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 4,
+              marginBottom: 4,
+            }}
+          >
+            {/* Patient Information */}
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  marginBottom: 2,
+                  color: "#1a1a1a",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <PersonIcon sx={{ fontSize: "1.5rem", color: "#D4A574" }} />
+                Patient Information
+              </Typography>
+              <Box
+                sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}
+              >
+                <Typography variant="body2" sx={{ marginBottom: 1 }}>
+                  <strong>Name:</strong> {invoice.patient?.user?.name || "N/A"}
+                </Typography>
+                {invoice.patient?.uhid && (
+                  <Typography variant="body2" sx={{ marginBottom: 1 }}>
+                    <strong>UHID:</strong> {invoice.patient.uhid}
+                  </Typography>
+                )}
+                {invoice.patient?.user?.email && (
+                  <Typography variant="body2" sx={{ marginBottom: 1 }}>
+                    <strong>Email:</strong> {invoice.patient.user.email}
+                  </Typography>
+                )}
+                {invoice.patient?.user?.phone && (
+                  <Typography variant="body2">
+                    <strong>Phone:</strong> {invoice.patient.user.phone}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            {/* Invoice Information */}
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  marginBottom: 2,
+                  color: "#1a1a1a",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <ReceiptIcon sx={{ fontSize: "1.5rem", color: "#D4A574" }} />
+                Invoice Information
+              </Typography>
+              <Box
+                sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    marginBottom: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
                 >
-                    Back to Payments
-                </Button>
-                {(invoice.totalPayable - (invoice.amountPaid || 0)) > 0 && (
-                    <Button
-                        variant="contained"
-                        startIcon={<PaymentIcon />}
-                        onClick={handleOpenPaymentDialog}
-                        sx={{
-                            backgroundColor: "#ff9800",
-                            "&:hover": {
-                                backgroundColor: "#f57c00",
-                            },
-                        }}
-                    >
-                        Record Payment
-                    </Button>
+                  <CalendarTodayIcon sx={{ fontSize: "1rem", color: "#666" }} />
+                  <strong>Date:</strong> {formatDate(invoice.createdAt)}
+                </Typography>
+                {invoice.doctor?.user?.name && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      marginBottom: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <LocalHospitalIcon
+                      sx={{ fontSize: "1rem", color: "#666" }}
+                    />
+                    <strong>Doctor:</strong> {invoice.doctor.user.name}
+                  </Typography>
+                )}
+                {invoice.inpatient && (
+                  <Typography variant="body2" sx={{ marginBottom: 1 }}>
+                    <strong>Type:</strong>{" "}
+                    <Chip
+                      label="Inpatient"
+                      size="small"
+                      color="info"
+                      sx={{ marginLeft: 1 }}
+                    />
+                  </Typography>
                 )}
                 {invoice.prescription && (
-                    <Button
-                        variant="outlined"
-                        startIcon={<DownloadIcon />}
-                        onClick={handleDownloadPdf}
-                        sx={{
-                            borderColor: "#1976d2",
-                            color: "#1976d2",
-                            "&:hover": {
-                                borderColor: "#1565c0",
-                                backgroundColor: "rgba(25, 118, 210, 0.1)",
-                            },
-                        }}
-                    >
-                        Download PDF
-                    </Button>
+                  <Typography variant="body2">
+                    <strong>Prescription:</strong>{" "}
+                    {typeof invoice.prescription === "object" &&
+                    invoice.prescription.createdAt
+                      ? `Prescription dated ${formatDate(invoice.prescription.createdAt)}`
+                      : typeof invoice.prescription === "object" &&
+                          invoice.prescription._id
+                        ? `Prescription #${invoice.prescription._id.toString().slice(-8).toUpperCase()}`
+                        : typeof invoice.prescription === "string"
+                          ? `Prescription #${invoice.prescription.slice(-8).toUpperCase()}`
+                          : "Prescription"}
+                  </Typography>
                 )}
-                {(invoice.inpatient || invoice.patient) && (
-                    <Button
-                        variant="contained"
-                        startIcon={<DownloadIcon />}
-                        onClick={handleDownloadDischargeReport}
-                        disabled={downloadingReport}
-                        sx={{
-                            backgroundColor: "#1976d2",
-                            "&:hover": {
-                                backgroundColor: "#1565c0",
-                            },
-                        }}
-                    >
-                        {downloadingReport ? (
-                            <>
-                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                Preparing PDF...
-                            </>
-                        ) : (
-                            <>
-                                Download Discharge Report
-                            </>
-                        )}
-                    </Button>
-                )}
-                {(invoice.inpatient || invoice.patient) && (
-                    <Button
-                        variant="contained"
-                        startIcon={<PrintIcon />}
-                        onClick={handlePrint}
-                        disabled={printingReport}
-                        sx={{
-                            backgroundColor: "#4CAF50",
-                            "&:hover": {
-                                backgroundColor: "#45a049",
-                            },
-                        }}
-                    >
-                        {printingReport ? (
-                            <>
-                                <CircularProgress size={16} sx={{ mr: 1 }} />
-                                Preparing...
-                            </>
-                        ) : (
-                            <>
-                                Print Discharge Report
-                            </>
-                        )}
-                    </Button>
-                )}
+              </Box>
             </Box>
+          </Box>
 
-            {/* ⭐ Invoice Card */}
-            <Card sx={{ boxShadow: 3, borderRadius: 2, marginBottom: 3 }}>
-                <CardContent sx={{ padding: 4 }}>
-                    {/* Header Section */}
-                    <Box sx={{ marginBottom: 4 }}>
-                        <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a1a1a", marginBottom: 1 }}>
-                            Utpala Ayurdhama
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: "#666", marginBottom: 0.5 }}>
-                            Healthcare & Wellness Center
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: "#666" }}>
-                            Invoice # {invoice.invoiceNumber}
-                        </Typography>
-                    </Box>
+          <Divider sx={{ marginY: 3 }} />
 
-                    <Divider sx={{ marginY: 3 }} />
+          {/* Items Table */}
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 600, marginBottom: 2, color: "#1a1a1a" }}
+          >
+            Invoice Items
+          </Typography>
+          {(() => {
+            const groupedItems = groupItemsByCategory(invoice.items || []);
+            const categoryOrder = getCategoryOrder();
+            let itemCounter = 0;
 
-                    {/* Patient & Invoice Info Section */}
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 4, marginBottom: 4 }}>
-                        {/* Patient Information */}
-                        <Box>
-                            <Typography variant="h6" sx={{ fontWeight: 600, marginBottom: 2, color: "#1a1a1a", display: "flex", alignItems: "center", gap: 1 }}>
-                                <PersonIcon sx={{ fontSize: "1.5rem", color: "#D4A574" }} />
-                                Patient Information
-                            </Typography>
-                            <Box sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}>
-                                <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                                    <strong>Name:</strong> {invoice.patient?.user?.name || "N/A"}
-                                </Typography>
-                                {invoice.patient?.uhid && (
-                                    <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                                        <strong>UHID:</strong> {invoice.patient.uhid}
-                                    </Typography>
-                                )}
-                                {invoice.patient?.user?.email && (
-                                    <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                                        <strong>Email:</strong> {invoice.patient.user.email}
-                                    </Typography>
-                                )}
-                                {invoice.patient?.user?.phone && (
-                                    <Typography variant="body2">
-                                        <strong>Phone:</strong> {invoice.patient.user.phone}
-                                    </Typography>
-                                )}
-                            </Box>
-                        </Box>
+            return (
+              <Paper sx={{ overflow: "hidden", marginBottom: 4 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
+                      <TableCell sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                        #
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                        Item Name
+                      </TableCell>
+                      <TableCell
+                        align="center"
+                        sx={{ fontWeight: 600, fontSize: "0.875rem" }}
+                      >
+                        Quantity
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ fontWeight: 600, fontSize: "0.875rem" }}
+                      >
+                        Unit Price
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ fontWeight: 600, fontSize: "0.875rem" }}
+                      >
+                        Total
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {invoice.items && invoice.items.length > 0 ? (
+                      categoryOrder.map((category) => {
+                        const categoryItems = groupedItems[category];
+                        if (!categoryItems || categoryItems.length === 0)
+                          return null;
 
-                        {/* Invoice Information */}
-                        <Box>
-                            <Typography variant="h6" sx={{ fontWeight: 600, marginBottom: 2, color: "#1a1a1a", display: "flex", alignItems: "center", gap: 1 }}>
-                                <ReceiptIcon sx={{ fontSize: "1.5rem", color: "#D4A574" }} />
-                                Invoice Information
-                            </Typography>
-                            <Box sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}>
-                                <Typography variant="body2" sx={{ marginBottom: 1, display: "flex", alignItems: "center", gap: 1 }}>
-                                    <CalendarTodayIcon sx={{ fontSize: "1rem", color: "#666" }} />
-                                    <strong>Date:</strong> {formatDate(invoice.createdAt)}
-                                </Typography>
-                                {invoice.doctor?.user?.name && (
-                                    <Typography variant="body2" sx={{ marginBottom: 1, display: "flex", alignItems: "center", gap: 1 }}>
-                                        <LocalHospitalIcon sx={{ fontSize: "1rem", color: "#666" }} />
-                                        <strong>Doctor:</strong> {invoice.doctor.user.name}
-                                    </Typography>
-                                )}
-                                {invoice.inpatient && (
-                                    <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                                        <strong>Type:</strong> <Chip label="Inpatient" size="small" color="info" sx={{ marginLeft: 1 }} />
-                                    </Typography>
-                                )}
-                                {invoice.prescription && (
-                                    <Typography variant="body2">
-                                        <strong>Prescription:</strong> {
-                                            typeof invoice.prescription === 'object' && invoice.prescription.createdAt
-                                                ? `Prescription dated ${formatDate(invoice.prescription.createdAt)}`
-                                                : typeof invoice.prescription === 'object' && invoice.prescription._id
-                                                    ? `Prescription #${invoice.prescription._id.toString().slice(-8).toUpperCase()}`
-                                                    : typeof invoice.prescription === 'string'
-                                                        ? `Prescription #${invoice.prescription.slice(-8).toUpperCase()}`
-                                                        : 'Prescription'
-                                        }
-                                    </Typography>
-                                )}
-                            </Box>
-                        </Box>
-                    </Box>
-
-                    <Divider sx={{ marginY: 3 }} />
-
-                    {/* Items Table */}
-                    <Typography variant="h6" sx={{ fontWeight: 600, marginBottom: 2, color: "#1a1a1a" }}>
-                        Invoice Items
-                    </Typography>
-                    {(() => {
-                        const groupedItems = groupItemsByCategory(invoice.items || []);
-                        const categoryOrder = getCategoryOrder();
-                        let itemCounter = 0;
+                        const categoryTotal = categoryItems.reduce(
+                          (sum, item) => sum + (item.total || 0),
+                          0,
+                        );
 
                         return (
-                            <Paper sx={{ overflow: "hidden", marginBottom: 4 }}>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
-                                            <TableCell sx={{ fontWeight: 600, fontSize: "0.875rem" }}>#</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, fontSize: "0.875rem" }}>Item Name</TableCell>
-                                            <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>Quantity</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>Unit Price</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>Total</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {invoice.items && invoice.items.length > 0 ? (
-                                            categoryOrder.map((category) => {
-                                                const categoryItems = groupedItems[category];
-                                                if (!categoryItems || categoryItems.length === 0) return null;
+                          <Fragment key={category}>
+                            {/* Category Header */}
+                            <TableRow sx={{ backgroundColor: "#e8f4f8" }}>
+                              <TableCell
+                                colSpan={4}
+                                sx={{
+                                  fontWeight: 700,
+                                  fontSize: "0.95rem",
+                                  color: "#1a1a1a",
+                                  borderBottom: "2px solid #dee2e6",
+                                }}
+                              >
+                                {category}
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{
+                                  fontWeight: 700,
+                                  fontSize: "0.95rem",
+                                  color: "#1a1a1a",
+                                  borderBottom: "2px solid #dee2e6",
+                                }}
+                              >
+                                {formatCurrency(categoryTotal)}
+                              </TableCell>
+                            </TableRow>
+                            {/* Category Items - Show different columns based on category */}
+                            {categoryItems.map((item) => {
+                              itemCounter++;
+                              const isMedicine =
+                                item.category === "pharmacy" ||
+                                category === "Medicines";
 
-                                                const categoryTotal = categoryItems.reduce((sum, item) => sum + (item.total || 0), 0);
-
-                                                return (
-                                                    <Fragment key={category}>
-                                                        {/* Category Header */}
-                                                        <TableRow sx={{ backgroundColor: "#e8f4f8" }}>
-                                                            <TableCell
-                                                                colSpan={4}
-                                                                sx={{
-                                                                    fontWeight: 700,
-                                                                    fontSize: "0.95rem",
-                                                                    color: "#1a1a1a",
-                                                                    borderBottom: "2px solid #dee2e6",
-                                                                }}
-                                                            >
-                                                                {category}
-                                                            </TableCell>
-                                                            <TableCell
-                                                                align="right"
-                                                                sx={{
-                                                                    fontWeight: 700,
-                                                                    fontSize: "0.95rem",
-                                                                    color: "#1a1a1a",
-                                                                    borderBottom: "2px solid #dee2e6",
-                                                                }}
-                                                            >
-                                                                {formatCurrency(categoryTotal)}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                        {/* Category Items - Show different columns based on category */}
-                                                        {categoryItems.map((item) => {
-                                                            itemCounter++;
-                                                            const isMedicine = item.category === "pharmacy" || category === "Medicines";
-
-                                                            // For medicines, show expanded table with medicine details
-                                                            if (isMedicine) {
-                                                                return (
-                                                                    <Fragment key={`${category}-${item.originalIndex}`}>
-                                                                        {/* Medicine row with details */}
-                                                                        <TableRow hover>
-                                                                            <TableCell sx={{ fontSize: "0.875rem" }}>{itemCounter}</TableCell>
-                                                                            <TableCell sx={{ fontSize: "0.875rem", fontWeight: 500, paddingLeft: 3 }}>
-                                                                                {item.name}
-                                                                                {item.remarks && (
-                                                                                    <Typography variant="caption" sx={{ display: "block", color: "#666", fontStyle: "italic", marginTop: 0.5 }}>
-                                                                                        <strong>Remarks:</strong> {item.remarks}
-                                                                                    </Typography>
-                                                                                )}
-                                                                            </TableCell>
-                                                                            <TableCell align="center" sx={{ fontSize: "0.875rem" }}>
-                                                                                {item.dispensedQuantity !== undefined ? item.dispensedQuantity : (item.quantity || 0)}
-                                                                            </TableCell>
-                                                                            <TableCell align="right" sx={{ fontSize: "0.875rem" }}>
-                                                                                {formatCurrency(item.unitPrice)}
-                                                                            </TableCell>
-                                                                            <TableCell align="right" sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                                                {formatCurrency(item.total)}
-                                                                            </TableCell>
-                                                                        </TableRow>
-                                                                        {/* Medicine details row */}
-                                                                        {(item.dosage || item.frequency || item.duration || item.foodTiming) && (
-                                                                            <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
-                                                                                <TableCell></TableCell>
-                                                                                <TableCell colSpan={4} sx={{ fontSize: "0.75rem", paddingLeft: 5, paddingTop: 0.5, paddingBottom: 0.5 }}>
-                                                                                    <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                                                                                        {item.dosage && (
-                                                                                            <Typography component="span" sx={{ fontSize: "0.75rem" }}>
-                                                                                                <strong>Dosage:</strong> {item.dosage}
-                                                                                            </Typography>
-                                                                                        )}
-                                                                                        {item.frequency && (
-                                                                                            <Typography component="span" sx={{ fontSize: "0.75rem" }}>
-                                                                                                <strong>Frequency:</strong> {item.frequency}
-                                                                                            </Typography>
-                                                                                        )}
-                                                                                        {item.duration && (
-                                                                                            <Typography component="span" sx={{ fontSize: "0.75rem" }}>
-                                                                                                <strong>Duration:</strong> {item.duration}
-                                                                                            </Typography>
-                                                                                        )}
-                                                                                        {item.foodTiming && (
-                                                                                            <Chip
-                                                                                                label={item.foodTiming}
-                                                                                                size="small"
-                                                                                                color={item.foodTiming === "Before Food" ? "warning" : "info"}
-                                                                                                sx={{ fontSize: "0.65rem", height: "18px" }}
-                                                                                            />
-                                                                                        )}
-                                                                                    </Box>
-                                                                                </TableCell>
-                                                                            </TableRow>
-                                                                        )}
-                                                                    </Fragment>
-                                                                );
-                                                            }
-
-                                                            // For non-medicine items, show simple row
-                                                            return (
-                                                                <TableRow key={`${category}-${item.originalIndex}`} hover>
-                                                                    <TableCell sx={{ fontSize: "0.875rem" }}>{itemCounter}</TableCell>
-                                                                    <TableCell sx={{ fontSize: "0.875rem", fontWeight: 500, paddingLeft: 3 }}>
-                                                                        {item.name}
-                                                                        {item.remarks && (
-                                                                            <Typography variant="caption" sx={{ display: "block", color: "#666", fontStyle: "italic", marginTop: 0.5 }}>
-                                                                                <strong>Remarks:</strong> {item.remarks}
-                                                                            </Typography>
-                                                                        )}
-                                                                    </TableCell>
-                                                                    <TableCell align="center" sx={{ fontSize: "0.875rem" }}>
-                                                                        {item.dispensedQuantity !== undefined ? item.dispensedQuantity : (item.quantity || 0)}
-                                                                    </TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: "0.875rem" }}>
-                                                                        {formatCurrency(item.unitPrice)}
-                                                                    </TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                                        {formatCurrency(item.total)}
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            );
-                                                        })}
-                                                    </Fragment>
-                                                );
-                                            })
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={5} align="center" sx={{ padding: 4, color: "#999" }}>
-                                                    No items found
-                                                </TableCell>
-                                            </TableRow>
+                              // For medicines, show expanded table with medicine details
+                              if (isMedicine) {
+                                return (
+                                  <Fragment
+                                    key={`${category}-${item.originalIndex}`}
+                                  >
+                                    {/* Medicine row with details */}
+                                    <TableRow hover>
+                                      <TableCell sx={{ fontSize: "0.875rem" }}>
+                                        {itemCounter}
+                                      </TableCell>
+                                      <TableCell
+                                        sx={{
+                                          fontSize: "0.875rem",
+                                          fontWeight: 500,
+                                          paddingLeft: 3,
+                                        }}
+                                      >
+                                        {item.name}
+                                        {item.remarks && (
+                                          <Typography
+                                            variant="caption"
+                                            sx={{
+                                              display: "block",
+                                              color: "#666",
+                                              fontStyle: "italic",
+                                              marginTop: 0.5,
+                                            }}
+                                          >
+                                            <strong>Remarks:</strong>{" "}
+                                            {item.remarks}
+                                          </Typography>
                                         )}
-                                    </TableBody>
-                                </Table>
-                            </Paper>
+                                      </TableCell>
+                                      <TableCell
+                                        align="center"
+                                        sx={{ fontSize: "0.875rem" }}
+                                      >
+                                        {item.dispensedQuantity !== undefined
+                                          ? item.dispensedQuantity
+                                          : item.quantity || 0}
+                                      </TableCell>
+                                      <TableCell
+                                        align="right"
+                                        sx={{ fontSize: "0.875rem" }}
+                                      >
+                                        {formatCurrency(item.unitPrice)}
+                                      </TableCell>
+                                      <TableCell
+                                        align="right"
+                                        sx={{
+                                          fontSize: "0.875rem",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {formatCurrency(item.total)}
+                                      </TableCell>
+                                    </TableRow>
+                                    {/* Medicine details row */}
+                                    {(item.dosage ||
+                                      item.frequency ||
+                                      item.duration ||
+                                      item.foodTiming) && (
+                                      <TableRow
+                                        sx={{ backgroundColor: "#f8f9fa" }}
+                                      >
+                                        <TableCell></TableCell>
+                                        <TableCell
+                                          colSpan={4}
+                                          sx={{
+                                            fontSize: "0.75rem",
+                                            paddingLeft: 5,
+                                            paddingTop: 0.5,
+                                            paddingBottom: 0.5,
+                                          }}
+                                        >
+                                          <Box
+                                            sx={{
+                                              display: "flex",
+                                              gap: 2,
+                                              flexWrap: "wrap",
+                                            }}
+                                          >
+                                            {item.dosage && (
+                                              <Typography
+                                                component="span"
+                                                sx={{ fontSize: "0.75rem" }}
+                                              >
+                                                <strong>Dosage:</strong>{" "}
+                                                {item.dosage}
+                                              </Typography>
+                                            )}
+                                            {item.frequency && (
+                                              <Typography
+                                                component="span"
+                                                sx={{ fontSize: "0.75rem" }}
+                                              >
+                                                <strong>Frequency:</strong>{" "}
+                                                {item.frequency}
+                                              </Typography>
+                                            )}
+                                            {item.duration && (
+                                              <Typography
+                                                component="span"
+                                                sx={{ fontSize: "0.75rem" }}
+                                              >
+                                                <strong>Duration:</strong>{" "}
+                                                {item.duration}
+                                              </Typography>
+                                            )}
+                                            {item.foodTiming && (
+                                              <Chip
+                                                label={item.foodTiming}
+                                                size="small"
+                                                color={
+                                                  item.foodTiming ===
+                                                  "Before Food"
+                                                    ? "warning"
+                                                    : "info"
+                                                }
+                                                sx={{
+                                                  fontSize: "0.65rem",
+                                                  height: "18px",
+                                                }}
+                                              />
+                                            )}
+                                          </Box>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </Fragment>
+                                );
+                              }
+
+                              // For non-medicine items, show simple row
+                              return (
+                                <TableRow
+                                  key={`${category}-${item.originalIndex}`}
+                                  hover
+                                >
+                                  <TableCell sx={{ fontSize: "0.875rem" }}>
+                                    {itemCounter}
+                                  </TableCell>
+                                  <TableCell
+                                    sx={{
+                                      fontSize: "0.875rem",
+                                      fontWeight: 500,
+                                      paddingLeft: 3,
+                                    }}
+                                  >
+                                    {item.name}
+                                    {item.remarks && (
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          display: "block",
+                                          color: "#666",
+                                          fontStyle: "italic",
+                                          marginTop: 0.5,
+                                        }}
+                                      >
+                                        <strong>Remarks:</strong> {item.remarks}
+                                      </Typography>
+                                    )}
+                                  </TableCell>
+                                  <TableCell
+                                    align="center"
+                                    sx={{ fontSize: "0.875rem" }}
+                                  >
+                                    {item.dispensedQuantity !== undefined
+                                      ? item.dispensedQuantity
+                                      : item.quantity || 0}
+                                  </TableCell>
+                                  <TableCell
+                                    align="right"
+                                    sx={{ fontSize: "0.875rem" }}
+                                  >
+                                    {formatCurrency(item.unitPrice)}
+                                  </TableCell>
+                                  <TableCell
+                                    align="right"
+                                    sx={{
+                                      fontSize: "0.875rem",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {formatCurrency(item.total)}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </Fragment>
                         );
-                    })()}
-
-                    {/* Summary Section */}
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", marginBottom: 3 }}>
-                        <Box sx={{ minWidth: "300px" }}>
-                            <Box sx={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}>
-                                <Typography variant="body1" sx={{ color: "#666" }}>Subtotal:</Typography>
-                                <Typography variant="body1" sx={{ fontWeight: 500 }}>{formatCurrency(invoice.subtotal)}</Typography>
-                            </Box>
-                            {invoice.discountRate > 0 && (
-                                <>
-                                    <Box sx={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}>
-                                        <Typography variant="body1" sx={{ color: "#666" }}>
-                                            Discount ({invoice.discountRate}%):
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500, color: "#4CAF50" }}>
-                                            -{formatCurrency(discountAmount)}
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}>
-                                        <Typography variant="body1" sx={{ color: "#666" }}>Taxable Amount:</Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>{formatCurrency(taxableAmount)}</Typography>
-                                    </Box>
-                                </>
-                            )}
-                            {invoice.taxRate > 0 && (
-                                <Box sx={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}>
-                                    <Typography variant="body1" sx={{ color: "#666" }}>
-                                        GST ({invoice.taxRate}%):
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>{formatCurrency(taxAmount)}</Typography>
-                                </Box>
-                            )}
-                            <Divider sx={{ marginY: 2 }} />
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                                <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
-                                    Total Payable:
-                                </Typography>
-                                <Typography
-                                    variant="h5"
-                                    sx={{
-                                        fontWeight: 700,
-                                        color: "#4CAF50",
-                                        backgroundColor: "#f1f8f4",
-                                        padding: "8px 16px",
-                                        borderRadius: 1,
-                                    }}
-                                >
-                                    {formatCurrency(invoice.totalPayable)}
-                                </Typography>
-                            </Box>
-
-                            {/* Payment Status - Always Show */}
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2, padding: "12px", backgroundColor: invoice.amountPaid >= invoice.totalPayable ? "#f1f8f4" : "#fff3e0", borderRadius: 1, border: `1px solid ${invoice.amountPaid >= invoice.totalPayable ? "#4CAF50" : "#ff9800"}` }}>
-                                <Typography variant="body1" sx={{ fontWeight: 600, color: "#666" }}>
-                                    Payment Status:
-                                </Typography>
-                                <Chip
-                                    label={invoice.amountPaid >= invoice.totalPayable ? "PAID" : invoice.amountPaid > 0 ? "PARTIALLY PAID" : "UNPAID"}
-                                    color={invoice.amountPaid >= invoice.totalPayable ? "success" : invoice.amountPaid > 0 ? "warning" : "error"}
-                                    sx={{ fontWeight: 700, fontSize: "0.875rem" }}
-                                />
-                            </Box>
-
-                            {/* Amount Paid - Always Show */}
-                            <Box sx={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}>
-                                <Typography variant="body1" sx={{ color: "#666" }}>Amount Paid:</Typography>
-                                <Typography variant="body1" sx={{ fontWeight: 500, color: invoice.amountPaid > 0 ? "#4CAF50" : "#999" }}>
-                                    {formatCurrency(invoice.amountPaid || 0)}
-                                </Typography>
-                            </Box>
-
-                            {/* Balance Due - Always Show */}
-                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                <Typography variant="body1" sx={{ color: "#666", fontWeight: 600 }}>Balance Due:</Typography>
-                                <Typography
-                                    variant="body1"
-                                    sx={{
-                                        fontWeight: 700,
-                                        color: (invoice.totalPayable - (invoice.amountPaid || 0)) > 0 ? "#f57c00" : "#4CAF50",
-                                        fontSize: "1.1rem"
-                                    }}
-                                >
-                                    {formatCurrency(invoice.totalPayable - (invoice.amountPaid || 0))}
-                                </Typography>
-                            </Box>
-
-                            {/* Payment Status Note */}
-                            {(invoice.totalPayable - (invoice.amountPaid || 0)) > 0 && (
-                                <Box sx={{ marginTop: 2, padding: "8px 12px", backgroundColor: "#fff3e0", borderRadius: 1 }}>
-                                    <Typography variant="body2" sx={{ color: "#f57c00", fontStyle: "italic" }}>
-                                        ⚠️ This invoice has an unpaid balance and will appear in payment reminders.
-                                    </Typography>
-                                </Box>
-                            )}
-                        </Box>
-                    </Box>
-
-                    {/* Footer Note */}
-                    <Box sx={{ marginTop: 4, padding: 2, backgroundColor: "#f8f9fa", borderRadius: 1, textAlign: "center" }}>
-                        <Typography variant="body2" sx={{ color: "#666", fontStyle: "italic" }}>
-                            Thank you for choosing Utpala Ayurdhama. For any queries, please contact our reception.
-                        </Typography>
-                    </Box>
-                </CardContent>
-            </Card>
-
-            {/* Payment Dialog */}
-            <Dialog open={paymentDialogOpen} onClose={handleClosePaymentDialog} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <PaymentIcon sx={{ color: "#ff9800" }} />
-                    Record Payment
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Invoice Number: <strong>{invoice?.invoiceNumber}</strong>
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Patient: <strong>{invoice?.patient?.user?.name || "N/A"}</strong>
-                        </Typography>
-                    </Box>
-                    <Divider sx={{ my: 2 }} />
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="body1" gutterBottom>
-                            <strong>Total Payable:</strong> {formatCurrency(invoice?.totalPayable || 0)}
-                        </Typography>
-                        <Typography variant="body1" gutterBottom>
-                            <strong>Amount Paid:</strong> {formatCurrency(invoice?.amountPaid || 0)}
-                        </Typography>
-                        <Typography variant="h6" sx={{ mt: 2, color: "#f57c00", fontWeight: 700 }}>
-                            Balance Due: {formatCurrency((invoice?.totalPayable || 0) - (invoice?.amountPaid || 0))}
-                        </Typography>
-                    </Box>
-                    <TextField
-                        fullWidth
-                        label="Payment Amount"
-                        type="number"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        variant="outlined"
-                        sx={{ mt: 2 }}
-                        inputProps={{ min: 0, step: 0.01 }}
-                        helperText={`Maximum: ${formatCurrency((invoice?.totalPayable || 0) - (invoice?.amountPaid || 0))}`}
-                        autoFocus
-                    />
-                    <TextField
-                        select
-                        fullWidth
-                        label="Payment Method"
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                        variant="outlined"
-                        sx={{ mt: 3 }}
-                    >
-                        <MenuItem value="Cash">Cash</MenuItem>
-                        <MenuItem value="Card">Card</MenuItem>
-                        <MenuItem value="Online">Online</MenuItem>
-                        <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
-                    </TextField>
-                    {/* Transaction ID for Online, Bank Transfer, Card */}
-                    {(paymentMethod === "Online" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") && (
-                        <TextField
-                            fullWidth
-                            label={
-                                paymentMethod === "Online" ? "UPI/Payment Reference ID *" :
-                                    paymentMethod === "Bank Transfer" ? "Bank Reference/UTR Number *" :
-                                        "Card Transaction ID *"
-                            }
-                            value={transactionId}
-                            onChange={(e) => setTransactionId(e.target.value)}
-                            variant="outlined"
-                            sx={{ mt: 2 }}
-                            placeholder={
-                                paymentMethod === "Online" ? "Enter UPI transaction ID or payment reference" :
-                                    paymentMethod === "Bank Transfer" ? "Enter bank reference number or UTR" :
-                                        "Enter card transaction/authorization ID"
-                            }
-                            required
-                        />
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          align="center"
+                          sx={{ padding: 4, color: "#999" }}
+                        >
+                          No items found
+                        </TableCell>
+                      </TableRow>
                     )}
-                    {/* Card Last 4 Digits for Card only */}
-                    {paymentMethod === "Card" && (
-                        <TextField
-                            fullWidth
-                            label="Card Last 4 Digits *"
-                            value={cardLastFourDigits}
-                            onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, ''); // Only digits
-                                if (value.length <= 4) {
-                                    setCardLastFourDigits(value);
-                                }
-                            }}
-                            variant="outlined"
-                            sx={{ mt: 2 }}
-                            placeholder="Enter last 4 digits of card"
-                            inputProps={{ maxLength: 4, pattern: "[0-9]*" }}
-                            required
-                        />
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClosePaymentDialog} disabled={isRecordingPayment}>
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleRecordPayment}
-                        variant="contained"
-                        disabled={isRecordingPayment || !paymentAmount || parseFloat(paymentAmount) <= 0}
-                        sx={{
-                            backgroundColor: "#ff9800",
-                            "&:hover": {
-                                backgroundColor: "#f57c00",
-                            },
-                        }}
-                    >
-                        {isRecordingPayment ? "Recording..." : "Record Payment"}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                  </TableBody>
+                </Table>
+              </Paper>
+            );
+          })()}
 
-            {/* Print Styles */}
-            <style>{`
+          {/* Summary Section */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: 3,
+            }}
+          >
+            <Box sx={{ minWidth: "300px" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 1,
+                }}
+              >
+                <Typography variant="body1" sx={{ color: "#666" }}>
+                  Subtotal:
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  {formatCurrency(invoice.subtotal)}
+                </Typography>
+              </Box>
+              {invoice.discountRate > 0 && (
+                <>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 1,
+                    }}
+                  >
+                    <Typography variant="body1" sx={{ color: "#666" }}>
+                      Discount ({invoice.discountRate}%):
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: 500, color: "#4CAF50" }}
+                    >
+                      -{formatCurrency(discountAmount)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 1,
+                    }}
+                  >
+                    <Typography variant="body1" sx={{ color: "#666" }}>
+                      Taxable Amount:
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      {formatCurrency(taxableAmount)}
+                    </Typography>
+                  </Box>
+                </>
+              )}
+              {invoice.taxRate > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 1,
+                  }}
+                >
+                  <Typography variant="body1" sx={{ color: "#666" }}>
+                    GST ({invoice.taxRate}%):
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {formatCurrency(taxAmount)}
+                  </Typography>
+                </Box>
+              )}
+              <Divider sx={{ marginY: 2 }} />
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 2,
+                }}
+              >
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 700, color: "#1a1a1a" }}
+                >
+                  Total Payable:
+                </Typography>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 700,
+                    color: "#4CAF50",
+                    backgroundColor: "#f1f8f4",
+                    padding: "8px 16px",
+                    borderRadius: 1,
+                  }}
+                >
+                  {formatCurrency(invoice.totalPayable)}
+                </Typography>
+              </Box>
+
+              {/* Payment Status - Always Show */}
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 2,
+                  padding: "12px",
+                  backgroundColor:
+                    invoice.amountPaid >= invoice.totalPayable
+                      ? "#f1f8f4"
+                      : "#fff3e0",
+                  borderRadius: 1,
+                  border: `1px solid ${invoice.amountPaid >= invoice.totalPayable ? "#4CAF50" : "#ff9800"}`,
+                }}
+              >
+                <Typography
+                  variant="body1"
+                  sx={{ fontWeight: 600, color: "#666" }}
+                >
+                  Payment Status:
+                </Typography>
+                <Chip
+                  label={
+                    invoice.amountPaid >= invoice.totalPayable
+                      ? "PAID"
+                      : invoice.amountPaid > 0
+                        ? "PARTIALLY PAID"
+                        : "UNPAID"
+                  }
+                  color={
+                    invoice.amountPaid >= invoice.totalPayable
+                      ? "success"
+                      : invoice.amountPaid > 0
+                        ? "warning"
+                        : "error"
+                  }
+                  sx={{ fontWeight: 700, fontSize: "0.875rem" }}
+                />
+              </Box>
+
+              {/* Amount Paid - Always Show */}
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 1,
+                }}
+              >
+                <Typography variant="body1" sx={{ color: "#666" }}>
+                  Amount Paid:
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 500,
+                    color: invoice.amountPaid > 0 ? "#4CAF50" : "#999",
+                  }}
+                >
+                  {formatCurrency(invoice.amountPaid || 0)}
+                </Typography>
+              </Box>
+
+              {/* Balance Due - Always Show */}
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography
+                  variant="body1"
+                  sx={{ color: "#666", fontWeight: 600 }}
+                >
+                  Balance Due:
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 700,
+                    color:
+                      invoice.totalPayable - (invoice.amountPaid || 0) > 0
+                        ? "#f57c00"
+                        : "#4CAF50",
+                    fontSize: "1.1rem",
+                  }}
+                >
+                  {formatCurrency(
+                    invoice.totalPayable - (invoice.amountPaid || 0),
+                  )}
+                </Typography>
+              </Box>
+
+              {/* Payment Status Note */}
+              {invoice.totalPayable - (invoice.amountPaid || 0) > 0 && (
+                <Box
+                  sx={{
+                    marginTop: 2,
+                    padding: "8px 12px",
+                    backgroundColor: "#fff3e0",
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "#f57c00", fontStyle: "italic" }}
+                  >
+                    ⚠️ This invoice has an unpaid balance and will appear in
+                    payment reminders.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+
+          {/* Footer Note */}
+          <Box
+            sx={{
+              marginTop: 4,
+              padding: 2,
+              backgroundColor: "#f8f9fa",
+              borderRadius: 1,
+              textAlign: "center",
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#666", fontStyle: "italic" }}
+            >
+              Thank you for choosing Utpala Ayurdhama. For any queries, please
+              contact our reception.
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Payment Dialog */}
+      <Dialog
+        open={paymentDialogOpen}
+        onClose={handleClosePaymentDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <PaymentIcon sx={{ color: "#ff9800" }} />
+          Record Payment
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Invoice Number: <strong>{invoice?.invoiceNumber}</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Patient: <strong>{invoice?.patient?.user?.name || "N/A"}</strong>
+            </Typography>
+          </Box>
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1" gutterBottom>
+              <strong>Total Payable:</strong>{" "}
+              {formatCurrency(invoice?.totalPayable || 0)}
+            </Typography>
+            <Typography variant="body1" gutterBottom>
+              <strong>Amount Paid:</strong>{" "}
+              {formatCurrency(invoice?.amountPaid || 0)}
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{ mt: 2, color: "#f57c00", fontWeight: 700 }}
+            >
+              Balance Due:{" "}
+              {formatCurrency(
+                (invoice?.totalPayable || 0) - (invoice?.amountPaid || 0),
+              )}
+            </Typography>
+          </Box>
+          <TextField
+            fullWidth
+            label="Payment Amount"
+            type="number"
+            value={paymentAmount}
+            onChange={(e) => setPaymentAmount(e.target.value)}
+            variant="outlined"
+            sx={{ mt: 2 }}
+            inputProps={{ min: 0, step: 0.01 }}
+            helperText={`Maximum: ${formatCurrency((invoice?.totalPayable || 0) - (invoice?.amountPaid || 0))}`}
+            autoFocus
+          />
+          <TextField
+            select
+            fullWidth
+            label="Payment Method"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            variant="outlined"
+            sx={{ mt: 3 }}
+          >
+            <MenuItem value="Cash">Cash</MenuItem>
+            <MenuItem value="Card">Card</MenuItem>
+            <MenuItem value="Online">Online</MenuItem>
+            <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+          </TextField>
+          {/* Transaction ID for Online, Bank Transfer, Card */}
+          {(paymentMethod === "Online" ||
+            paymentMethod === "Bank Transfer" ||
+            paymentMethod === "Card") && (
+            <TextField
+              fullWidth
+              label={
+                paymentMethod === "Online"
+                  ? "UPI/Payment Reference ID *"
+                  : paymentMethod === "Bank Transfer"
+                    ? "Bank Reference/UTR Number *"
+                    : "Card Transaction ID *"
+              }
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              variant="outlined"
+              sx={{ mt: 2 }}
+              placeholder={
+                paymentMethod === "Online"
+                  ? "Enter UPI transaction ID or payment reference"
+                  : paymentMethod === "Bank Transfer"
+                    ? "Enter bank reference number or UTR"
+                    : "Enter card transaction/authorization ID"
+              }
+              required
+            />
+          )}
+          {/* Card Last 4 Digits for Card only */}
+          {paymentMethod === "Card" && (
+            <TextField
+              fullWidth
+              label="Card Last 4 Digits *"
+              value={cardLastFourDigits}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, ""); // Only digits
+                if (value.length <= 4) {
+                  setCardLastFourDigits(value);
+                }
+              }}
+              variant="outlined"
+              sx={{ mt: 2 }}
+              placeholder="Enter last 4 digits of card"
+              inputProps={{ maxLength: 4, pattern: "[0-9]*" }}
+              required
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleClosePaymentDialog}
+            disabled={isRecordingPayment}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRecordPayment}
+            variant="contained"
+            disabled={
+              isRecordingPayment ||
+              !paymentAmount ||
+              parseFloat(paymentAmount) <= 0
+            }
+            sx={{
+              backgroundColor: "#ff9800",
+              "&:hover": {
+                backgroundColor: "#f57c00",
+              },
+            }}
+          >
+            {isRecordingPayment ? "Recording..." : "Record Payment"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Print Styles */}
+      <style>{`
                 @media print {
                     .invoice-details-page {
                         padding: 0 !important;
@@ -1103,9 +1543,8 @@ function InvoiceDetails() {
                     }
                 }
             `}</style>
-        </Box>
-    );
+    </Box>
+  );
 }
 
 export default InvoiceDetails;
-
