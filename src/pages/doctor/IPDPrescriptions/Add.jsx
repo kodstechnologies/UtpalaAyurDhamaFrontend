@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import SubmitButton from "../../../components/buttons/SubmitButton";
 import CancelButton from "../../../components/buttons/CancelButton";
-import { X } from "lucide-react";
+import { X, Edit2 } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
@@ -61,6 +61,8 @@ function IPDPrescriptionsAddPage() {
     const [selectedInpatient, setSelectedInpatient] = useState(null);
     const [medicines, setMedicines] = useState([]);
     const [isLoadingMedicines, setIsLoadingMedicines] = useState(false);
+    const [examinationId, setExaminationId] = useState(null);
+    const [existingPrescriptionIds, setExistingPrescriptionIds] = useState([]);
 
     const [formData, setFormData] = useState({
         inpatientId: inpatientId,
@@ -174,45 +176,34 @@ function IPDPrescriptionsAddPage() {
 
         setIsLoadingPrescription(true);
         try {
+            // First, get the single prescription to get examination details
             const response = await axios.get(
                 getApiUrl(`examinations/prescriptions/detail/${prescriptionId}`),
                 { headers: getAuthHeaders() }
             );
 
             if (response.data.success && response.data.data) {
-                const prescription = response.data.data;
-                const examination = prescription.examination;
-                const inpatient = examination?.inpatient;
-                const patient = prescription.patient || examination?.patient;
+                const data = response.data.data;
+                const exam = data.examination;
+                const examId = exam?._id || exam;
 
-                // Find inpatient in the list - check both _id and the patient reference
+                setExaminationId(examId);
+
+                const inpatient = exam?.inpatient;
+                const patient = data.patient || exam?.patient;
+
+                // Find inpatient in the list
                 let foundInpatient = null;
-
-                // First, try to find by inpatient _id from examination
                 if (inpatient) {
-                    const inpatientId = inpatient._id || inpatient;
+                    const inpatientIdVal = inpatient._id || inpatient;
                     foundInpatient = inpatients.find(
-                        ip => ip._id?.toString() === inpatientId?.toString()
+                        ip => ip._id?.toString() === inpatientIdVal?.toString()
                     );
                 }
 
-                // If not found, try to find by patient reference
                 if (!foundInpatient && patient?._id) {
                     foundInpatient = inpatients.find(
-                        ip => {
-                            const ipPatientId = ip.patient?._id || ip.patient;
-                            return ipPatientId?.toString() === patient._id?.toString();
-                        }
-                    );
-                }
-
-                // If still not found, try to find by patient user ID
-                if (!foundInpatient && patient?.user?._id) {
-                    foundInpatient = inpatients.find(
-                        ip => {
-                            const ipUserId = ip.patient?.user?._id || ip.patient?.user;
-                            return ipUserId?.toString() === patient.user._id?.toString();
-                        }
+                        ip => (ip.patient?._id || ip.patient)?.toString() === patient._id?.toString()
                     );
                 }
 
@@ -220,30 +211,77 @@ function IPDPrescriptionsAddPage() {
                     setSelectedInpatient(foundInpatient);
                 }
 
-                // Set form data - for edit mode, we edit a single prescription
-                setFormData((prev) => ({
-                    ...prev,
-                    inpatientId: foundInpatient?._id || inpatient?._id || "",
-                    patientName: patient?.user?.name || "",
-                    prescriptionDate: prescription.createdAt
-                        ? new Date(prescription.createdAt).toISOString().split("T")[0]
-                        : new Date().toISOString().split("T")[0],
-                    diagnosis: examination?.complaints || "",
-                    notes: prescription.notes || "",
-                    medicines: prescription.medication ? [{
-                        name: prescription.medication,
-                        dosage: prescription.dosage || "",
-                        frequency: prescription.frequency || "",
-                        duration: prescription.duration || "",
-                        foodTiming: prescription.foodTiming || "",
-                        remarks: prescription.remarks || "",
-                        instructions: prescription.notes || "",
-                        medicineType: prescription.medicineType || "",
-                        administration: prescription.administration || "",
-                        quantity: prescription.quantity?.toString() || "",
-                        dosageSchedule: prescription.dosageSchedule || "",
-                    }] : [],
-                }));
+                // Now fetch ALL prescriptions for this examination to allow editing all at once
+                if (examId) {
+                    try {
+                        const allPrescriptionsResponse = await axios.get(
+                            getApiUrl(`examinations/${examId}/prescriptions`),
+                            { headers: getAuthHeaders() }
+                        );
+
+                        if (allPrescriptionsResponse.data.success) {
+                            const allPresc = allPrescriptionsResponse.data.data || [];
+
+                            // Store existing IDs for deletion tracking
+                            setExistingPrescriptionIds(allPresc.map(p => p._id));
+
+                            // Map all to medicine format
+                            const mappedMedicines = allPresc.map(p => ({
+                                _id: p._id,
+                                name: p.medication || "",
+                                dosage: p.dosage || "",
+                                frequency: p.frequency || "",
+                                duration: p.duration || "",
+                                foodTiming: p.foodTiming || "",
+                                remarks: p.remarks || "",
+                                instructions: p.notes || "",
+                                medicineType: p.medicineType || "",
+                                administration: p.administration || "",
+                                quantity: p.quantity?.toString() || "1",
+                                dosageSchedule: p.dosageSchedule || "",
+                            }));
+
+                            setFormData((prev) => ({
+                                ...prev,
+                                inpatientId: foundInpatient?._id || inpatient?._id || "",
+                                patientName: patient?.user?.name || "",
+                                prescriptionDate: data.createdAt
+                                    ? new Date(data.createdAt).toISOString().split("T")[0]
+                                    : new Date().toISOString().split("T")[0],
+                                diagnosis: exam?.complaints || "",
+                                notes: data.notes || "",
+                                medicines: mappedMedicines,
+                            }));
+                        }
+                    } catch (err) {
+                        console.error("Error fetching all prescriptions:", err);
+                        // Fallback to single prescription
+                        setFormData((prev) => ({
+                            ...prev,
+                            inpatientId: foundInpatient?._id || inpatient?._id || "",
+                            patientName: patient?.user?.name || "",
+                            prescriptionDate: data.createdAt
+                                ? new Date(data.createdAt).toISOString().split("T")[0]
+                                : new Date().toISOString().split("T")[0],
+                            diagnosis: exam?.complaints || "",
+                            notes: data.notes || "",
+                            medicines: [{
+                                _id: data._id,
+                                name: data.medication,
+                                dosage: data.dosage || "",
+                                frequency: data.frequency || "",
+                                duration: data.duration || "",
+                                foodTiming: data.foodTiming || "",
+                                remarks: data.remarks || "",
+                                instructions: data.notes || "",
+                                medicineType: data.medicineType || "",
+                                administration: data.administration || "",
+                                quantity: data.quantity?.toString() || "1",
+                                dosageSchedule: data.dosageSchedule || "",
+                            }],
+                        }));
+                    }
+                }
             }
         } catch (error) {
             console.error("Error fetching prescription:", error);
@@ -321,6 +359,28 @@ function IPDPrescriptionsAddPage() {
         }));
     };
 
+    const handleEditMedicine = (index) => {
+        const medicineToEdit = formData.medicines[index];
+        setFormData((prev) => ({
+            ...prev,
+            currentMedicine: {
+                name: medicineToEdit.name,
+                dosage: medicineToEdit.dosage,
+                frequency: medicineToEdit.frequency,
+                duration: medicineToEdit.duration,
+                foodTiming: medicineToEdit.foodTiming,
+                remarks: medicineToEdit.remarks,
+                instructions: medicineToEdit.instructions,
+                medicineType: medicineToEdit.medicineType,
+                administration: medicineToEdit.administration,
+                quantity: medicineToEdit.quantity,
+                dosageSchedule: medicineToEdit.dosageSchedule,
+                _id: medicineToEdit._id, // Keep the ID if it's an existing prescription
+            },
+            medicines: prev.medicines.filter((_, i) => i !== index),
+        }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -346,45 +406,92 @@ function IPDPrescriptionsAddPage() {
 
         try {
             if (isEditMode) {
-                // Update existing prescription
-                const medicine = formData.medicines[0]; // In edit mode, we edit a single prescription
-
-                if (!medicine || !medicine.name || !medicine.dosage) {
-                    toast.error("Medicine name and dosage are required");
+                // Update existing prescriptions, create new ones, and delete removed ones
+                if (formData.medicines.length === 0) {
+                    toast.error("Please add at least one medicine");
                     setIsSubmitting(false);
                     return;
                 }
 
-                const prescriptionData = {
-                    medication: medicine.name,
-                    dosage: medicine.dosage,
-                    frequency: medicine.frequency || "As needed",
-                    duration: medicine.duration || undefined,
-                    foodTiming: medicine.foodTiming || undefined,
-                    dosageSchedule: medicine.dosageSchedule || undefined,
-                    remarks: medicine.remarks || undefined,
-                    notes: medicine.instructions || formData.notes || undefined,
-                    quantity: medicine.quantity ? parseInt(medicine.quantity, 10) : 1,
-                    medicineType: medicine.medicineType || undefined,
-                    administration: medicine.administration || undefined,
-                    diagnosis: formData.diagnosis || undefined,
-                };
+                // Separate existing prescriptions (with _id) from new ones (without _id)
+                const existingMedicines = formData.medicines.filter(m => m._id);
+                const newMedicines = formData.medicines.filter(m => !m._id);
 
-                const response = await axios.patch(
-                    getApiUrl(`examinations/prescriptions/${prescriptionId}`),
-                    prescriptionData,
-                    { headers: getAuthHeaders() }
-                );
+                const updatePromises = [];
+                const createPromises = [];
 
-                if (response.data && response.data.success) {
-                    toast.success("IPD Prescription updated successfully!");
-                    setTimeout(() => {
-                        navigate("/doctor/ipd-prescriptions");
-                    }, 1500);
-                } else {
-                    toast.error(response.data?.message || "Failed to update prescription");
-                    setIsSubmitting(false);
+                // Update existing
+                for (const medicine of existingMedicines) {
+                    const prescriptionData = {
+                        medication: medicine.name,
+                        dosage: medicine.dosage,
+                        frequency: medicine.frequency || "As needed",
+                        duration: medicine.duration || undefined,
+                        foodTiming: medicine.foodTiming || undefined,
+                        dosageSchedule: medicine.dosageSchedule || undefined,
+                        remarks: medicine.remarks || undefined,
+                        notes: medicine.instructions || formData.notes || undefined,
+                        quantity: medicine.quantity ? parseInt(medicine.quantity, 10) : 1,
+                        medicineType: medicine.medicineType || undefined,
+                        administration: medicine.administration || undefined,
+                        diagnosis: formData.diagnosis || undefined,
+                    };
+
+                    updatePromises.push(
+                        axios.patch(
+                            getApiUrl(`examinations/prescriptions/${medicine._id}`),
+                            prescriptionData,
+                            { headers: getAuthHeaders() }
+                        )
+                    );
                 }
+
+                // Create new
+                if (examinationId) {
+                    for (const medicine of newMedicines) {
+                        const prescriptionData = {
+                            medication: medicine.name,
+                            dosage: medicine.dosage,
+                            frequency: medicine.frequency || "As needed",
+                            duration: medicine.duration || undefined,
+                            foodTiming: medicine.foodTiming || undefined,
+                            dosageSchedule: medicine.dosageSchedule || undefined,
+                            remarks: medicine.remarks || undefined,
+                            notes: medicine.instructions || formData.notes || undefined,
+                            quantity: medicine.quantity ? parseInt(medicine.quantity, 10) : 1,
+                            medicineType: medicine.medicineType || undefined,
+                            administration: medicine.administration || undefined,
+                            isInpatient: true,
+                            billOnDischarge: true,
+                        };
+
+                        createPromises.push(
+                            axios.post(
+                                getApiUrl(`examinations/${examinationId}/prescriptions`),
+                                prescriptionData,
+                                { headers: getAuthHeaders() }
+                            )
+                        );
+                    }
+                }
+
+                // Identify removed medicines to delete
+                const currentMedicineIds = new Set(existingMedicines.map(m => m._id));
+                const deletePromises = existingPrescriptionIds
+                    .filter(id => !currentMedicineIds.has(id))
+                    .map(id =>
+                        axios.delete(
+                            getApiUrl(`examinations/prescriptions/${id}`),
+                            { headers: getAuthHeaders() }
+                        )
+                    );
+
+                await Promise.all([...updatePromises, ...createPromises, ...deletePromises]);
+
+                toast.success("IPD Prescription updated successfully!");
+                setTimeout(() => {
+                    navigate("/doctor/ipd-prescriptions");
+                }, 1500);
             } else {
                 // Create new prescription(s)
                 // Get existing examination for this inpatient
@@ -548,355 +655,204 @@ function IPDPrescriptionsAddPage() {
                         {/* Medicines Section */}
                         <Grid item xs={12}>
                             <Typography variant="h6" gutterBottom>
-                                {isEditMode ? "Medicine Details" : "Medicines"}
+                                Medicines
                             </Typography>
                             <Divider sx={{ mb: 2 }} />
 
-                            {isEditMode ? (
-                                // Edit mode: Show single medicine form
-                                formData.medicines.length > 0 ? (
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} md={4}>
-                                            <Autocomplete
-                                                options={medicines}
-                                                getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
-                                                value={medicines.find(m => m.medicineName === formData.medicines[0]?.name) || null}
-                                                onChange={(event, newValue) => {
-                                                    const updatedMedicines = [...formData.medicines];
-                                                    updatedMedicines[0].name = newValue ? newValue.medicineName : "";
-                                                    setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                }}
-                                                loading={isLoadingMedicines}
-                                                renderInput={(params) => (
-                                                    <TextField
-                                                        {...params}
-                                                        label="Medicine Name *"
-                                                        placeholder="Select medicine"
-                                                        required
-                                                    />
-                                                )}
-                                                isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={4}>
-                                            <TextField
-                                                fullWidth
-                                                label="Dosage *"
-                                                value={formData.medicines[0].dosage || ""}
-                                                onChange={(e) => {
-                                                    const updatedMedicines = [...formData.medicines];
-                                                    updatedMedicines[0].dosage = e.target.value;
-                                                    setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                }}
-                                                required
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={4}>
-                                            <FormControl fullWidth>
-                                                <InputLabel>Frequency</InputLabel>
-                                                <Select
-                                                    value={formData.medicines[0].frequency || ""}
-                                                    onChange={(e) => {
-                                                        const updatedMedicines = [...formData.medicines];
-                                                        updatedMedicines[0].frequency = e.target.value;
-                                                        setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                    }}
-                                                    label="Frequency"
-                                                >
-                                                    {frequencyOptions.map((freq) => (
-                                                        <MenuItem key={freq} value={freq}>
-                                                            {freq}
-                                                        </MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={12} md={3}>
-                                            <TextField
-                                                fullWidth
-                                                label="Duration"
-                                                value={formData.medicines[0].duration || ""}
-                                                onChange={(e) => {
-                                                    const updatedMedicines = [...formData.medicines];
-                                                    updatedMedicines[0].duration = e.target.value;
-                                                    setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                }}
-                                                placeholder="e.g., 5 days"
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={3}>
-                                            <FormControl fullWidth>
-                                                <InputLabel>Food Timing</InputLabel>
-                                                <Select
-                                                    value={formData.medicines[0].foodTiming || ""}
-                                                    onChange={(e) => {
-                                                        const updatedMedicines = [...formData.medicines];
-                                                        updatedMedicines[0].foodTiming = e.target.value;
-                                                        setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                    }}
-                                                    label="Food Timing"
-                                                >
-                                                    <MenuItem value="">Select</MenuItem>
-                                                    <MenuItem value="Before Food">Before Food</MenuItem>
-                                                    <MenuItem value="After Food">After Food</MenuItem>
-                                                    <MenuItem value="With Food">With Food</MenuItem>
-                                                    <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
-                                                    <MenuItem value="Bedtime">Bedtime</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={12} md={3}>
-                                            <FormControl fullWidth>
-                                                <InputLabel>Dosage Schedule</InputLabel>
-                                                <Select
-                                                    value={formData.medicines[0].dosageSchedule || ""}
-                                                    onChange={(e) => {
-                                                        const updatedMedicines = [...formData.medicines];
-                                                        updatedMedicines[0].dosageSchedule = e.target.value;
-                                                        setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                    }}
-                                                    label="Dosage Schedule"
-                                                >
-                                                    <MenuItem value="">Select</MenuItem>
-                                                    {dosageOptions.map((option) => (
-                                                        <MenuItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={12} md={3}>
-                                            <TextField
-                                                fullWidth
-                                                label="Quantity"
-                                                type="number"
-                                                value={formData.medicines[0].quantity || ""}
-                                                onChange={(e) => {
-                                                    const updatedMedicines = [...formData.medicines];
-                                                    updatedMedicines[0].quantity = e.target.value;
-                                                    setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                }}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={3}>
-                                            <TextField
-                                                fullWidth
-                                                label="Remarks"
-                                                value={formData.medicines[0].remarks || ""}
-                                                onChange={(e) => {
-                                                    const updatedMedicines = [...formData.medicines];
-                                                    updatedMedicines[0].remarks = e.target.value;
-                                                    setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                }}
-                                                placeholder="Enter remarks"
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12}>
-                                            <TextField
-                                                fullWidth
-                                                label="Special Instructions"
-                                                value={formData.medicines[0].instructions || ""}
-                                                onChange={(e) => {
-                                                    const updatedMedicines = [...formData.medicines];
-                                                    updatedMedicines[0].instructions = e.target.value;
-                                                    setFormData(prev => ({ ...prev, medicines: updatedMedicines }));
-                                                }}
-                                                multiline
-                                                rows={3}
-                                            />
-                                        </Grid>
+                            <Box>
+                                {/* Medicine Input Form */}
+                                <Grid container spacing={2} sx={{ mb: 2 }}>
+                                    {/* First Row: Medicine Name, Dosage, Frequency, Duration, Food Timing, Add Button */}
+                                    <Grid item xs={12} md={3}>
+                                        <Autocomplete
+                                            options={medicines}
+                                            getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
+                                            value={medicines.find(m => m.medicineName === formData.currentMedicine.name) || null}
+                                            onChange={(event, newValue) => {
+                                                handleMedicineFieldChange("name", newValue ? newValue.medicineName : "");
+                                            }}
+                                            loading={isLoadingMedicines}
+                                            size="small"
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    label="Medicine Name *"
+                                                    placeholder="Select medicine"
+                                                    required={formData.medicines.length === 0}
+                                                />
+                                            )}
+                                            isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
+                                        />
                                     </Grid>
-                                ) : (
-                                    <Typography variant="body2" color="text.secondary">
-                                        Loading medicine details...
-                                    </Typography>
-                                )
-                            ) : (
-                                <>
-                                    {/* Current Medicine Form */}
-                                    <Grid container spacing={2} sx={{ mb: 2 }}>
-                                        {/* First Row: Medicine Name, Dosage, Frequency, Duration, Food Timing, Add Button */}
-                                        <Grid item xs={12} md={3}>
-                                            <Autocomplete
-                                                options={medicines}
-                                                getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
-                                                value={medicines.find(m => m.medicineName === formData.currentMedicine.name) || null}
-                                                onChange={(event, newValue) => {
-                                                    handleMedicineFieldChange("name", newValue ? newValue.medicineName : "");
-                                                }}
-                                                loading={isLoadingMedicines}
-                                                size="small"
-                                                renderInput={(params) => (
-                                                    <TextField
-                                                        {...params}
-                                                        label="Medicine Name *"
-                                                        placeholder="Select medicine"
-                                                        required={formData.medicines.length === 0}
-                                                    />
-                                                )}
-                                                isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={2}>
-                                            <TextField
-                                                fullWidth
-                                                label="Dosage *"
-                                                value={formData.currentMedicine.dosage}
-                                                onChange={(e) => handleMedicineFieldChange("dosage", e.target.value)}
-                                                size="small"
-                                                required={formData.medicines.length === 0}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={2}>
-                                            <FormControl fullWidth size="small">
-                                                <InputLabel>Frequency</InputLabel>
-                                                <Select
-                                                    value={formData.currentMedicine.frequency}
-                                                    onChange={(e) => handleMedicineFieldChange("frequency", e.target.value)}
-                                                    label="Frequency"
-                                                >
-                                                    {frequencyOptions.map((freq) => (
-                                                        <MenuItem key={freq} value={freq}>
-                                                            {freq}
-                                                        </MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={12} md={2}>
-                                            <TextField
-                                                fullWidth
-                                                size="small"
-                                                label="Duration"
-                                                value={formData.currentMedicine.duration}
-                                                onChange={(e) => handleMedicineFieldChange("duration", e.target.value)}
-                                                placeholder="e.g., 5 days"
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={2}>
-                                            <FormControl fullWidth size="small">
-                                                <InputLabel>Food Timing</InputLabel>
-                                                <Select
-                                                    value={formData.currentMedicine.foodTiming}
-                                                    onChange={(e) => handleMedicineFieldChange("foodTiming", e.target.value)}
-                                                    label="Food Timing"
-                                                >
-                                                    <MenuItem value="">Select</MenuItem>
-                                                    <MenuItem value="Before Food">Before Food</MenuItem>
-                                                    <MenuItem value="After Food">After Food</MenuItem>
-                                                    <MenuItem value="With Food">With Food</MenuItem>
-                                                    <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
-                                                    <MenuItem value="Bedtime">Bedtime</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={12} md={2}>
-                                            <FormControl fullWidth size="small">
-                                                <InputLabel>Dosage Schedule</InputLabel>
-                                                <Select
-                                                    value={formData.currentMedicine.dosageSchedule}
-                                                    onChange={(e) => handleMedicineFieldChange("dosageSchedule", e.target.value)}
-                                                    label="Dosage Schedule"
-                                                >
-                                                    <MenuItem value="">Select</MenuItem>
-                                                    {dosageOptions.map((option) => (
-                                                        <MenuItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
-                                        <Grid item xs={12} md={1}>
-                                            <Button
-                                                fullWidth
-                                                variant="contained"
-                                                onClick={handleAddMedicine}
-                                                size="small"
-                                                sx={{ height: "40px" }}
+                                    <Grid item xs={12} md={2}>
+                                        <TextField
+                                            fullWidth
+                                            label="Dosage *"
+                                            value={formData.currentMedicine.dosage}
+                                            onChange={(e) => handleMedicineFieldChange("dosage", e.target.value)}
+                                            size="small"
+                                            required={formData.medicines.length === 0}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} md={2}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Frequency</InputLabel>
+                                            <Select
+                                                value={formData.currentMedicine.frequency}
+                                                onChange={(e) => handleMedicineFieldChange("frequency", e.target.value)}
+                                                label="Frequency"
                                             >
-                                                Add
-                                            </Button>
-                                        </Grid>
+                                                {frequencyOptions.map((freq) => (
+                                                    <MenuItem key={freq} value={freq}>
+                                                        {freq}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
                                     </Grid>
-
-                                    {/* Remarks and Special Instructions - Outside the box, stacked vertically */}
-                                    <Grid container spacing={2} sx={{ mt: 2 }}>
-                                        <Grid item xs={12}>
-                                            <TextField
-                                                fullWidth
-                                                label="Remarks"
-                                                value={formData.currentMedicine.remarks}
-                                                onChange={(e) => handleMedicineFieldChange("remarks", e.target.value)}
-                                                placeholder="Enter remarks (optional)"
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12}>
-                                            <TextField
-                                                fullWidth
-                                                label="Special Instructions"
-                                                value={formData.currentMedicine.instructions}
-                                                onChange={(e) => handleMedicineFieldChange("instructions", e.target.value)}
-                                                placeholder="Special instructions (optional)"
-                                                multiline
-                                                rows={3}
-                                            />
-                                        </Grid>
+                                    <Grid item xs={12} md={2}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Duration"
+                                            value={formData.currentMedicine.duration}
+                                            onChange={(e) => handleMedicineFieldChange("duration", e.target.value)}
+                                            placeholder="e.g., 5 days"
+                                        />
                                     </Grid>
+                                    <Grid item xs={12} md={2}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Food Timing</InputLabel>
+                                            <Select
+                                                value={formData.currentMedicine.foodTiming}
+                                                onChange={(e) => handleMedicineFieldChange("foodTiming", e.target.value)}
+                                                label="Food Timing"
+                                            >
+                                                <MenuItem value="">Select</MenuItem>
+                                                <MenuItem value="Before Food">Before Food</MenuItem>
+                                                <MenuItem value="After Food">After Food</MenuItem>
+                                                <MenuItem value="With Food">With Food</MenuItem>
+                                                <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
+                                                <MenuItem value="Bedtime">Bedtime</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid item xs={12} md={2}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel>Dosage Schedule</InputLabel>
+                                            <Select
+                                                value={formData.currentMedicine.dosageSchedule}
+                                                onChange={(e) => handleMedicineFieldChange("dosageSchedule", e.target.value)}
+                                                label="Dosage Schedule"
+                                            >
+                                                <MenuItem value="">Select</MenuItem>
+                                                {dosageOptions.map((option) => (
+                                                    <MenuItem key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid item xs={12} md={1}>
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            onClick={handleAddMedicine}
+                                            size="small"
+                                            sx={{ height: "40px" }}
+                                        >
+                                            Add
+                                        </Button>
+                                    </Grid>
+                                </Grid>
 
-                                    {/* Added Medicines List */}
-                                    {formData.medicines.length > 0 && (
-                                        <Box sx={{ mt: 2 }}>
-                                            <Typography variant="subtitle2" gutterBottom>
-                                                Added Medicines:
-                                            </Typography>
-                                            {formData.medicines.map((medicine, index) => (
-                                                <Box
-                                                    key={index}
-                                                    sx={{
-                                                        p: 2,
-                                                        mb: 1,
-                                                        border: "1px solid #e0e0e0",
-                                                        borderRadius: 1,
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        alignItems: "center",
-                                                    }}
-                                                >
-                                                    <Box>
-                                                        <Typography variant="body1" fontWeight={600}>
-                                                            {medicine.name}
-                                                        </Typography>
+                                {/* Remarks and Special Instructions - Outside the box, stacked vertically */}
+                                <Grid container spacing={2} sx={{ mt: 2 }}>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Remarks"
+                                            value={formData.currentMedicine.remarks}
+                                            onChange={(e) => handleMedicineFieldChange("remarks", e.target.value)}
+                                            placeholder="Enter remarks (optional)"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Special Instructions"
+                                            value={formData.currentMedicine.instructions}
+                                            onChange={(e) => handleMedicineFieldChange("instructions", e.target.value)}
+                                            placeholder="Special instructions (optional)"
+                                            multiline
+                                            rows={3}
+                                        />
+                                    </Grid>
+                                </Grid>
+
+                                {/* Added Medicines List */}
+                                {formData.medicines.length > 0 && (
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="subtitle2" gutterBottom>
+                                            Added Medicines:
+                                        </Typography>
+                                        {formData.medicines.map((medicine, index) => (
+                                            <Box
+                                                key={index}
+                                                sx={{
+                                                    p: 2,
+                                                    mb: 1,
+                                                    border: "1px solid #e0e0e0",
+                                                    borderRadius: 1,
+                                                    display: "flex",
+                                                    justifyContent: "space-between",
+                                                    alignItems: "center",
+                                                }}
+                                            >
+                                                <Box>
+                                                    <Typography variant="body1" fontWeight={600}>
+                                                        {medicine.name}
+                                                    </Typography>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {medicine.dosage} - {medicine.frequency} - {medicine.duration}
+                                                        {medicine.foodTiming && ` - ${medicine.foodTiming}`}
+                                                        {medicine.dosageSchedule && ` - Schedule: ${medicine.dosageSchedule}`}
+                                                    </Typography>
+                                                    {medicine.remarks && (
                                                         <Typography variant="body2" color="text.secondary">
-                                                            {medicine.dosage} - {medicine.frequency} - {medicine.duration}
-                                                            {medicine.foodTiming && ` - ${medicine.foodTiming}`}
-                                                            {medicine.dosageSchedule && ` - Schedule: ${medicine.dosageSchedule}`}
+                                                            Remarks: {medicine.remarks}
                                                         </Typography>
-                                                        {medicine.remarks && (
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                Remarks: {medicine.remarks}
-                                                            </Typography>
-                                                        )}
-                                                        {medicine.instructions && (
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                Instructions: {medicine.instructions}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
+                                                    )}
+                                                    {medicine.instructions && (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            Instructions: {medicine.instructions}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                                <Box sx={{ display: "flex", gap: 1 }}>
+                                                    <Button
+                                                        size="small"
+                                                        color="primary"
+                                                        onClick={() => handleEditMedicine(index)}
+                                                        sx={{ minWidth: 'auto', p: 1 }}
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </Button>
                                                     <Button
                                                         size="small"
                                                         color="error"
                                                         onClick={() => handleRemoveMedicine(index)}
+                                                        sx={{ minWidth: 'auto', p: 1 }}
                                                     >
                                                         <X size={16} />
                                                     </Button>
                                                 </Box>
-                                            ))}
-                                        </Box>
-                                    )}
-                                </>
-                            )}
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                )}
+                            </Box>
                         </Grid>
 
                         {/* Notes */}

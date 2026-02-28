@@ -55,25 +55,25 @@ function IPDPrescriptionDetails() {
                 if (response.data.success) {
                     const prescriptionData = response.data.data;
                     setPrescription(prescriptionData);
-                    
+
                     // Get patient ID and inpatient ID to fetch all prescriptions for this patient
                     const patientId = prescriptionData.patient?._id || prescriptionData.patient;
                     const inpatientId = prescriptionData.examination?.inpatient?._id || prescriptionData.examination?.inpatient;
-                    
+
                     // Fetch all IPD prescriptions for this doctor
                     const allPrescriptionsResponse = await axios.get(
                         getApiUrl("examinations/prescriptions/ipd/by-doctor"),
                         { headers: getAuthHeaders() }
                     );
-                    
+
                     if (allPrescriptionsResponse.data.success) {
                         // Filter prescriptions by the same patient/inpatient
                         const allPresc = allPrescriptionsResponse.data.data || [];
                         const patientPrescriptions = allPresc.filter(p => {
                             const prescPatientId = p.patient?._id?.toString() || p.patient?.toString();
                             const prescInpatientId = p.examination?.inpatient?._id?.toString() || p.examination?.inpatient?.toString();
-                            return (prescPatientId === patientId?.toString()) || 
-                                   (inpatientId && prescInpatientId === inpatientId.toString());
+                            return (prescPatientId === patientId?.toString()) ||
+                                (inpatientId && prescInpatientId === inpatientId.toString());
                         });
                         setAllPrescriptions(patientPrescriptions);
                     }
@@ -115,10 +115,10 @@ function IPDPrescriptionDetails() {
     const doctorName = doctor?.user?.name || "Unknown";
     const prescriptionDate = prescription.createdAt
         ? new Date(prescription.createdAt).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-          })
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        })
         : "N/A";
     const status = prescription.status === "Pending" ? "Active" : prescription.status === "Dispensed" ? "Completed" : prescription.status || "Active";
     const diagnosis = prescription.examination?.complaints || "N/A";
@@ -127,19 +127,19 @@ function IPDPrescriptionDetails() {
     const wardCategory = inpatient?.wardCategory || "N/A";
     const medicines = prescription.medication
         ? [
-              {
-                  name: prescription.medication,
-                  dosage: prescription.dosage || "",
-                  frequency: prescription.frequency || "",
-                  duration: prescription.duration || "",
-                  foodTiming: prescription.foodTiming || "",
-                  remarks: prescription.remarks || "",
-                  instructions: prescription.notes || "",
-                  medicineType: prescription.medicineType || "",
-                  administration: prescription.administration || "",
-                  quantity: prescription.quantity || "",
-              },
-          ]
+            {
+                name: prescription.medication,
+                dosage: prescription.dosage || "",
+                frequency: prescription.frequency || "",
+                duration: prescription.duration || "",
+                foodTiming: prescription.foodTiming || "",
+                remarks: prescription.remarks || "",
+                instructions: prescription.notes || "",
+                medicineType: prescription.medicineType || "",
+                administration: prescription.administration || "",
+                quantity: prescription.quantity || "",
+            },
+        ]
         : [];
     const notes = prescription.notes || "";
 
@@ -452,9 +452,9 @@ function IPDPrescriptionDetails() {
                                     <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
                                         All Prescriptions for {patientName}
                                     </Typography>
-                                    <Chip 
-                                        label={`${allPrescriptions.length} prescriptions`} 
-                                        size="small" 
+                                    <Chip
+                                        label={`${allPrescriptions.length} prescriptions`}
+                                        size="small"
                                         sx={{ ml: 2, backgroundColor: "var(--color-primary)", color: "white" }}
                                     />
                                 </Box>
@@ -467,8 +467,8 @@ function IPDPrescriptionDetails() {
                                                     p: 2.5,
                                                     borderRadius: 2,
                                                     border: `2px solid ${presc._id === id ? theme.palette.primary.main : alpha(theme.palette.divider, 0.2)}`,
-                                                    backgroundColor: presc._id === id 
-                                                        ? alpha(theme.palette.primary.main, 0.05) 
+                                                    backgroundColor: presc._id === id
+                                                        ? alpha(theme.palette.primary.main, 0.05)
                                                         : alpha(theme.palette.background.paper, 0.5),
                                                 }}
                                             >
@@ -520,12 +520,12 @@ function IPDPrescriptionDetails() {
                                                             Date
                                                         </Typography>
                                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                            {presc.createdAt 
+                                                            {presc.createdAt
                                                                 ? new Date(presc.createdAt).toLocaleDateString("en-GB", {
-                                                                      day: "2-digit",
-                                                                      month: "short",
-                                                                      year: "numeric",
-                                                                  })
+                                                                    day: "2-digit",
+                                                                    month: "short",
+                                                                    year: "numeric",
+                                                                })
                                                                 : "N/A"}
                                                         </Typography>
                                                     </Grid>

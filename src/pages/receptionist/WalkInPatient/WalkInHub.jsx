@@ -240,8 +240,8 @@ function WalkInHub() {
             if (inpatientsRes.data.success) {
               const inpatient = Array.isArray(inpatientsRes.data.data)
                 ? inpatientsRes.data.data.find(
-                    (ip) => ip.status === "Admitted",
-                  ) || inpatientsRes.data.data[0]
+                  (ip) => ip.status === "Admitted",
+                ) || inpatientsRes.data.data[0]
                 : inpatientsRes.data.data;
 
               if (!inpatient) return;
@@ -272,8 +272,8 @@ function WalkInHub() {
                   latestIpdExamDoctorId =
                     typeof latestIpdExam.doctor === "object"
                       ? (
-                          latestIpdExam.doctor._id || latestIpdExam.doctor
-                        )?.toString?.()
+                        latestIpdExam.doctor._id || latestIpdExam.doctor
+                      )?.toString?.()
                       : String(latestIpdExam.doctor);
                 }
               } catch (e) {
@@ -656,10 +656,14 @@ function WalkInHub() {
             : Array.isArray(t.treatmentName) && t.treatmentName.length > 0);
         return !hasId && hasName;
       }),
-      // Persist Start Date changes for existing therapy rows (those with _id)
+      // Persist Start Date and Therapist changes for existing therapy rows (those with _id)
       therapyUpdates: formData.therapies
-        .filter((t) => t._id && t.startDate != null)
-        .map((t) => ({ planId: t._id, startDate: t.startDate })),
+        .filter((t) => t._id)
+        .map((t) => ({
+          planId: t._id,
+          startDate: t.startDate,
+          therapistId: t.therapistId
+        })),
     };
 
     setIsSubmitting(true);

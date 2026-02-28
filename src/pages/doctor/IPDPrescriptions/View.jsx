@@ -44,59 +44,59 @@ function IPDPrescriptions_View() {
                 setPagination((prev) => ({ ...prev, total }));
 
                 const groupedByPatient = {};
-                    
-                    prescriptionData.forEach((prescription) => {
-                        const patientId = prescription.patient?._id?.toString() || prescription.patient?.toString();
-                        const patientUhid = prescription.patient?.user?.uhid || prescription.patient?.patientId || "N/A";
-                        const key = patientId || patientUhid;
-                        
-                        if (!groupedByPatient[key]) {
-                            groupedByPatient[key] = {
-                                _id: key, // Use patient ID as the row ID
-                                patientName: prescription.patient?.user?.name || "Unknown",
-                                patientUhid: patientUhid,
-                                patientId: patientId,
-                                roomNumber: prescription.examination?.inpatient?.roomNumber || "N/A",
-                                bedNumber: prescription.examination?.inpatient?.bedNumber || "N/A",
-                                prescriptionDate: prescription.createdAt 
-                            ? new Date(prescription.createdAt).toISOString().split("T")[0]
-                                    : new Date().toISOString().split("T")[0],
-                                prescriptions: [], // Array to store all prescriptions for this patient
-                                status: "Active", // Default status
-                            };
-                        }
-                        
-                        // Add this prescription to the patient's list
-                        groupedByPatient[key].prescriptions.push({
-                            _id: prescription._id,
-                            medication: prescription.medication || "N/A",
-                            dosage: prescription.dosage || "",
-                            frequency: prescription.frequency || "",
-                            duration: prescription.duration || "",
-                            status: prescription.status || "Pending",
-                            createdAt: prescription.createdAt,
-                            rawData: prescription,
-                        });
-                        
-                        // Update date to the latest prescription date
-                        if (prescription.createdAt) {
-                            const presDate = new Date(prescription.createdAt).toISOString().split("T")[0];
-                            if (presDate > groupedByPatient[key].prescriptionDate) {
-                                groupedByPatient[key].prescriptionDate = presDate;
-                            }
-                        }
-                        
-                        // Update status - if any prescription is Active, show Active
-                        const presStatus = prescription.status === "Pending" ? "Active" : prescription.status === "Dispensed" ? "Completed" : prescription.status;
-                        if (presStatus === "Active" || groupedByPatient[key].status === "Active") {
-                            groupedByPatient[key].status = "Active";
-                        } else if (presStatus === "Completed") {
-                            groupedByPatient[key].status = "Completed";
-                        }
+
+                prescriptionData.forEach((prescription) => {
+                    const patientId = prescription.patient?._id?.toString() || prescription.patient?.toString();
+                    const patientUhid = prescription.patient?.user?.uhid || prescription.patient?.patientId || "N/A";
+                    const key = patientId || patientUhid;
+
+                    if (!groupedByPatient[key]) {
+                        groupedByPatient[key] = {
+                            _id: key, // Use patient ID as the row ID
+                            patientName: prescription.patient?.user?.name || "Unknown",
+                            patientUhid: patientUhid,
+                            patientId: patientId,
+                            roomNumber: prescription.examination?.inpatient?.roomNumber || "N/A",
+                            bedNumber: prescription.examination?.inpatient?.bedNumber || "N/A",
+                            prescriptionDate: prescription.createdAt
+                                ? new Date(prescription.createdAt).toISOString().split("T")[0]
+                                : new Date().toISOString().split("T")[0],
+                            prescriptions: [], // Array to store all prescriptions for this patient
+                            status: "Active", // Default status
+                        };
+                    }
+
+                    // Add this prescription to the patient's list
+                    groupedByPatient[key].prescriptions.push({
+                        _id: prescription._id,
+                        medication: prescription.medication || "N/A",
+                        dosage: prescription.dosage || "",
+                        frequency: prescription.frequency || "",
+                        duration: prescription.duration || "",
+                        status: prescription.status || "Pending",
+                        createdAt: prescription.createdAt,
+                        rawData: prescription,
                     });
-                    
-                    // Convert grouped object to array
-                    const groupedPrescriptions = Object.values(groupedByPatient);
+
+                    // Update date to the latest prescription date
+                    if (prescription.createdAt) {
+                        const presDate = new Date(prescription.createdAt).toISOString().split("T")[0];
+                        if (presDate > groupedByPatient[key].prescriptionDate) {
+                            groupedByPatient[key].prescriptionDate = presDate;
+                        }
+                    }
+
+                    // Update status - if any prescription is Active, show Active
+                    const presStatus = prescription.status === "Pending" ? "Active" : prescription.status === "Dispensed" ? "Completed" : prescription.status;
+                    if (presStatus === "Active" || groupedByPatient[key].status === "Active") {
+                        groupedByPatient[key].status = "Active";
+                    } else if (presStatus === "Completed") {
+                        groupedByPatient[key].status = "Completed";
+                    }
+                });
+
+                // Convert grouped object to array
+                const groupedPrescriptions = Object.values(groupedByPatient);
 
                 setPrescriptions(groupedPrescriptions);
             } else {
@@ -143,16 +143,16 @@ function IPDPrescriptions_View() {
         { field: "patientName", header: "Patient Name" },
         { field: "patientUhid", header: "UHID" },
         { field: "prescriptionDate", header: "Date" },
-        { 
-            field: "medicines", 
+        {
+            field: "medicines",
             header: "Medicines",
             render: (row) => {
                 if (!row.prescriptions || row.prescriptions.length === 0) {
                     return "N/A";
                 }
                 return (
-                    <Box sx={{ 
-                        display: "grid", 
+                    <Box sx={{
+                        display: "grid",
                         gridTemplateColumns: "repeat(4, max-content)",
                         gap: 0.5,
                         maxWidth: "100%",

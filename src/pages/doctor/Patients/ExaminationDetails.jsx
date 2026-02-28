@@ -41,13 +41,13 @@ function ExaminationDetails() {
     // Fetch examination details
     const fetchExaminationDetails = useCallback(async () => {
         setIsLoading(true);
-        
+
         // Use examinationId from URL params or location state
         const currentExaminationId = examinationId;
 
         try {
             let response;
-            
+
             // First priority: Fetch by examination ID if available
             if (currentExaminationId) {
                 console.log("Fetching examination by ID:", currentExaminationId);
@@ -55,7 +55,7 @@ function ExaminationDetails() {
                     getApiUrl(`examinations/${currentExaminationId}`),
                     { headers: getAuthHeaders() }
                 );
-            } 
+            }
             // Second priority: Fetch by appointment ID if available
             else if (appointmentData?._id) {
                 console.log("Fetching examination by appointment ID:", appointmentData._id);
@@ -63,7 +63,7 @@ function ExaminationDetails() {
                     getApiUrl(`examinations/by-appointment/${appointmentData._id}`),
                     { headers: getAuthHeaders() }
                 );
-            } 
+            }
             // No examination ID or appointment ID available
             else {
                 toast.error("Examination ID or Appointment ID is required.");
@@ -388,7 +388,7 @@ function ExaminationDetails() {
                     ...examination.followUps.map((followUp, index) =>
                         renderField(
                             `Follow-up ${index + 1}`,
-                            `${new Date(followUp.date).toLocaleDateString()} - ${followUp.note || "No notes"}`
+                            `${new Date(followUp.date).toISOString().split("T")[0]} - ${followUp.note || "No notes"}`
                         )
                     ),
                 ])}

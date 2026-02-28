@@ -1088,7 +1088,7 @@ function PrescriptionsAddPage() {
 
                             if (allPrescriptionsResponse.data.success) {
                                 const allPrescriptions = allPrescriptionsResponse.data.data || [];
-                                
+
                                 // Store existing prescription IDs
                                 const prescriptionIds = allPrescriptions.map(p => p._id);
                                 setExistingPrescriptionIds(prescriptionIds);
@@ -1430,8 +1430,19 @@ function PrescriptionsAddPage() {
                     );
                 }
 
-                // Execute all updates and creates in parallel
-                await Promise.all([...updatePromises, ...createPromises]);
+                // Identify medicines to delete
+                const currentMedicineIds = new Set(existingMedicines.map(m => m._id));
+                const deletePromises = existingPrescriptionIds
+                    .filter(id => !currentMedicineIds.has(id))
+                    .map(id =>
+                        axios.delete(
+                            getApiUrl(`examinations/prescriptions/${id}`),
+                            { headers: getAuthHeaders() }
+                        )
+                    );
+
+                // Execute all updates, creates, and deletions in parallel
+                await Promise.all([...updatePromises, ...createPromises, ...deletePromises]);
 
                 toast.success("Prescription updated successfully!");
                 setTimeout(() => {

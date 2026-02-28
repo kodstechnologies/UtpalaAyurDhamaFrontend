@@ -109,6 +109,8 @@ function OPConsultation_View() {
                             patientUserId: appointment.patient?.user?._id || null, // For navigation to examination
                             hasExamination, // Flag indicating if examination exists
                             examinationId, // Examination ID if exists
+                            isFamilyMember: appointment.isFamilyMember || false,
+                            familyMemberOf: appointment.familyMemberOf || null,
                             // Store full appointment object for navigation
                             fullAppointment: appointment,
                             isAdmitted, // Patient converted to IPD - exclude from OP list
@@ -171,7 +173,28 @@ function OPConsultation_View() {
         {
             field: "patientName",
             header: "Patient Name",
-            render: (rowData) => rowData.patientName || rowData.fullAppointment?.patient?.user?.name || "N/A"
+            render: (rowData) => {
+                const name = rowData.patientName || rowData.fullAppointment?.patient?.user?.name || "N/A";
+                const isFamilyMember = rowData.isFamilyMember || rowData.fullAppointment?.isFamilyMember;
+                const familyMemberOf = rowData.familyMemberOf || rowData.fullAppointment?.familyMemberOf;
+
+                return (
+                    <Box>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <span>{name}</span>
+                            {isFamilyMember && familyMemberOf && (
+                                <Chip
+                                    label={`Family member of ${familyMemberOf}`}
+                                    size="small"
+                                    color="secondary"
+                                    variant="outlined"
+                                    sx={{ fontSize: "0.7rem", height: "20px" }}
+                                />
+                            )}
+                        </Stack>
+                    </Box>
+                );
+            }
         },
         { field: "patientId", header: "UHID" },
         { field: "appointmentDate", header: "Date" },

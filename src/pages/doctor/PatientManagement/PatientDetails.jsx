@@ -74,12 +74,20 @@ function PatientDetails() {
             );
 
             if (response.data.success) {
-                // Filter sessions by inpatient ID
+                // Filter sessions by inpatient ID or other identifiers to ensure all relevant sessions are found
                 const sessions = response.data.data || [];
-                const filteredSessions = sessions.filter(
-                    session => session.inpatient?._id?.toString() === patientId ||
-                        session.inpatient?.toString() === patientId
-                );
+                const filteredSessions = sessions.filter(session => {
+                    const sessionInpatientId = session.inpatient?._id || session.inpatient;
+                    const sessionPatientId = session.patient?._id || session.patient;
+                    const examInpatientId = session.examination?.inpatient?._id || session.examination?.inpatient;
+
+                    // Match if any ID matches the current inpatient record
+                    return (
+                        sessionInpatientId?.toString() === patientId ||
+                        examInpatientId?.toString() === patientId ||
+                        (inpatient?.patient?._id && sessionPatientId?.toString() === inpatient.patient._id.toString())
+                    );
+                });
                 setTherapySessions(filteredSessions);
             }
         } catch (error) {
@@ -123,9 +131,14 @@ function PatientDetails() {
 
     useEffect(() => {
         fetchInpatientDetails();
-        fetchTherapySessions();
-        fetchPrescriptions();
-    }, [fetchInpatientDetails, fetchTherapySessions, fetchPrescriptions]);
+    }, [fetchInpatientDetails]);
+
+    useEffect(() => {
+        if (inpatient) {
+            fetchTherapySessions();
+            fetchPrescriptions();
+        }
+    }, [inpatient, fetchTherapySessions, fetchPrescriptions]);
 
     // Handle view checkup details
     const handleViewCheckup = (row) => {
@@ -172,13 +185,13 @@ function PatientDetails() {
     const checkupRows = inpatient?.dailyCheckups?.map((checkup, index) => ({
         _id: checkup._id || `checkup-${index}`,
         date: checkup.date ? new Date(checkup.date).toLocaleString() : "N/A",
-        recordedBy: checkup.recordedBy?.name || "N/A",
+        recordedBy: checkup.recordedBy?.name || (typeof checkup.recordedBy === 'string' ? "Staff" : "N/A"),
         temperature: checkup.temperature || "N/A",
         bloodPressure: checkup.bloodPressure || "N/A",
         pulseRate: checkup.pulseRate || "N/A",
         spo2: checkup.spo2 || "N/A",
         notes: checkup.notes || "N/A",
-        originalCheckup: checkup, // Store original checkup data
+        originalCheckup: checkup,
     })) || [];
 
     // Checkup actions
