@@ -532,7 +532,10 @@ function OutpatientPrescriptions() {
         : examination?.complaints || "N/A";
     const prescriptionDate = examination?.createdAt || prescriptions[0]?.createdAt;
     // Check if all prescriptions are dispensed
-    const allDispensed = prescriptions.every((p) => p.status === "Dispensed");
+    // const allDispensed = prescriptions.every((p) => p.status === "Dispensed");
+    const allDispensed = prescriptions.every(
+        (p) => Number(p.dispensedQuantity || 0) >= Number(p.quantity || 0)
+    );
     const status = allDispensed ? "Dispensed" : "Pending";
 
     const breadcrumbItems = [
@@ -580,10 +583,15 @@ function OutpatientPrescriptions() {
         }
 
         // Get selected medicines (only those explicitly checked by the user)
-        const selectedPrescriptions = prescriptions.filter(
-            (p) => p.status !== "Dispensed" && selectedMedicines[p._id]?.selected
-        );
+        // const selectedPrescriptions = prescriptions.filter(
+        //     (p) => p.status !== "Dispensed" && selectedMedicines[p._id]?.selected
+        // );
+        const selectedPrescriptions = prescriptions.filter((p) => {
+            const prescribed = Number(p.quantity || 0);
+            const dispensed = Number(p.dispensedQuantity || 0);
 
+            return dispensed < prescribed && selectedMedicines[p._id]?.selected;
+        });
         console.log("Selected Prescriptions:", selectedPrescriptions);
 
         if (selectedPrescriptions.length === 0) {
@@ -769,7 +777,8 @@ function OutpatientPrescriptions() {
                 // Reset selections
                 const newSelection = {};
                 prescList.forEach((presc) => {
-                    if (presc.status !== "Dispensed") {
+                    // if (presc.status !== "Dispensed") {
+                    if (Number(presc.dispensedQuantity || 0) < Number(presc.quantity || 0)) {
                         newSelection[presc._id] = {
                             selected: false,
                             quantity: presc.quantity || 1,
@@ -844,7 +853,8 @@ function OutpatientPrescriptions() {
                                         console.log("Header button clicked");
                                         handleDispense(e);
                                     }}
-                                    disabled={isDispensing || status === "Dispensed"}
+                                    // disabled={isDispensing || status === "Dispensed"}
+                                    disabled={isDispensing || allDispensed}
                                     sx={{
                                         backgroundColor: theme.palette.success.main,
                                         "&:hover": {
@@ -971,22 +981,22 @@ function OutpatientPrescriptions() {
                                                 <Checkbox
                                                     indeterminate={
                                                         prescriptions.filter(
-                                                            (p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication) && selectedMedicines[p._id]?.selected
+                                                            (p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication) && selectedMedicines[p._id]?.selected
                                                         ).length > 0 &&
                                                         prescriptions.filter(
-                                                            (p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication) && selectedMedicines[p._id]?.selected
-                                                        ).length < prescriptions.filter((p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication)).length
+                                                            (p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication) && selectedMedicines[p._id]?.selected
+                                                        ).length < prescriptions.filter((p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication)).length
                                                     }
                                                     checked={
-                                                        prescriptions.filter((p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication)).length > 0 &&
+                                                        prescriptions.filter((p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication)).length > 0 &&
                                                         prescriptions.filter(
-                                                            (p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication) && selectedMedicines[p._id]?.selected
-                                                        ).length === prescriptions.filter((p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication)).length
+                                                            (p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication) && selectedMedicines[p._id]?.selected
+                                                        ).length === prescriptions.filter((p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication)).length
                                                     }
                                                     onChange={(e) => {
                                                         const isChecked = e.target.checked;
                                                         const pendingPrescriptions = prescriptions.filter(
-                                                            (p) => p.status !== "Dispensed" && isMedicineAvailable(p.medication)
+                                                            (p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication)
                                                         );
                                                         const newSelection = { ...selectedMedicines };
                                                         pendingPrescriptions.forEach((presc) => {
@@ -1012,10 +1022,14 @@ function OutpatientPrescriptions() {
                                     </TableHead>
                                     <TableBody>
                                         {prescriptions.map((presc, idx) => {
-                                            const isFullyDispensed = presc.status === "Dispensed";
+                                            // const isFullyDispensed = presc.status === "Dispensed";
+
+
                                             const dispensedQty = presc.dispensedQuantity || 0;
                                             const prescribedQuantity = presc.quantity || 1;
-                                            const isPartiallyDispensed = !isFullyDispensed && dispensedQty > 0;
+                                            const isFullyDispensed = dispensedQty >= prescribedQuantity;
+                                            const isPartiallyDispensed =
+                                                dispensedQty > 0 && dispensedQty < prescribedQuantity;
                                             const isSelected = selectedMedicines[presc._id]?.selected || false;
                                             const dispenseQuantity = selectedMedicines[presc._id]?.quantity || "";
 
@@ -1238,10 +1252,22 @@ function OutpatientPrescriptions() {
                                                     </TableCell>
                                                     <TableCell align="center">
                                                         <Chip
-                                                            label={presc.status || "Pending"}
+                                                            // label={presc.status || "Pending"}
+                                                            label={
+                                                                isFullyDispensed
+                                                                    ? "Dispensed"
+                                                                    : isPartiallyDispensed
+                                                                        ? "Partial"
+                                                                        : "Pending"
+                                                            }
                                                             size="small"
-                                                            color={presc.status === "Dispensed" ? "success" : "warning"}
-                                                            variant="filled"
+                                                            color={
+                                                                isFullyDispensed
+                                                                    ? "success"
+                                                                    : isPartiallyDispensed
+                                                                        ? "info"
+                                                                        : "warning"
+                                                            } variant="filled"
                                                             sx={{
                                                                 backgroundColor: alpha(
                                                                     presc.status === "Dispensed" ? theme.palette.success.main : theme.palette.warning.main,

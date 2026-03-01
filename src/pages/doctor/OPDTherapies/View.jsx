@@ -140,7 +140,7 @@ function OPDTherapies_View() {
                         <span>{row.patientName}</span>
                         {row.isFamilyMember && row.primaryPatientName && (
                             <Chip
-                                label={`Family member of ${row.primaryPatientName}`}
+                                label={`Family member of ${row.primaryPatientName}${row.relation ? ` (${row.relation})` : ``}`}
                                 size="small"
                                 color="secondary"
                                 variant="outlined"

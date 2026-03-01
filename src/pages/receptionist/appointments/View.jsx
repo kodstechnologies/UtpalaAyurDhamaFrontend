@@ -135,14 +135,14 @@ function Appointments_View() {
         rowsPerPage: 25,
         total: 0,
     });
-    
+
     // Pagination state for patients table
     const [patientsPagination, setPatientsPagination] = useState({
         page: 0,
         rowsPerPage: 25,
         total: 0,
     });
-    
+
     // Pagination state for walk-in patients table
     const [walkInPagination, setWalkInPagination] = useState({
         page: 0,
@@ -156,18 +156,18 @@ function Appointments_View() {
     const fetchReceptionPatients = useCallback(async () => {
         setIsLoading(true);
         const abortController = new AbortController();
-        
+
         try {
             const params = {
                 page: patientsPagination.page + 1, // Backend uses 1-based pagination
                 limit: patientsPagination.rowsPerPage,
             };
-            
+
             // Add search parameter if search is active
             if (filters.search && filters.search.trim() && activeTab === "allPatients") {
                 params.search = filters.search.trim();
             }
-            
+
             const response = await axios.get(
                 getApiUrl("reception-patients"),
                 {
@@ -198,12 +198,13 @@ function Appointments_View() {
                     alternativeNumber: patient.alternativeNumber || "",
                     isFamilyMember: patient.isFamilyMember || false,
                     relation: patient.relation || "",
+                    primaryPatientName: patient.primaryPatientName || patient.mainPatient?.user?.name || null,
                     mainPatient: patient.mainPatient || null,
                     familyMemberId: patient.isFamilyMember ? patient._id : null,
                     primaryDoctorId: patient.patientProfile?.primaryDoctor?._id || patient.patientProfile?.primaryDoctor || "",
                 }));
                 setAllPatients(transformedPatients);
-                
+
                 // Update pagination metadata
                 if (response.data.meta) {
                     setPatientsPagination(prev => ({
@@ -219,9 +220,9 @@ function Appointments_View() {
             if (axios.isCancel(error) || error.name === 'AbortError') {
                 return;
             }
-            
+
             console.error("Error fetching reception patients:", error);
-            
+
             // Better error messages
             let errorMessage = "Failed to fetch patients";
             if (error.code === "ECONNABORTED") {
@@ -231,12 +232,12 @@ function Appointments_View() {
             } else {
                 errorMessage = error.response?.data?.message || error.message || errorMessage;
             }
-            
+
             toast.error(errorMessage);
         } finally {
             setIsLoading(false);
         }
-        
+
         // Cleanup function to cancel request if component unmounts
         return () => {
             abortController.abort();
@@ -290,22 +291,22 @@ function Appointments_View() {
         // Just sort by registration date (most recent first)
         if (activeTab === "allPatients") {
             return [...allPatients].sort((a, b) => {
-                const dateA = a.registeredDate && a.registeredDate !== "N/A" 
-                    ? new Date(a.registeredDate.split("/").reverse().join("-")) 
+                const dateA = a.registeredDate && a.registeredDate !== "N/A"
+                    ? new Date(a.registeredDate.split("/").reverse().join("-"))
                     : new Date(0);
-                const dateB = b.registeredDate && b.registeredDate !== "N/A" 
-                    ? new Date(b.registeredDate.split("/").reverse().join("-")) 
+                const dateB = b.registeredDate && b.registeredDate !== "N/A"
+                    ? new Date(b.registeredDate.split("/").reverse().join("-"))
                     : new Date(0);
                 return dateB - dateA; // Most recent first
             });
         }
-        
+
         // For other tabs, apply client-side filtering if needed
         const filtered = allPatients.filter((patient) => {
             if (!filters.search || !filters.search.trim()) {
                 return true;
             }
-            
+
             const searchLower = filters.search.toLowerCase().trim();
             const name = (patient.name || "").toLowerCase();
             const contact = (patient.contact || "").toLowerCase();
@@ -314,23 +315,23 @@ function Appointments_View() {
             const age = (patient.age || "").toString().toLowerCase();
             const registeredDate = (patient.registeredDate || "").toLowerCase();
             const address = (patient.address || "").toLowerCase();
-            
+
             return name.includes(searchLower) ||
-                   contact.includes(searchLower) ||
-                   id.includes(searchLower) ||
-                   email.includes(searchLower) ||
-                   age.includes(searchLower) ||
-                   registeredDate.includes(searchLower) ||
-                   address.includes(searchLower);
+                contact.includes(searchLower) ||
+                id.includes(searchLower) ||
+                email.includes(searchLower) ||
+                age.includes(searchLower) ||
+                registeredDate.includes(searchLower) ||
+                address.includes(searchLower);
         });
-        
+
         // Sort by registration date (most recent first)
         return filtered.sort((a, b) => {
-            const dateA = a.registeredDate && a.registeredDate !== "N/A" 
-                ? new Date(a.registeredDate.split("/").reverse().join("-")) 
+            const dateA = a.registeredDate && a.registeredDate !== "N/A"
+                ? new Date(a.registeredDate.split("/").reverse().join("-"))
                 : new Date(0);
-            const dateB = b.registeredDate && b.registeredDate !== "N/A" 
-                ? new Date(b.registeredDate.split("/").reverse().join("-")) 
+            const dateB = b.registeredDate && b.registeredDate !== "N/A"
+                ? new Date(b.registeredDate.split("/").reverse().join("-"))
                 : new Date(0);
             return dateB - dateA; // Most recent first
         });
@@ -340,23 +341,23 @@ function Appointments_View() {
     const fetchAppointments = useCallback(async () => {
         setIsLoadingAppointments(true);
         const abortController = new AbortController();
-        
+
         try {
             const params = {
                 page: pagination.page + 1, // Backend uses 1-based pagination
                 limit: pagination.rowsPerPage,
             };
-            
+
             // Add search parameter if search is active
             if (filters.search && filters.search.trim() && activeTab === "appointments") {
                 params.search = filters.search.trim();
             }
-            
+
             // Add status filter if provided
             if (filters.appointmentStatus) {
                 params.status = filters.appointmentStatus;
             }
-            
+
             const response = await axios.get(
                 getApiUrl("appointments"),
                 {
@@ -388,7 +389,7 @@ function Appointments_View() {
                 }));
 
                 setAppointments(transformedAppointments);
-                
+
                 // Update pagination metadata
                 if (response.data.meta) {
                     setPagination(prev => ({
@@ -404,9 +405,9 @@ function Appointments_View() {
             if (axios.isCancel(error) || error.name === 'AbortError') {
                 return;
             }
-            
+
             console.error("Error fetching appointments:", error);
-            
+
             // Better error messages
             let errorMessage = "Failed to fetch appointments";
             if (error.code === "ECONNABORTED") {
@@ -416,12 +417,12 @@ function Appointments_View() {
             } else {
                 errorMessage = error.response?.data?.message || error.message || errorMessage;
             }
-            
+
             toast.error(errorMessage);
         } finally {
             setIsLoadingAppointments(false);
         }
-        
+
         // Cleanup function to cancel request if component unmounts
         return () => {
             abortController.abort();
@@ -438,12 +439,12 @@ function Appointments_View() {
                 limit: walkInPagination.rowsPerPage,
                 status: "Admitted" // Only show currently admitted patients
             };
-            
+
             // Add search parameter if search is active for walk-in tab
             if (filters.search && filters.search.trim() && activeTab === "walkIn") {
                 params.search = filters.search.trim();
             }
-            
+
             const response = await axios.get(
                 getApiUrl("inpatients"),
                 {
@@ -454,9 +455,9 @@ function Appointments_View() {
 
             if (response.data.success) {
                 const inpatientsData = response.data.data?.data || response.data.data || [];
-                
+
                 // Filter only walk-in inpatients (those with reason containing "Walk-in Hub")
-                const walkInInpatients = inpatientsData.filter(ip => 
+                const walkInInpatients = inpatientsData.filter(ip =>
                     ip.reason && ip.reason.includes("Walk-in Hub")
                 );
 
@@ -483,7 +484,7 @@ function Appointments_View() {
                 }));
 
                 setIpdWalkIns(transformedIpdWalkIns);
-                
+
                 // Update pagination metadata
                 if (response.data.meta) {
                     setWalkInPagination(prev => ({
@@ -534,7 +535,7 @@ function Appointments_View() {
                 }
             });
         }
-        
+
         const now = new Date();
         now.setHours(0, 0, 0, 0);
 
@@ -596,13 +597,13 @@ function Appointments_View() {
                 const dateTime = (apt.appointmentDateTime || "").toLowerCase();
                 const status = (apt.status || "").toLowerCase();
                 const disease = (apt.disease || "").toLowerCase();
-                
+
                 return name.includes(searchLower) ||
-                       contact.includes(searchLower) ||
-                       doctor.includes(searchLower) ||
-                       dateTime.includes(searchLower) ||
-                       status.includes(searchLower) ||
-                       disease.includes(searchLower);
+                    contact.includes(searchLower) ||
+                    doctor.includes(searchLower) ||
+                    dateTime.includes(searchLower) ||
+                    status.includes(searchLower) ||
+                    disease.includes(searchLower);
             });
         }
 
@@ -913,16 +914,23 @@ function Appointments_View() {
                                                     <tr key={patient.id}>
                                                         <td>{patientsPagination.page * patientsPagination.rowsPerPage + index + 1}</td>
                                                         <td>
-                                                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                                                                 {patient.name}
                                                                 {patient.isFamilyMember && (
                                                                     <span
-                                                                        className="badge bg-info"
-                                                                        style={{ fontSize: "10px", padding: "2px 6px" }}
-                                                                        title={`Family Member - ${patient.relation || "Relation"}`}
+                                                                        className="badge"
+                                                                        style={{
+                                                                            fontSize: "10px",
+                                                                            padding: "3px 7px",
+                                                                            background: "transparent",
+                                                                            border: "1px solid #9c27b0",
+                                                                            color: "#9c27b0",
+                                                                            borderRadius: "12px",
+                                                                            whiteSpace: "nowrap",
+                                                                        }}
                                                                     >
-                                                                        <PersonAddIcon fontSize="small" style={{ fontSize: "12px", marginRight: "2px" }} />
-                                                                        {patient.relation || "Family"}
+                                                                        Family member of {patient.primaryPatientName || patient.mainPatient?.user?.name || ""}
+                                                                        {patient.relation ? ` (${patient.relation})` : ""}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -1101,7 +1109,7 @@ function Appointments_View() {
                                         </table>
                                     </div>
                                 )}
-                                
+
                                 {/* Pagination for Patients Table */}
                                 {!isLoading && (filteredPatients.length > 0 || patientsPagination.total > 0) && (
                                     <TablePagination
@@ -1263,7 +1271,7 @@ function Appointments_View() {
                                         </table>
                                     </div>
                                 )}
-                                
+
                                 {/* Pagination for Appointments */}
                                 {!isLoadingAppointments && filteredAppointments.length > 0 && activeTab === "appointments" && (
                                     <TablePagination
@@ -1316,7 +1324,7 @@ function Appointments_View() {
                                     allWalkIns.forEach(walkIn => {
                                         const patientId = walkIn.patientProfileId || walkIn.inpatientId || walkIn.id;
                                         if (!patientId) return;
-                                        
+
                                         const existing = patientWalkInMap.get(patientId);
                                         if (!existing) {
                                             patientWalkInMap.set(patientId, walkIn);
@@ -1382,89 +1390,89 @@ function Appointments_View() {
                                                             walkInPagination.page * walkInPagination.rowsPerPage + walkInPagination.rowsPerPage
                                                         )
                                                         .map((appointment, index) => (
-                                                        <tr key={appointment.id}>
-                                                            <td>{walkInPagination.page * walkInPagination.rowsPerPage + index + 1}</td>
-                                                            <td>{appointment.name}</td>
-                                                            <td>{formatDisplayDateTime(appointment.appointmentDateTime)}</td>
-                                                            <td>{appointment.doctor}</td>
-                                                            <td>{appointment.contact}</td>
-                                                            <td>
-                                                                <span className={getStatusBadgeClass(appointment.status)}>
-                                                                    {appointment.status}
-                                                                </span>
-                                                            </td>
-                                                            {sortedWalkIns.some(w => w.isIpd) && (
+                                                            <tr key={appointment.id}>
+                                                                <td>{walkInPagination.page * walkInPagination.rowsPerPage + index + 1}</td>
+                                                                <td>{appointment.name}</td>
+                                                                <td>{formatDisplayDateTime(appointment.appointmentDateTime)}</td>
+                                                                <td>{appointment.doctor}</td>
+                                                                <td>{appointment.contact}</td>
                                                                 <td>
-                                                                    {appointment.isIpd ? (
-                                                                        appointment.roomNumber || appointment.bedNumber ? (
-                                                                            `${appointment.roomNumber ? `Room ${appointment.roomNumber}` : ''}${appointment.roomNumber && appointment.bedNumber ? ' / ' : ''}${appointment.bedNumber ? `Bed ${appointment.bedNumber}` : ''}`
-                                                                        ) : (
-                                                                            'N/A'
-                                                                        )
-                                                                    ) : (
-                                                                        '-'
-                                                                    )}
+                                                                    <span className={getStatusBadgeClass(appointment.status)}>
+                                                                        {appointment.status}
+                                                                    </span>
                                                                 </td>
-                                                            )}
-                                                            <td>
-                                                                <div className="btn-group" role="group">
-                                                                    <button
-                                                                        type="button"
-                                                                        className="btn btn-sm btn-primary"
-                                                                        onClick={() => handleRescheduleClick(appointment)}
-                                                                        title={appointment.isIpd ? "Edit Walk-in Admission" : "Reschedule Appointment"}
-                                                                        style={{
-                                                                            borderRadius: "8px",
-                                                                            padding: "8px 12px",
-                                                                            minWidth: "45px",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            transition: "all 0.3s ease",
-                                                                        }}
-                                                                    >
-                                                                        <EditIcon fontSize="small" />
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="btn btn-sm"
-                                                                        onClick={() => handleSendMessageClick(appointment)}
-                                                                        title="Send WhatsApp Reminder"
-                                                                        style={{
-                                                                            backgroundColor: "#FFB347",
-                                                                            borderColor: "#FFB347",
-                                                                            color: "#000",
-                                                                            borderRadius: "8px",
-                                                                            padding: "8px 12px",
-                                                                            minWidth: "45px",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            transition: "all 0.3s ease",
-                                                                        }}
-                                                                    >
-                                                                        <MessageIcon fontSize="small" />
-                                                                    </button>
-                                                                    {appointment.invoiceNumber && (
+                                                                {sortedWalkIns.some(w => w.isIpd) && (
+                                                                    <td>
+                                                                        {appointment.isIpd ? (
+                                                                            appointment.roomNumber || appointment.bedNumber ? (
+                                                                                `${appointment.roomNumber ? `Room ${appointment.roomNumber}` : ''}${appointment.roomNumber && appointment.bedNumber ? ' / ' : ''}${appointment.bedNumber ? `Bed ${appointment.bedNumber}` : ''}`
+                                                                            ) : (
+                                                                                'N/A'
+                                                                            )
+                                                                        ) : (
+                                                                            '-'
+                                                                        )}
+                                                                    </td>
+                                                                )}
+                                                                <td>
+                                                                    <div className="btn-group" role="group">
                                                                         <button
                                                                             type="button"
-                                                                            className="btn btn-sm btn-info"
-                                                                            onClick={() => toast.info(`Invoice: ${appointment.invoiceNumber}`)}
-                                                                            title={`View Invoice: ${appointment.invoiceNumber}`}
+                                                                            className="btn btn-sm btn-primary"
+                                                                            onClick={() => handleRescheduleClick(appointment)}
+                                                                            title={appointment.isIpd ? "Edit Walk-in Admission" : "Reschedule Appointment"}
+                                                                            style={{
+                                                                                borderRadius: "8px",
+                                                                                padding: "8px 12px",
+                                                                                minWidth: "45px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                                transition: "all 0.3s ease",
+                                                                            }}
                                                                         >
-                                                                            View Invoice
+                                                                            <EditIcon fontSize="small" />
                                                                         </button>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn btn-sm"
+                                                                            onClick={() => handleSendMessageClick(appointment)}
+                                                                            title="Send WhatsApp Reminder"
+                                                                            style={{
+                                                                                backgroundColor: "#FFB347",
+                                                                                borderColor: "#FFB347",
+                                                                                color: "#000",
+                                                                                borderRadius: "8px",
+                                                                                padding: "8px 12px",
+                                                                                minWidth: "45px",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                justifyContent: "center",
+                                                                                transition: "all 0.3s ease",
+                                                                            }}
+                                                                        >
+                                                                            <MessageIcon fontSize="small" />
+                                                                        </button>
+                                                                        {appointment.invoiceNumber && (
+                                                                            <button
+                                                                                type="button"
+                                                                                className="btn btn-sm btn-info"
+                                                                                onClick={() => toast.info(`Invoice: ${appointment.invoiceNumber}`)}
+                                                                                title={`View Invoice: ${appointment.invoiceNumber}`}
+                                                                            >
+                                                                                View Invoice
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
                                                 </tbody>
                                             </table>
                                         </div>
                                     );
                                 })()}
-                                
+
                                 {/* Pagination for Walk-in Patients Table */}
                                 {(() => {
                                     // Recalculate filteredWalkIns to get count for pagination
@@ -1501,23 +1509,23 @@ function Appointments_View() {
                                             const doctor = (walkIn.doctor || "").toLowerCase();
                                             const dateTime = (walkIn.appointmentDateTime || "").toLowerCase();
                                             const status = (walkIn.status || "").toLowerCase();
-                                            const roomBed = walkIn.isIpd 
+                                            const roomBed = walkIn.isIpd
                                                 ? `${walkIn.roomNumber || ""} ${walkIn.bedNumber || ""}`.toLowerCase()
                                                 : "";
                                             return name.includes(searchLower) ||
-                                                   contact.includes(searchLower) ||
-                                                   doctor.includes(searchLower) ||
-                                                   dateTime.includes(searchLower) ||
-                                                   status.includes(searchLower) ||
-                                                   roomBed.includes(searchLower);
+                                                contact.includes(searchLower) ||
+                                                doctor.includes(searchLower) ||
+                                                dateTime.includes(searchLower) ||
+                                                status.includes(searchLower) ||
+                                                roomBed.includes(searchLower);
                                         });
                                     }
-                                    
+
                                     // Calculate total count (combining appointments and inpatients)
                                     // For accurate pagination, we'd need backend support for combined search
                                     // For now, use client-side total
                                     const totalWalkIns = filteredWalkIns.length;
-                                    
+
                                     return totalWalkIns > walkInPagination.rowsPerPage ? (
                                         <TablePagination
                                             component="div"

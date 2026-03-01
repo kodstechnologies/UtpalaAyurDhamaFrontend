@@ -111,6 +111,7 @@ function OPConsultation_View() {
                             examinationId, // Examination ID if exists
                             isFamilyMember: appointment.isFamilyMember || false,
                             familyMemberOf: appointment.familyMemberOf || null,
+                            relation: appointment.relation || null,
                             // Store full appointment object for navigation
                             fullAppointment: appointment,
                             isAdmitted, // Patient converted to IPD - exclude from OP list
@@ -184,7 +185,7 @@ function OPConsultation_View() {
                             <span>{name}</span>
                             {isFamilyMember && familyMemberOf && (
                                 <Chip
-                                    label={`Family member of ${familyMemberOf}`}
+                                    label={`Family member of ${familyMemberOf}${rowData.relation ? ` (${rowData.relation})` : ``}`}
                                     size="small"
                                     color="secondary"
                                     variant="outlined"

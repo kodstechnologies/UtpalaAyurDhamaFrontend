@@ -1351,11 +1351,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
                                         inputProps={{
-                                            min: (() => {
-                                                const tomorrow = new Date();
-                                                tomorrow.setDate(tomorrow.getDate() + 1);
-                                                return tomorrow.toISOString().split("T")[0];
-                                            })()
+                                            min: new Date().toISOString().split("T")[0]
                                         }}
                                     />
                                 </Grid>
