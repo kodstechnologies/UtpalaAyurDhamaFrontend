@@ -57,11 +57,11 @@ function AddPrescriptionPage() {
         if (formData.dosageTimes.morning) times.push("Morning");
         if (formData.dosageTimes.afternoon) times.push("Afternoon");
         if (formData.dosageTimes.evening) times.push("Evening");
-        
+
         if (times.length === 0) {
             return formData.frequencyTiming || "As directed";
         }
-        
+
         return `${times.join(", ")} - ${formData.frequencyTiming || "As directed"}`;
     };
 
@@ -84,13 +84,13 @@ function AddPrescriptionPage() {
         try {
             // Get existing examination for this inpatient
             let examinationId = null;
-            
+
             try {
                 const examResponse = await axios.get(
                     getApiUrl(`examinations/inpatient/${inpatientId}`),
                     { headers: getAuthHeaders() }
                 );
-                
+
                 if (examResponse.data.success && examResponse.data.data && examResponse.data.data.length > 0) {
                     // Use the latest examination (already sorted by createdAt -1)
                     examinationId = examResponse.data.data[0]._id;
@@ -127,7 +127,7 @@ function AddPrescriptionPage() {
 
             // Map form data to backend API structure
             const dosageString = formatDosage();
-            
+
             const requestData = {
                 medication: formData.medicineName.trim(),
                 medicineType: formData.medicineType || undefined,

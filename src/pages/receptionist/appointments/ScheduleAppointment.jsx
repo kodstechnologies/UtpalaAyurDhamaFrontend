@@ -117,8 +117,8 @@ function ScheduleAppointmentPage() {
       console.error("Error response:", error.response?.data);
       toast.error(
         error.response?.data?.message ||
-          error.message ||
-          "Failed to fetch doctors",
+        error.message ||
+        "Failed to fetch doctors",
       );
       setDoctors([]); // Clear doctors on error
     } finally {
@@ -194,7 +194,7 @@ function ScheduleAppointmentPage() {
         if (!familyMemberResponse.data.success) {
           throw new Error(
             familyMemberResponse.data.message ||
-              "Failed to fetch family member details",
+            "Failed to fetch family member details",
           );
         }
 
@@ -232,7 +232,7 @@ function ScheduleAppointmentPage() {
         if (!receptionPatientResponse.data.success) {
           throw new Error(
             receptionPatientResponse.data.message ||
-              "Failed to fetch patient details",
+            "Failed to fetch patient details",
           );
         }
 
@@ -294,8 +294,8 @@ function ScheduleAppointmentPage() {
       console.error("Error scheduling appointment:", error);
       toast.error(
         error.response?.data?.message ||
-          error.message ||
-          "Failed to schedule appointment. Please try again.",
+        error.message ||
+        "Failed to schedule appointment. Please try again.",
       );
     } finally {
       setIsSubmitting(false);

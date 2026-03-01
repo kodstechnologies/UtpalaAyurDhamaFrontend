@@ -113,7 +113,7 @@ function Patient_List_View() {
             age: calculateAge(session.patient?.user?.dob).toString(),
             gender: session.patient?.user?.gender || "N/A",
             diagnosis: session.treatmentName || "N/A",
-            doctor: session.examination?.doctor?.user?.name || "N/A",
+            doctor: session.patient?.primaryDoctor?.user?.name || session.examination?.doctor?.user?.name || "N/A",
             status: session.status || "Pending",
             totalSessions: (session.daysOfTreatment || 0).toString(),
             completedSessions: completedSessions.toString(),
@@ -216,7 +216,7 @@ function Patient_List_View() {
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <LocalHospitalIcon fontSize="small" className="me-1" />
-                                                        {session.examination?.doctor?.user?.name || "N/A"}
+                                                        {session.patient?.primaryDoctor?.user?.name || session.examination?.doctor?.user?.name || "N/A"}
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <div className="d-flex align-items-center gap-2">

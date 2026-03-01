@@ -297,19 +297,23 @@ function ConsultationDetails() {
                                 </Typography>
                             </Box>
                             <Box sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}>
-                                <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                                    <strong>Name:</strong> {(() => {
-                                        const rawName = appointment.doctor?.user?.name || "N/A";
-                                        if (rawName === "N/A") return "N/A";
-                                        return rawName.toLowerCase().startsWith("dr.") ? rawName : `Dr. ${rawName}`;
-                                    })()}
-                                </Typography>
-                                <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                                    <strong>Email:</strong> {appointment.doctor?.user?.email || "N/A"}
-                                </Typography>
-                                <Typography variant="body2">
-                                    <strong>Phone:</strong> {appointment.doctor?.user?.phone || "N/A"}
-                                </Typography>
+                                {(() => {
+                                    const primaryDoc = appointment.patient?.primaryDoctor;
+                                    const dr = primaryDoc || appointment.doctor;
+                                    return (
+                                        <>
+                                            <Typography variant="body2" sx={{ marginBottom: 1 }}>
+                                                <strong>Name:</strong> {dr?.user?.firstName || dr?.user?.name || (dr?.firstName ? `${dr.firstName} ${dr.lastName || ""}` : "N/A")}
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ marginBottom: 1 }}>
+                                                <strong>Email:</strong> {dr?.user?.email || "N/A"}
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                <strong>Phone:</strong> {dr?.user?.phone || "N/A"}
+                                            </Typography>
+                                        </>
+                                    );
+                                })()}
                             </Box>
                         </Grid>
 

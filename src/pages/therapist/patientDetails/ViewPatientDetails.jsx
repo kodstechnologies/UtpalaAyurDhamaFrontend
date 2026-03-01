@@ -31,6 +31,8 @@ function ViewPatientDetailsPage() {
                     { headers: getAuthHeaders() }
                 );
                 if (response.data.success) {
+                    console.log("-------------------", response.data);
+
                     setSession(response.data.data);
                 }
             } catch (error) {
@@ -174,7 +176,7 @@ function ViewPatientDetailsPage() {
                                 </Typography>
                                 <Typography variant="body1" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                                     <LocalHospitalIcon fontSize="small" />
-                                    {session.examination?.doctor?.user?.name || "N/A"}
+                                    {session.patient?.primaryDoctor?.user?.name || session.examination?.doctor?.user?.name || "N/A"}
                                 </Typography>
                             </Box>
                             <Box>
@@ -238,7 +240,7 @@ function ViewPatientDetailsPage() {
                                         // Try to get session date/time from various sources
                                         let displayDate = null;
                                         let displayTime = null;
-                                        
+
                                         // First priority: Use sessionDate and sessionTime if available
                                         if (session.sessionDate) {
                                             displayDate = formatDate(session.sessionDate);
@@ -252,7 +254,7 @@ function ViewPatientDetailsPage() {
                                                 displayTime = firstDay.time || null;
                                             }
                                         }
-                                        
+
                                         // Third priority: Use last completed session date/time (only if still no date found)
                                         if (!displayDate && session.days && session.days.length > 0) {
                                             const completedDays = session.days.filter(d => d.completed);
@@ -264,11 +266,11 @@ function ViewPatientDetailsPage() {
                                                 }
                                             }
                                         }
-                                        
+
                                         if (!displayDate) {
                                             return "N/A";
                                         }
-                                        
+
                                         return displayTime ? `${displayDate} at ${displayTime}` : displayDate;
                                     })()}
                                 </Typography>

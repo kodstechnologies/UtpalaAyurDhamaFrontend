@@ -115,6 +115,8 @@ function Reports_View() {
                                 doctor={report.doctor}
                                 consultationDate={report.consultationDate}
                                 uploadedDate={report.uploadedDate}
+                                ownerName={report.ownerName}
+                                relation={report.relation}
                                 onView={() => handleViewReport(report)}
                             />
                         ))

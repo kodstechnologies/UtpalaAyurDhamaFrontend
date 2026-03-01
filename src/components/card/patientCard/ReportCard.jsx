@@ -681,6 +681,8 @@ function ReportCard({
     consultationDate = "Nov 25, 2025",
     uploadedDate = "Nov 25, 2025",
     details = "Full report details will appear here...",
+    ownerName = "",
+    relation = "",
     onView = null,
 }) {
     const navigate = useNavigate();
@@ -755,9 +757,25 @@ function ReportCard({
                         >
                             {badge}
                         </Box>
+                        {relation && (
+                            <Box
+                                sx={{
+                                    px: 1,
+                                    py: 0.3,
+                                    borderRadius: "12px",
+                                    fontSize: "0.7rem",
+                                    bgcolor: "var(--color-success-light-v)",
+                                    color: "var(--color-success)",
+                                    fontWeight: 600,
+                                }}
+                            >
+                                {relation}
+                            </Box>
+                        )}
                     </Box>
 
                     <Typography sx={{ color: "var(--color-text-muted)", fontSize: "0.9rem", mt: 0.5 }}>
+                        {ownerName && <><span style={{ color: 'var(--color-text-dark)', fontWeight: 500 }}>{ownerName}</span> • </>}
                         {doctor} • Consultation: {consultationDate} • Uploaded: {uploadedDate}
                     </Typography>
                 </Box>

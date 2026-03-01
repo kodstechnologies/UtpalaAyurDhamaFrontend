@@ -268,13 +268,12 @@ function WalkInHub() {
                   return dateB - dateA;
                 });
                 const latestIpdExam = sortedIpdExams[0];
-                if (latestIpdExam?.doctor) {
+                const resolvedIpdDoctor = latestIpdExam?.doctor || latestIpdExam?.patient?.primaryDoctor;
+                if (resolvedIpdDoctor) {
                   latestIpdExamDoctorId =
-                    typeof latestIpdExam.doctor === "object"
-                      ? (
-                        latestIpdExam.doctor._id || latestIpdExam.doctor
-                      )?.toString?.()
-                      : String(latestIpdExam.doctor);
+                    typeof resolvedIpdDoctor === "object"
+                      ? (resolvedIpdDoctor._id || resolvedIpdDoctor)?.toString?.()
+                      : String(resolvedIpdDoctor);
                 }
               } catch (e) {
                 console.warn("[WalkInHub] Error fetching IPD examinations:", e);
@@ -310,9 +309,9 @@ function WalkInHub() {
               setFormData((prev) => ({
                 ...prev,
                 doctorProfileId:
-                  latestIpdExamDoctorId ||
                   existingDoctorId ||
-                  patient.primaryDoctor?._id ||
+                  (patient.primaryDoctor?._id || patient.primaryDoctor) ||
+                  latestIpdExamDoctorId ||
                   inpatient.doctor?._id ||
                   "",
                 nurseProfileId: nurseId,
@@ -344,11 +343,12 @@ function WalkInHub() {
                   : examsRes.data.data?.data || []
                 : [];
             const latestExam = examsData[0];
-            if (latestExam?.doctor) {
+            const resolvedOpdDoctor = latestExam?.doctor || latestExam?.patient?.primaryDoctor;
+            if (resolvedOpdDoctor) {
               latestExamDoctorId =
-                typeof latestExam.doctor === "object"
-                  ? (latestExam.doctor._id || latestExam.doctor)?.toString?.()
-                  : String(latestExam.doctor);
+                typeof resolvedOpdDoctor === "object"
+                  ? (resolvedOpdDoctor._id || resolvedOpdDoctor)?.toString?.()
+                  : String(resolvedOpdDoctor);
             }
           } catch (e) {
             console.warn("[WalkInHub] Error fetching latest examination:", e);
@@ -395,10 +395,10 @@ function WalkInHub() {
               setFormData((prev) => ({
                 ...prev,
                 doctorProfileId:
-                  patient.primaryDoctor?._id ||
-                  appointment.doctor?._id ||
-                  latestExamDoctorId ||
                   existingDoctorId ||
+                  (patient.primaryDoctor?._id || patient.primaryDoctor) ||
+                  latestExamDoctorId ||
+                  appointment.doctor?._id ||
                   "",
                 nurseProfileId: nurseId,
                 appointmentTime: formatTimeForInput(
@@ -424,9 +424,9 @@ function WalkInHub() {
               setFormData((prev) => ({
                 ...prev,
                 doctorProfileId:
-                  patient.primaryDoctor?._id ||
-                  latestExamDoctorId ||
                   existingDoctorId ||
+                  (patient.primaryDoctor?._id || patient.primaryDoctor) ||
+                  latestExamDoctorId ||
                   "",
                 nurseProfileId: nurseId,
               }));
@@ -442,9 +442,9 @@ function WalkInHub() {
             setFormData((prev) => ({
               ...prev,
               doctorProfileId:
-                patient.primaryDoctor?._id ||
-                latestExamDoctorId ||
                 existingDoctorId ||
+                (patient.primaryDoctor?._id || patient.primaryDoctor) ||
+                latestExamDoctorId ||
                 "",
               nurseProfileId: nurseId,
             }));

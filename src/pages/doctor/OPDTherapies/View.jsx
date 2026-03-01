@@ -55,6 +55,9 @@ function OPDTherapies_View() {
                             patientName: therapy.examination?.patient?.user?.name || "Unknown",
                             patientUhid: patientUhid,
                             patientId: patientId,
+                            isFamilyMember: therapy.examination?.patient?.isFamilyMember || false,
+                            primaryPatientName: therapy.examination?.patient?.primaryPatientName || null,
+                            relation: therapy.examination?.patient?.relation || null,
                             therapyDate: therapy.createdAt
                                 ? new Date(therapy.createdAt).toISOString().split("T")[0]
                                 : new Date().toISOString().split("T")[0],
@@ -128,7 +131,26 @@ function OPDTherapies_View() {
     }, [therapies, pagination.total]);
 
     const columns = [
-        { field: "patientName", header: "Patient Name" },
+        {
+            field: "patientName",
+            header: "Patient Name",
+            render: (row) => (
+                <Box>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <span>{row.patientName}</span>
+                        {row.isFamilyMember && row.primaryPatientName && (
+                            <Chip
+                                label={`Family member of ${row.primaryPatientName}`}
+                                size="small"
+                                color="secondary"
+                                variant="outlined"
+                                sx={{ fontSize: "0.7rem", height: "20px" }}
+                            />
+                        )}
+                    </Stack>
+                </Box>
+            ),
+        },
         { field: "patientUhid", header: "UHID" },
         { field: "therapyDate", header: "Date" },
         {

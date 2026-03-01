@@ -67,19 +67,24 @@ function Consultations_View() {
                     const patientName = consultation.patient?.user?.name || "N/A";
                     const patientId = consultation.patient?.user?.uhid || consultation.patient?.patientId || "N/A";
 
-                    // Get doctor name - sanitize to avoid "Dr. Dr."
-                    const dr = consultation.doctor || consultation.doc;
+                    // Get doctor name - Prioritize Primary Doctor as requested
+                    const primaryDoc = consultation.patient?.primaryDoctor || consultation.pdoc;
+                    const primaryUser = primaryDoc?.user || consultation.pusr;
+                    const assignedDoc = consultation.doctor || consultation.doc;
+
+                    const dr = primaryDoc || assignedDoc;
                     let doctorName = "N/A";
+
                     if (dr) {
                         const firstName = dr.firstName || "";
                         const lastName = dr.lastName || "";
                         const fullName = `${firstName} ${lastName}`.trim();
+                        const userName = primaryUser?.name || dr.user?.name;
 
                         if (fullName) {
-                            doctorName = fullName.toLowerCase().startsWith("dr.") ? fullName : ` ${fullName}`;
-                        } else if (dr.user?.name) {
-                            const name = dr.user.name;
-                            doctorName = name.toLowerCase().startsWith("dr.") ? name : `${name}`;
+                            doctorName = fullName.toLowerCase().startsWith("dr.") ? fullName : `${fullName}`;
+                        } else if (userName) {
+                            doctorName = userName.toLowerCase().startsWith("dr.") ? userName : `${userName}`;
                         }
                     }
 
