@@ -130,6 +130,8 @@ function Appointments_View() {
     const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
     const [ipdWalkIns, setIpdWalkIns] = useState([]);
     const [isLoadingIpdWalkIns, setIsLoadingIpdWalkIns] = useState(false);
+    const [walkInPatients, setWalkInPatients] = useState([]);
+    const [isLoadingWalkInPatients, setIsLoadingWalkInPatients] = useState(false);
     const [pagination, setPagination] = useState({
         page: 0,
         rowsPerPage: 25,
@@ -372,21 +374,29 @@ function Appointments_View() {
                 const appointmentsData = response.data.data?.appointments || response.data.data || [];
 
                 // Transform API response to match frontend structure
-                const transformedAppointments = appointmentsData.map((apt) => ({
-                    id: apt._id,
-                    name: apt.patient?.user?.name || apt.patientName || "Unknown",
-                    appointmentDateTime: apt.appointmentDate && apt.appointmentTime
-                        ? `${new Date(apt.appointmentDate).toISOString().split("T")[0]} ${apt.appointmentTime}`
-                        : apt.appointmentDateTime || "N/A",
-                    doctor: apt.doctor?.user?.name || apt.doctorName || "N/A",
-                    doctorId: apt.doctor?._id || apt.doctor || "", // Store doctor ID for rescheduling
-                    contact: apt.patient?.user?.phone || apt.contact || "N/A",
-                    disease: apt.notes || apt.disease || "N/A",
-                    status: apt.status || "Scheduled",
-                    patientProfileId: apt.patient?._id || apt.patient || "",
-                    invoiceId: apt.invoice?._id || apt.invoiceId || null,
-                    invoiceNumber: apt.invoice?.invoiceNumber || apt.invoiceNumber || null,
-                }));
+                const transformedAppointments = appointmentsData.map((apt) => {
+                    const doctorFromUser = apt.doctor?.user?.name;
+                    const doctorFromProfile =
+                        apt.doctor && (apt.doctor.name ||
+                            [apt.doctor.firstName, apt.doctor.lastName].filter(Boolean).join(" ").trim());
+                    const doctorName = doctorFromUser || doctorFromProfile || apt.doctorName || "N/A";
+
+                    return ({
+                        id: apt._id,
+                        name: apt.patient?.user?.name || apt.patientName || "Unknown",
+                        appointmentDateTime: apt.appointmentDate && apt.appointmentTime
+                            ? `${new Date(apt.appointmentDate).toISOString().split("T")[0]} ${apt.appointmentTime}`
+                            : apt.appointmentDateTime || "N/A",
+                        doctor: doctorName,
+                        doctorId: apt.doctor?._id || apt.doctor || "", // Store doctor ID for rescheduling
+                        contact: apt.patient?.user?.phone || apt.contact || "N/A",
+                        disease: apt.notes || apt.disease || "N/A",
+                        status: apt.status || "Scheduled",
+                        patientProfileId: apt.patient?._id || apt.patient || "",
+                        invoiceId: apt.invoice?._id || apt.invoiceId || null,
+                        invoiceNumber: apt.invoice?.invoiceNumber || apt.invoiceNumber || null,
+                    });
+                });
 
                 setAppointments(transformedAppointments);
 
@@ -430,74 +440,39 @@ function Appointments_View() {
     }, [pagination.page, pagination.rowsPerPage, filters.search, filters.appointmentStatus, activeTab]);
 
 
-    // Fetch IPD walk-in patients (inpatient records created via Walk-in Hub)
+    // Fetch Walk-in patients (OPD + IPD) from dedicated API
     const fetchIpdWalkIns = useCallback(async () => {
-        setIsLoadingIpdWalkIns(true);
+        setIsLoadingWalkInPatients(true);
         try {
             const params = {
                 page: walkInPagination.page + 1,
                 limit: walkInPagination.rowsPerPage,
-                status: "Admitted" // Only show currently admitted patients
             };
 
-            // Add search parameter if search is active for walk-in tab
             if (filters.search && filters.search.trim() && activeTab === "walkIn") {
                 params.search = filters.search.trim();
             }
 
-            const response = await axios.get(
-                getApiUrl("inpatients"),
-                {
-                    headers: getAuthHeaders(),
-                    params
-                }
-            );
+            const response = await axios.get(getApiUrl("walk-in/patients"), {
+                headers: getAuthHeaders(),
+                params,
+            });
 
             if (response.data.success) {
-                const inpatientsData = response.data.data?.data || response.data.data || [];
+                const data = response.data.data || [];
+                setWalkInPatients(data);
 
-                // Filter only walk-in inpatients (those with reason containing "Walk-in Hub")
-                const walkInInpatients = inpatientsData.filter(ip =>
-                    ip.reason && ip.reason.includes("Walk-in Hub")
-                );
-
-                // Transform IPD walk-ins to match appointment structure for display
-                const transformedIpdWalkIns = walkInInpatients.map((ip) => ({
-                    id: `ipd-${ip._id}`, // Prefix to distinguish from appointments
-                    name: ip.patient?.user?.name || "Unknown",
-                    appointmentDateTime: ip.admissionDate
-                        ? `${new Date(ip.admissionDate).toISOString().split("T")[0]} ${new Date(ip.admissionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                        : "N/A",
-                    doctor: ip.doctor?.user?.name || "N/A",
-                    doctorId: ip.doctor?._id || ip.doctor || "",
-                    contact: ip.patient?.user?.phone || "N/A",
-                    disease: ip.reason || "Admitted via Walk-in Hub",
-                    status: ip.status === "Admitted" ? "Admitted" : ip.status || "Admitted",
-                    patientProfileId: ip.patient?._id || ip.patient || "",
-                    invoiceId: null,
-                    invoiceNumber: null,
-                    isIpd: true, // Flag to identify IPD walk-ins
-                    inpatientId: ip._id, // Store inpatient ID
-                    roomNumber: ip.roomNumber || null,
-                    bedNumber: ip.bedNumber || null,
-                    wardCategory: ip.wardCategory || null,
-                }));
-
-                setIpdWalkIns(transformedIpdWalkIns);
-
-                // Update pagination metadata
                 if (response.data.meta) {
                     setWalkInPagination(prev => ({
                         ...prev,
-                        total: response.data.meta.total || transformedIpdWalkIns.length,
+                        total: response.data.meta.total || data.length,
                     }));
                 }
             }
         } catch (error) {
-            console.error("Error fetching IPD walk-ins:", error);
-            // Don't show error toast as this is optional data
+            console.error("Error fetching walk-in patients:", error);
         } finally {
-            setIsLoadingIpdWalkIns(false);
+            setIsLoadingWalkInPatients(false);
         }
     }, [walkInPagination.page, walkInPagination.rowsPerPage, filters.search, activeTab]);
 
@@ -1253,16 +1228,7 @@ function Appointments_View() {
                                                                 >
                                                                     <MessageIcon fontSize="small" />
                                                                 </button>
-                                                                {appointment.invoiceNumber && (
-                                                                    <button
-                                                                        type="button"
-                                                                        className="btn btn-sm btn-info"
-                                                                        onClick={() => toast.info(`Invoice: ${appointment.invoiceNumber}`)}
-                                                                        title={`View Invoice: ${appointment.invoiceNumber}`}
-                                                                    >
-                                                                        View Invoice
-                                                                    </button>
-                                                                )}
+                                                               
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1309,51 +1275,29 @@ function Appointments_View() {
                                     </div>
                                 </div>
                                 {(() => {
-                                    // Filter OPD walk-in appointments (those with notes containing "Walk-in Hub")
-                                    // Note: If server-side search is active, appointments are already filtered
-                                    const walkInAppointments = appointments.filter(apt =>
-                                        apt.disease && apt.disease.includes("Walk-in Hub")
-                                    );
+                                    let filteredWalkIns = walkInPatients;
+                                    if (filters.search && filters.search.trim()) {
+                                        const searchLower = filters.search.toLowerCase().trim();
+                                        filteredWalkIns = walkInPatients.filter((walkIn) => {
+                                            const name = (walkIn.name || "").toLowerCase();
+                                            const contact = (walkIn.contact || "").toLowerCase();
+                                            const doctor = (walkIn.doctor || "").toLowerCase();
+                                            const dateTime = (walkIn.appointmentDateTime || "").toLowerCase();
+                                            const status = (walkIn.status || "").toLowerCase();
+                                            const roomBed = walkIn.isIpd
+                                                ? `${walkIn.roomNumber || ""} ${walkIn.bedNumber || ""}`.toLowerCase()
+                                                : "";
+                                            return (
+                                                name.includes(searchLower) ||
+                                                contact.includes(searchLower) ||
+                                                doctor.includes(searchLower) ||
+                                                dateTime.includes(searchLower) ||
+                                                status.includes(searchLower) ||
+                                                roomBed.includes(searchLower)
+                                            );
+                                        });
+                                    }
 
-                                    // Combine OPD walk-in appointments with IPD walk-in inpatient records
-                                    // Note: If server-side search is active, ipdWalkIns are already filtered
-                                    const allWalkIns = [...walkInAppointments, ...ipdWalkIns];
-
-                                    // Deduplicate by patient ID - show only the most recent walk-in per patient
-                                    const patientWalkInMap = new Map();
-                                    allWalkIns.forEach(walkIn => {
-                                        const patientId = walkIn.patientProfileId || walkIn.inpatientId || walkIn.id;
-                                        if (!patientId) return;
-
-                                        const existing = patientWalkInMap.get(patientId);
-                                        if (!existing) {
-                                            patientWalkInMap.set(patientId, walkIn);
-                                        } else {
-                                            // Keep the most recent one (compare by date/time)
-                                            try {
-                                                const existingDate = new Date(existing.appointmentDateTime.split(" ")[0]);
-                                                const newDate = new Date(walkIn.appointmentDateTime.split(" ")[0]);
-                                                if (newDate >= existingDate) {
-                                                    // Also prefer the one with the current primary doctor if available
-                                                    // For now, just keep the most recent
-                                                    patientWalkInMap.set(patientId, walkIn);
-                                                }
-                                            } catch {
-                                                // If date parsing fails, keep existing
-                                            }
-                                        }
-                                    });
-
-                                    // Convert map back to array
-                                    const deduplicatedWalkIns = Array.from(patientWalkInMap.values());
-
-                                    // Apply client-side search filter only if server-side search is not active
-                                    // (Server-side search is already applied in fetchAppointments and fetchIpdWalkIns)
-                                    let filteredWalkIns = deduplicatedWalkIns;
-                                    // Note: Server-side search handles most filtering, but we keep client-side as fallback
-                                    // for combining appointments and inpatients
-
-                                    // Sort by date/time (most recent first)
                                     const sortedWalkIns = filteredWalkIns.sort((a, b) => {
                                         try {
                                             const dateA = new Date(a.appointmentDateTime.split(" ")[0]);
@@ -1499,32 +1443,7 @@ function Appointments_View() {
                                             }
                                         }
                                     });
-                                    const deduplicatedWalkIns = Array.from(patientWalkInMap.values());
-                                    let filteredWalkIns = deduplicatedWalkIns;
-                                    if (filters.search && filters.search.trim()) {
-                                        const searchLower = filters.search.toLowerCase().trim();
-                                        filteredWalkIns = deduplicatedWalkIns.filter((walkIn) => {
-                                            const name = (walkIn.name || "").toLowerCase();
-                                            const contact = (walkIn.contact || "").toLowerCase();
-                                            const doctor = (walkIn.doctor || "").toLowerCase();
-                                            const dateTime = (walkIn.appointmentDateTime || "").toLowerCase();
-                                            const status = (walkIn.status || "").toLowerCase();
-                                            const roomBed = walkIn.isIpd
-                                                ? `${walkIn.roomNumber || ""} ${walkIn.bedNumber || ""}`.toLowerCase()
-                                                : "";
-                                            return name.includes(searchLower) ||
-                                                contact.includes(searchLower) ||
-                                                doctor.includes(searchLower) ||
-                                                dateTime.includes(searchLower) ||
-                                                status.includes(searchLower) ||
-                                                roomBed.includes(searchLower);
-                                        });
-                                    }
-
-                                    // Calculate total count (combining appointments and inpatients)
-                                    // For accurate pagination, we'd need backend support for combined search
-                                    // For now, use client-side total
-                                    const totalWalkIns = filteredWalkIns.length;
+                                    const totalWalkIns = walkInPatients.length;
 
                                     return totalWalkIns > walkInPagination.rowsPerPage ? (
                                         <TablePagination

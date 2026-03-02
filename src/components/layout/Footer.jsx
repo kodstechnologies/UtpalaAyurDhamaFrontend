@@ -9,7 +9,7 @@ function Footer() {
                 marginTop: "auto",
             }}
         >
-            © 2025. Utpala Ayurdhama — All rights reserved.
+            © {new Date().getFullYear()}. Utpala Ayurdhama — All rights reserved.
         </div>
     );
 }
