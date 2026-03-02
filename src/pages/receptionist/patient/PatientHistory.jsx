@@ -887,9 +887,9 @@ function PatientHistory() {
                                                                 <Typography variant="body2" sx={{ mb: 1 }}>
                                                                     <strong>Subtotal:</strong> {formatCurrency(invoice.subtotal)}
                                                                 </Typography>
-                                                                <Typography variant="body2" sx={{ mb: 1 }}>
+                                                                {/* <Typography variant="body2" sx={{ mb: 1 }}>
                                                                     <strong>Discount:</strong> {invoice.discountRate}%
-                                                                </Typography>
+                                                                </Typography> */}
                                                                 <Typography variant="body2" sx={{ mb: 1 }}>
                                                                     <strong>Tax:</strong> {invoice.taxRate}%
                                                                 </Typography>
