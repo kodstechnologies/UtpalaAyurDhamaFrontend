@@ -708,8 +708,10 @@ function InpatientBilling() {
         "Fetching unified billing details for patient ID:",
         patientId,
       );
-      const response =
-        await inpatientService.getUnifiedBillingSummary(patientId);
+      const response = await inpatientService.getUnifiedBillingSummary(
+        patientId,
+        inpatientId,
+      );
       console.log("Billing API Response:", response);
 
       if (response && response.success && response.data) {
@@ -764,11 +766,13 @@ function InpatientBilling() {
     }
   };
 
+  // Fetch billing details whenever patientId or inpatientId changes.
+  // Both are set from fetchPatientId above; once both are stable, this will fire correctly.
   useEffect(() => {
     if (patientId) {
       fetchBillingDetails();
     }
-  }, [patientId]);
+  }, [patientId, inpatientId]);
 
   const chargeTotals = useMemo(() => {
     if (!billingData?.charges)
@@ -1272,12 +1276,15 @@ function InpatientBilling() {
     setFinalizeDialogOpen(false);
     try {
       setIsDischarging(true);
-      const response = await inpatientService.finalizeDischarge(id, {
-        discountType,
-        discountValue: discountRate, // State is named "discountRate" but holds the value
-        discountRate, // Kept for backend backward compatibility if needed, though backend should prioritize type/value
-        taxRate,
-      });
+      const response = await inpatientService.finalizeDischarge(
+        inpatientId || id,
+        {
+          discountType,
+          discountValue: discountRate, // State is named "discountRate" but holds the value
+          discountRate, // Kept for backend backward compatibility if needed, though backend should prioritize type/value
+          taxRate,
+        },
+      );
 
       if (response && response.success) {
         toast.success(
@@ -1387,15 +1394,15 @@ function InpatientBilling() {
               >
                 <span className="badge bg-light text-dark p-2">
                   <strong className="text-muted me-1">Ward:</strong>{" "}
-                  {admission.wardCategory || "N/A"}
+                  {admission?.wardCategory || "N/A"}
                 </span>
-                {admission.roomNumber && (
+                {admission?.roomNumber && (
                   <span className="badge bg-light text-dark p-2">
                     <strong className="text-muted me-1">Room:</strong>{" "}
                     {admission.roomNumber}
                   </span>
                 )}
-                {admission.bedNumber && (
+                {admission?.bedNumber && (
                   <span className="badge bg-light text-dark p-2">
                     <strong className="text-muted me-1">Bed:</strong>{" "}
                     {admission.bedNumber}
@@ -1415,13 +1422,17 @@ function InpatientBilling() {
                 )}
                 <span className="badge bg-light text-dark p-2">
                   <strong className="text-muted me-1">Admitted:</strong>{" "}
-                  {new Date(admission.admissionDate).toLocaleDateString()}
+                  {admission?.admissionDate
+                    ? new Date(admission.admissionDate).toLocaleDateString()
+                    : "N/A"}
                 </span>
-                <span
-                  className={`badge ${isDischarged ? "bg-secondary" : "bg-success"} p-2`}
-                >
-                  {admission.status}
-                </span>
+                {admission?.status && (
+                  <span
+                    className={`badge ${isDischarged ? "bg-secondary" : "bg-success"} p-2`}
+                  >
+                    {admission.status}
+                  </span>
+                )}
               </div>
             </div>
             <div className="col-md-4 text-md-end">
