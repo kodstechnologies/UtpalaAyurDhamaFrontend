@@ -575,20 +575,24 @@ function InvoiceDetails() {
     );
   }
 
-  // Discount applies on full subtotal (all categories)
-  const discountAmount =
-    invoice.discountType === "fixed"
-      ? invoice.discountValue || 0
-      : invoice.subtotal *
-        ((invoice.discountValue || invoice.discountRate || 0) / 100);
-  const taxableAmount = Math.max(0, invoice.subtotal - discountAmount);
-
-  // GST applies on pharmacy items only (full pharmacy amount, no proportional discount deduction)
+  // GST applies on pharmacy items ONLY (full pharmacy amount, before discount)
   const pharmacySubtotal = (invoice.items || [])
-    .filter((item) => item.category === "pharmacy")
+    .filter(
+      (item) => item.category === "pharmacy" || item.category === "Medicines",
+    )
     .reduce((sum, item) => sum + (item.total || 0), 0);
 
   const taxAmount = pharmacySubtotal * ((invoice.taxRate || 0) / 100);
+
+  // GST-inclusive total (before discount)
+  const grandTotal = (invoice.subtotal || 0) + taxAmount;
+
+  // Discount applies on the GST-inclusive grand total
+  const discountAmount =
+    invoice.discountType === "fixed"
+      ? invoice.discountValue || 0
+      : grandTotal *
+        ((invoice.discountValue || invoice.discountRate || 0) / 100);
 
   return (
     <Box sx={{ padding: "20px" }} className="invoice-details-page">
@@ -1177,41 +1181,6 @@ function InvoiceDetails() {
                   {formatCurrency(invoice.subtotal)}
                 </Typography>
               </Box>
-              {invoice.discountRate > 0 && (
-                <>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: 1,
-                    }}
-                  >
-                    <Typography variant="body1" sx={{ color: "#666" }}>
-                      Discount ({invoice.discountRate}%):
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: 500, color: "#4CAF50" }}
-                    >
-                      -{formatCurrency(discountAmount)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: 1,
-                    }}
-                  >
-                    <Typography variant="body1" sx={{ color: "#666" }}>
-                      Taxable Amount:
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {formatCurrency(taxableAmount)}
-                    </Typography>
-                  </Box>
-                </>
-              )}
               {invoice.taxRate > 0 && (
                 <Box
                   sx={{
@@ -1225,6 +1194,25 @@ function InvoiceDetails() {
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: 500 }}>
                     {formatCurrency(taxAmount)}
+                  </Typography>
+                </Box>
+              )}
+              {invoice.discountRate > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 1,
+                  }}
+                >
+                  <Typography variant="body1" sx={{ color: "#666" }}>
+                    Discount ({invoice.discountRate}%):
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    sx={{ fontWeight: 500, color: "#4CAF50" }}
+                  >
+                    -{formatCurrency(discountAmount)}
                   </Typography>
                 </Box>
               )}
