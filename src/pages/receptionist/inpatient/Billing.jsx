@@ -708,8 +708,10 @@ function InpatientBilling() {
         "Fetching unified billing details for patient ID:",
         patientId,
       );
-      const response =
-        await inpatientService.getUnifiedBillingSummary(patientId);
+      const response = await inpatientService.getUnifiedBillingSummary(
+        patientId,
+        inpatientId,
+      );
       console.log("Billing API Response:", response);
 
       if (response && response.success && response.data) {
@@ -764,11 +766,13 @@ function InpatientBilling() {
     }
   };
 
+  // Fetch billing details whenever patientId or inpatientId changes.
+  // Both are set from fetchPatientId above; once both are stable, this will fire correctly.
   useEffect(() => {
     if (patientId) {
       fetchBillingDetails();
     }
-  }, [patientId]);
+  }, [patientId, inpatientId]);
 
   const chargeTotals = useMemo(() => {
     if (!billingData?.charges)
@@ -793,29 +797,31 @@ function InpatientBilling() {
   }, [billingData]);
 
   // Step 1: Is the bill already finalized?
-  const hasInvoice = useMemo(() => {
-    return !!billingData?.invoice?.id;
+  // Treat the bill as finalized if we have a persisted invoice total from backend and the status is Discharged.
+  const isFinalized = useMemo(() => {
+    return (
+      billingData?.admission?.status === "Discharged" && billingData?.invoice
+    );
   }, [billingData]);
 
   // Step 2: Compute GST on pharmacy FIRST (before discount)
   const taxAmount = useMemo(() => {
-    const isDischarged = billingData?.admission?.status === "Discharged";
-    if (isDischarged && billingData?.invoice) {
+    if (isFinalized) {
       return 0; // Tax is usually included or calculated at the end
     }
     // GST applied only on medicines (pharmacy)
     return chargeTotals.pharmacy * (taxRate / 100);
-  }, [chargeTotals.pharmacy, taxRate, billingData]);
+  }, [chargeTotals.pharmacy, taxRate, isFinalized]);
 
   // Step 3: grandTotal = all categories + pharmacy-WITH-GST (no rounding)
   const grandTotal = useMemo(() => {
     if (!billingData) return 0;
-    if (hasInvoice && billingData?.invoice) {
+    if (isFinalized) {
       return billingData.invoice.totalPayable;
     }
     const sumAll = Object.values(chargeTotals).reduce((a, b) => a + b, 0);
     return sumAll + taxAmount;
-  }, [billingData, chargeTotals, taxAmount, hasInvoice]);
+  }, [billingData, chargeTotals, taxAmount, isFinalized]);
 
   // Step 4: Apply discount on GST-inclusive grandTotal (no rounding)
   const discountAmount = useMemo(() => {
@@ -829,12 +835,12 @@ function InpatientBilling() {
   // Step 5: Final total = grandTotal - discount — ROUND ONLY HERE for display
   const totalCharges = useMemo(() => {
     // If bill is finalized (has invoice), use invoice totalPayable
-    if (hasInvoice && billingData?.invoice) {
+    if (isFinalized) {
       return billingData.invoice.totalPayable;
     }
     // Otherwise calculate from charges
     return Math.round(Math.max(0, grandTotal - discountAmount) * 100) / 100;
-  }, [grandTotal, discountAmount, billingData, hasInvoice]);
+  }, [grandTotal, discountAmount, billingData, isFinalized]);
 
   const amountPaid = useMemo(() => {
     return billingData?.invoice?.amountPaid || 0;
@@ -842,12 +848,12 @@ function InpatientBilling() {
 
   const outstandingAmount = useMemo(() => {
     // If bill is finalized (has invoice), calculate outstanding = totalPayable - amountPaid
-    if (hasInvoice) {
+    if (isFinalized) {
       return Math.max(0, totalCharges - amountPaid);
     }
-    // If not finalized, outstanding is the same as total charges
-    return totalCharges;
-  }, [totalCharges, amountPaid, hasInvoice]);
+    // If not finalized, outstanding is the same as total charges minus any amount already paid toward the invoice
+    return Math.max(0, totalCharges - amountPaid);
+  }, [totalCharges, amountPaid, isFinalized]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-IN", {
@@ -1272,12 +1278,15 @@ function InpatientBilling() {
     setFinalizeDialogOpen(false);
     try {
       setIsDischarging(true);
-      const response = await inpatientService.finalizeDischarge(id, {
-        discountType,
-        discountValue: discountRate, // State is named "discountRate" but holds the value
-        discountRate, // Kept for backend backward compatibility if needed, though backend should prioritize type/value
-        taxRate,
-      });
+      const response = await inpatientService.finalizeDischarge(
+        inpatientId || id,
+        {
+          discountType,
+          discountValue: discountRate, // State is named "discountRate" but holds the value
+          discountRate, // Kept for backend backward compatibility if needed, though backend should prioritize type/value
+          taxRate,
+        },
+      );
 
       if (response && response.success) {
         toast.success(
@@ -1387,15 +1396,15 @@ function InpatientBilling() {
               >
                 <span className="badge bg-light text-dark p-2">
                   <strong className="text-muted me-1">Ward:</strong>{" "}
-                  {admission.wardCategory || "N/A"}
+                  {admission?.wardCategory || "N/A"}
                 </span>
-                {admission.roomNumber && (
+                {admission?.roomNumber && (
                   <span className="badge bg-light text-dark p-2">
                     <strong className="text-muted me-1">Room:</strong>{" "}
                     {admission.roomNumber}
                   </span>
                 )}
-                {admission.bedNumber && (
+                {admission?.bedNumber && (
                   <span className="badge bg-light text-dark p-2">
                     <strong className="text-muted me-1">Bed:</strong>{" "}
                     {admission.bedNumber}
@@ -1415,13 +1424,17 @@ function InpatientBilling() {
                 )}
                 <span className="badge bg-light text-dark p-2">
                   <strong className="text-muted me-1">Admitted:</strong>{" "}
-                  {new Date(admission.admissionDate).toLocaleDateString()}
+                  {admission?.admissionDate
+                    ? new Date(admission.admissionDate).toLocaleDateString()
+                    : "N/A"}
                 </span>
-                <span
-                  className={`badge ${isDischarged ? "bg-secondary" : "bg-success"} p-2`}
-                >
-                  {admission.status}
-                </span>
+                {admission?.status && (
+                  <span
+                    className={`badge ${isDischarged ? "bg-secondary" : "bg-success"} p-2`}
+                  >
+                    {admission.status}
+                  </span>
+                )}
               </div>
             </div>
             <div className="col-md-4 text-md-end">
