@@ -797,29 +797,31 @@ function InpatientBilling() {
   }, [billingData]);
 
   // Step 1: Is the bill already finalized?
-  const hasInvoice = useMemo(() => {
-    return !!billingData?.invoice?.id;
+  // Treat the bill as finalized if we have a persisted invoice total from backend and the status is Discharged.
+  const isFinalized = useMemo(() => {
+    return (
+      billingData?.admission?.status === "Discharged" && billingData?.invoice
+    );
   }, [billingData]);
 
   // Step 2: Compute GST on pharmacy FIRST (before discount)
   const taxAmount = useMemo(() => {
-    const isDischarged = billingData?.admission?.status === "Discharged";
-    if (isDischarged && billingData?.invoice) {
+    if (isFinalized) {
       return 0; // Tax is usually included or calculated at the end
     }
     // GST applied only on medicines (pharmacy)
     return chargeTotals.pharmacy * (taxRate / 100);
-  }, [chargeTotals.pharmacy, taxRate, billingData]);
+  }, [chargeTotals.pharmacy, taxRate, isFinalized]);
 
   // Step 3: grandTotal = all categories + pharmacy-WITH-GST (no rounding)
   const grandTotal = useMemo(() => {
     if (!billingData) return 0;
-    if (hasInvoice && billingData?.invoice) {
+    if (isFinalized) {
       return billingData.invoice.totalPayable;
     }
     const sumAll = Object.values(chargeTotals).reduce((a, b) => a + b, 0);
     return sumAll + taxAmount;
-  }, [billingData, chargeTotals, taxAmount, hasInvoice]);
+  }, [billingData, chargeTotals, taxAmount, isFinalized]);
 
   // Step 4: Apply discount on GST-inclusive grandTotal (no rounding)
   const discountAmount = useMemo(() => {
@@ -833,12 +835,12 @@ function InpatientBilling() {
   // Step 5: Final total = grandTotal - discount — ROUND ONLY HERE for display
   const totalCharges = useMemo(() => {
     // If bill is finalized (has invoice), use invoice totalPayable
-    if (hasInvoice && billingData?.invoice) {
+    if (isFinalized) {
       return billingData.invoice.totalPayable;
     }
     // Otherwise calculate from charges
     return Math.round(Math.max(0, grandTotal - discountAmount) * 100) / 100;
-  }, [grandTotal, discountAmount, billingData, hasInvoice]);
+  }, [grandTotal, discountAmount, billingData, isFinalized]);
 
   const amountPaid = useMemo(() => {
     return billingData?.invoice?.amountPaid || 0;
@@ -846,12 +848,12 @@ function InpatientBilling() {
 
   const outstandingAmount = useMemo(() => {
     // If bill is finalized (has invoice), calculate outstanding = totalPayable - amountPaid
-    if (hasInvoice) {
+    if (isFinalized) {
       return Math.max(0, totalCharges - amountPaid);
     }
-    // If not finalized, outstanding is the same as total charges
-    return totalCharges;
-  }, [totalCharges, amountPaid, hasInvoice]);
+    // If not finalized, outstanding is the same as total charges minus any amount already paid toward the invoice
+    return Math.max(0, totalCharges - amountPaid);
+  }, [totalCharges, amountPaid, isFinalized]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-IN", {
