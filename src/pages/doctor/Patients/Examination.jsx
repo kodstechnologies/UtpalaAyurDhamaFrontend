@@ -202,168 +202,233 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
     }, [formData.chiefComplaint, diseases]);
 
     // Load examination data when in edit mode
+    // useEffect(() => {
+    //     const fetchData = async () => {
+    //         if (isEditMode && examinationData) {
+    //             try {
+    //                 // Parse prakriti assessment
+    //                 const prakriti = examinationData.prakritiAssessment || "";
+    //                 const vataMatch = prakriti.match(/Vata:\s*([^,]*)/);
+    //                 const pittaMatch = prakriti.match(/Pitta:\s*([^,]*)/);
+    //                 const kaphaMatch = prakriti.match(/Kapha:\s*([^,]*)/);
+
+    //                 // Parse customFields (clinical and systemic examination)
+    //                 const customFields = examinationData.customFields || [];
+    //                 const customFieldsMap = {};
+    //                 customFields.forEach(field => {
+    //                     if (field.label && field.value) {
+    //                         customFieldsMap[field.label] = field.value;
+    //                     }
+    //                 });
+
+    //                 // Parse vitals
+    //                 const vitals = examinationData.vitals?.[0] || {};
+
+    //                 // Parse history of patient illness
+    //                 const history = examinationData.historyOfPatientIllness || "";
+    //                 const onsetMatch = history.match(/Onset:\s*([^.]*)/);
+    //                 const progressionMatch = history.match(/Progression:\s*([^.]*)/);
+    //                 const aggMatch = history.match(/Aggravating Factors:\s*([^.]*)/);
+    //                 const relMatch = history.match(/Relieving Factors:\s*([^.]*)/);
+    //                 const durationMatch = history.match(/Duration:\s*([^.]*)/);
+    //                 const severityMatch = history.match(/Severity:\s*([^/]*)/);
+
+    //                 // Parse medical history
+    //                 const medHistory = examinationData.medicalSurgicalHistory || "";
+    //                 const pastIllnessMatch = medHistory.match(/Past Illness:\s*([^.]*)/);
+    //                 const surgeriesMatch = medHistory.match(/Surgeries:\s*([^.]*)/);
+    //                 const allergiesMatch = medHistory.match(/Allergies:\s*([^.]*)/);
+    //                 const medicationsMatch = medHistory.match(/Past Medications:\s*([^.]*)/);
+
+    //                 // Parse examination notes
+    //                 const notes = examinationData.examinationNotes || "";
+    //                 const treatmentMatch = notes.match(/Treatment Plan:\s*([^.]*)/);
+    //                 const lifestyleMatch = notes.match(/Lifestyle Recommendations:\s*([^.]*)/);
+
+    //                 // Parse diagnoses
+    //                 const diagnosis = examinationData.diagnoses?.[0] || "";
+
+    //                 // Parse previous investigations
+    //                 const prevInvest = examinationData.previousInvestigations || "";
+    //                 const investDateMatch = prevInvest.match(/\(Date:\s*([^)]*)\)/);
+    //                 const investigation = investDateMatch ? prevInvest.replace(/\s*\(Date:.*\)/, "").trim() : prevInvest;
+
+    //                 // Set form data
+    //                 setFormData({
+    //                     vata: (vataMatch?.[1] || "").trim(),
+    //                     pitta: (pittaMatch?.[1] || "").trim(),
+    //                     kapha: (kaphaMatch?.[1] || "").trim(),
+    //                     pulse: customFieldsMap["Pulse (Nadi)"] || "",
+    //                     tongue: customFieldsMap["Tongue (Jivha)"] || "",
+    //                     skin: customFieldsMap["Skin (Tvak)"] || "",
+    //                     nails: customFieldsMap["Nails (Nakha)"] || "",
+    //                     eyes: customFieldsMap["Eyes (Netra)"] || "",
+    //                     appetite: customFieldsMap["Appetite (Agni)"] || "",
+    //                     digestion: customFieldsMap["Digestion"] || "",
+    //                     bowel: customFieldsMap["Bowel Movement"] || "",
+    //                     urine: customFieldsMap["Urine (Mutra)"] || "",
+    //                     sleep: customFieldsMap["Sleep (Nidra)"] || "",
+    //                     chiefComplaint: examinationData.complaints || "",
+    //                     duration: (durationMatch?.[1] || "").trim(),
+    //                     severity: (severityMatch?.[1] || "").trim(),
+    //                     pastIllness: (pastIllnessMatch?.[1] || "").trim(),
+    //                     surgeries: (surgeriesMatch?.[1] || "").trim(),
+    //                     allergies: (allergiesMatch?.[1] || "").trim(),
+    //                     medications: (medicationsMatch?.[1] || "").trim(),
+    //                     onset: (onsetMatch?.[1] || "").trim(),
+    //                     progression: (progressionMatch?.[1] || "").trim(),
+    //                     aggravatingFactors: (aggMatch?.[1] || "").trim(),
+    //                     relievingFactors: (relMatch?.[1] || "").trim(),
+    //                     currentMedications: examinationData.ongoingMedications || "",
+    //                     height: vitals.height || "",
+    //                     weight: vitals.weight || "",
+    //                     bmi: vitals.bmi || "",
+    //                     bloodPressure: vitals.bloodPressure || "",
+    //                     heartRate: vitals.heartRate || "",
+    //                     temperature: vitals.temperature || "",
+    //                     spo2: vitals.spo2 || "",
+    //                     respiratoryRate: vitals.respiratoryRate || "",
+    //                     cardiovascular: customFieldsMap["Cardiovascular"] || "",
+    //                     respiratory: customFieldsMap["Respiratory"] || "",
+    //                     gastrointestinal: customFieldsMap["Gastrointestinal"] || "",
+    //                     musculoskeletal: customFieldsMap["Musculoskeletal"] || "",
+    //                     neurological: customFieldsMap["Neurological"] || "",
+    //                     investigation: investigation || "",
+    //                     result: examinationData.presentInvestigations || "",
+    //                     date: investDateMatch?.[1] || "",
+    //                     laboratoryInvestigation: examinationData.laboratoryInvestigation || "",
+    //                     diagnosis: diagnosis,
+    //                     treatment: (treatmentMatch?.[1] || "").trim(),
+    //                     lifestyle: (lifestyleMatch?.[1] || "").trim(),
+    //                     followUp: examinationData.followUps?.[0]?.date ? new Date(examinationData.followUps[0].date).toISOString().split("T")[0] : "",
+    //                 });
+
+    //                 // Set inpatient data if exists
+    //                 if (examinationData.inpatient) {
+    //                     setAdmitPatient(true);
+    //                     // Fetch full inpatient details if available
+    //                     if (examinationData.inpatient._id || typeof examinationData.inpatient === 'string') {
+    //                         const inpatientId = examinationData.inpatient._id || examinationData.inpatient;
+    //                         try {
+    //                             const inpatientResponse = await axios.get(
+    //                                 getApiUrl(`inpatients/${inpatientId}`),
+    //                                 { headers: getAuthHeaders() }
+    //                             );
+    //                             if (inpatientResponse.data.success && inpatientResponse.data.data) {
+    //                                 const inpatient = inpatientResponse.data.data;
+    //                                 setInpatientFormData({
+    //                                     roomNumber: inpatient.roomNumber || "",
+    //                                     bedNumber: inpatient.bedNumber || "",
+    //                                     wardCategory: inpatient.wardCategory || "",
+    //                                     reason: inpatient.reason || "",
+    //                                     notes: inpatient.notes || "",
+    //                                 });
+    //                             }
+    //                         } catch (error) {
+    //                             console.error("Error fetching inpatient details:", error);
+    //                             // Set empty values if fetch fails
+    //                             setInpatientFormData({
+    //                                 roomNumber: "",
+    //                                 bedNumber: "",
+    //                                 wardCategory: "",
+    //                                 reason: "",
+    //                                 notes: "",
+    //                             });
+    //                         }
+    //                     } else {
+    //                         // If inpatient is populated object
+    //                         setInpatientFormData({
+    //                             roomNumber: examinationData.inpatient.roomNumber || "",
+    //                             bedNumber: examinationData.inpatient.bedNumber || "",
+    //                             wardCategory: examinationData.inpatient.wardCategory || "",
+    //                             reason: examinationData.inpatient.reason || "",
+    //                             notes: examinationData.inpatient.notes || "",
+    //                         });
+    //                     }
+    //                 } else {
+    //                     // If no inpatient, ensure toggle is off
+    //                     setAdmitPatient(false);
+    //                     setInpatientFormData({
+    //                         roomNumber: "",
+    //                         bedNumber: "",
+    //                         wardCategory: "",
+    //                         reason: "",
+    //                         notes: "",
+    //                     });
+    //                 }
+    //             } catch (error) {
+    //                 console.error("Error parsing examination data:", error);
+    //                 toast.error("Error loading examination data for editing");
+    //             }
+    //         }
+    //     };
+    //     fetchData();
+    // }, [isEditMode, examinationData]);
+
+
     useEffect(() => {
         const fetchData = async () => {
             if (isEditMode && examinationData) {
                 try {
-                    // Parse prakriti assessment
-                    const prakriti = examinationData.prakritiAssessment || "";
-                    const vataMatch = prakriti.match(/Vata:\s*([^,]*)/);
-                    const pittaMatch = prakriti.match(/Pitta:\s*([^,]*)/);
-                    const kaphaMatch = prakriti.match(/Kapha:\s*([^,]*)/);
 
-                    // Parse customFields (clinical and systemic examination)
-                    const customFields = examinationData.customFields || [];
-                    const customFieldsMap = {};
-                    customFields.forEach(field => {
-                        if (field.label && field.value) {
-                            customFieldsMap[field.label] = field.value;
-                        }
-                    });
+                    // Existing parsing logic remains unchanged above this
 
-                    // Parse vitals
-                    const vitals = examinationData.vitals?.[0] || {};
+                    // ---------- NEW CLEAN LOGIC ----------
+                    const patientId = examinationData.patient?._id || examinationData.patient;
 
-                    // Parse history of patient illness
-                    const history = examinationData.historyOfPatientIllness || "";
-                    const onsetMatch = history.match(/Onset:\s*([^.]*)/);
-                    const progressionMatch = history.match(/Progression:\s*([^.]*)/);
-                    const aggMatch = history.match(/Aggravating Factors:\s*([^.]*)/);
-                    const relMatch = history.match(/Relieving Factors:\s*([^.]*)/);
-                    const durationMatch = history.match(/Duration:\s*([^.]*)/);
-                    const severityMatch = history.match(/Severity:\s*([^/]*)/);
+                    if (patientId) {
+                        try {
+                            const inpatientResponse = await axios.get(
+                                getApiUrl(`inpatients/patient/${patientId}`),
+                                { headers: getAuthHeaders() }
+                            );
 
-                    // Parse medical history
-                    const medHistory = examinationData.medicalSurgicalHistory || "";
-                    const pastIllnessMatch = medHistory.match(/Past Illness:\s*([^.]*)/);
-                    const surgeriesMatch = medHistory.match(/Surgeries:\s*([^.]*)/);
-                    const allergiesMatch = medHistory.match(/Allergies:\s*([^.]*)/);
-                    const medicationsMatch = medHistory.match(/Past Medications:\s*([^.]*)/);
+                            if (inpatientResponse.data.success) {
+                                const inpatients = Array.isArray(inpatientResponse.data.data)
+                                    ? inpatientResponse.data.data
+                                    : [inpatientResponse.data.data];
 
-                    // Parse examination notes
-                    const notes = examinationData.examinationNotes || "";
-                    const treatmentMatch = notes.match(/Treatment Plan:\s*([^.]*)/);
-                    const lifestyleMatch = notes.match(/Lifestyle Recommendations:\s*([^.]*)/);
-
-                    // Parse diagnoses
-                    const diagnosis = examinationData.diagnoses?.[0] || "";
-
-                    // Parse previous investigations
-                    const prevInvest = examinationData.previousInvestigations || "";
-                    const investDateMatch = prevInvest.match(/\(Date:\s*([^)]*)\)/);
-                    const investigation = investDateMatch ? prevInvest.replace(/\s*\(Date:.*\)/, "").trim() : prevInvest;
-
-                    // Set form data
-                    setFormData({
-                        vata: (vataMatch?.[1] || "").trim(),
-                        pitta: (pittaMatch?.[1] || "").trim(),
-                        kapha: (kaphaMatch?.[1] || "").trim(),
-                        pulse: customFieldsMap["Pulse (Nadi)"] || "",
-                        tongue: customFieldsMap["Tongue (Jivha)"] || "",
-                        skin: customFieldsMap["Skin (Tvak)"] || "",
-                        nails: customFieldsMap["Nails (Nakha)"] || "",
-                        eyes: customFieldsMap["Eyes (Netra)"] || "",
-                        appetite: customFieldsMap["Appetite (Agni)"] || "",
-                        digestion: customFieldsMap["Digestion"] || "",
-                        bowel: customFieldsMap["Bowel Movement"] || "",
-                        urine: customFieldsMap["Urine (Mutra)"] || "",
-                        sleep: customFieldsMap["Sleep (Nidra)"] || "",
-                        chiefComplaint: examinationData.complaints || "",
-                        duration: (durationMatch?.[1] || "").trim(),
-                        severity: (severityMatch?.[1] || "").trim(),
-                        pastIllness: (pastIllnessMatch?.[1] || "").trim(),
-                        surgeries: (surgeriesMatch?.[1] || "").trim(),
-                        allergies: (allergiesMatch?.[1] || "").trim(),
-                        medications: (medicationsMatch?.[1] || "").trim(),
-                        onset: (onsetMatch?.[1] || "").trim(),
-                        progression: (progressionMatch?.[1] || "").trim(),
-                        aggravatingFactors: (aggMatch?.[1] || "").trim(),
-                        relievingFactors: (relMatch?.[1] || "").trim(),
-                        currentMedications: examinationData.ongoingMedications || "",
-                        height: vitals.height || "",
-                        weight: vitals.weight || "",
-                        bmi: vitals.bmi || "",
-                        bloodPressure: vitals.bloodPressure || "",
-                        heartRate: vitals.heartRate || "",
-                        temperature: vitals.temperature || "",
-                        spo2: vitals.spo2 || "",
-                        respiratoryRate: vitals.respiratoryRate || "",
-                        cardiovascular: customFieldsMap["Cardiovascular"] || "",
-                        respiratory: customFieldsMap["Respiratory"] || "",
-                        gastrointestinal: customFieldsMap["Gastrointestinal"] || "",
-                        musculoskeletal: customFieldsMap["Musculoskeletal"] || "",
-                        neurological: customFieldsMap["Neurological"] || "",
-                        investigation: investigation || "",
-                        result: examinationData.presentInvestigations || "",
-                        date: investDateMatch?.[1] || "",
-                        laboratoryInvestigation: examinationData.laboratoryInvestigation || "",
-                        diagnosis: diagnosis,
-                        treatment: (treatmentMatch?.[1] || "").trim(),
-                        lifestyle: (lifestyleMatch?.[1] || "").trim(),
-                        followUp: examinationData.followUps?.[0]?.date ? new Date(examinationData.followUps[0].date).toISOString().split("T")[0] : "",
-                    });
-
-                    // Set inpatient data if exists
-                    if (examinationData.inpatient) {
-                        setAdmitPatient(true);
-                        // Fetch full inpatient details if available
-                        if (examinationData.inpatient._id || typeof examinationData.inpatient === 'string') {
-                            const inpatientId = examinationData.inpatient._id || examinationData.inpatient;
-                            try {
-                                const inpatientResponse = await axios.get(
-                                    getApiUrl(`inpatients/${inpatientId}`),
-                                    { headers: getAuthHeaders() }
+                                const activeAdmission = inpatients.find(
+                                    (ip) => ip && ip.status === "Admitted"
                                 );
-                                if (inpatientResponse.data.success && inpatientResponse.data.data) {
-                                    const inpatient = inpatientResponse.data.data;
+
+                                if (activeAdmission) {
+                                    setAdmitPatient(true);
+
                                     setInpatientFormData({
-                                        roomNumber: inpatient.roomNumber || "",
-                                        bedNumber: inpatient.bedNumber || "",
-                                        wardCategory: inpatient.wardCategory || "",
-                                        reason: inpatient.reason || "",
-                                        notes: inpatient.notes || "",
+                                        roomNumber: activeAdmission.roomNumber || "",
+                                        bedNumber: activeAdmission.bedNumber || "",
+                                        wardCategory: activeAdmission.wardCategory || "",
+                                        reason: activeAdmission.reason || "",
+                                        notes: activeAdmission.notes || "",
+                                    });
+                                } else {
+                                    setAdmitPatient(false);
+                                    setInpatientFormData({
+                                        roomNumber: "",
+                                        bedNumber: "",
+                                        wardCategory: "",
+                                        reason: "",
+                                        notes: "",
                                     });
                                 }
-                            } catch (error) {
-                                console.error("Error fetching inpatient details:", error);
-                                // Set empty values if fetch fails
-                                setInpatientFormData({
-                                    roomNumber: "",
-                                    bedNumber: "",
-                                    wardCategory: "",
-                                    reason: "",
-                                    notes: "",
-                                });
                             }
-                        } else {
-                            // If inpatient is populated object
-                            setInpatientFormData({
-                                roomNumber: examinationData.inpatient.roomNumber || "",
-                                bedNumber: examinationData.inpatient.bedNumber || "",
-                                wardCategory: examinationData.inpatient.wardCategory || "",
-                                reason: examinationData.inpatient.reason || "",
-                                notes: examinationData.inpatient.notes || "",
-                            });
+                        } catch (error) {
+                            console.error("Error fetching inpatient status:", error);
+                            setAdmitPatient(false);
                         }
-                    } else {
-                        // If no inpatient, ensure toggle is off
-                        setAdmitPatient(false);
-                        setInpatientFormData({
-                            roomNumber: "",
-                            bedNumber: "",
-                            wardCategory: "",
-                            reason: "",
-                            notes: "",
-                        });
                     }
+
                 } catch (error) {
                     console.error("Error parsing examination data:", error);
                     toast.error("Error loading examination data for editing");
                 }
             }
         };
+
         fetchData();
     }, [isEditMode, examinationData]);
+
 
     // Load from localStorage on mount (only if not in edit mode)
     useEffect(() => {
@@ -552,12 +617,11 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 treatments: undefined
             };
 
-            // Remove treatments if it somehow got included
-            delete examinationData.treatments;
+            // Explicitly set the admitPatient flag so the backend knows the intention
+            examinationData.admitPatient = admitPatient;
 
             // If doctor wants to admit patient, add admission data
             if (admitPatient) {
-                examinationData.admitPatient = true;
                 examinationData.inpatientData = {
                     roomNumber: inpatientFormData.roomNumber || null,
                     bedNumber: inpatientFormData.bedNumber || null,

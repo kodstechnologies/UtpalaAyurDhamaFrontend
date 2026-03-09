@@ -80,9 +80,10 @@ function OPConsultation_View() {
                             if (examResponse.data.success && examResponse.data.data) {
                                 const exam = examResponse.data.data;
                                 // Exclude if patient was converted to IPD (examination linked to inpatient)
-                                if (exam.inpatient) {
+                                if (exam.inpatient && exam.inpatient.status !== "ConvertedToOPD") {
                                     isAdmitted = true;
-                                } else {
+                                }
+                                else {
                                     hasExamination = true;
                                     examinationId = exam._id;
                                 }
@@ -114,13 +115,46 @@ function OPConsultation_View() {
                             relation: appointment.relation || null,
                             // Store full appointment object for navigation
                             fullAppointment: appointment,
-                            isAdmitted, // Patient converted to IPD - exclude from OP list
+                            isAdmitted, // Initial check based on examination link
                         };
                     })
                 );
 
+                // For patients marked as inpatient but without an examination link, verify their active status
+                const finalConsultations = await Promise.all(
+                    consultationsWithExamination.map(async (c) => {
+                        let activelyAdmitted = c.isAdmitted;
+
+                        // If they weren't admitted via examination, but their profile says they are an inpatient
+                        if (!activelyAdmitted && c.fullAppointment?.patient?.inpatient === true) {
+                            try {
+                                const patientId = c.fullAppointment.patient._id || c.fullAppointment.patient;
+                                const inpatientResponse = await axios.get(
+                                    getApiUrl(`inpatients/patient/${patientId}`),
+                                    { headers: getAuthHeaders() }
+                                );
+
+                                if (inpatientResponse.data.success && inpatientResponse.data.data?.length > 0) {
+                                    // Check if they have an active admission (not discharged, not converted)
+                                    const activeRecords = inpatientResponse.data.data.filter(
+                                        record => record.status !== "Discharged" && record.status !== "ConvertedToOPD"
+                                    );
+
+                                    if (activeRecords.length > 0) {
+                                        activelyAdmitted = true;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("Error verifying inpatient status:", e);
+                            }
+                        }
+
+                        return { ...c, isAdmitted: activelyAdmitted };
+                    })
+                );
+
                 // Exclude patients converted to IPD (should appear in In Patients, not OP Consultation)
-                const opdOnly = consultationsWithExamination.filter((c) => !c.isAdmitted);
+                const opdOnly = finalConsultations.filter((c) => !c.isAdmitted);
 
                 setConsultations(opdOnly);
                 setPagination((prev) => ({ ...prev, total }));

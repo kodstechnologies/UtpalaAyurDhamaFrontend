@@ -112,7 +112,7 @@ function Patient_Management_View() {
 
             if (response.data.success) {
                 const inpatientsData = response.data.data || [];
-                
+
                 // Transform API response to match frontend table structure
                 const transformedInpatients = inpatientsData.map((inpatient) => ({
                     _id: inpatient._id,
@@ -131,7 +131,8 @@ function Patient_Management_View() {
                 // Update pagination total (backend sends meta.total)
                 const total = response.data.meta?.total ?? response.data.total ?? 0;
                 setPagination(prev => ({ ...prev, total }));
-            } else {
+            }
+            else {
                 toast.error(response.data.message || "Failed to fetch inpatients");
             }
         } catch (error) {
@@ -145,7 +146,7 @@ function Patient_Management_View() {
     useEffect(() => {
         fetchInpatients();
     }, [fetchInpatients]);
-    
+
     // No client-side filtering; search and status are applied on the server
     const displayedRows = rows;
 
@@ -154,7 +155,7 @@ function Patient_Management_View() {
     const activeTreatments = rows.filter(row => row.status === 'Admitted' || row.status === 'admitted').length;
     const completed = rows.filter(row => row.status === 'Discharged' || row.status === 'discharged').length;
     const pending = rows.filter(row => row.status === 'Transferred' || row.status === 'transferred').length;
-    
+
     // Custom render function for status column with color coding
     const renderStatusCell = (params) => {
         const colorMap = {
@@ -199,7 +200,7 @@ function Patient_Management_View() {
         // Find the patient name for the confirmation message
         const patient = rows.find(r => r._id === id);
         const patientName = patient?.patientName || "this patient";
-        
+
         if (window.confirm(`Are you sure you want to delete ${patientName}? This action cannot be undone.`)) {
             try {
                 await deletePatientAPI(id);

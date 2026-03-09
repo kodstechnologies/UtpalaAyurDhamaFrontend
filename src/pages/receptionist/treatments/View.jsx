@@ -170,8 +170,17 @@ function Treatments_View() {
                             })
                             : "N/A");
 
-                    // Determine if IPD or OPD - use backend-provided type first
-                    const isIPD = session.type === "IPD" || !!session.inpatient || patient?.inpatient === true;
+                    // Determine if IPD or OPD - strictly trust backend provided type if available
+                    let isIPD = false;
+                    if (session.type === "IPD") {
+                        isIPD = true;
+                    } else if (session.type === "OPD") {
+                        isIPD = false;
+                    } else {
+                        // Fallback only if type is missing entirely
+                        isIPD = !!session.inpatient || patient?.inpatient === true;
+                    }
+
                     const inpatientId = session.inpatient?._id?.toString() || session.inpatient?.toString();
 
                     // Check discharge status

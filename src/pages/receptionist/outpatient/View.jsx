@@ -54,12 +54,13 @@ function Outpatient_View() {
                 limit: pagination.rowsPerPage,
                 hasInpatient: "false" // Only OPD examinations
             };
-            
+
             // Add search parameter if search is active
             if (search && search.trim()) {
                 examParams.search = search.trim();
             }
-            
+
+
             const [patientsResponse, allExamsResponse, invoicesResponse] = await Promise.all([
                 axios.get(
                     getApiUrl("patients"),
@@ -106,8 +107,8 @@ function Outpatient_View() {
                 }
 
                 // Get all OPD examinations (including billed ones to show discharged patients)
-                const examinationsData = Array.isArray(allExamsResponse.data.data) 
-                    ? allExamsResponse.data.data 
+                const examinationsData = Array.isArray(allExamsResponse.data.data)
+                    ? allExamsResponse.data.data
                     : (allExamsResponse.data.data?.data || []);
 
                 // Fetch invoices for current page examinations to check payment status (same pattern as inpatients)
@@ -120,11 +121,11 @@ function Outpatient_View() {
                     try {
                         // Fetch invoices and map by examination ID (same as inpatient logic)
                         const invoicesData = invoicesResponse.data.success
-                            ? (Array.isArray(invoicesResponse.data.data) 
-                                ? invoicesResponse.data.data 
+                            ? (Array.isArray(invoicesResponse.data.data)
+                                ? invoicesResponse.data.data
                                 : (invoicesResponse.data.data?.data || []))
                             : [];
-                        
+
                         // Create a map of examinationId -> invoice (get most recent if multiple)
                         invoicesData.forEach((invoice) => {
                             if (invoice.examination) {
@@ -153,14 +154,14 @@ function Outpatient_View() {
                 const transformedOutpatients = examinationsData.map((exam) => {
                     const patientId = exam.patient?._id?.toString() || exam.patient?.toString();
                     if (!patientId) return null;
-                    
+
                     const patient = patientByIdMap.get(patientId) || (exam.patient && typeof exam.patient === "object" ? exam.patient : null);
                     const patientUser = patient?.user || {};
-                    
+
                     // Check payment status (same logic as inpatients)
                     const invoice = invoicesMap[exam._id?.toString()];
                     const isFullyPaid = invoice ? ((invoice.amountPaid || 0) >= (invoice.totalPayable || 0)) : false;
-                    
+
                     // Determine discharge status based on bill and payment (same pattern as inpatients)
                     // If examination is billed (isBilled = true), check payment status
                     let isDischarged = false;
@@ -172,7 +173,7 @@ function Outpatient_View() {
                         // If billed but not fully paid, remains billed (not discharged)
                     }
                     // If not billed, remains unbilled (not discharged)
-                    
+
                     return {
                         id: exam._id,
                         _id: exam._id,
@@ -239,7 +240,7 @@ function Outpatient_View() {
     useEffect(() => {
         fetchOutpatients();
     }, [fetchOutpatients]);
-    
+
     // Reset to first page when search changes
     useEffect(() => {
         setPagination(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
@@ -282,11 +283,11 @@ function Outpatient_View() {
     const filteredData = useMemo(() => {
         // Server-side search is already applied, just sort client-side
         return [...outpatients].sort((a, b) => {
-            const dateA = a.lastVisitDate && a.lastVisitDate !== "N/A" 
-                ? new Date(a.lastVisitDate) 
+            const dateA = a.lastVisitDate && a.lastVisitDate !== "N/A"
+                ? new Date(a.lastVisitDate)
                 : (a.registeredDate && a.registeredDate !== "N/A" ? new Date(a.registeredDate) : new Date(0));
-            const dateB = b.lastVisitDate && b.lastVisitDate !== "N/A" 
-                ? new Date(b.lastVisitDate) 
+            const dateB = b.lastVisitDate && b.lastVisitDate !== "N/A"
+                ? new Date(b.lastVisitDate)
                 : (b.registeredDate && b.registeredDate !== "N/A" ? new Date(b.registeredDate) : new Date(0));
             return dateB - dateA; // Most recent first
         });
@@ -327,25 +328,25 @@ function Outpatient_View() {
                     marginTop: 3,
                 }}
             >
-                <DashboardCard 
-                    title="Total Outpatients" 
-                    count={stats.total} 
-                    icon={PeopleIcon} 
+                <DashboardCard
+                    title="Total Outpatients"
+                    count={stats.total}
+                    icon={PeopleIcon}
                 />
-                <DashboardCard 
-                    title="Unbilled Visits" 
-                    count={stats.unbilledVisits} 
-                    icon={PendingActionsIcon} 
+                <DashboardCard
+                    title="Unbilled Visits"
+                    count={stats.unbilledVisits}
+                    icon={PendingActionsIcon}
                 />
-                <DashboardCard 
-                    title="Billed Visits" 
-                    count={stats.billedVisits} 
-                    icon={ReceiptIcon} 
+                <DashboardCard
+                    title="Billed Visits"
+                    count={stats.billedVisits}
+                    icon={ReceiptIcon}
                 />
-                <DashboardCard 
-                    title="Discharged" 
-                    count={stats.dischargedVisits} 
-                    icon={LocalHospitalIcon} 
+                <DashboardCard
+                    title="Discharged"
+                    count={stats.dischargedVisits}
+                    icon={LocalHospitalIcon}
                 />
             </Box>
 
@@ -678,7 +679,7 @@ function Outpatient_View() {
                                 </table>
                             </div>
                         )}
-                        
+
                         {/* Pagination */}
                         {!isLoading && filteredData.length > 0 && (
                             <TablePagination

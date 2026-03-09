@@ -308,15 +308,15 @@ const ChargesPanel = ({
                                               {therapy.therapyName}
                                               {tIdx <
                                                 charge.therapies.length - 1 && (
-                                                <span
-                                                  style={{
-                                                    margin: "0 4px",
-                                                    color: "#6c757d",
-                                                  }}
-                                                >
-                                                  •
-                                                </span>
-                                              )}
+                                                  <span
+                                                    style={{
+                                                      margin: "0 4px",
+                                                      color: "#6c757d",
+                                                    }}
+                                                  >
+                                                    •
+                                                  </span>
+                                                )}
                                             </span>
                                           ),
                                         )}
@@ -401,8 +401,8 @@ const ChargesPanel = ({
                         >
                           {formatCurrency(
                             charge.totalTherapyCharge ??
-                              charge.therapyCharge ??
-                              0,
+                            charge.therapyCharge ??
+                            0,
                           )}
                         </td>
                         <td
@@ -414,8 +414,8 @@ const ChargesPanel = ({
                         >
                           {formatCurrency(
                             charge.totalTherapistCharge ??
-                              charge.therapistCharge ??
-                              0,
+                            charge.therapistCharge ??
+                            0,
                           )}
                         </td>
                       </>
@@ -936,8 +936,8 @@ function OutpatientBilling() {
       console.error("Error updating consultation charge:", error);
       toast.error(
         error.response?.data?.message ||
-          error.message ||
-          "Failed to update consultation charge",
+        error.message ||
+        "Failed to update consultation charge",
       );
     } finally {
       setIsUpdating(false);
@@ -1012,8 +1012,8 @@ function OutpatientBilling() {
         console.error("Error updating therapist sessions:", error);
         toast.error(
           error.response?.data?.message ||
-            error.message ||
-            "Failed to update therapist",
+          error.message ||
+          "Failed to update therapist",
         );
       } finally {
         setIsUpdating(false);
@@ -1067,8 +1067,8 @@ function OutpatientBilling() {
       console.error("Error updating therapist:", error);
       toast.error(
         error.response?.data?.message ||
-          error.message ||
-          "Failed to update therapist",
+        error.message ||
+        "Failed to update therapist",
       );
     } finally {
       setIsUpdating(false);
@@ -1120,8 +1120,8 @@ function OutpatientBilling() {
       console.error("Error updating pharmacy price:", error);
       toast.error(
         error.response?.data?.message ||
-          error.message ||
-          "Failed to update pharmacy price",
+        error.message ||
+        "Failed to update pharmacy price",
       );
     } finally {
       setIsUpdatingPharmacy(false);
@@ -1701,10 +1701,10 @@ function OutpatientBilling() {
               Therapy:{" "}
               <strong>
                 {editTherapistDialog.charge?.therapies &&
-                editTherapistDialog.charge.therapies.length > 0
+                  editTherapistDialog.charge.therapies.length > 0
                   ? editTherapistDialog.charge.therapies
-                      .map((t, idx) => t.therapyName)
-                      .join(" • ")
+                    .map((t, idx) => t.therapyName)
+                    .join(" • ")
                   : editTherapistDialog.charge?.therapyName || "N/A"}
               </strong>
             </Typography>
@@ -1905,18 +1905,18 @@ function OutpatientBilling() {
               >
                 {therapyEditRows.length > 0
                   ? formatCurrency(
-                      therapyEditRows.reduce(
-                        (sum, r) =>
-                          sum +
-                          parseFloat(r.therapyCharge || 0) +
-                          parseFloat(r.therapistCharge || 0),
-                        0,
-                      ),
-                    )
+                    therapyEditRows.reduce(
+                      (sum, r) =>
+                        sum +
+                        parseFloat(r.therapyCharge || 0) +
+                        parseFloat(r.therapistCharge || 0),
+                      0,
+                    ),
+                  )
                   : formatCurrency(
-                      parseFloat(therapyCost || 0) +
-                        parseFloat(therapistCharge || 0),
-                    )}
+                    parseFloat(therapyCost || 0) +
+                    parseFloat(therapistCharge || 0),
+                  )}
               </Typography>
             </Box>
           </Box>
@@ -2037,9 +2037,9 @@ function OutpatientBilling() {
               >
                 {formatCurrency(
                   parseFloat(pharmacyUnitPrice || 0) *
-                    (editPharmacyDialog.charge?.dispensedQuantity ||
-                      editPharmacyDialog.charge?.quantity ||
-                      1),
+                  (editPharmacyDialog.charge?.dispensedQuantity ||
+                    editPharmacyDialog.charge?.quantity ||
+                    1),
                 )}
               </Typography>
             </Box>
