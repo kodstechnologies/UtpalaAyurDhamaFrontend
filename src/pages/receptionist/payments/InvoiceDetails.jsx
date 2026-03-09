@@ -1197,7 +1197,9 @@ function InvoiceDetails() {
                   </Typography>
                 </Box>
               )}
-              {invoice.discountRate > 0 && (
+              {(invoice.discountRate > 0 ||
+                invoice.discountType === "fixed" ||
+                invoice.discountValue > 0) && (
                 <Box
                   sx={{
                     display: "flex",
@@ -1206,7 +1208,11 @@ function InvoiceDetails() {
                   }}
                 >
                   <Typography variant="body1" sx={{ color: "#666" }}>
-                    Discount ({invoice.discountRate}%):
+                    Discount{" "}
+                    {invoice.discountType === "percentage"
+                      ? `(${invoice.discountRate}%)`
+                      : "(Fixed)"}
+                    :
                   </Typography>
                   <Typography
                     variant="body1"

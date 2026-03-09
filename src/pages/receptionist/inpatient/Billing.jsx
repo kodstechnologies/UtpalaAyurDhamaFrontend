@@ -797,31 +797,23 @@ function InpatientBilling() {
   }, [billingData]);
 
   // Step 1: Is the bill already finalized?
-  // Treat the bill as finalized if we have a persisted invoice total from backend and the status is Discharged.
+  // Treat the bill as finalized if we have a persisted invoice from the backend.
   const isFinalized = useMemo(() => {
-    return (
-      billingData?.admission?.status === "Discharged" && billingData?.invoice
-    );
+    return !!billingData?.isFinalized || !!billingData?.invoice?.id;
   }, [billingData]);
 
   // Step 2: Compute GST on pharmacy FIRST (before discount)
   const taxAmount = useMemo(() => {
-    if (isFinalized) {
-      return 0; // Tax is usually included or calculated at the end
-    }
     // GST applied only on medicines (pharmacy)
     return chargeTotals.pharmacy * (taxRate / 100);
-  }, [chargeTotals.pharmacy, taxRate, isFinalized]);
+  }, [chargeTotals.pharmacy, taxRate]);
 
   // Step 3: grandTotal = all categories + pharmacy-WITH-GST (no rounding)
   const grandTotal = useMemo(() => {
     if (!billingData) return 0;
-    if (isFinalized) {
-      return billingData.invoice.totalPayable;
-    }
     const sumAll = Object.values(chargeTotals).reduce((a, b) => a + b, 0);
     return sumAll + taxAmount;
-  }, [billingData, chargeTotals, taxAmount, isFinalized]);
+  }, [billingData, chargeTotals, taxAmount]);
 
   // Step 4: Apply discount on GST-inclusive grandTotal (no rounding)
   const discountAmount = useMemo(() => {
@@ -1464,7 +1456,11 @@ function InpatientBilling() {
                       letterSpacing: "0.5px",
                     }}
                   >
-                    {isDischarged ? "Total Paid / Billed" : "Total Outstanding"}
+                    {isDischarged
+                      ? outstandingAmount === 0
+                        ? "Total Paid (Finalized)"
+                        : "Amount Due"
+                      : "Total Outstanding"}
                   </p>
                   <h2
                     style={{
@@ -1476,9 +1472,24 @@ function InpatientBilling() {
                     }}
                   >
                     {formatCurrency(
-                      isDischarged ? totalCharges : outstandingAmount,
+                      isDischarged
+                        ? outstandingAmount === 0
+                          ? totalCharges
+                          : outstandingAmount
+                        : totalCharges,
                     )}
                   </h2>
+                  {isDischarged && outstandingAmount > 0 && (
+                    <p
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "rgba(255, 255, 255, 0.8)",
+                        marginTop: "4px",
+                      }}
+                    >
+                      Paid: {formatCurrency(amountPaid)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

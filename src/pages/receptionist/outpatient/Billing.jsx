@@ -722,22 +722,16 @@ function OutpatientBilling() {
 
   // Step 2: Compute GST on pharmacy FIRST (before discount) — no rounding here
   const taxAmount = useMemo(() => {
-    if (isFinalized && billingData?.invoice) {
-      return 0;
-    }
     // GST applied only on medicines (pharmacy)
     return chargeTotals.pharmacy * (taxRate / 100);
-  }, [chargeTotals.pharmacy, taxRate, isFinalized, billingData]);
+  }, [chargeTotals.pharmacy, taxRate]);
 
   // Step 3: grandTotal = consultation + therapy + pharmacy-WITH-GST — no rounding here
   const grandTotal = useMemo(() => {
     if (!billingData) return 0;
-    if (isFinalized && billingData?.invoice) {
-      return billingData.invoice.totalPayable;
-    }
     const pharmacyWithGST = chargeTotals.pharmacy + taxAmount;
     return chargeTotals.consultation + chargeTotals.therapy + pharmacyWithGST;
-  }, [billingData, chargeTotals, taxAmount, isFinalized]);
+  }, [billingData, chargeTotals, taxAmount]);
 
   // Step 4: Apply discount on GST-inclusive grandTotal — no rounding here
   const discountAmount = useMemo(() => {
