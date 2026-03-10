@@ -1,0 +1,856 @@
+# Utpala Ayurdhama - Hospital Management System (Frontend)
+
+A modern, responsive React-based frontend application for the Utpala Ayurdhama Hospital Management System. Built with React, Redux, Material-UI, and Vite for optimal performance and developer experience.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture & Flow](#architecture--flow)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Setup & Installation](#setup--installation)
+- [Environment Variables](#environment-variables)
+- [Application Flow](#application-flow)
+- [Key Features & Modules](#key-features--modules)
+- [Routing System](#routing-system)
+- [State Management](#state-management)
+- [API Integration](#api-integration)
+- [Development](#development)
+
+---
+
+## Overview
+
+This frontend application provides a comprehensive user interface for managing hospital operations across multiple user roles:
+
+- **Admin**: System administration, user management, analytics
+- **Doctor**: Patient examinations, prescriptions, treatment plans
+- **Receptionist**: Appointments, patient registration, billing, marketing
+- **Pharmacist**: Medicine inventory, batch management, dispensing
+- **Therapist**: Therapy sessions, patient monitoring
+- **Nurse**: Patient monitoring, daily checkups, discharge management
+- **Patient**: Personal dashboard, appointments, prescriptions, bills
+
+---
+
+## Architecture & Flow
+
+### System Architecture
+
+```
+User Browser
+    ↓
+React Application (Vite)
+    ↓
+Redux Store (State Management)
+    ↓
+API Service Layer
+    ↓
+Backend API (Express/Node.js)
+    ↓
+MongoDB Database
+```
+
+### Request Flow
+
+```
+User Action (Click/Form Submit)
+    ↓
+Component Event Handler
+    ↓
+Service Function (API Call)
+    ↓
+Redux Action (Optional - for state updates)
+    ↓
+Backend API Request
+    ↓
+Response Handling
+    ↓
+State Update (Redux/Local State)
+    ↓
+UI Re-render
+```
+
+### Authentication Flow
+
+```
+User Login
+    ↓
+POST /api/v1/users/login
+    ↓
+Backend validates credentials
+    ↓
+Returns JWT token + user data
+    ↓
+Store in Redux + localStorage
+    ↓
+Redirect to role-based dashboard
+    ↓
+Protected routes check authentication
+```
+
+---
+
+## Features
+
+### Core Features
+- Multi-role authentication (7 user roles)
+- Role-based routing and access control
+- Responsive design (mobile, tablet, desktop)
+- Real-time notifications (Firebase)
+- Dynamic sidebar navigation
+- Breadcrumb navigation
+- Toast notifications
+- Data tables with pagination
+- Excel export functionality
+- PDF generation support
+
+### Role-Specific Features
+
+#### Admin
+- User management (create, edit, delete)
+- System analytics and dashboards
+- Therapist management
+- System configuration
+
+#### Doctor
+- Patient examinations
+- Prescription management
+- Treatment plan creation
+- Follow-up scheduling
+- Patient history viewing
+
+#### Receptionist
+- Appointment scheduling
+- Patient registration
+- OPD/IPD billing
+- Marketing & WhatsApp campaigns
+- Payment management
+- Reports generation
+
+#### Pharmacist
+- Medicine inventory management
+- Batch tracking
+- Stock management
+- Prescription dispensing
+- Bulk medicine upload
+
+#### Therapist
+- Therapy session management
+- Patient monitoring
+- Treatment progress tracking
+
+#### Nurse
+- Patient monitoring
+- Daily checkups
+- Discharge management
+- OPD patient allocation
+
+#### Patient
+- Personal dashboard
+- Appointment viewing
+- Prescription history
+- Bill viewing
+- Document management
+
+---
+
+## Tech Stack
+
+### Core
+- **React** 18.3.1 - UI library
+- **React Router DOM** 7.2.0 - Routing
+- **Redux Toolkit** 2.11.0 - State management
+- **Vite** 6.2.0 - Build tool & dev server
+
+### UI Libraries
+- **Material-UI (MUI)** 6.5.0 - Component library
+- **Bootstrap** 5.3.3 - CSS framework
+- **React Bootstrap** 2.10.9 - Bootstrap components
+- **Tailwind CSS** 4.1.17 - Utility-first CSS
+
+### Data & Forms
+- **Axios** 1.13.2 - HTTP client
+- **React Hook Form** - Form management
+- **React Select** 5.10.0 - Select components
+- **React DatePicker** 8.1.0 - Date selection
+
+### Charts & Visualization
+- **ApexCharts** 4.5.0 - Charts
+- **React ApexCharts** 1.7.0 - React wrapper
+- **Chart.js** - Chart library
+
+### Utilities
+- **React Toastify** 11.0.5 - Toast notifications
+- **React Helmet** 6.1.0 - Document head management
+- **XLSX** 0.18.5 - Excel export
+- **jsPDF** 4.0.0 - PDF generation
+- **File Saver** 2.0.5 - File downloads
+
+### Communication
+- **Firebase** 12.7.0 - Push notifications
+- **WhatsApp Integration** - Via backend API
+
+---
+
+## Project Structure
+
+```
+UtpalaAyurDhamaFrontend/
+├── public/                    # Static assets
+│   ├── firebase-messaging-sw.js
+│   └── logo.svg
+├── src/
+│   ├── assets/               # Images, fonts, CSS
+│   │   ├── css/             # Custom styles
+│   │   ├── fonts/            # Font files
+│   │   ├── greeting/         # Role-specific greeting images
+│   │   └── logo/             # Logo files
+│   ├── components/           # Reusable components
+│   │   ├── breadcrumb/      # Breadcrumb navigation
+│   │   ├── buttons/         # Button components
+│   │   ├── card/            # Card components
+│   │   ├── layout/          # Layout components (Header, Sidebar, Footer)
+│   │   ├── modal/           # Modal dialogs
+│   │   ├── search/          # Search components
+│   │   └── table/           # Table components
+│   ├── config/              # Configuration files
+│   │   ├── api.js           # API configuration & helpers
+│   │   ├── authService.js   # Authentication service
+│   │   └── firebase.js      # Firebase configuration
+│   ├── hooks/               # Custom React hooks
+│   │   └── useNotifications.js
+│   ├── pages/               # Page components (organized by role)
+│   │   ├── admin/           # Admin pages
+│   │   ├── doctor/          # Doctor pages
+│   │   ├── nurse/           # Nurse pages
+│   │   ├── patient/         # Patient pages
+│   │   ├── pharmacist/      # Pharmacist pages
+│   │   ├── receptionist/   # Receptionist pages
+│   │   ├── therapist/       # Therapist pages
+│   │   └── auth/            # Authentication pages
+│   ├── redux/               # Redux store
+│   │   ├── slices/          # Redux slices
+│   │   │   ├── authSlice.js # Authentication state
+│   │   │   └── uiSlice.js   # UI state (sidebar, etc.)
+│   │   └── store.js         # Redux store configuration
+│   ├── router/              # Routing configuration
+│   │   ├── App.jsx          # Main router component
+│   │   └── subRouter/       # Role-based route definitions
+│   ├── services/            # API service functions
+│   │   ├── patientService.js
+│   │   ├── appointmentService.js
+│   │   ├── medicineService.js
+│   │   └── ...              # Other service files
+│   ├── utils/               # Utility functions
+│   ├── App.css              # Global styles
+│   ├── index.css            # Base styles
+│   └── main.jsx             # Application entry point
+├── index.html               # HTML template
+├── package.json             # Dependencies
+├── vite.config.js          # Vite configuration
+└── .env                     # Environment variables
+```
+
+---
+
+## Setup & Installation
+
+### Prerequisites
+
+- Node.js (v18 or higher)
+- npm or yarn
+- Backend API running (see backend README)
+
+### Installation Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd UtpalaAyurDhamaFrontend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+   ```bash
+   # Create .env file (if not exists)
+   # See Environment Variables section below
+   ```
+
+4. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Access the application**
+   ```
+   http://localhost:5173
+   ```
+
+### Build for Production
+
+```bash
+npm run build
+```
+
+The production build will be in the `dist/` directory.
+
+---
+
+**Note**: The API base URL is auto-detected based on hostname. If running on `hms.utpalaayurdhama.com`, it automatically uses the production API URL.
+
+---
+
+## Application Flow
+
+### 1. Initial Load
+
+```
+User visits application
+    ↓
+main.jsx renders AppRouter
+    ↓
+AppRouter checks authentication
+    ↓
+If not authenticated → Redirect to /login
+If authenticated → Load role-based dashboard
+```
+
+### 2. Authentication Flow
+
+```
+User enters credentials
+    ↓
+Login component calls authService.login()
+    ↓
+POST /api/v1/users/login
+    ↓
+Backend returns: { user, token, role }
+    ↓
+Redux dispatch(login({ user, token, role }))
+    ↓
+Store in localStorage
+    ↓
+Redirect to /dashboard
+    ↓
+DashboardRedirect component checks role
+    ↓
+Navigate to role-specific dashboard
+```
+
+### 3. Protected Route Flow
+
+```
+User navigates to protected route
+    ↓
+Layout component checks authentication
+    ↓
+If authenticated:
+    ├─ Load Header
+    ├─ Load Sidebar (role-based menu)
+    ├─ Load Page Content
+    └─ Load Footer
+If not authenticated:
+    └─ Redirect to /login
+```
+
+### 4. API Call Flow
+
+```
+Component needs data
+    ↓
+Call service function (e.g., patientService.getAllPatients())
+    ↓
+Service uses getApiUrl() and getAuthHeaders()
+    ↓
+Axios/Fetch request to backend
+    ↓
+Backend processes request
+    ↓
+Response received
+    ↓
+Update component state or Redux store
+    ↓
+UI re-renders with new data
+```
+
+### 5. State Management Flow
+
+```
+User action (e.g., login, update data)
+    ↓
+Dispatch Redux action
+    ↓
+Reducer updates state
+    ↓
+Components subscribed to state re-render
+    ↓
+UI updates
+```
+
+---
+
+## Key Features & Modules
+
+### 1. Authentication System
+
+**Location**: `src/pages/auth/Login.jsx`, `src/redux/slices/authSlice.js`
+
+**Flow**:
+- User enters email/password
+- Credentials sent to backend
+- JWT token stored in Redux + localStorage
+- Role-based redirect to dashboard
+- Token included in all subsequent API requests
+
+**Protected Routes**:
+- All routes except `/login` require authentication
+- Role-based access control via route guards
+
+### 2. Dashboard System
+
+**Location**: `src/pages/{role}/Dashboard.jsx`
+
+**Features**:
+- Role-specific dashboards
+- Statistics cards
+- Recent activities
+- Quick actions
+- Charts and analytics
+
+### 3. Patient Management
+
+**Location**: `src/pages/receptionist/`, `src/pages/patient/`
+
+**Features**:
+- Patient registration
+- Patient profile viewing
+- Patient history
+- Family member management
+- Patient search and filtering
+
+### 4. Appointment System
+
+**Location**: `src/pages/receptionist/appointments/`
+
+**Features**:
+- Appointment scheduling
+- Appointment viewing
+- Appointment reminders (WhatsApp)
+- Walk-in patient management
+- Appointment filtering
+
+### 5. Marketing & WhatsApp
+
+**Location**: `src/pages/receptionist/marketing/View.jsx`
+
+**Features**:
+- Patient list with pagination
+- WhatsApp promotional offers
+- Image upload for promotions
+- Follow-up messages
+- Bulk messaging
+
+**Flow**:
+1. Select template (Promotional Offer / Follow-up)
+2. Upload image (if promotional)
+3. Enter details (discount, therapy name)
+4. Select patients
+5. Send via WhatsApp API
+
+### 6. Pharmacy Management
+
+**Location**: `src/pages/pharmacist/`
+
+**Features**:
+- Medicine inventory
+- Batch tracking
+- Stock management
+- Prescription dispensing
+- Medicine search and filtering
+
+### 7. Billing & Invoicing
+
+**Location**: `src/pages/receptionist/payments/`, `src/pages/receptionist/inpatient/`
+
+**Features**:
+- OPD billing
+- IPD billing
+- Payment tracking
+- Invoice generation
+- PDF report download
+
+---
+
+## Routing System
+
+### Route Structure
+
+```
+/                           → Login (public)
+/login                      → Login (public)
+/dashboard                  → Role-based redirect
+/admin/*                    → Admin routes
+/doctor/*                   → Doctor routes
+/receptionist/*             → Receptionist routes
+/pharmacist/*               → Pharmacist routes
+/therapist/*                → Therapist routes
+/nurse/*                    → Nurse routes
+/patient/*                  → Patient routes
+```
+
+### Route Organization
+
+Routes are organized by role in `src/router/subRouter/`:
+- `authRoutes.jsx` - Public routes (login)
+- `adminRoutes.jsx` - Admin routes
+- `doctorRoutes.jsx` - Doctor routes
+- `receptionRoutes.jsx` - Receptionist routes
+- `pharmacistRoutes.jsx` - Pharmacist routes
+- `therapistRouter.jsx` - Therapist routes
+- `nurseRoutes.jsx` - Nurse routes
+- `patientRouter.jsx` - Patient routes
+
+### Lazy Loading
+
+Most routes use React lazy loading for code splitting:
+```javascript
+const Dashboard = lazy(() => import("../../pages/admin/Dashboard"));
+```
+
+This improves initial load time by loading components on-demand.
+
+---
+
+## State Management
+
+### Redux Store Structure
+
+```javascript
+{
+  auth: {
+    user: { ... },
+    token: "jwt-token",
+    role: "Admin",
+    isAuthenticated: true
+  },
+  ui: {
+    sidebarOpen: false,
+    // Other UI state
+  }
+}
+```
+
+### Redux Slices
+
+1. **authSlice** (`src/redux/slices/authSlice.js`)
+   - Manages authentication state
+   - Actions: `login`, `logout`, `updateUser`
+   - Persists to localStorage
+
+2. **uiSlice** (`src/redux/slices/uiSlice.js`)
+   - Manages UI state (sidebar, modals, etc.)
+   - Actions: `toggleSidebar`, etc.
+
+### Local State
+
+Components use React `useState` for:
+- Form inputs
+- UI toggles
+- Component-specific data
+- Loading states
+
+---
+
+## API Integration
+
+### API Configuration
+
+**Location**: `src/config/api.js`
+
+**Key Functions**:
+- `getApiUrl(endpoint)` - Constructs full API URL
+- `getAuthHeaders()` - Returns headers with JWT token
+- `getAuthToken()` - Retrieves token from localStorage
+
+**Auto-Detection**:
+- Development: `http://localhost:8000/api/v1`
+- Production: `https://api.utpalaayurdhama.com/api/v1` (auto-detected)
+
+### Service Layer
+
+**Location**: `src/services/`
+
+Each module has a service file:
+- `patientService.js` - Patient API calls
+- `appointmentService.js` - Appointment API calls
+- `medicineService.js` - Medicine API calls
+- etc.
+
+**Example Usage**:
+```javascript
+import patientService from '../services/patientService';
+
+// In component
+const fetchPatients = async () => {
+  const response = await patientService.getAllPatients();
+  if (response.success) {
+    setPatients(response.data);
+  }
+};
+```
+
+### Error Handling
+
+- API errors are caught and displayed via toast notifications
+- Network errors are handled gracefully
+- Authentication errors trigger logout
+
+---
+
+## UI Components
+
+### Reusable Components
+
+**Location**: `src/components/`
+
+#### Layout Components
+- `Layout.jsx` - Main layout wrapper (Header + Sidebar + Content + Footer)
+- `Header.jsx` - Top navigation bar
+- `SidebarComponent.jsx` - Sidebar navigation (role-based)
+- `Footer.jsx` - Footer component
+
+#### Card Components
+- `HeadingCard.jsx` - Page header with breadcrumbs
+- `DashboardCard.jsx` - Statistics card
+- `CardBorder.jsx` - Bordered card container
+
+#### Table Components
+- `TableComponent.jsx` - Data table with pagination, sorting, filtering
+
+#### Button Components
+- `RedirectButton.jsx` - Navigation button
+- `SubmitButton.jsx` - Form submit button
+- `ExportDataButton.jsx` - Excel export button
+
+#### Modal Components
+- `DeleteConfirmationModal.jsx` - Delete confirmation dialog
+- `InputDialogModal.jsx` - Input dialog
+
+---
+
+## Notifications
+
+### Firebase Push Notifications
+
+**Location**: `src/config/firebase.js`, `src/hooks/useNotifications.js`
+
+**Features**:
+- Real-time push notifications
+- Notification permission handling
+- Notification display
+- Click handling
+
+### Toast Notifications
+
+**Library**: React Toastify
+
+**Usage**:
+```javascript
+import { toast } from 'react-toastify';
+
+toast.success("Operation successful!");
+toast.error("An error occurred");
+toast.info("Information message");
+```
+
+---
+
+## Responsive Design
+
+- **Mobile**: < 768px - Collapsible sidebar, stacked layouts
+- **Tablet**: 768px - 1024px - Adjusted layouts
+- **Desktop**: > 1024px - Full sidebar, multi-column layouts
+
+**Breakpoints**:
+- Uses Material-UI breakpoints
+- Bootstrap responsive utilities
+- Custom media queries in CSS
+
+---
+
+## Key Pages
+
+### Receptionist Pages
+
+#### Marketing Page (`/receptionist/marketing`)
+- Patient list with search and pagination
+- WhatsApp template selection
+- Promotional offer with image upload
+- Follow-up message sending
+- Bulk patient selection
+
+#### Appointments Page (`/receptionist/appointments`)
+- Appointment list
+- Appointment scheduling
+- Walk-in patient management
+- Appointment reminders
+- Patient viewing
+
+#### Billing Pages
+- OPD billing (`/receptionist/outpatient-billing/:patientId`)
+- IPD billing (`/receptionist/inpatient-billing/:id`)
+- Payment tracking
+- Invoice generation
+
+### Pharmacist Pages
+
+#### Medicines View (`/pharmacist/medicines/view`)
+- Medicine list (up to 10,000 items)
+- Medicine search and filtering
+- Batch log viewing
+- Stock management
+
+#### Inventory Pages
+- Batch details (`/pharmacist/inventory/batch-log-details`)
+- Stock tracking
+- Expiry date management
+
+### Doctor Pages
+
+#### Dashboard (`/doctor/dashboard`)
+- Today's appointments
+- Patient statistics
+- Quick actions
+
+#### Examinations (`/doctor/examinations`)
+- Patient examinations
+- Prescription management
+- Treatment plans
+
+---
+
+## Security
+
+### Authentication
+- JWT tokens stored in localStorage
+- Tokens included in all API requests
+- Automatic token validation
+- Logout on authentication failure
+
+### Route Protection
+- Protected routes check authentication
+- Role-based access control
+- Redirect to login if not authenticated
+
+### Data Validation
+- Form validation before submission
+- Input sanitization
+- Error handling for invalid data
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. API Connection Failed
+- Check `VITE_API_BASE_URL` in `.env`
+- Verify backend is running
+- Check CORS configuration
+
+#### 2. Authentication Not Working
+- Clear localStorage
+- Check token expiration
+- Verify backend JWT secret
+
+#### 3. Build Errors
+- Clear `node_modules` and reinstall
+- Check Node.js version (v18+)
+- Verify all dependencies are installed
+
+#### 4. Routing Issues
+- Check route definitions in `subRouter/`
+- Verify route paths match
+- Check authentication state
+
+#### 5. State Not Updating
+- Check Redux DevTools
+- Verify action dispatch
+- Check reducer logic
+
+---
+
+## Development
+
+### Running in Development
+
+```bash
+npm run dev
+```
+
+Access at: `http://localhost:5173`
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+Output: `dist/` directory
+
+### Code Structure Guidelines
+
+1. **Components**: Keep components focused and reusable
+2. **Services**: All API calls go through service layer
+3. **State**: Use Redux for global state, useState for local state
+4. **Routing**: Organize routes by role in `subRouter/`
+5. **Styling**: Use Material-UI for components, Bootstrap for layout
+
+### Adding New Features
+
+1. Create page component in `src/pages/{role}/`
+2. Add route in `src/router/subRouter/{role}Routes.jsx`
+3. Create service function in `src/services/`
+4. Update sidebar menu if needed
+5. Add authentication/authorization checks
+
+---
+
+## Project Status
+
+✅ **Active Development**
+- Core features implemented
+- All user roles functional
+- WhatsApp integration complete
+- Responsive design implemented
+- Real-time notifications working
+
+---
+
+## License
+
+Private - Utpala Ayurdhama
+
+---
+
+## Support
+
+For issues or questions:
+1. Check browser console for errors
+2. Verify API connection
+3. Check Redux DevTools for state
+4. Review network tab for API calls
+5. Contact development team
+
+---
+
+**Last Updated**: 2024
+

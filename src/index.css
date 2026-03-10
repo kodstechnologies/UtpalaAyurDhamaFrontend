@@ -1,0 +1,189 @@
+:root {
+   /* bg color ========================== */
+   --color-bg-a: #EFE7DA;
+   --color-bg-b: #4A7C59;
+   --color-bg-c: #AC967A;
+
+   /* Header =============================== */
+
+   --color-bg-header: #5A5044;
+   --color-bg-header-scroll: #5a5044b2;
+   --color-bg-profile: #2F5B3E;
+
+   /* Sidebar ============================== */
+
+   --color-bg-side-bar: #5a5044d7;
+   --color-bg-side-bar-hover: #5a5044b8;
+   --color-bg-side-bar-active: #5A5044;
+
+   /* text color ========================== */
+
+   --color-text-dark: #61574B;
+   --color-text: #876d4c;
+   --color-text-dark-b: #2F5B3E;
+   --color-text-b: #4A7C59;
+   --color-text-light: #fff;
+
+   /* btn color ========================== */
+
+   --color-btn: #AC967A;
+   --color-btn-dark: #61574B;
+
+   --color-btn-b: #4A7C59;
+   --color-btn-dark-b: #2C5530;
+
+   /* input ====================== */
+   --color-bg-input: #EFE7DA;
+   --color-bg-input-dark: #ccbca3;
+   /* card color ========================== */
+
+   --color-bg-card: #d5cfbf;
+   --color-bg-card-hover: #F4F0E5;
+   --color-bg-card-b: #8ecd9f82;
+   --color-bg-card-hover-b: #31543baf;
+   --color-border: #4A392A;
+   /* icon color ========================== */
+
+   --color-icon-1-light: #D27A6A;
+   --color-icon-1: #B35A4D;
+   --color-icon-1-dark: #8F3D32;
+
+   --color-icon-2-light: #6BAA7C;
+   --color-icon-2: #4A7C59;
+   --color-icon-2-dark: #2F5B3E;
+
+   --color-icon-3-light: #6F8EB0;
+   --color-icon-3: #4F6D8C;
+   --color-icon-3-dark: #374F66;
+
+   --color-icon-4-light: #C19871;
+   --color-icon-4: #9A744B;
+   --color-icon-4-dark: #73502D;
+
+   --color-icon-5-light: #B19E86;
+   --color-icon-5: #8E7C66;
+   --color-icon-5-dark: #6B5947;
+
+   --color-icon-6-light: #E1D7C3;
+   --color-icon-6: #C2B8A3;
+   --color-icon-6-dark: #9D927B;
+
+   --color-icon-7-light: #5E826C;
+   --color-icon-7: #3E5F4A;
+   --color-icon-7-dark: #254233;
+
+   --color-icon-8-light: #8C785D;
+   --color-icon-8: #6A543F;
+   --color-icon-8-dark: #4A392A;
+
+   /* ======================== */
+   --color-light: #fff;
+   --color-dark: #000;
+
+
+   /* STATE COLORS ==================== */
+   --color-success: #6A8E3F;
+   /* Herbal Green */
+   --color-warning: #E8A84E;
+   /* Warm Golden Orange */
+   --color-error: #B54545;
+   /* Muted Red */
+   --color-info: #4E7BA8;
+   /* Calm Blue */
+   /* ========================================================================================================= */
+   /* 
+   /* ===========================
+      BRAND / PRIMARY COLORS
+  ============================ */
+   --color-primary: #556B2F;
+   /* Deep Olive Green */
+   --color-primary-light: #9CAF88;
+   --color-primary-light-v: #9caf885d;
+   /* Sage Green */
+   --color-primary-dark: #3F4F23;
+   /* Dark Olive */
+
+   /* ===========================
+      BACKGROUND COLORS
+  ============================ */
+   /* --color-bg-header: #5A5044;
+   --color-bg-header-scroll: #8E714F; */
+   /* Deep Brown */
+   /* --color-bg-side-bar: #636A55;
+   --color-bg-side-bar-hover: #cd987d38;
+   --color-bg-side-bar-active: #5A5044; */
+   /* Light Transparent Beige */
+   /* --color-background: #EFE7DA; */
+   /* Soft Cream Background */
+   --color-bg-card: #FFFFFF;
+   /* White Cards */
+   --color-bg-hover: #F4F0E5;
+   /* Soft Hover Beige */
+
+   /* ===================== */
+   --color-btn-bg: #8E714F;
+   /* table ========================= */
+   --color-bg-table: #FFFFFF;
+   /* Table Background */
+   --color-bg-table-button: #5C3D2E;
+
+
+   /* ===========================
+      TEXT COLORS
+  ============================ */
+   --color-text-header: #EFEAD8;
+   /* Light text on header */
+   --color-text-side-bar: #EFE7DA;
+   /* Dark Brown text on Sidebar */
+   --color-text-dark: #5C3D2E;
+   /* Dark Brown */
+   /* --color-text-light: #885c46a0; */
+   /* Light Brown */
+   --color-text-muted: #857466;
+   /* Warm Muted Brown */
+   --color-text-white: #FFFFFF;
+   /* White text */
+
+   --color-checkmark: #3F4F23;
+   --color-checkmark-light: #556B2F;
+   /* ===========================
+      ACCENTS & ICON COLORS
+  ============================ */
+   --color-icons: #8E714F;
+   /* Olive Icons */
+   --color-accent: #F2E8C6;
+   /* Soft Yellow Accent */
+
+   /* ===========================
+      STATE COLORS
+  ============================ */
+   /* --color-success: #6A8E3F; */
+   /* Herbal Green */
+   /* --color-warning: #E8A84E; */
+   /* Warm Golden Orange */
+   /* --color-error: #B54545; */
+   /* Muted Red */
+   /* --color-info: #4E7BA8; */
+   /* Calm Blue */
+
+
+
+   /* ===========================
+      BORDERS & SHADOWS
+  ============================ */
+   /* --color-border: #D6D2C4; */
+   /* Soft Grayish Beige */
+   /* --color-border-dark: #B8B2A5; */
+   /* Darker Beige Border */
+   /* --shadow-soft: 0 2px 6px rgba(0, 0, 0, 0.07); */
+   /* --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.12); */
+
+   /* ===========================
+      WHITE / BLACK
+  ============================ */
+   /* --color-white: #FFFFFF;
+   --color-black: #000000; */
+
+}
+
+@import "tailwindcss";
