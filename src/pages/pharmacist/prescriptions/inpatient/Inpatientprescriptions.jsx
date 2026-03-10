@@ -65,6 +65,7 @@ function Inpatientprescriptions() {
     const [prescriptions, setPrescriptions] = useState([]);
     const [patient, setPatient] = useState(null);
     const [examination, setExamination] = useState(null);
+    const [gst, setGst] = useState(0);
     const [inpatient, setInpatient] = useState(null);
     // State for selected medicines and quantities
     const [selectedMedicines, setSelectedMedicines] = useState({}); // { prescriptionId: { selected: boolean, quantity: number } }
@@ -72,7 +73,26 @@ function Inpatientprescriptions() {
     // State for available medicines
     const [availableMedicines, setAvailableMedicines] = useState([]); // Array of medicine names from medicine collection
     const [medicinesMap, setMedicinesMap] = useState({}); // Map of medicine name to medicine object (for getting sellPrice)
+    const calculateTotalWithGST = () => {
+        let subtotal = 0;
 
+        prescriptions.forEach((presc) => {
+            if (presc.status !== "Dispensed" && selectedMedicines[presc._id]?.selected) {
+                const qty = selectedMedicines[presc._id]?.quantity || 0;
+                const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
+                subtotal += amount;
+            }
+        });
+
+        const gstAmount = (subtotal * gst) / 100;
+        const total = subtotal + gstAmount;
+
+        return {
+            subtotal: subtotal.toFixed(2),
+            gstAmount: gstAmount.toFixed(2),
+            total: total.toFixed(2),
+        };
+    };
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
@@ -269,6 +289,25 @@ function Inpatientprescriptions() {
         return null;
     };
 
+    const calculateRemainingDosage = (dosage, dispenseQty) => {
+        if (!dosage || !dispenseQty) return dosage;
+
+        const parts = dosage.split("-").map(Number);
+        const qty = parseInt(dispenseQty) || 0;
+
+        if (parts.length !== 3) return dosage;
+
+        const totalDosage = parts.reduce((a, b) => a + b, 0);
+        const remaining = totalDosage - qty;
+
+        if (remaining < 0) {
+            alert("Dispense quantity cannot be greater than dosage");
+            return dosage;
+        }
+
+        return remaining;
+    };
+
     // Calculate amount for a medicine based on dispense quantity and sell price
     const calculateAmount = (medicineName, dispenseQty) => {
         if (!medicineName || !dispenseQty) return 0;
@@ -298,24 +337,24 @@ function Inpatientprescriptions() {
         );
     }
 
-    if (!patient || prescriptions.length === 0) {
-        return (
-            <Container maxWidth="lg" sx={{ py: 3 }}>
-                <Box sx={{ textAlign: "center", py: 5 }}>
-                    <Typography variant="h6" color="text.secondary">
-                        No prescription data found
-                    </Typography>
-                    <Button
-                        variant="outlined"
-                        onClick={() => navigate("/pharmacist/prescriptions/inpatient")}
-                        sx={{ mt: 2 }}
-                    >
-                        Back to Prescriptions
-                    </Button>
-                </Box>
-            </Container>
-        );
-    }
+    // if (!patient || prescriptions.length === 0) {
+    //     return (
+    //         <Container maxWidth="lg" sx={{ py: 3 }}>
+    //             <Box sx={{ textAlign: "center", py: 5 }}>
+    //                 <Typography variant="h6" color="text.secondary">
+    //                     No prescription data found
+    //                 </Typography>
+    //                 <Button
+    //                     variant="outlined"
+    //                     onClick={() => navigate("/pharmacist/prescriptions/inpatient")}
+    //                     sx={{ mt: 2 }}
+    //                 >
+    //                     Back to Prescriptions
+    //                 </Button>
+    //             </Box>
+    //         </Container>
+    //     );
+    // }
 
     const patientName = patient?.user?.name || "Unknown";
     const patientAge = calculateAge(patient?.dateOfBirth) || 0;
@@ -351,7 +390,18 @@ function Inpatientprescriptions() {
     };
 
     const handleQuantityChange = (prescriptionId, quantity) => {
-        // Store as string to allow text input (e.g., "10 tablets", "500ml")
+
+        const presc = prescriptions.find(p => p._id === prescriptionId);
+
+        if (presc?.dosage) {
+            const total = presc.dosage.split("-").map(Number).reduce((a, b) => a + b, 0);
+
+            if (parseInt(quantity) > total) {
+                toast.error("Dispense quantity cannot be greater than dosage");
+                return;
+            }
+        }
+
         setSelectedMedicines((prev) => ({
             ...prev,
             [prescriptionId]: {
@@ -447,22 +497,24 @@ function Inpatientprescriptions() {
 
     const handleDispenseConfirm = async () => {
         setConfirmDialogOpen(false);
-        const selectedPrescriptions = validateDispense(); // Re-validate just in case, or trust state
+
+        const selectedPrescriptions = validateDispense();
         if (!selectedPrescriptions) return;
 
         setIsDispensing(true);
+
         try {
-            // Update selected prescriptions with their quantities
+            // Update prescriptions with dispensed quantity + GST
             const updatePromises = selectedPrescriptions.map((presc) => {
                 const selected = selectedMedicines[presc._id];
                 const dispensedQuantity = selected.quantity;
 
-                // Update the prescription with the dispensed quantity incrementally
                 return axios.patch(
                     getApiUrl(`examinations/prescriptions/${presc._id}`),
                     {
                         dispensedQuantity: dispensedQuantity,
                         isIncremental: true,
+                        gst: gst   // ✅ SEND GST TO BACKEND
                     },
                     { headers: getAuthHeaders() }
                 );
@@ -470,83 +522,89 @@ function Inpatientprescriptions() {
 
             await Promise.all(updatePromises);
 
-            // Update medicine quantities - deduct dispensed quantities from stock
+            // Update medicine stock
             const medicineUpdatePromises = [];
+
             for (const presc of selectedPrescriptions) {
+
                 const selected = selectedMedicines[presc._id];
                 const dispensedQuantityStr = selected.quantity;
 
-                // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
                 const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
                 const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
 
                 if (dispensedQuantity <= 0) {
-                    console.warn(`Invalid dispensed quantity for ${presc.medication}: ${dispensedQuantityStr}`);
+                    console.warn(`Invalid quantity for ${presc.medication}`);
                     continue;
                 }
 
-                // Find the medicine using improved matching
                 const medicine = findMedicineInMap(presc.medication);
 
                 if (!medicine) {
-                    console.warn(`Medicine not found in collection: ${presc.medication}`);
+                    console.warn(`Medicine not found: ${presc.medication}`);
                     continue;
                 }
 
-                // Calculate new quantity
                 const currentQuantity = medicine.quantity || 0;
 
-                // Warn if insufficient stock
                 if (currentQuantity < dispensedQuantity) {
                     toast.warning(
-                        `Insufficient stock for ${presc.medication}. Available: ${currentQuantity}, Dispensing: ${dispensedQuantity}. Stock will be set to 0.`
+                        `Insufficient stock for ${presc.medication}. Available: ${currentQuantity}`
                     );
                 }
 
-                const newQuantity = Math.max(0, currentQuantity - dispensedQuantity); // Ensure non-negative
+                const newQuantity = Math.max(0, currentQuantity - dispensedQuantity);
 
-                // Update medicine quantity
                 medicineUpdatePromises.push(
                     medicineService.updateMedicine(medicine._id, {
-                        quantity: newQuantity,
+                        quantity: newQuantity
                     }).catch((error) => {
-                        console.error(`Failed to update quantity for ${presc.medication}:`, error);
-                        toast.warning(`Failed to update stock for ${presc.medication}. Please update manually.`);
+                        console.error(`Failed to update stock for ${presc.medication}`, error);
+                        toast.warning(`Stock update failed for ${presc.medication}`);
                     })
                 );
             }
 
-            // Wait for all medicine updates to complete
             await Promise.all(medicineUpdatePromises);
 
-            toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully! Stock updated.`);
+            toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully!`);
 
-            // Refresh the data
+            // Refresh prescriptions
             const response = await prescriptionService.getPrescriptionsByExamination(id);
-            if (response && response.success && response.data) {
+
+            if (response?.success && response?.data) {
+
                 const prescList = Array.isArray(response.data) ? response.data : [];
+
                 setPrescriptions(prescList);
 
-                // Reset selections
                 const newSelection = {};
+
                 prescList.forEach((presc) => {
                     if (presc.status !== "Dispensed") {
                         newSelection[presc._id] = {
                             selected: false,
-                            quantity: presc.quantity || 1,
+                            quantity: presc.quantity || 1
                         };
                     }
                 });
+
                 setSelectedMedicines(newSelection);
             }
+
         } catch (error) {
+
             console.error("Error dispensing prescriptions:", error);
-            toast.error(error?.response?.data?.message || "Failed to dispense medicines. Please try again.");
+
+            toast.error(
+                error?.response?.data?.message ||
+                "Failed to dispense medicines. Please try again."
+            );
+
         } finally {
             setIsDispensing(false);
         }
     };
-
     const handlePrint = () => {
         window.print();
     };
@@ -876,7 +934,12 @@ function Inpatientprescriptions() {
                                                         <Tooltip title={presc.dosage || "N/A"} arrow>
                                                             <Box>
                                                                 <Chip
-                                                                    label={presc.dosage || "N/A"}
+                                                                    label={
+                                                                        calculateRemainingDosage(
+                                                                            presc.dosage,
+                                                                            selectedMedicines[presc._id]?.quantity
+                                                                        ) || "N/A"
+                                                                    }
                                                                     size="small"
                                                                     variant="outlined"
                                                                     color="primary"
@@ -927,13 +990,35 @@ function Inpatientprescriptions() {
                                                         </Tooltip>
                                                     </TableCell>
                                                     <TableCell align="center">
-                                                        <TextField
-                                                            type="text"
+                                                        {/* <TextField
+                                                            type="number"
                                                             size="small"
                                                             value={dispenseQuantity}
                                                             onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
                                                             disabled={isFullyDispensed}
                                                             inputProps={{
+                                                                style: { textAlign: "center" },
+                                                            }}
+                                                            sx={{
+                                                                "& .MuiOutlinedInput-root": {
+                                                                    width: "120px",
+                                                                },
+                                                            }}
+                                                            placeholder="Enter qty"
+                                                        /> */}
+                                                        <TextField
+                                                            type="number"
+                                                            size="small"
+                                                            value={dispenseQuantity}
+                                                            onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
+                                                            disabled={isFullyDispensed}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "-" || e.key === "e") {
+                                                                    e.preventDefault();
+                                                                }
+                                                            }}
+                                                            inputProps={{
+                                                                min: 0,
                                                                 style: { textAlign: "center" },
                                                             }}
                                                             sx={{
@@ -1107,7 +1192,7 @@ function Inpatientprescriptions() {
             </Grid>
 
             {/* Confirmation Dialog */}
-            <Dialog
+            {/* <Dialog
                 open={confirmDialogOpen}
                 onClose={() => setConfirmDialogOpen(false)}
             >
@@ -1125,7 +1210,78 @@ function Inpatientprescriptions() {
                         Confirm
                     </Button>
                 </DialogActions>
-            </Dialog>
+            </Dialog> */}
+            <DialogContent>
+                <Dialog
+                    open={confirmDialogOpen}
+                    onClose={() => setConfirmDialogOpen(false)}
+                    maxWidth="sm"
+                    fullWidth
+                >
+                    <DialogTitle>Confirm Dispense</DialogTitle>
+
+                    <DialogContent>
+
+                        <DialogContentText sx={{ mb: 2 }}>
+                            Are you sure you want to dispense{" "}
+                            {prescriptions.filter(
+                                (p) => p.status !== "Dispensed" && selectedMedicines[p._id]?.selected
+                            ).length}{" "}
+                            medicine(s) for <strong>{patientName}</strong>?
+                        </DialogContentText>
+
+                        <TextField
+                            label="GST (%)"
+                            type="number"
+                            fullWidth
+                            value={gst}
+                            onChange={(e) => setGst(Number(e.target.value))}
+                            sx={{ mb: 2 }}
+                            inputProps={{ min: 0 }}
+                        />
+
+                        {(() => {
+                            const totals = calculateTotalWithGST();
+                            return (
+                                <Box>
+                                    <Typography variant="body2">
+                                        Subtotal: ₹{totals.subtotal}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        GST ({gst}%): ₹{totals.gstAmount}
+                                    </Typography>
+
+                                    <Typography
+                                        variant="h6"
+                                        fontWeight={600}
+                                        color="primary"
+                                    >
+                                        Total: ₹{totals.total}
+                                    </Typography>
+                                </Box>
+                            );
+                        })()}
+                    </DialogContent>
+
+                    <DialogActions>
+                        <Button
+                            onClick={() => setConfirmDialogOpen(false)}
+                            color="inherit"
+                        >
+                            Cancel
+                        </Button>
+
+                        <Button
+                            onClick={handleDispenseConfirm}
+                            variant="contained"
+                            color="primary"
+                        >
+                            Confirm
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+            </DialogContent>
         </Container>
     );
 }

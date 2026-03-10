@@ -22,7 +22,8 @@ function Inpatient_View_Details() {
     const fetchPrescriptions = useCallback(async () => {
         setIsLoading(true);
         try {
-            const response = await prescriptionService.getPendingInpatientPrescriptions();
+            // const response = await prescriptionService.getPendingInpatientPrescriptions();
+            const response = await prescriptionService.getPendingAllInpatientPrescriptions();
             if (response && response.success) {
                 setPrescriptions(response.data || []);
             } else {

@@ -34,6 +34,17 @@ const prescriptionService = {
       throw error.response?.data || error.message;
     }
   },
+  getPendingAllInpatientPrescriptions: async () => {
+    try {
+      const response = await axios.get(
+        getApiUrl("examinations/all-prescriptions"),
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
 
   /**
    * Get prescription by ID

@@ -850,6 +850,11 @@ const dosageOptions = [
         suggestion: "Take once in the morning (Before breakfast)",
     },
     {
+        value: "1-0-1",
+        label: "1-0-1",
+        suggestion: "Take in the morning and night (Before breakfast and before sleep)",
+    },
+    {
         value: "1-1-1",
         label: "1-1-1",
         suggestion: "Take morning, afternoon, and night (After food)",
@@ -1226,7 +1231,7 @@ function PrescriptionsAddPage() {
     };
 
     const handleAddMedicine = () => {
-        if (!formData.currentMedicine.name || !formData.currentMedicine.dosage) {
+        if (!formData.currentMedicine.name) {
             toast.error("Please enter medicine name and dosage");
             return;
         }
@@ -1649,7 +1654,7 @@ function PrescriptionsAddPage() {
                     {/* Add Medicine Section */}
                     <Grid item xs={12}>
                         <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                            Add Medicines <span style={{ color: "red" }}>*</span>
+                            Add Medicines  <span style={{ color: "red" }}>*</span>
                         </Typography>
                         <Box
                             sx={{
@@ -1757,7 +1762,30 @@ function PrescriptionsAddPage() {
                                         </Select>
                                     </FormControl>
                                 </Grid>
+                                {/* Remarks and Instructions - Outside the box, stacked vertically */}
 
+                                <Grid container spacing={2} sx={{ mt: 2 , mx:0}}>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Remarks"
+                                            value={formData.currentMedicine.remarks}
+                                            onChange={(e) => handleMedicineFieldChange("remarks", e.target.value)}
+                                            placeholder="Enter remarks (optional)"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Special Instructions"
+                                            value={formData.currentMedicine.instructions}
+                                            onChange={(e) => handleMedicineFieldChange("instructions", e.target.value)}
+                                            placeholder="Special instructions (optional)"
+                                            multiline
+                                            rows={3}
+                                        />
+                                    </Grid>
+                                </Grid>
                                 <Grid item xs={12} sm={6} md={1}>
                                     <Button
                                         variant="contained"
@@ -1771,29 +1799,7 @@ function PrescriptionsAddPage() {
                             </Grid>
                         </Box>
 
-                        {/* Remarks and Instructions - Outside the box, stacked vertically */}
-                        <Grid container spacing={2} sx={{ mt: 2 }}>
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    label="Remarks"
-                                    value={formData.currentMedicine.remarks}
-                                    onChange={(e) => handleMedicineFieldChange("remarks", e.target.value)}
-                                    placeholder="Enter remarks (optional)"
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <TextField
-                                    fullWidth
-                                    label="Special Instructions"
-                                    value={formData.currentMedicine.instructions}
-                                    onChange={(e) => handleMedicineFieldChange("instructions", e.target.value)}
-                                    placeholder="Special instructions (optional)"
-                                    multiline
-                                    rows={3}
-                                />
-                            </Grid>
-                        </Grid>
+
 
                         {/* Added Medicines List */}
                         {formData.medicines.length > 0 && (

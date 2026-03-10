@@ -64,7 +64,28 @@ function OutpatientPrescriptions() {
     const [isDispensing, setIsDispensing] = useState(false);
     const [prescriptions, setPrescriptions] = useState([]);
     const [patient, setPatient] = useState(null);
+    const [gst, setGst] = useState(0);
     const [examination, setExamination] = useState(null);
+    const calculateTotalWithGST = () => {
+        let subtotal = 0;
+
+        prescriptions.forEach((presc) => {
+            if (presc.status !== "Dispensed" && selectedMedicines[presc._id]?.selected) {
+                const qty = selectedMedicines[presc._id]?.quantity || 0;
+                const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
+                subtotal += amount;
+            }
+        });
+
+        const gstAmount = (subtotal * gst) / 100;
+        const total = subtotal + gstAmount;
+
+        return {
+            subtotal: subtotal.toFixed(2),
+            gstAmount: gstAmount.toFixed(2),
+            total: total.toFixed(2),
+        };
+    };
     // State for selected medicines and quantities
     const [selectedMedicines, setSelectedMedicines] = useState({}); // { prescriptionId: { selected: boolean, quantity: number } }
     // State for available medicines
@@ -257,7 +278,24 @@ function OutpatientPrescriptions() {
 
         return (medicine.sellPrice * qty).toFixed(2);
     };
+    const calculateRemainingDosage = (dosage, dispenseQty) => {
+        if (!dosage || !dispenseQty) return dosage;
 
+        const parts = dosage.split("-").map(Number);
+        const qty = parseInt(dispenseQty) || 0;
+
+        if (parts.length !== 3) return dosage;
+
+        const totalDosage = parts.reduce((a, b) => a + b, 0);
+        const remaining = totalDosage - qty;
+
+        if (remaining < 0) {
+            alert("Dispense quantity cannot be greater than dosage");
+            return dosage;
+        }
+
+        return remaining;
+    };
     const handleDownload = async () => {
         if (!patient || prescriptions.length === 0) {
             toast.error("No data available to download");
@@ -503,24 +541,24 @@ function OutpatientPrescriptions() {
         );
     }
 
-    if (!patient || prescriptions.length === 0) {
-        return (
-            <Container maxWidth="lg" sx={{ py: 3 }}>
-                <Box sx={{ textAlign: "center", py: 5 }}>
-                    <Typography variant="h6" color="text.secondary">
-                        No prescription data found
-                    </Typography>
-                    <Button
-                        variant="outlined"
-                        onClick={() => navigate("/pharmacist/prescriptions/outpatient")}
-                        sx={{ mt: 2 }}
-                    >
-                        Back to Prescriptions
-                    </Button>
-                </Box>
-            </Container>
-        );
-    }
+    // if (!patient || prescriptions.length === 0) {
+    //     return (
+    //         <Container maxWidth="lg" sx={{ py: 3 }}>
+    //             <Box sx={{ textAlign: "center", py: 5 }}>
+    //                 <Typography variant="h6" color="text.secondary">
+    //                     No prescription data found
+    //                 </Typography>
+    //                 <Button
+    //                     variant="outlined"
+    //                     onClick={() => navigate("/pharmacist/prescriptions/outpatient")}
+    //                     sx={{ mt: 2 }}
+    //                 >
+    //                     Back to Prescriptions
+    //                 </Button>
+    //             </Box>
+    //         </Container>
+    //     );
+    // }
 
     const patientName = patient?.user?.name || "Unknown";
     const patientAge = calculateAge(patient?.dateOfBirth) || 0;
@@ -556,6 +594,17 @@ function OutpatientPrescriptions() {
     };
 
     const handleQuantityChange = (prescriptionId, quantity) => {
+
+        const presc = prescriptions.find(p => p._id === prescriptionId);
+
+        if (presc?.dosage) {
+            const total = presc.dosage.split("-").map(Number).reduce((a, b) => a + b, 0);
+
+            if (parseInt(quantity) > total) {
+                toast.error("Dispense quantity cannot be greater than dosage");
+                return;
+            }
+        }
         // Store as string to allow text input (e.g., "10 tablets", "500ml")
         setSelectedMedicines((prev) => ({
             ...prev,
@@ -704,6 +753,7 @@ function OutpatientPrescriptions() {
                     {
                         dispensedQuantity: dispensedQuantity,
                         isIncremental: true,
+                        gst: gst
                     },
                     { headers: getAuthHeaders() }
                 ).then((response) => {
@@ -1053,6 +1103,7 @@ function OutpatientPrescriptions() {
                                                             title={!isMedicineAvailable(presc.medication) ? "This medicine is not available in the collection" : ""}
                                                         />
                                                     </TableCell>
+
                                                     <TableCell>
                                                         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexDirection: "column" }}>
                                                             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
@@ -1120,6 +1171,7 @@ function OutpatientPrescriptions() {
                                                         </Tooltip>
                                                     </TableCell>
                                                     <TableCell>
+
                                                         <Tooltip title={presc.frequency || "N/A"} arrow>
                                                             <Typography
                                                                 variant="body2"
@@ -1155,12 +1207,18 @@ function OutpatientPrescriptions() {
                                                     </TableCell>
                                                     <TableCell align="center">
                                                         <TextField
-                                                            type="text"
+                                                            type="number"
                                                             size="small"
                                                             value={dispenseQuantity}
                                                             onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
                                                             disabled={isFullyDispensed}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "-" || e.key === "e") {
+                                                                    e.preventDefault();
+                                                                }
+                                                            }}
                                                             inputProps={{
+                                                                min: 0,
                                                                 style: { textAlign: "center" },
                                                             }}
                                                             sx={{
@@ -1171,6 +1229,7 @@ function OutpatientPrescriptions() {
                                                             placeholder="Enter qty"
                                                         />
                                                     </TableCell>
+
                                                     <TableCell align="center">
                                                         <Typography
                                                             fontWeight={600}
@@ -1364,9 +1423,36 @@ function OutpatientPrescriptions() {
                     Confirm Dispense
                 </DialogTitle>
                 <DialogContent sx={{ mt: 2 }}>
-                    <DialogContentText>
+                    <DialogContentText sx={{ mb: 2 }}>
                         Are you sure you want to dispense {pendingSelectedPrescriptions.length} medicine(s) for {patientName}?
                     </DialogContentText>
+
+                    <TextField
+                        label="GST (%)"
+                        type="number"
+                        fullWidth
+                        value={gst}
+                        onChange={(e) => setGst(Number(e.target.value))}
+                        sx={{ mb: 2 }}
+                        inputProps={{ min: 0 }}
+                    />
+
+                    {(() => {
+                        const totals = calculateTotalWithGST();
+                        return (
+                            <Box>
+                                <Typography variant="body2">
+                                    Subtotal: ₹{totals.subtotal}
+                                </Typography>
+                                <Typography variant="body2">
+                                    GST ({gst}%): ₹{totals.gstAmount}
+                                </Typography>
+                                <Typography variant="h6" fontWeight={600}>
+                                    Total: ₹{totals.total}
+                                </Typography>
+                            </Box>
+                        );
+                    })()}
                 </DialogContent>
                 <DialogActions sx={{ p: 2, gap: 1 }}>
                     <Button

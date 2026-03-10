@@ -80,6 +80,7 @@ function PrescriptionsDetailsPage() {
                         getApiUrl("examinations/prescriptions/opd/by-doctor"),
                         { headers: getAuthHeaders() }
                     );
+                    console.log("🚀 ~ fetchPrescription ~ allPrescriptionsResponse====:", allPrescriptionsResponse)
 
                     if (allPrescriptionsResponse.data.success) {
                         // Filter prescriptions by the same patient
@@ -88,6 +89,7 @@ function PrescriptionsDetailsPage() {
                             const prescPatientId = p.patient?._id?.toString() || p.patient?.toString();
                             return prescPatientId === patientId?.toString();
                         });
+                        console.log("🚀 ~ fetchPrescription ~ patientPrescriptions:", patientPrescriptions)
                         setAllPrescriptions(patientPrescriptions);
                     }
                 } else {
