@@ -79,6 +79,8 @@ function WalkInHub() {
   const [nurses, setNurses] = useState([]);
   const [therapists, setTherapists] = useState([]);
   const [therapiesList, setTherapiesList] = useState([]); // Renamed from 'therapies' to avoid confusion
+  const [subTherapiesList, setSubTherapiesList] = useState([]);
+
 
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
@@ -87,7 +89,7 @@ function WalkInHub() {
   const fetchData = useCallback(async () => {
     setIsLoadingData(true);
     try {
-      const [doctorsRes, nursesRes, therapistsRes, therapiesRes] =
+      const [doctorsRes, nursesRes, therapistsRes, therapiesRes, subTherapiesRes] =
         await Promise.all([
           axios.get(getApiUrl("doctors/profiles"), {
             headers: getAuthHeaders(),
@@ -97,6 +99,9 @@ function WalkInHub() {
           }), // Fetch all nurses
           axios.get(getApiUrl("therapists"), { headers: getAuthHeaders() }),
           axios.get(getApiUrl("therapies?limit=100"), {
+            headers: getAuthHeaders(),
+          }),
+          axios.get(getApiUrl("sub-therapies?limit=200"), {
             headers: getAuthHeaders(),
           }),
         ]);
@@ -110,6 +115,8 @@ function WalkInHub() {
         setTherapists(therapistsRes.data.data || []);
       if (therapiesRes.data.success)
         setTherapiesList(therapiesRes.data.data || []);
+      if (subTherapiesRes.data.success)
+        setSubTherapiesList(subTherapiesRes.data.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load required data");
@@ -618,13 +625,19 @@ function WalkInHub() {
             : Array.isArray(t.treatmentName) && t.treatmentName.length > 0);
         return !hasId && hasName;
       }),
-      // Persist Start Date and Therapist changes for existing therapy rows (those with _id)
+      // Persist changes for existing therapy rows (those with _id)
       therapyUpdates: formData.therapies
         .filter((t) => t._id)
         .map((t) => ({
           planId: t._id,
           startDate: t.startDate,
-          therapistId: t.therapistId
+          therapistId: t.therapistId,
+          subTherapy: t.subTherapy,
+          duration: t.duration,
+          treatmentDescription: t.treatmentDescription,
+          specialInstructions: t.specialInstructions,
+          daysOfTreatment: t.daysOfTreatment,
+          timeline: t.timeline,
         })),
     };
 
@@ -972,19 +985,27 @@ function WalkInHub() {
                         </Select>
                       </FormControl>
 
-                      <TextField
-                        sx={{ flex: 1, minWidth: "250px" }}
-                        label="Sub Therapy"
-                        value={therapy.subTherapy}
-                        onChange={(e) =>
-                          handleTherapyChange(
-                            index,
-                            "subTherapy",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="e.g. Oil Type, Specific Medicines"
-                      />
+                      <FormControl sx={{ flex: 1, minWidth: "250px" }}>
+                        <InputLabel>Sub Therapy</InputLabel>
+                        <Select
+                          value={therapy.subTherapy}
+                          onChange={(e) =>
+                            handleTherapyChange(
+                              index,
+                              "subTherapy",
+                              e.target.value,
+                            )
+                          }
+                          label="Sub Therapy"
+                        >
+                          <MenuItem value="">— None —</MenuItem>
+                          {subTherapiesList.map((st) => (
+                            <MenuItem key={st._id} value={st.name}>
+                              {st.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                     </Box>
 
                     {/* Row 2: Session, Timeline, Duration */}

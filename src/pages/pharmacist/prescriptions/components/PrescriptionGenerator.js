@@ -53,20 +53,21 @@ export const handlePrint = async (id) => {
 
     // Medicines – adapt your API structure
     const items = data.medicines || [];
-    const medicinesRows = items.map((m, i) => `
-      <tr>
-        <td style="text-align:center;">${i + 1}</td>
-        <td>${m.medicineName || m.itemName || "Sarasapilla Syrup"}</td>
-        <td style="text-align:center;">${m.hsnCode || "32"}</td>
-        <td style="text-align:center;">${m.quantity || "1.00"}</td>
-        <td style="text-align:center;">${m.uom || "Nos"}</td>
-        <td style="text-align:right;">${Number(m.rate || m.price || 360).toFixed(2)}</td>
-        <td style="text-align:right;">${Number(m.amount || 360).toFixed(2)}</td>
-        <td style="text-align:center;">${Number(m.gstPercent || 5).toFixed(2)}</td>
-        <td style="text-align:right;">${Number(m.gstAmount || 17.14).toFixed(2)}</td>
-        <td style="text-align:right;">${Number(m.total || 360).toFixed(2)}</td>
-      </tr>
-    `).join("");
+    const medicinesRows = items.map((m, i) => {
+      const qty = Number(m.quantity || 1);
+      const rate = Number(m.rate || m.price || 0);
+      const total = qty * rate;
+
+      return `
+    <tr>
+      <td style="text-align:center;">${i + 1}</td>
+      <td>${m.medicineName || m.itemName || ""}</td>
+      <td style="text-align:center;">${qty}</td>
+      <td style="text-align:right;">${rate.toFixed(2)}</td>
+      <td style="text-align:right;">${total.toFixed(2)}</td>
+    </tr>
+  `;
+    }).join("");
 
     const subtotal = Number(data.subtotal || 342.86).toFixed(2);
     const gstAmount = Number(data.gstAmount || 17.14).toFixed(2);
@@ -307,6 +308,15 @@ export const handlePrint = async (id) => {
   padding-top:5px;
   font-weight:bold;
 }
+  .total-row td {
+  font-weight: bold;
+  background: #f5f5f5;
+}
+
+.total-row:last-child td {
+  background: #e0e0e0;
+  font-size: 13px;
+}
       </style>
     </head>
     <body>
@@ -393,64 +403,41 @@ export const handlePrint = async (id) => {
       <table class="items">
         <thead>
           <tr>
+          
             <th>Srl</th>
             <th>Item Name</th>
-            <th>HSN Code</th>
             <th>Qty</th>
-            <th>Uom</th>
             <th>Rate</th>
-            <th>Amount</th>
-            <th>GST %</th>
-            <th>GST-Amt</th>
             <th>Total</th>
           </tr>
         </thead>
-        <tbody>
-          ${medicinesRows}
-          <tr class="total-row">
-            <td colspan="2">TOTAL</td>
-            <td></td>
-            <td style="text-align:center;">${items.length ? items.reduce((sum, m) => sum + Number(m.quantity || 1), 0).toFixed(2) : "1.00"}</td>
-            <td></td>
-            <td></td>
-            <td style="text-align:right;">${subtotal}</td>
-            <td></td>
-            <td style="text-align:right;">${gstAmount}</td>
-            <td style="text-align:right;">${totalWithGst}</td>
-          </tr>
-        </tbody>
+<tbody>
+  ${medicinesRows}
+
+  <!-- Subtotal -->
+  <tr class="total-row">
+    <td colspan="4" style="text-align:right;">Sub Total</td>
+    <td style="text-align:right;">₹${subtotal}</td>
+  </tr>
+
+  <!-- GST -->
+  <tr class="total-row">
+    <td colspan="4" style="text-align:right;">GST (5%)</td>
+    <td style="text-align:right;">₹${gstAmount}</td>
+  </tr>
+
+  <!-- Final Total -->
+  <tr class="final-total">
+    <td colspan="4" style="text-align:right; font-weight:bold; font-size:14px;">
+      Total (with GST)
+    </td>
+    <td style="text-align:right; font-weight:bold; font-size:14px;">
+      ₹${totalWithGst}
+    </td>
+  </tr>
+</tbody>
       </table>
 
-     <div class="payment-container">
-
-  <div class="payment-left">
-
-   
-
-  
-
-  </div>
-
-  <div class="payment-right">
-
- 
-   
-    <div class="payment-row">
-      <span>TRANSACTION TYPE:</span>
-      <span>CREDIT</span>
-    </div>
-
-    <div class="payment-row">
-      <span>AMOUNT COLLECTED:</span>
-      <span>₹${totalWithGst}</span>
-    </div>
-
-
-   
-
-  </div>
-
-</div>
 <div class="footer">
   <div class="footer-left">
     <div class="footer-title">REACH US AT</div>

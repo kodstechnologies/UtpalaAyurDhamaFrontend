@@ -36,6 +36,8 @@ const WhatsAppPage = lazy(() => import("../../pages/receptionist/appointments/Wh
 const ScheduleTherapyPage = lazy(() => import("../../pages/receptionist/appointments/ScheduleTherapy"));
 const WalkInAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/WalkInAppointment"));
 const EditChargePage = lazy(() => import("../../pages/receptionist/inpatient/EditCharge"));
+const SubTherapy_View = lazy(() => import("../../pages/receptionist/subtherapy/View"));
+
 
 export const receptionRoutes = [
     {
@@ -389,6 +391,17 @@ export const receptionRoutes = [
                     <title>Walk-in Hub | UTPALA</title>
                 </Helmet>
                 <WalkInHub />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/sub-therapies",
+        element: (
+            <>
+                <Helmet>
+                    <title>Sub Therapies | UTPALA</title>
+                </Helmet>
+                <SubTherapy_View />
             </>
         ),
     },

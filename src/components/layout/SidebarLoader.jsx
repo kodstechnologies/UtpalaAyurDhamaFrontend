@@ -251,6 +251,12 @@ export const sidebarMenus = {
             to: "/receptionist/treatments",
         },
         {
+            key: "sub_therapies",
+            label: "Sub Therapies",
+            icon: <SpaIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/receptionist/sub-therapies",
+        },
+        {
             key: "payments",
             label: "Payments",
             icon: <PaymentsIcon style={{ color: "var(--color-icons)" }} />,
@@ -299,7 +305,7 @@ export const sidebarMenus = {
                 },
                 {
                     key: "list",
-                    label: "List",
+                    label: "Bill",
                     to: "/pharmacist/prescriptions/list",
                 },
             ],

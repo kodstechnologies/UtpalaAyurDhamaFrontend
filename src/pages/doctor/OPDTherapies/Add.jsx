@@ -296,8 +296,8 @@ function OPDTherapiesAddPage() {
         e.preventDefault();
 
         // Validation
-        if (!formData.patientId || !formData.examinationId) {
-            toast.error("Please select a patient and examination.");
+        if (!formData.patientId) {
+            toast.error("Please select a patient.");
             return;
         }
 
@@ -466,9 +466,9 @@ function OPDTherapiesAddPage() {
                     {/* Examination Selection */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                            Select Examination <span style={{ color: "red" }}>*</span>
+                            Select Examination
                         </Typography>
-                        <FormControl fullWidth required disabled={isLoadingExaminations || !formData.patientId}>
+                        <FormControl fullWidth disabled={isLoadingExaminations || !formData.patientId}>
                             <InputLabel>Select Examination</InputLabel>
                             <Select
                                 name="examinationId"
