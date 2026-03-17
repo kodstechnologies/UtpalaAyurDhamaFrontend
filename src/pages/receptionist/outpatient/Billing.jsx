@@ -2784,7 +2784,7 @@ function OutpatientBilling() {
 
       <HeadingCardingCard
         category="OUTPATIENT BILLING"
-        title={`Billing Details - ${patient?.name || "Unknown Patient"}`}
+        title={`Billing Details  - ${patient?.name || "Unknown Patient"}`}
         subtitle="Consultation & Therapy charges"
       />
 

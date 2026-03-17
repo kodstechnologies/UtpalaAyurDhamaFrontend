@@ -342,6 +342,10 @@ function InpatientBilling() {
   const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
   const [isUpdatingTherapist, setIsUpdatingTherapist] = useState(false);
 
+  // Discount
+  const [discountType, setDiscountType] = useState("percentage"); // "percentage" | "fixed"
+  const [discountValue, setDiscountValue] = useState("");
+
   // Get patient & inpatient IDs
   useEffect(() => {
     const fetchIds = async () => {
@@ -413,6 +417,19 @@ function InpatientBilling() {
     if (billingData?.invoice?.id) return Math.max(0, totalCharges - amountPaid);
     return totalCharges;
   }, [billingData, totalCharges, amountPaid]);
+
+  const discountAmount = useMemo(() => {
+    const val = parseFloat(discountValue) || 0;
+    if (!val || val <= 0) return 0;
+    if (discountType === "percentage") {
+      return Math.min((grandTotal * val) / 100, grandTotal);
+    }
+    return Math.min(val, grandTotal);
+  }, [discountType, discountValue, grandTotal]);
+
+  const finalTotal = useMemo(() => {
+    return Math.max(0, grandTotal - discountAmount);
+  }, [grandTotal, discountAmount]);
 
   const isDischarged = useMemo(() => {
     if (!billingData) return false;
@@ -600,7 +617,14 @@ function InpatientBilling() {
     setFinalizeDialogOpen(false);
     setIsDischarging(true);
     try {
-      const res = await inpatientService.finalizeDischarge(inpatientId || id, {});
+      const payload = {};
+      const dval = parseFloat(discountValue) || 0;
+      if (dval > 0) {
+        payload.discountType = discountType;
+        payload.discountValue = dval;
+        payload.discountAmount = discountAmount;
+      }
+      const res = await inpatientService.finalizeDischarge(inpatientId || id, payload);
       if (res?.success) {
         toast.success(`Invoice #${res.data.invoiceNumber} generated`);
         await fetchBillingDetails();
@@ -737,6 +761,59 @@ function InpatientBilling() {
           />
         </div>
       </div>
+
+      {/* Discount & Bill Summary */}
+      {!isDischarged && (
+        <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
+          <div className="card-header" style={{ padding: "12px 20px" }}>
+            <h5 className="card-title mb-0" style={{ fontWeight: 700, fontSize: "1.1rem" }}>Discount</h5>
+          </div>
+          <div className="card-body p-4">
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-start", mb: 3 }}>
+              <FormControl sx={{ minWidth: 180 }}>
+                <InputLabel>Discount Type</InputLabel>
+                <Select
+                  value={discountType}
+                  label="Discount Type"
+                  onChange={e => { setDiscountType(e.target.value); setDiscountValue(""); }}
+                >
+                  <MenuItem value="percentage">Percentage (%)</MenuItem>
+                  <MenuItem value="fixed">Fixed Amount (₹)</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label={discountType === "percentage" ? "Discount %" : "Discount Amount (₹)"}
+                type="number"
+                value={discountValue}
+                onChange={e => setDiscountValue(e.target.value)}
+                inputProps={{ min: 0, step: discountType === "percentage" ? 0.1 : 1, max: discountType === "percentage" ? 100 : undefined }}
+                sx={{ minWidth: 180 }}
+                placeholder={discountType === "percentage" ? "e.g. 10" : "e.g. 500"}
+              />
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, maxWidth: 360, ml: "auto" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography color="text.secondary">Gross Total</Typography>
+                <Typography fontWeight={600}>{formatCurrency(grandTotal)}</Typography>
+              </Box>
+              {discountAmount > 0 && (
+                <Box sx={{ display: "flex", justifyContent: "space-between", color: "#2e7d32" }}>
+                  <Typography color="inherit">
+                    Discount {discountType === "percentage" ? `(${discountValue}%)` : "(Fixed)"}
+                  </Typography>
+                  <Typography fontWeight={600} color="inherit">- {formatCurrency(discountAmount)}</Typography>
+                </Box>
+              )}
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography fontWeight={700} fontSize="1.1rem">Net Payable</Typography>
+                <Typography fontWeight={700} fontSize="1.1rem" color="#8B4513">{formatCurrency(finalTotal)}</Typography>
+              </Box>
+            </Box>
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="d-flex flex-wrap gap-3 mb-5">
@@ -928,6 +1005,25 @@ function InpatientBilling() {
         <Divider />
         <DialogContent sx={{ mt: 2 }}>
           <Typography>Finalize discharge and generate invoice?</Typography>
+          <Box sx={{ mt: 2, p: 2, bgcolor: "rgba(139,69,19,0.05)", borderRadius: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+              <Typography variant="body2" color="text.secondary">Gross Total:</Typography>
+              <Typography variant="body2" fontWeight={600}>{formatCurrency(grandTotal)}</Typography>
+            </Box>
+            {discountAmount > 0 && (
+              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                <Typography variant="body2" color="success.main">
+                  Discount{discountType === "percentage" ? ` (${discountValue}%)` : " (Fixed)"}:
+                </Typography>
+                <Typography variant="body2" color="success.main" fontWeight={600}>- {formatCurrency(discountAmount)}</Typography>
+              </Box>
+            )}
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography fontWeight={700}>Net Payable:</Typography>
+              <Typography fontWeight={700} color="#8B4513">{formatCurrency(finalTotal)}</Typography>
+            </Box>
+          </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             This will lock the bill and mark patient as discharged.
           </Typography>
