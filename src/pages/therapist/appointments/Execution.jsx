@@ -12,7 +12,15 @@ import {
     CircularProgress,
     Paper,
     Avatar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
 } from "@mui/material";
+import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
@@ -36,8 +44,10 @@ function Execution() {
     const [isLoading, setIsLoading] = useState(true);
     const [progressData, setProgressData] = useState(null);
     const [updatingSlot, setUpdatingSlot] = useState(null);
+    const [elapsedTimes, setElapsedTimes] = useState({}); // Track elapsed time per slot
     const checkIntervalRef = useRef(null); // Store interval for auto-start/auto-complete checks
     const autoCompleteTimersRef = useRef({}); // Store timers for auto-completion by slot date
+    const timerIntervalRef = useRef(null); // Store interval for running timer display
 
     // Utility function to parse duration string to milliseconds
     const parseDurationToMs = (durationStr) => {
@@ -80,9 +90,12 @@ function Execution() {
             if (progressResponse.data.success && sessionResponse.data.success) {
                 const progressData = progressResponse.data.data;
                 const sessionData = sessionResponse.data.data;
-                // Add sessionTime and duration to progressData for easier access
+                // Add sessionTime, duration, and charges to progressData for easier access
                 progressData.sessionTime = sessionData.sessionTime || "10:00";
                 progressData.duration = sessionData.duration || "";
+                progressData.cost = sessionData.cost || 0;
+                progressData.therapistCharge = sessionData.therapistCharge || 0;
+                progressData.isBilled = sessionData.isBilled || false;
                 setProgressData(progressData);
 
                 // Set up auto-completion timers for sessions already in progress
@@ -160,6 +173,9 @@ function Execution() {
             if (checkIntervalRef.current) {
                 clearInterval(checkIntervalRef.current);
             }
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+            }
             // Clear all auto-completion timers
             Object.values(autoCompleteTimersRef.current).forEach(timer => {
                 if (timer) clearTimeout(timer);
@@ -191,6 +207,56 @@ function Execution() {
             autoCompleteTimersRef.current = {};
         };
     }, [progressData]);
+
+    // Running timer: update elapsed times every second for in-progress sessions
+    useEffect(() => {
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+        }
+
+        const updateElapsed = () => {
+            if (!progressData || !progressData.days) return;
+            const now = new Date();
+            const newElapsed = {};
+            progressData.days.forEach(day => {
+                if (day.startTime && !day.endTime && !day.completed) {
+                    const startTime = new Date(day.startTime);
+                    const elapsedMs = now.getTime() - startTime.getTime();
+                    const totalSeconds = Math.floor(elapsedMs / 1000);
+                    const hours = Math.floor(totalSeconds / 3600);
+                    const minutes = Math.floor((totalSeconds % 3600) / 60);
+                    const seconds = totalSeconds % 60;
+                    const dayDate = new Date(day.date);
+                    dayDate.setHours(0, 0, 0, 0);
+                    const key = dayDate.toISOString().split('T')[0];
+                    newElapsed[key] = {
+                        display: hours > 0
+                            ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+                            : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+                        startTimeFormatted: startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                    };
+                }
+            });
+            setElapsedTimes(newElapsed);
+        };
+
+        updateElapsed(); // Run immediately
+        timerIntervalRef.current = setInterval(updateElapsed, 1000); // Then every second
+
+        return () => {
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+            }
+        };
+    }, [progressData]);
+
+    // Helper to get elapsed time display for a slot
+    const getElapsedTimeForSlot = (slot) => {
+        const slotDate = new Date(slot.date);
+        slotDate.setHours(0, 0, 0, 0);
+        const key = slotDate.toISOString().split('T')[0];
+        return elapsedTimes[key] || null;
+    };
 
     const handleAutoStart = async (slot, dataToUse = null) => {
         try {
@@ -825,10 +891,16 @@ function Execution() {
                     </Card>
                 </Grid>
 
+                {/* Therapy Charges Card */}
+               
+
                 {/* Session Timeline */}
                 <Grid item xs={12}>
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="h5" fontWeight={700} sx={{ mb: 4 }}>Treatment Schedule</Typography>
+
+                        <TextField sessionId={id} />
+                        <br />
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             {slots.map((slot, index) => {
                                 const dayRecord = getDayRecord(slot);
@@ -842,141 +914,161 @@ function Execution() {
                                 const isFutureDate = slotDate.getTime() > today.getTime();
 
                                 return (
-                                    <>
-                                        <TextField idsessionId={id} />
-                                        <Card
-                                            key={index}
-                                            sx={{
-                                                borderRadius: "20px",
-                                                border: "1px solid #E2E8F0",
-                                                boxShadow: slot.isCompleted ? "none" : "0 4px 6px rgba(0,0,0,0.02)",
-                                                background: slot.isCompleted ? "#F7FAFC" : isInProgress ? "#FFFBF0" : "white",
-                                                transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                                                "&:hover": {
-                                                    transform: slot.isCompleted ? "none" : "translateY(-4px)",
-                                                    boxShadow: slot.isCompleted ? "none" : "0 10px 15px rgba(0,0,0,0.05)"
-                                                }
-                                            }}
-                                        >
-                                            <CardContent sx={{ py: "20px !important", px: 4 }}>
-                                                <Grid container alignItems="center">
-                                                    <Grid item xs={12} sm={1}>
-                                                        <Box
-                                                            sx={{
-                                                                width: 40,
-                                                                height: 40,
-                                                                borderRadius: "12px",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                bgcolor: slot.isCompleted ? "#48BB78" : isInProgress ? "#FFC107" : "#EDF2F7",
-                                                                color: slot.isCompleted ? "white" : isInProgress ? "white" : "#718096"
-                                                            }}
-                                                        >
-                                                            <Typography fontWeight={700}>{index + 1}</Typography>
-                                                        </Box>
-                                                    </Grid>
-                                                    <Grid item xs={12} sm={3}>
-                                                        <Box sx={{ ml: { sm: 2 } }}>
-                                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>DATE</Typography>
-                                                            <Typography variant="body1" fontWeight={600}>
-                                                                {new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Grid>
-                                                    <Grid item xs={12} sm={3}>
-                                                        <Box>
-                                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>PLANNED TIME</Typography>
+                                    <Card
+                                        key={index}
+                                        sx={{
+                                            borderRadius: "20px",
+                                            border: "1px solid #E2E8F0",
+                                            boxShadow: slot.isCompleted ? "none" : "0 4px 6px rgba(0,0,0,0.02)",
+                                            background: slot.isCompleted ? "#F7FAFC" : isInProgress ? "#FFFBF0" : "white",
+                                            transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                                            "&:hover": {
+                                                transform: slot.isCompleted ? "none" : "translateY(-4px)",
+                                                boxShadow: slot.isCompleted ? "none" : "0 10px 15px rgba(0,0,0,0.05)"
+                                            }
+                                        }}
+                                    >
+                                        <CardContent sx={{ py: "20px !important", px: 4 }}>
+                                            <Grid container alignItems="center">
+                                                <Grid item xs={12} sm={1}>
+                                                    <Box
+                                                        sx={{
+                                                            width: 40,
+                                                            height: 40,
+                                                            borderRadius: "12px",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            bgcolor: slot.isCompleted ? "#48BB78" : isInProgress ? "#FFC107" : "#EDF2F7",
+                                                            color: slot.isCompleted ? "white" : isInProgress ? "white" : "#718096"
+                                                        }}
+                                                    >
+                                                        <Typography fontWeight={700}>{index + 1}</Typography>
+                                                    </Box>
+                                                </Grid>
+                                                <Grid item xs={12} sm={3}>
+                                                    <Box sx={{ ml: { sm: 2 } }}>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>DATE</Typography>
+                                                        <Typography variant="body1" fontWeight={600}>
+                                                            {new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+                                                <Grid item xs={12} sm={3}>
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                                            {isInProgress ? "STARTED AT / ELAPSED" : "PLANNED TIME"}
+                                                        </Typography>
+                                                        {isInProgress ? (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                <Typography variant="body1" sx={{ color: "#4A5568" }}>
+                                                                    {getElapsedTimeForSlot(slot)?.startTimeFormatted || slot.timeLabel}
+                                                                </Typography>
+                                                                <Chip
+                                                                    size="small"
+                                                                    icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
+                                                                    label={getElapsedTimeForSlot(slot)?.display || "00:00"}
+                                                                    sx={{
+                                                                        bgcolor: "#FEF3C7",
+                                                                        color: "#D97706",
+                                                                        fontWeight: 700,
+                                                                        fontFamily: "monospace",
+                                                                        fontSize: "0.85rem",
+                                                                        animation: "pulse 2s infinite",
+                                                                        "@keyframes pulse": {
+                                                                            "0%, 100%": { opacity: 1 },
+                                                                            "50%": { opacity: 0.7 }
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </Box>
+                                                        ) : (
                                                             <Typography variant="body1" sx={{ color: "#4A5568" }}>
                                                                 {slot.timeLabel}
                                                             </Typography>
-                                                        </Box>
-                                                    </Grid>
-                                                    <Grid item xs={12} sm={3}>
-                                                        <Box>
-                                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>STATUS</Typography>
-                                                            <Chip
-                                                                size="small"
-                                                                icon={slot.isCompleted ? <CheckCircleIcon fontSize="small" /> : isInProgress ? <PlayCircleFilledIcon fontSize="small" /> : <PendingActionsIcon fontSize="small" />}
-                                                                label={slot.isCompleted ? "Completed" : isInProgress ? "In Progress" : "Scheduled"}
-                                                                sx={{
-                                                                    bgcolor: slot.isCompleted ? "#F0FFF4" : isInProgress ? "#FFFBF0" : "#FFFBEB",
-                                                                    color: slot.isCompleted ? "#2F855A" : isInProgress ? "#F59E0B" : "#D69E2E",
-                                                                    border: "none",
-                                                                    fontWeight: 600
-                                                                }}
-                                                            />
-                                                        </Box>
-                                                    </Grid>
-                                                    <Grid item xs={12} sm={2} sx={{ textAlign: "right" }}>
-                                                        {!slot.isCompleted && !isInProgress ? (
-                                                            <Button
-                                                                variant="contained"
-                                                                size="small"
-                                                                onClick={() => handleStartSession(slot)}
-                                                                disabled={updatingSlot === slot.dateLabel || isFutureDate}
-                                                                startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PlayCircleFilledIcon />}
-                                                                title={isFutureDate ? `This session is scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. You can only start sessions on or after the scheduled date.` : ""}
-                                                                sx={{
-                                                                    borderRadius: "10px",
-                                                                    textTransform: "none",
-                                                                    bgcolor: isFutureDate ? "#CBD5E0" : "#3182CE",
-                                                                    boxShadow: isFutureDate ? "none" : "0 4px 6px rgba(49, 130, 206, 0.2)",
-                                                                    "&:hover": {
-                                                                        bgcolor: isFutureDate ? "#CBD5E0" : "#2B6CB0",
-                                                                        cursor: isFutureDate ? "not-allowed" : "pointer"
-                                                                    },
-                                                                    "&.Mui-disabled": {
-                                                                        bgcolor: "#E2E8F0",
-                                                                        color: "#A0AEC0"
-                                                                    }
-                                                                }}
-                                                            >
-                                                                Start
-                                                            </Button>
-                                                        ) : isInProgress ? (
-                                                            <Button
-                                                                variant="contained"
-                                                                size="small"
-                                                                onClick={() => handleStopSession(slot)}
-                                                                disabled={updatingSlot === slot.dateLabel}
-                                                                startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <StopCircleIcon />}
-                                                                sx={{
-                                                                    borderRadius: "10px",
-                                                                    textTransform: "none",
-                                                                    bgcolor: "#DC2626",
-                                                                    boxShadow: "0 4px 6px rgba(220, 38, 38, 0.2)",
-                                                                    "&:hover": { bgcolor: "#B91C1C" }
-                                                                }}
-                                                            >
-                                                                Stop
-                                                            </Button>
-                                                        ) : (
-                                                            <Button
-                                                                variant="outlined"
-                                                                size="small"
-                                                                onClick={() => handleToggleComplete(slot)}
-                                                                disabled={updatingSlot === slot.dateLabel}
-                                                                startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} /> : <HistoryIcon />}
-                                                                sx={{
-                                                                    borderRadius: "10px",
-                                                                    textTransform: "none",
-                                                                    borderColor: "#E2E8F0",
-                                                                    color: "#718096",
-                                                                    "&:hover": { bgcolor: "#F7FAFC", borderColor: "#CBD5E0" }
-                                                                }}
-                                                            >
-                                                                Undo
-                                                            </Button>
                                                         )}
-                                                    </Grid>
+                                                    </Box>
                                                 </Grid>
-                                            </CardContent>
-                                        </Card>
-                                    </>
+                                                <Grid item xs={12} sm={3}>
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>STATUS</Typography>
+                                                        <Chip
+                                                            size="small"
+                                                            icon={slot.isCompleted ? <CheckCircleIcon fontSize="small" /> : isInProgress ? <PlayCircleFilledIcon fontSize="small" /> : <PendingActionsIcon fontSize="small" />}
+                                                            label={slot.isCompleted ? "Completed" : isInProgress ? "In Progress" : "Scheduled"}
+                                                            sx={{
+                                                                bgcolor: slot.isCompleted ? "#F0FFF4" : isInProgress ? "#FFFBF0" : "#FFFBEB",
+                                                                color: slot.isCompleted ? "#2F855A" : isInProgress ? "#F59E0B" : "#D69E2E",
+                                                                border: "none",
+                                                                fontWeight: 600
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </Grid>
+                                                <Grid item xs={12} sm={2} sx={{ textAlign: "right" }}>
+                                                    {!slot.isCompleted && !isInProgress ? (
+                                                        <Button
+                                                            variant="contained"
+                                                            size="small"
+                                                            onClick={() => handleStartSession(slot)}
+                                                            disabled={updatingSlot === slot.dateLabel || isFutureDate}
+                                                            startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PlayCircleFilledIcon />}
+                                                            title={isFutureDate ? `This session is scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. You can only start sessions on or after the scheduled date.` : ""}
+                                                            sx={{
+                                                                borderRadius: "10px",
+                                                                textTransform: "none",
+                                                                bgcolor: isFutureDate ? "#CBD5E0" : "#3182CE",
+                                                                boxShadow: isFutureDate ? "none" : "0 4px 6px rgba(49, 130, 206, 0.2)",
+                                                                "&:hover": {
+                                                                    bgcolor: isFutureDate ? "#CBD5E0" : "#2B6CB0",
+                                                                    cursor: isFutureDate ? "not-allowed" : "pointer"
+                                                                },
+                                                                "&.Mui-disabled": {
+                                                                    bgcolor: "#E2E8F0",
+                                                                    color: "#A0AEC0"
+                                                                }
+                                                            }}
+                                                        >
+                                                            Start
+                                                        </Button>
+                                                    ) : isInProgress ? (
+                                                        <Chip
+                                                            size="small"
+                                                            icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
+                                                            label={progressData.duration ? `Auto-stops in ${progressData.duration} min` : "Running..."}
+                                                            sx={{
+                                                                bgcolor: "#FEF3C7",
+                                                                color: "#D97706",
+                                                                fontWeight: 600,
+                                                                fontSize: "0.75rem",
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <Button
+                                                            variant="outlined"
+                                                            size="small"
+                                                            onClick={() => handleToggleComplete(slot)}
+                                                            disabled={updatingSlot === slot.dateLabel}
+                                                            startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} /> : <HistoryIcon />}
+                                                            sx={{
+                                                                borderRadius: "10px",
+                                                                textTransform: "none",
+                                                                borderColor: "#E2E8F0",
+                                                                color: "#718096",
+                                                                "&:hover": { bgcolor: "#F7FAFC", borderColor: "#CBD5E0" }
+                                                            }}
+                                                        >
+                                                            Undo
+                                                        </Button>
+                                                    )}
+                                                </Grid>
+                                            </Grid>
+                                        </CardContent>
+                                    </Card>
                                 );
                             })}
                         </Box>
+
                     </Box>
                 </Grid>
 

@@ -25,6 +25,10 @@ const OutpatientPrescriptions = lazy(() => import("../../pages/pharmacist/prescr
 const Inpatient_View_Details = lazy(() => import("../../pages/pharmacist/prescriptions/inpatient/View"));
 const InpatientPrescriptions = lazy(() => import("../../pages/pharmacist/prescriptions/inpatient/Inpatientprescriptions"));
 
+// Prescriptions – Inpatient
+const List_View_Details = lazy(() => import("../../pages/pharmacist/prescriptions/list/View"));
+const ListPrescriptions = lazy(() => import("../../pages/pharmacist/prescriptions/list/Listprescriptions"));
+
 // Medicines
 const MedicinesView = lazy(() => import("../../pages/pharmacist/medicines/View"));
 const AddEditMedicine = lazy(() => import("../../pages/pharmacist/medicines/AddEdit"));
@@ -160,6 +164,31 @@ export const pharmacistRoutes = [
                     <meta name="description" content="View detailed inpatient prescription and dispensing information." />
                 </Helmet>
                 <InpatientPrescriptions />
+            </>
+        ),
+    },
+    /* list Prescriptions */
+    {
+        path: "/pharmacist/prescriptions/list",
+        element: (
+            <>
+                <Helmet>
+                    <title>List Prescriptions | UTPALA</title>
+                    <meta name="description" content="Manage inpatient prescriptions and medicine dispensing." />
+                </Helmet>
+                <List_View_Details />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/prescriptions/list/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>List Prescription Details | UTPALA</title>
+                    <meta name="description" content="View detailed inpatient prescription and dispensing information." />
+                </Helmet>
+                <ListPrescriptions />
             </>
         ),
     },

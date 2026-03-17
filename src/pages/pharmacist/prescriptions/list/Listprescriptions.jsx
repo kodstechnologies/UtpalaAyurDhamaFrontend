@@ -53,8 +53,10 @@ import HeadingCard from "../../../../components/card/HeadingCard";
 import prescriptionService from "../../../../services/prescriptionService";
 import medicineService from "../../../../services/medicineService";
 import { getApiUrl, getAuthHeaders } from "../../../../config/api";
+import { handlePrint } from "../components/PrescriptionGenerator";
+import { handleDownload } from "../components/PrescriptionDownload";
 
-function OutpatientPrescriptions() {
+function ListPrescriptions() {
     const { id } = useParams(); // examinationId
     const [searchParams] = useSearchParams();
     const patientId = searchParams.get("patientId");
@@ -63,8 +65,41 @@ function OutpatientPrescriptions() {
     const [isLoading, setIsLoading] = useState(true);
     const [isDispensing, setIsDispensing] = useState(false);
     const [prescriptions, setPrescriptions] = useState([]);
+    const [billingSummary, setBillingSummary] = useState({
+        subtotal: 0,
+        gst: 0,
+        gstAmount: 0,
+        total: 0,
+        medicineCount: 0,
+    });
     const [patient, setPatient] = useState(null);
+    const [gst, setGst] = useState(0);
     const [examination, setExamination] = useState(null);
+    const calculateTotalWithGST = () => {
+        let subtotal = 0;
+
+        prescriptions.forEach((presc) => {
+            // To ensure the amount isn't 0 out by default, default to prescribedQuantity if dispenseQty not set yet.
+            const prescribedQuantity = presc.quantity || 1;
+            const qty = selectedMedicines[presc._id]?.quantity || presc.dispensedQuantity || prescribedQuantity;
+
+            const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
+            subtotal += amount;
+        });
+
+        // Use backend GST rate for dispensed prescriptions, otherwise use local gst state
+        const appliedGst = status === "Dispensed" ? (billingSummary.gst || 0) : gst;
+        const gstAmount = (subtotal * appliedGst) / 100;
+        const totalWithGst = subtotal + gstAmount;
+
+        return {
+            subtotal: subtotal.toFixed(2),
+            gstPercentage: appliedGst,
+            gstAmount: gstAmount.toFixed(2),
+            totalWithoutGst: subtotal.toFixed(2),
+            total: totalWithGst.toFixed(2),
+        };
+    };
     // State for selected medicines and quantities
     const [selectedMedicines, setSelectedMedicines] = useState({}); // { prescriptionId: { selected: boolean, quantity: number } }
     // State for available medicines
@@ -73,7 +108,6 @@ function OutpatientPrescriptions() {
     // State for confirmation dialog
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [pendingSelectedPrescriptions, setPendingSelectedPrescriptions] = useState([]);
-    const [gst, setGst] = useState(0);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -81,13 +115,23 @@ function OutpatientPrescriptions() {
             try {
                 // Fetch prescriptions and medicines in parallel
                 const [prescriptionResponse, medicinesResponse] = await Promise.all([
-                    prescriptionService.getPrescriptionsByExamination(id),
+                    prescriptionService.getPrescriptionsByExaminationList(id),
                     medicineService.getAllMedicines({ page: 1, limit: 1000 }), // Fetch all medicines
                 ]);
 
                 if (prescriptionResponse && prescriptionResponse.success && prescriptionResponse.data) {
-                    const prescList = Array.isArray(prescriptionResponse.data) ? prescriptionResponse.data : [];
+                    const prescData = prescriptionResponse.data;
+                    const prescList = Array.isArray(prescData.prescriptions) ? prescData.prescriptions : [];
                     setPrescriptions(prescList);
+
+                    // Set billing summary (totals and medicine count) from backend
+                    setBillingSummary({
+                        subtotal: prescData.subtotal || 0,
+                        gst: prescData.gst || 0,
+                        gstAmount: prescData.gstAmount || 0,
+                        total: prescData.total || 0,
+                        medicineCount: prescData.medicineCount || prescList.length,
+                    });
 
                     if (prescList.length > 0) {
                         const firstPresc = prescList[0];
@@ -106,7 +150,7 @@ function OutpatientPrescriptions() {
                     }
                 } else {
                     toast.error("Failed to fetch prescription details");
-                    navigate("/pharmacist/prescriptions/outpatient");
+                    navigate("/pharmacist/prescriptions/list");
                 }
 
                 // Store available medicines
@@ -136,7 +180,7 @@ function OutpatientPrescriptions() {
             } catch (error) {
                 console.error("Error fetching data:", error);
                 toast.error(error?.response?.data?.message || "Failed to fetch prescription details");
-                navigate("/pharmacist/prescriptions/outpatient");
+                navigate("/pharmacist/prescriptions/list");
             } finally {
                 setIsLoading(false);
             }
@@ -239,26 +283,7 @@ function OutpatientPrescriptions() {
 
         return null;
     };
-const calculateTotalWithGST = () => {
-    let subtotal = 0;
 
-    pendingSelectedPrescriptions.forEach((presc) => {
-        const selected = selectedMedicines[presc._id];
-        const qty = selected?.quantity;
-
-        const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
-        subtotal += amount;
-    });
-
-    const gstAmount = (subtotal * gst) / 100;
-    const total = subtotal + gstAmount;
-
-    return {
-        subtotal: subtotal.toFixed(2),
-        gstAmount: gstAmount.toFixed(2),
-        total: total.toFixed(2),
-    };
-};
     // Calculate amount for a medicine based on dispense quantity and sell price
     const calculateAmount = (medicineName, dispenseQty) => {
         if (!medicineName || !dispenseQty) return 0;
@@ -277,8 +302,27 @@ const calculateTotalWithGST = () => {
 
         return (medicine.sellPrice * qty).toFixed(2);
     };
+    const calculateRemainingDosage = (dosage, dispenseQty) => {
+        if (!dosage || !dispenseQty) return dosage;
 
- 
+        const parts = dosage.split("-").map(Number);
+        const qty = parseInt(dispenseQty) || 0;
+
+        if (parts.length !== 3) return dosage;
+
+        const totalDosage = parts.reduce((a, b) => a + b, 0);
+        const remaining = totalDosage - qty;
+
+        if (remaining < 0) {
+            alert("Dispense quantity cannot be greater than dosage");
+            return dosage;
+        }
+
+        return remaining;
+    };
+
+
+
 
     if (isLoading) {
         return (
@@ -328,7 +372,7 @@ const calculateTotalWithGST = () => {
     const breadcrumbItems = [
         { label: "Home", url: "/" },
         { label: "Pharmacist", url: "/pharmacist/dashboard" },
-        { label: "Outpatient Prescriptions", url: "/pharmacist/prescriptions/outpatient" },
+        { label: "List Prescriptions", url: "/pharmacist/prescriptions/list" },
         { label: patientName },
     ];
 
@@ -342,7 +386,7 @@ const calculateTotalWithGST = () => {
         }));
     };
 
-  const handleQuantityChange = (prescriptionId, quantity) => {
+    const handleQuantityChange = (prescriptionId, quantity) => {
 
         const presc = prescriptions.find(p => p._id === prescriptionId);
 
@@ -502,7 +546,7 @@ const calculateTotalWithGST = () => {
                     {
                         dispensedQuantity: dispensedQuantity,
                         isIncremental: true,
-                        gst: gst,
+                        gst: gst
                     },
                     { headers: getAuthHeaders() }
                 ).then((response) => {
@@ -614,7 +658,7 @@ const calculateTotalWithGST = () => {
                     title={
                         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                             <LocalPharmacy sx={{ color: theme.palette.primary.main }} />
-                            <span>Outpatient Prescription</span>
+                            <span>Listprescription Prescription</span>
                             <Chip
                                 label={status === "Dispensed" ? "Dispensed" : "Pending"}
                                 color={status === "Dispensed" ? "success" : "warning"}
@@ -627,10 +671,10 @@ const calculateTotalWithGST = () => {
                     subtitle="Review patient details and dispense prescribed medicines with care."
                     action={
                         <Stack direction="row" spacing={1}>
-                            {/* <Button
+                            <Button
                                 variant="outlined"
                                 startIcon={<Print />}
-                                onClick={handlePrint}
+                                onClick={() => handlePrint(id)}
                                 sx={{ borderColor: alpha(theme.palette.divider, 0.5) }}
                             >
                                 Print
@@ -638,11 +682,11 @@ const calculateTotalWithGST = () => {
                             <Button
                                 variant="outlined"
                                 startIcon={<Download />}
-                                onClick={handleDownload}
+                                onClick={() => handleDownload(id)}
                                 sx={{ borderColor: alpha(theme.palette.divider, 0.5) }}
                             >
                                 Download
-                            </Button> */}
+                            </Button>
                             {status !== "Dispensed" && (
                                 <Button
                                     type="button"
@@ -750,7 +794,23 @@ const calculateTotalWithGST = () => {
                                     <Medication fontSize="small" />
                                     Prescribed Medicines
                                 </Typography>
-                                <Chip label={`${prescriptions.length} medicine${prescriptions.length !== 1 ? "s" : ""}`} size="small" variant="outlined" />
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <Chip
+                                        label={`${billingSummary.medicineCount || prescriptions.length} item${(billingSummary.medicineCount || prescriptions.length) !== 1 ? "s" : ""}`}
+                                        size="small"
+                                        variant="outlined"
+                                    />
+                                    <Chip
+                                        label={
+                                            billingSummary.gst
+                                                ? `GST ${billingSummary.gst}%`
+                                                : "GST 0%"
+                                        }
+                                        size="small"
+                                        color="primary"
+                                        variant="outlined"
+                                    />
+                                </Stack>
                             </Box>
 
                             <TableContainer sx={{ maxHeight: 600, overflowX: "auto" }}>
@@ -852,6 +912,7 @@ const calculateTotalWithGST = () => {
                                                             title={!isMedicineAvailable(presc.medication) ? "This medicine is not available in the collection" : ""}
                                                         />
                                                     </TableCell>
+
                                                     <TableCell>
                                                         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexDirection: "column" }}>
                                                             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
@@ -919,6 +980,7 @@ const calculateTotalWithGST = () => {
                                                         </Tooltip>
                                                     </TableCell>
                                                     <TableCell>
+
                                                         <Tooltip title={presc.frequency || "N/A"} arrow>
                                                             <Typography
                                                                 variant="body2"
@@ -953,40 +1015,57 @@ const calculateTotalWithGST = () => {
                                                         </Tooltip>
                                                     </TableCell>
                                                     <TableCell align="center">
-                                                                 <TextField
-                                                                                                                   type="number"
-                                                                                                                   size="small"
-                                                                                                                   value={dispenseQuantity}
-                                                                                                                   onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
-                                                                                                                   disabled={isFullyDispensed}
-                                                                                                                   onKeyDown={(e) => {
-                                                                                                                       if (e.key === "-" || e.key === "e") {
-                                                                                                                           e.preventDefault();
-                                                                                                                       }
-                                                                                                                   }}
-                                                                                                                   inputProps={{
-                                                                                                                       min: 0,
-                                                                                                                       style: { textAlign: "center" },
-                                                                                                                   }}
-                                                                                                                   sx={{
-                                                                                                                       "& .MuiOutlinedInput-root": {
-                                                                                                                           width: "120px",
-                                                                                                                       },
-                                                                                                                   }}
-                                                                                                                   placeholder="Enter qty"
-                                                                                                               />
+                                                        {isFullyDispensed ? (
+                                                            <Typography
+                                                                variant="body2"
+                                                                sx={{ fontWeight: 600 }}
+                                                            >
+                                                                {dispensedQty}
+                                                            </Typography>
+                                                        ) : (
+                                                            <TextField
+                                                                type="number"
+                                                                size="small"
+                                                                value={dispenseQuantity}
+                                                                onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === "-" || e.key === "e") {
+                                                                        e.preventDefault();
+                                                                    }
+                                                                }}
+                                                                inputProps={{
+                                                                    min: 0,
+                                                                    style: { textAlign: "center" },
+                                                                }}
+                                                                sx={{
+                                                                    "& .MuiOutlinedInput-root": {
+                                                                        width: "120px",
+                                                                    },
+                                                                }}
+                                                                placeholder="Enter qty"
+                                                            />
+                                                        )}
                                                     </TableCell>
+
                                                     <TableCell align="center">
-                                                        <Typography
-                                                            fontWeight={600}
-                                                            color="primary"
-                                                            sx={{ fontSize: "0.875rem" }}
-                                                        >
-                                                            ₹{calculateAmount(presc.medication, dispenseQuantity)}
-                                                        </Typography>
+                                                        {(() => {
+                                                            const qtyForAmount =
+                                                                dispenseQuantity ||
+                                                                dispensedQty ||
+                                                                prescribedQuantity;
+                                                            return (
+                                                                <Typography
+                                                                    fontWeight={600}
+                                                                    color="primary"
+                                                                    sx={{ fontSize: "0.875rem" }}
+                                                                >
+                                                                    ₹{calculateAmount(presc.medication, qtyForAmount)}
+                                                                </Typography>
+                                                            );
+                                                        })()}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Tooltip title={presc.notes || "-"} arrow>
+                                                        <Tooltip title={presc.notes || presc.remarks || "-"} arrow>
                                                             <Typography
                                                                 variant="caption"
                                                                 color="text.secondary"
@@ -997,7 +1076,7 @@ const calculateTotalWithGST = () => {
                                                                     display: "block",
                                                                 }}
                                                             >
-                                                                {presc.notes || "-"}
+                                                                {presc.notes || presc.remarks || "-"}
                                                             </Typography>
                                                         </Tooltip>
                                                     </TableCell>
@@ -1090,6 +1169,34 @@ const calculateTotalWithGST = () => {
                                 </Table>
                             </TableContainer>
 
+                            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3, mb: 1 }}>
+                                {(() => {
+                                    const totals = calculateTotalWithGST();
+                                    return (
+                                        <Card variant="outlined" sx={{ minWidth: 300, backgroundColor: alpha(theme.palette.primary.main, 0.02), border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`, borderRadius: 2 }}>
+                                            <CardContent sx={{ pb: "16px !important", p: 2 }}>
+                                                <Typography variant="subtitle2" color="text.primary" gutterBottom sx={{ fontWeight: 600, mb: 1.5 }}>
+                                                    Billing Summary
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                                    <Typography variant="body2" color="text.secondary">Cost (without GST):</Typography>
+                                                    <Typography variant="body2" fontWeight={500}>₹{totals.subtotal}</Typography>
+                                                </Box>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                                    <Typography variant="body2" color="text.secondary">GST ({totals.gstPercentage}%):</Typography>
+                                                    <Typography variant="body2" fontWeight={500}>₹{totals.gstAmount}</Typography>
+                                                </Box>
+                                                <Box sx={{ borderBottom: 1, borderColor: 'divider', my: 1.5 }} />
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography variant="subtitle1" fontWeight={600} color="text.primary">Total (with GST):</Typography>
+                                                    <Typography variant="subtitle1" fontWeight={700} color="primary.main">₹{totals.total}</Typography>
+                                                </Box>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })()}
+                            </Box>
+
                             {status !== "Dispensed" && (
                                 <Box
                                     sx={{
@@ -1128,7 +1235,7 @@ const calculateTotalWithGST = () => {
                                 </Box>
                             )}
 
-          {status === "Dispensed" && (
+                            {status === "Dispensed" && (
                                 <Box
                                     sx={{
                                         mt: 3,
@@ -1178,32 +1285,27 @@ const calculateTotalWithGST = () => {
                         type="number"
                         fullWidth
                         value={gst}
-                        onChange={(e) => setGst(Math.max(0, Number(e.target.value)))}
+                        onChange={(e) => setGst(Number(e.target.value))}
                         sx={{ mb: 2 }}
                         inputProps={{ min: 0 }}
                     />
 
-                   
-                  {(() => {
-    const totals = calculateTotalWithGST();
-
-    return (
-        <Box>
-            <Typography variant="body2">
-                Subtotal: ₹{totals.subtotal}
-            </Typography>
-
-            <Typography variant="body2">
-                GST ({gst}%): ₹{totals.gstAmount}
-            </Typography>
-
-            <Typography variant="h6" fontWeight={600}>
-                Total: ₹{totals.total}
-            </Typography>
-        </Box>
-    );
-})()}
-                       
+                    {(() => {
+                        const totals = calculateTotalWithGST();
+                        return (
+                            <Box>
+                                <Typography variant="body2">
+                                    Subtotal: ₹{totals.subtotal}
+                                </Typography>
+                                <Typography variant="body2">
+                                    GST ({gst}%): ₹{totals.gstAmount}
+                                </Typography>
+                                <Typography variant="h6" fontWeight={600}>
+                                    Total: ₹{totals.total}
+                                </Typography>
+                            </Box>
+                        );
+                    })()}
                 </DialogContent>
                 <DialogActions sx={{ p: 2, gap: 1 }}>
                     <Button
@@ -1272,4 +1374,4 @@ const DetailCard = ({ label, value, icon, sx = {}, fullWidth = false }) => (
     </Box>
 );
 
-export default OutpatientPrescriptions;
+export default ListPrescriptions;

@@ -345,7 +345,7 @@ function EditPatientPage() {
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                         <Grid item xs={12} md={6}>
                             <TextField
-                                label="Patient Name *"
+                                label="Patient Name"
                                 name="patientName"
                                 fullWidth
                                 required
@@ -355,7 +355,7 @@ function EditPatientPage() {
                         </Grid>
                         <Grid item xs={12} md={6}>
                             <TextField
-                                label="Contact Number *"
+                                label="Contact Number"
                                 name="contactNumber"
                                 type="tel"
                                 fullWidth

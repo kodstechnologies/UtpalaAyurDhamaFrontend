@@ -34,10 +34,56 @@ const prescriptionService = {
       throw error.response?.data || error.message;
     }
   },
+  getPendingAllPatientPrescriptions: async () => {
+    try {
+      const response = await axios.get(
+        getApiUrl("examinations/all-prescriptions"),
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
   getPendingAllInpatientPrescriptions: async () => {
     try {
       const response = await axios.get(
         getApiUrl("examinations/all-prescriptions"),
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getPendingAllIn_patientPrescriptions: async (page = 1, limit = 10) => {
+    try {
+      const response = await axios.get(
+        getApiUrl(`examinations/all-in-prescriptions?page=${page}&limit=${limit}`),
+        { headers: getAuthHeaders() }
+      );
+
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getPendingAll_List_patientPrescriptions: async (page = 1, limit = 10) => {
+    try {
+      const response = await axios.get(
+        getApiUrl(`examinations/all-list-prescriptions?page=${page}&limit=${limit}`),
+        { headers: getAuthHeaders() }
+      );
+
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getLastInpatientPrescriptions: async () => {
+    try {
+      const response = await axios.get(
+        getApiUrl("examinations/user-last-prescription/:id"),
         { headers: getAuthHeaders() }
       );
       return response.data;
@@ -68,6 +114,17 @@ const prescriptionService = {
     try {
       const response = await axios.get(
         getApiUrl(`examinations/${examinationId}/prescriptions`),
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getPrescriptionsByExaminationList: async (examinationId) => {
+    try {
+      const response = await axios.get(
+        getApiUrl(`examinations/${examinationId}/prescriptions/list`),
         { headers: getAuthHeaders() }
       );
       return response.data;

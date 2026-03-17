@@ -65,34 +65,16 @@ function Inpatientprescriptions() {
     const [prescriptions, setPrescriptions] = useState([]);
     const [patient, setPatient] = useState(null);
     const [examination, setExamination] = useState(null);
-    const [gst, setGst] = useState(0);
     const [inpatient, setInpatient] = useState(null);
     // State for selected medicines and quantities
     const [selectedMedicines, setSelectedMedicines] = useState({}); // { prescriptionId: { selected: boolean, quantity: number } }
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [pendingSelectedPrescriptions, setPendingSelectedPrescriptions] = useState([]);
+    const [gst, setGst] = useState(0);
     // State for available medicines
     const [availableMedicines, setAvailableMedicines] = useState([]); // Array of medicine names from medicine collection
     const [medicinesMap, setMedicinesMap] = useState({}); // Map of medicine name to medicine object (for getting sellPrice)
-    const calculateTotalWithGST = () => {
-        let subtotal = 0;
 
-        prescriptions.forEach((presc) => {
-            if (presc.status !== "Dispensed" && selectedMedicines[presc._id]?.selected) {
-                const qty = selectedMedicines[presc._id]?.quantity || 0;
-                const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
-                subtotal += amount;
-            }
-        });
-
-        const gstAmount = (subtotal * gst) / 100;
-        const total = subtotal + gstAmount;
-
-        return {
-            subtotal: subtotal.toFixed(2),
-            gstAmount: gstAmount.toFixed(2),
-            total: total.toFixed(2),
-        };
-    };
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
@@ -289,25 +271,6 @@ function Inpatientprescriptions() {
         return null;
     };
 
-    const calculateRemainingDosage = (dosage, dispenseQty) => {
-        if (!dosage || !dispenseQty) return dosage;
-
-        const parts = dosage.split("-").map(Number);
-        const qty = parseInt(dispenseQty) || 0;
-
-        if (parts.length !== 3) return dosage;
-
-        const totalDosage = parts.reduce((a, b) => a + b, 0);
-        const remaining = totalDosage - qty;
-
-        if (remaining < 0) {
-            alert("Dispense quantity cannot be greater than dosage");
-            return dosage;
-        }
-
-        return remaining;
-    };
-
     // Calculate amount for a medicine based on dispense quantity and sell price
     const calculateAmount = (medicineName, dispenseQty) => {
         if (!medicineName || !dispenseQty) return 0;
@@ -388,8 +351,38 @@ function Inpatientprescriptions() {
             },
         }));
     };
+const calculateTotalWithGST = () => {
+    let subtotal = 0;
 
-    const handleQuantityChange = (prescriptionId, quantity) => {
+    pendingSelectedPrescriptions.forEach((presc) => {
+        const selected = selectedMedicines[presc._id];
+        const qty = selected?.quantity;
+
+        const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
+        subtotal += amount;
+    });
+
+    const gstAmount = (subtotal * gst) / 100;
+    const total = subtotal + gstAmount;
+
+    return {
+        subtotal: subtotal.toFixed(2),
+        gstAmount: gstAmount.toFixed(2),
+        total: total.toFixed(2),
+    };
+};
+    // const handleQuantityChange = (prescriptionId, quantity) => {
+    //     // Store as string to allow text input (e.g., "10 tablets", "500ml")
+    //     setSelectedMedicines((prev) => ({
+    //         ...prev,
+    //         [prescriptionId]: {
+    //             selected: prev[prescriptionId]?.selected || false,
+    //             quantity: quantity || "",
+    //         },
+    //     }));
+    // };
+
+  const handleQuantityChange = (prescriptionId, quantity) => {
 
         const presc = prescriptions.find(p => p._id === prescriptionId);
 
@@ -401,7 +394,7 @@ function Inpatientprescriptions() {
                 return;
             }
         }
-
+        // Store as string to allow text input (e.g., "10 tablets", "500ml")
         setSelectedMedicines((prev) => ({
             ...prev,
             [prescriptionId]: {
@@ -488,131 +481,60 @@ function Inpatientprescriptions() {
         return selectedPrescriptions;
     };
 
-    const handleDispenseClick = () => {
-        const validPrescriptions = validateDispense();
-        if (validPrescriptions) {
-            setConfirmDialogOpen(true);
-        }
-    };
+const handleDispenseClick = () => {
+    const validPrescriptions = validateDispense();
 
-    const handleDispenseConfirm = async () => {
-        setConfirmDialogOpen(false);
+    if (validPrescriptions) {
+        setPendingSelectedPrescriptions(validPrescriptions);
+        setConfirmDialogOpen(true);
+    }
+};
 
-        const selectedPrescriptions = validateDispense();
-        if (!selectedPrescriptions) return;
+   const handleDispenseConfirm = async () => {
+    setConfirmDialogOpen(false);
 
-        setIsDispensing(true);
+    const selectedPrescriptions = pendingSelectedPrescriptions;
 
-        try {
-            // Update prescriptions with dispensed quantity + GST
-            const updatePromises = selectedPrescriptions.map((presc) => {
-                const selected = selectedMedicines[presc._id];
-                const dispensedQuantity = selected.quantity;
+    if (!selectedPrescriptions || selectedPrescriptions.length === 0) return;
 
-                return axios.patch(
-                    getApiUrl(`examinations/prescriptions/${presc._id}`),
-                    {
-                        dispensedQuantity: dispensedQuantity,
-                        isIncremental: true,
-                        gst: gst   // ✅ SEND GST TO BACKEND
-                    },
-                    { headers: getAuthHeaders() }
-                );
-            });
+    setIsDispensing(true);
 
-            await Promise.all(updatePromises);
+    try {
+        const updatePromises = selectedPrescriptions.map((presc) => {
+            const selected = selectedMedicines[presc._id];
+            const dispensedQuantity = selected.quantity;
 
-            // Update medicine stock
-            const medicineUpdatePromises = [];
-
-            for (const presc of selectedPrescriptions) {
-
-                const selected = selectedMedicines[presc._id];
-                const dispensedQuantityStr = selected.quantity;
-
-                const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
-                const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
-
-                if (dispensedQuantity <= 0) {
-                    console.warn(`Invalid quantity for ${presc.medication}`);
-                    continue;
-                }
-
-                const medicine = findMedicineInMap(presc.medication);
-
-                if (!medicine) {
-                    console.warn(`Medicine not found: ${presc.medication}`);
-                    continue;
-                }
-
-                const currentQuantity = medicine.quantity || 0;
-
-                if (currentQuantity < dispensedQuantity) {
-                    toast.warning(
-                        `Insufficient stock for ${presc.medication}. Available: ${currentQuantity}`
-                    );
-                }
-
-                const newQuantity = Math.max(0, currentQuantity - dispensedQuantity);
-
-                medicineUpdatePromises.push(
-                    medicineService.updateMedicine(medicine._id, {
-                        quantity: newQuantity
-                    }).catch((error) => {
-                        console.error(`Failed to update stock for ${presc.medication}`, error);
-                        toast.warning(`Stock update failed for ${presc.medication}`);
-                    })
-                );
-            }
-
-            await Promise.all(medicineUpdatePromises);
-
-            toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully!`);
-
-            // Refresh prescriptions
-            const response = await prescriptionService.getPrescriptionsByExamination(id);
-
-            if (response?.success && response?.data) {
-
-                const prescList = Array.isArray(response.data) ? response.data : [];
-
-                setPrescriptions(prescList);
-
-                const newSelection = {};
-
-                prescList.forEach((presc) => {
-                    if (presc.status !== "Dispensed") {
-                        newSelection[presc._id] = {
-                            selected: false,
-                            quantity: presc.quantity || 1
-                        };
-                    }
-                });
-
-                setSelectedMedicines(newSelection);
-            }
-
-        } catch (error) {
-
-            console.error("Error dispensing prescriptions:", error);
-
-            toast.error(
-                error?.response?.data?.message ||
-                "Failed to dispense medicines. Please try again."
+            return axios.patch(
+                getApiUrl(`examinations/prescriptions/${presc._id}`),
+                {
+                    dispensedQuantity: dispensedQuantity,
+                    isIncremental: true,
+                    gst: gst,
+                },
+                { headers: getAuthHeaders() }
             );
+        });
 
-        } finally {
-            setIsDispensing(false);
+        await Promise.all(updatePromises);
+
+        toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully!`);
+
+        const response = await prescriptionService.getPrescriptionsByExamination(id);
+
+        if (response?.success) {
+            const prescList = Array.isArray(response.data) ? response.data : [];
+            setPrescriptions(prescList);
         }
-    };
-    const handlePrint = () => {
-        window.print();
-    };
 
-    const handleDownload = () => {
-        // TODO: Implement download logic
-        toast.info("Download functionality will be implemented");
-    };
+    } catch (error) {
+        console.error(error);
+        toast.error(error?.response?.data?.message || "Failed to dispense medicines");
+    } finally {
+        setIsDispensing(false);
+    }
+};
+
+ 
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -638,7 +560,7 @@ function Inpatientprescriptions() {
                     subtitle="Review inpatient details and dispense prescribed medicines. Patient is currently admitted."
                     action={
                         <Stack direction="row" spacing={1}>
-                            <Button
+                            {/* <Button
                                 variant="outlined"
                                 startIcon={<Print />}
                                 onClick={handlePrint}
@@ -653,7 +575,7 @@ function Inpatientprescriptions() {
                                 sx={{ borderColor: alpha(theme.palette.divider, 0.5) }}
                             >
                                 Download
-                            </Button>
+                            </Button> */}
                             {status !== "Dispensed" && (
                                 <Button
                                     variant="contained"
@@ -934,12 +856,7 @@ function Inpatientprescriptions() {
                                                         <Tooltip title={presc.dosage || "N/A"} arrow>
                                                             <Box>
                                                                 <Chip
-                                                                    label={
-                                                                        calculateRemainingDosage(
-                                                                            presc.dosage,
-                                                                            selectedMedicines[presc._id]?.quantity
-                                                                        ) || "N/A"
-                                                                    }
+                                                                    label={presc.dosage || "N/A"}
                                                                     size="small"
                                                                     variant="outlined"
                                                                     color="primary"
@@ -990,44 +907,30 @@ function Inpatientprescriptions() {
                                                         </Tooltip>
                                                     </TableCell>
                                                     <TableCell align="center">
-                                                        {/* <TextField
-                                                            type="number"
-                                                            size="small"
-                                                            value={dispenseQuantity}
-                                                            onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
-                                                            disabled={isFullyDispensed}
-                                                            inputProps={{
-                                                                style: { textAlign: "center" },
-                                                            }}
-                                                            sx={{
-                                                                "& .MuiOutlinedInput-root": {
-                                                                    width: "120px",
-                                                                },
-                                                            }}
-                                                            placeholder="Enter qty"
-                                                        /> */}
-                                                        <TextField
-                                                            type="number"
-                                                            size="small"
-                                                            value={dispenseQuantity}
-                                                            onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
-                                                            disabled={isFullyDispensed}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === "-" || e.key === "e") {
-                                                                    e.preventDefault();
-                                                                }
-                                                            }}
-                                                            inputProps={{
-                                                                min: 0,
-                                                                style: { textAlign: "center" },
-                                                            }}
-                                                            sx={{
-                                                                "& .MuiOutlinedInput-root": {
-                                                                    width: "120px",
-                                                                },
-                                                            }}
-                                                            placeholder="Enter qty"
-                                                        />
+                                                        
+
+                                                             <TextField
+                                                                                                               type="number"
+                                                                                                               size="small"
+                                                                                                               value={dispenseQuantity}
+                                                                                                               onChange={(e) => handleQuantityChange(presc._id, e.target.value)}
+                                                                                                               disabled={isFullyDispensed}
+                                                                                                               onKeyDown={(e) => {
+                                                                                                                   if (e.key === "-" || e.key === "e") {
+                                                                                                                       e.preventDefault();
+                                                                                                                   }
+                                                                                                               }}
+                                                                                                               inputProps={{
+                                                                                                                   min: 0,
+                                                                                                                   style: { textAlign: "center" },
+                                                                                                               }}
+                                                                                                               sx={{
+                                                                                                                   "& .MuiOutlinedInput-root": {
+                                                                                                                       width: "120px",
+                                                                                                                   },
+                                                                                                               }}
+                                                                                                               placeholder="Enter qty"
+                                                                                                           />
                                                     </TableCell>
                                                     <TableCell align="center">
                                                         <Typography
@@ -1165,124 +1068,114 @@ function Inpatientprescriptions() {
                                 </Box>
                             )}
 
-                            {status === "Dispensed" && (
-                                <Box
-                                    sx={{
-                                        mt: 3,
-                                        p: 2,
-                                        borderRadius: 2,
-                                        backgroundColor: alpha(theme.palette.success.main, 0.05),
-                                        border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
-                                    }}
-                                >
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                                        <CheckCircle color="success" />
-                                        <Typography fontWeight={600} color="success.dark">
-                                            Prescription Dispensed
-                                        </Typography>
-                                    </Box>
-                                    <Typography variant="body2" color="text.secondary">
-                                        All medicines have been dispensed to the inpatient on {formatDate(prescriptions[0]?.dispensedAt)}.
-                                    </Typography>
-                                </Box>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+                           {status === "Dispensed" && (
+                                                 <Box
+                                                     sx={{
+                                                         mt: 3,
+                                                         p: 2,
+                                                         borderRadius: 2,
+                                                         backgroundColor: alpha(theme.palette.success.main, 0.05),
+                                                         border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+                                                     }}
+                                                 >
+                                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                                                         <CheckCircle color="success" />
+                                                         <Typography fontWeight={600} color="success.dark">
+                                                             Prescription Dispensed
+                                                         </Typography>
+                                                     </Box>
+                                                     <Typography variant="body2" color="text.secondary">
+                                                         All medicines have been dispensed to the patient on {formatDate(prescriptions[0]?.dispensedAt)}.
+                                                     </Typography>
+                                                 </Box>
+                                             )}
+                                         </CardContent>
+                                     </Card>
+                                 </Grid>
+                             </Grid>
+                 
+                             {/* Confirmation Dialog */}
+                             <Dialog
+                                 open={confirmDialogOpen}
+                                 onClose={() => setConfirmDialogOpen(false)}
+                                 maxWidth="sm"
+                                 fullWidth
+                             >
+                                 <DialogTitle sx={{
+                                     backgroundColor: theme.palette.primary.main,
+                                     color: theme.palette.primary.contrastText,
+                                     fontWeight: 600
+                                 }}>
+                                     Confirm Dispense
+                                 </DialogTitle>
+                                 <DialogContent sx={{ mt: 2 }}>
+                                     <DialogContentText sx={{ mb: 2 }}>
+                                         Are you sure you want to dispense {pendingSelectedPrescriptions.length} medicine(s) for {patientName}?
+                                     </DialogContentText>
+                 
+                                     <TextField
+                                         label="GST (%)"
+                                         type="number"
+                                         fullWidth
+                                         value={gst}
+                                         onChange={(e) => setGst(Math.max(0, Number(e.target.value)))}
+                                         sx={{ mb: 2 }}
+                                         inputProps={{ min: 0 }}
+                                     />
+                 
+                                 {(() => {
+    const totals = calculateTotalWithGST();
 
-            {/* Confirmation Dialog */}
-            {/* <Dialog
-                open={confirmDialogOpen}
-                onClose={() => setConfirmDialogOpen(false)}
-            >
-                <DialogTitle>Confirm Dispense</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>
-                        Are you sure you want to dispense {prescriptions.filter((p) => p.status !== "Dispensed" && selectedMedicines[p._id]?.selected).length} medicine(s) for {patientName}?
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setConfirmDialogOpen(false)} color="inherit">
-                        Cancel
-                    </Button>
-                    <Button onClick={handleDispenseConfirm} variant="contained" color="primary" autoFocus>
-                        Confirm
-                    </Button>
-                </DialogActions>
-            </Dialog> */}
-            <DialogContent>
-                <Dialog
-                    open={confirmDialogOpen}
-                    onClose={() => setConfirmDialogOpen(false)}
-                    maxWidth="sm"
-                    fullWidth
-                >
-                    <DialogTitle>Confirm Dispense</DialogTitle>
+    return (
+        <Box>
+            <Typography variant="body2">
+                Subtotal: ₹{totals.subtotal}
+            </Typography>
 
-                    <DialogContent>
+            <Typography variant="body2">
+                GST ({gst}%): ₹{totals.gstAmount}
+            </Typography>
 
-                        <DialogContentText sx={{ mb: 2 }}>
-                            Are you sure you want to dispense{" "}
-                            {prescriptions.filter(
-                                (p) => p.status !== "Dispensed" && selectedMedicines[p._id]?.selected
-                            ).length}{" "}
-                            medicine(s) for <strong>{patientName}</strong>?
-                        </DialogContentText>
-
-                        <TextField
-                            label="GST (%)"
-                            type="number"
-                            fullWidth
-                            value={gst}
-                            onChange={(e) => setGst(Number(e.target.value))}
-                            sx={{ mb: 2 }}
-                            inputProps={{ min: 0 }}
-                        />
-
-                        {(() => {
-                            const totals = calculateTotalWithGST();
-                            return (
-                                <Box>
-                                    <Typography variant="body2">
-                                        Subtotal: ₹{totals.subtotal}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        GST ({gst}%): ₹{totals.gstAmount}
-                                    </Typography>
-
-                                    <Typography
-                                        variant="h6"
-                                        fontWeight={600}
-                                        color="primary"
-                                    >
-                                        Total: ₹{totals.total}
-                                    </Typography>
-                                </Box>
-                            );
-                        })()}
-                    </DialogContent>
-
-                    <DialogActions>
-                        <Button
-                            onClick={() => setConfirmDialogOpen(false)}
-                            color="inherit"
-                        >
-                            Cancel
-                        </Button>
-
-                        <Button
-                            onClick={handleDispenseConfirm}
-                            variant="contained"
-                            color="primary"
-                        >
-                            Confirm
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-            </DialogContent>
-        </Container>
+            <Typography variant="h6" fontWeight={600}>
+                Total: ₹{totals.total}
+            </Typography>
+        </Box>
+    );
+})()}
+                                 </DialogContent>
+                                 <DialogActions sx={{ p: 2, gap: 1 }}>
+                                     <Button
+                                         onClick={() => setConfirmDialogOpen(false)}
+                                         variant="outlined"
+                                         color="inherit"
+                                         sx={{
+                                             borderColor: theme.palette.grey[400],
+                                             color: theme.palette.text.primary,
+                                             "&:hover": {
+                                                 borderColor: theme.palette.grey[600],
+                                                 backgroundColor: theme.palette.grey[50],
+                                             }
+                                         }}
+                                     >
+                                         Cancel
+                                     </Button>
+                                     <Button
+                                         onClick={handleDispenseConfirm}
+                                         variant="contained"
+                                         color="primary"
+                                         autoFocus
+                                         sx={{
+                                             backgroundColor: theme.palette.primary.main,
+                                             "&:hover": {
+                                                 backgroundColor: theme.palette.primary.dark,
+                                             }
+                                         }}
+                                     >
+                                         Confirm
+                                     </Button>
+                                 </DialogActions>
+                             </Dialog>
+                         </Container>
     );
 }
 

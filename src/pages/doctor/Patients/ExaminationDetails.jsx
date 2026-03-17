@@ -380,6 +380,8 @@ function ExaminationDetails() {
 
                 {renderSection("Diagnosis & Recommendations", [
                     renderField("Diagnosis", examination.diagnoses?.[0] || examination.diagnoses),
+                    renderField("Other Diseases", examination.otherDiseases),
+       
                     renderField("Treatment Plan", examination.examinationNotes?.match(/Treatment Plan:\s*([^.]*)/)?.[1]),
                     renderField("Lifestyle Recommendations", examination.examinationNotes?.match(/Lifestyle Recommendations:\s*([^.]*)/)?.[1]),
                 ])}

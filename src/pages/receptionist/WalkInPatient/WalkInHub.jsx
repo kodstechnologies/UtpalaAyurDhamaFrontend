@@ -123,6 +123,21 @@ function WalkInHub() {
     if (!patientProfileId) return;
 
     setIsLoadingExistingData(true);
+    const formatDateForInput = (date) => {
+      if (!date) return new Date().toLocaleDateString("en-CA");
+      const d = new Date(date);
+      return d.toLocaleDateString("en-CA");
+    };
+
+    const formatTimeForInput = (timeStr) => {
+      if (!timeStr) return "";
+      if (typeof timeStr === "string" && timeStr.match(/^\d{2}:\d{2}$/))
+        return timeStr;
+      const d = new Date(timeStr);
+      if (isNaN(d.getTime())) return "";
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    };
+
     try {
       // Fetch patient profile
       const patientRes = await axios.get(
@@ -279,11 +294,6 @@ function WalkInHub() {
                 console.warn("[WalkInHub] Error fetching IPD examinations:", e);
               }
 
-              const formatDateForInput = (date) => {
-                if (!date) return new Date().toLocaleDateString("en-CA");
-                const d = new Date(date);
-                return d.toLocaleDateString("en-CA");
-              };
 
               let nurseId = "";
               if (inpatient.allocatedNurse) {
@@ -318,6 +328,7 @@ function WalkInHub() {
                 wardCategory: inpatient.wardCategory || "General",
                 roomNumber: inpatient.roomNumber || "",
                 bedNumber: inpatient.bedNumber || "",
+                appointmentTime: formatTimeForInput(inpatient.admissionDate),
                 appointmentDate: formatDateForInput(inpatient.admissionDate),
               }));
             }
@@ -367,18 +378,6 @@ function WalkInHub() {
             ) {
               const appointment = appointmentsRes.data.data[0];
 
-              const formatTimeForInput = (timeStr) => {
-                if (!timeStr) return "";
-                if (timeStr.match(/^\d{2}:\d{2}$/)) return timeStr;
-                const d = new Date(timeStr);
-                return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-              };
-
-              const formatDateForInput = (date) => {
-                if (!date) return new Date().toLocaleDateString("en-CA");
-                const d = new Date(date);
-                return d.toLocaleDateString("en-CA");
-              };
 
               let nurseId = "";
               if (patient.allocatedNurse) {
@@ -468,43 +467,12 @@ function WalkInHub() {
 
             const mappedTherapies = await Promise.all(
               plans.map(async (plan) => {
-                let assignedTherapistIds = [];
-                if (plan.sessionId) {
-                  try {
-                    const sessionRes = await axios.get(
-                      getApiUrl(`therapist-sessions/${plan.sessionId}`),
-                      { headers: getAuthHeaders() },
-                    );
-                    if (sessionRes.data.success && sessionRes.data.data) {
-                      const session = sessionRes.data.data;
-                      if (session.therapists?.length > 0) {
-                        assignedTherapistIds = session.therapists.map(
-                          (t) => t.user?._id || t.user || t,
-                        );
-                      } else if (session.therapist) {
-                        const legacyId =
-                          session.therapist.user?._id ||
-                          session.therapist.user ||
-                          session.therapist ||
-                          "";
-                        if (legacyId) assignedTherapistIds = [legacyId];
-                      }
-                    }
-                  } catch (e) {
-                    // ignore
-                  }
-                } else if (plan.therapistId) {
-                  // If stored directly
-                  assignedTherapistIds = Array.isArray(plan.therapistId)
-                    ? plan.therapistId
-                    : [plan.therapistId];
-                }
+                const assignedTherapistIds = Array.isArray(plan.therapistId)
+                  ? plan.therapistId
+                  : plan.therapistId
+                    ? [plan.therapistId]
+                    : [];
 
-                const formatDateForInput = (date) => {
-                  if (!date) return new Date().toLocaleDateString("en-CA");
-                  const d = new Date(date);
-                  return d.toLocaleDateString("en-CA");
-                };
 
                 return {
                   _id: plan._id, // vital for preventing duplication
@@ -532,11 +500,6 @@ function WalkInHub() {
             }));
           } else if (patient.assignedTherapy) {
             // Fallback to patient profile data
-            const formatDateForInput = (date) => {
-              if (!date) return new Date().toLocaleDateString("en-CA");
-              const d = new Date(date);
-              return d.toLocaleDateString("en-CA");
-            };
 
             setFormData((prev) => ({
               ...prev,
@@ -639,8 +602,7 @@ function WalkInHub() {
       mode,
       patientProfileId,
       doctorProfileId: formData.doctorProfileId || undefined,
-      nurseProfileId:
-        mode === "IPD" ? formData.nurseProfileId || undefined : undefined,
+      nurseProfileId: formData.nurseProfileId || undefined,
       wardCategory: mode === "IPD" ? formData.wardCategory : undefined,
       roomNumber: mode === "IPD" ? formData.roomNumber : undefined,
       bedNumber: mode === "IPD" ? formData.bedNumber : undefined,
@@ -859,49 +821,47 @@ function WalkInHub() {
                   sx={{ flex: 1, minWidth: "250px" }}
                 />
 
-                {mode === "IPD" && (
-                  <FormControl sx={{ flex: 1, minWidth: "250px" }}>
-                    <InputLabel>Assign Nurse</InputLabel>
-                    <Select
-                      name="nurseProfileId"
-                      value={formData.nurseProfileId}
-                      onChange={handleChange}
-                      label="Assign Nurse"
-                      disabled={isLoadingData}
-                    >
-                      <MenuItem value="">Unassigned</MenuItem>
-                      {nurses.map((nurse) => {
-                        let nurseProfileId = "";
-                        if (nurse.profileId) {
-                          nurseProfileId = nurse.profileId.toString();
-                        } else if (
-                          nurse._id &&
-                          typeof nurse._id === "object" &&
-                          nurse._id.toString
-                        ) {
-                          nurseProfileId = nurse._id.toString();
-                        } else if (nurse._id) {
-                          nurseProfileId = nurse._id.toString();
-                        }
+                 <FormControl sx={{ flex: 1, minWidth: "250px" }}>
+                   <InputLabel>Assign Nurse</InputLabel>
+                   <Select
+                     name="nurseProfileId"
+                     value={formData.nurseProfileId}
+                     onChange={handleChange}
+                     label="Assign Nurse"
+                     disabled={isLoadingData}
+                   >
+                     <MenuItem value="">Unassigned</MenuItem>
+                     {nurses.map((nurse) => {
+                       let nurseProfileId = "";
+                       if (nurse.profileId) {
+                         nurseProfileId = nurse.profileId.toString();
+                       } else if (
+                         nurse._id &&
+                         typeof nurse._id === "object" &&
+                         nurse._id.toString
+                       ) {
+                         nurseProfileId = nurse._id.toString();
+                       } else if (nurse._id) {
+                         nurseProfileId = nurse._id.toString();
+                       }
 
-                        const nurseName =
-                          nurse.user?.name || nurse.name || "Nurse";
+                       const nurseName =
+                         nurse.user?.name || nurse.name || "Nurse";
 
-                        return (
-                          <MenuItem
-                            key={nurseProfileId || nurse._id}
-                            value={nurseProfileId}
-                          >
-                            {nurseName}
-                          </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
-                )}
-              </Box>
+                       return (
+                         <MenuItem
+                           key={nurseProfileId || nurse._id}
+                           value={nurseProfileId}
+                         >
+                           {nurseName}
+                         </MenuItem>
+                       );
+                     })}
+                   </Select>
+                 </FormControl>
+               </Box>
 
-              {mode === "IPD" && (
+               {mode === "IPD" && (
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3, mt: 3 }}>
                   <FormControl sx={{ flex: 1, minWidth: "250px" }}>
                     <InputLabel>Ward Category</InputLabel>

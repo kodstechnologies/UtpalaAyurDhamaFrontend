@@ -297,6 +297,11 @@ export const sidebarMenus = {
                     label: "Inpatient",
                     to: "/pharmacist/prescriptions/inpatient",
                 },
+                {
+                    key: "list",
+                    label: "List",
+                    to: "/pharmacist/prescriptions/list",
+                },
             ],
         },
         {

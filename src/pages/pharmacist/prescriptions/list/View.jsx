@@ -13,7 +13,7 @@ import Search from "../../../../components/search/Search";
 import ExportDataButton from "../../../../components/buttons/ExportDataButton";
 import prescriptionService from "../../../../services/prescriptionService";
 
-function Inpatient_View_Details() {
+function List_View_Details() {
     const navigate = useNavigate();
     const [prescriptions, setPrescriptions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -22,7 +22,8 @@ function Inpatient_View_Details() {
     const fetchPrescriptions = useCallback(async () => {
         setIsLoading(true);
         try {
-            const response = await prescriptionService.getPendingInpatientPrescriptions();
+            // const response = await prescriptionService.getPendingInpatientPrescriptions();
+            const response = await prescriptionService.getPendingAll_List_patientPrescriptions();
             if (response && response.success) {
                 setPrescriptions(response.data || []);
             } else {
@@ -45,54 +46,37 @@ function Inpatient_View_Details() {
 
     // Group prescriptions by examination (patient + examination combination)
     const groupedPrescriptions = useMemo(() => {
-        const grouped = {};
-        prescriptions.forEach((prescription) => {
-            const examinationId = prescription.examination?._id || prescription.examination;
-            const patientId = prescription.patient?._id || prescription.patient;
-            const key = `${examinationId}_${patientId}`;
-
-            if (!grouped[key]) {
-                const inpatient = prescription.examination?.inpatient;
-                grouped[key] = {
-                    _id: key,
-                    examinationId: examinationId,
-                    patientId: patientId,
-                    name: prescription.patient?.user?.name || "Unknown",
-                    age: prescription.patientAge || 0,
-                    doctor: prescription.doctor?.user?.name || "Unknown",
-                    diagnosis: prescription.examination?.complaints || "N/A",
-                    uhid: prescription.patient?.user?.uhid || prescription.patient?.uhid || "N/A",
-                    roomNumber: inpatient?.roomNumber || "N/A",
-                    wardCategory: inpatient?.wardCategory || "N/A",
-                    prescriptions: [],
-                };
-            }
-            grouped[key].prescriptions.push({
-                medication: prescription.medication,
-                dosage: prescription.dosage,
-                frequency: prescription.frequency,
-                duration: prescription.duration,
-                quantity: prescription.quantity,
-                medicineType: prescription.medicineType,
-                notes: prescription.notes,
-            });
-        });
-        return Object.values(grouped);
+        return prescriptions.map((item) => ({
+            _id: item._id,
+            patientProfileId: item.patient?._id,
+            patientId: item.patient?.patientId || "N/A",
+            name: item.patient?.user?.name || "Unknown",
+            uhid: item.patient?.user?.uhid || "N/A",
+            status: item.patient?.admissionStatus || "N/A",
+            prescriptions: (item.prescriptions || []).map((med) => ({
+                medication: med.medication,
+                dosage: med.dosage,
+                quantity: med.quantity,
+                status: med.status
+            }))
+        }));
     }, [prescriptions]);
 
     const filteredRows = useMemo(() => {
         if (!searchText) return groupedPrescriptions;
+
         const q = searchText.toLowerCase();
+
         return groupedPrescriptions.filter(
             (r) =>
                 r.name.toLowerCase().includes(q) ||
-                r.doctor.toLowerCase().includes(q) ||
-                r.diagnosis.toLowerCase().includes(q) ||
-                r.roomNumber?.toLowerCase().includes(q) ||
-                r.prescriptions.some((p) => p.medication?.toLowerCase().includes(q))
+                r.uhid.toLowerCase().includes(q) ||
+                r.patientId.toLowerCase().includes(q) ||
+                r.prescriptions.some((p) =>
+                    p.medication?.toLowerCase().includes(q)
+                )
         );
     }, [searchText, groupedPrescriptions]);
-
     const formatMedicines = (medicines) => {
         if (!medicines || medicines.length === 0) return "No medicines";
         return medicines.map((med, idx) => (
@@ -112,18 +96,21 @@ function Inpatient_View_Details() {
 
     const columns = [
         { field: "name", header: "Patient Name" },
-        { field: "age", header: "Age" },
-        { field: "roomNumber", header: "Room No." },
-        { field: "wardCategory", header: "Ward" },
-        { field: "doctor", header: "Doctor" },
-        { field: "diagnosis", header: "Diagnosis" },
+        { field: "uhid", header: "UHID" },
+        { field: "patientId", header: "Patient ID" },
+        { field: "status", header: "Admission Status" },
         {
             field: "medicines",
             header: "Medicines Allocated",
             render: (row) => {
                 if (!row.prescriptions || row.prescriptions.length === 0) {
-                    return <Typography variant="body2" color="text.secondary">No medicines</Typography>;
+                    return (
+                        <Typography variant="body2" color="text.secondary">
+                            No medicines
+                        </Typography>
+                    );
                 }
+
                 return (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, maxWidth: "500px" }}>
                         {formatMedicines(row.prescriptions)}
@@ -139,7 +126,7 @@ function Inpatient_View_Details() {
             icon: <VisibilityIcon fontSize="small" />,
             color: "var(--color-primary)",
             onClick: (row) => {
-                navigate(`/pharmacist/prescriptions/inpatient/${row.examinationId}?patientId=${row.patientId}`);
+                navigate(`/pharmacist/prescriptions/list/${row._id}?patientId=${row.patientId}`);
             },
         },
     ];
@@ -158,12 +145,12 @@ function Inpatient_View_Details() {
                 items={[
                     { label: "Home", url: "/" },
                     { label: "Pharmacist", url: "/pharmacist/dashboard" },
-                    { label: "Inpatient Prescriptions" },
+                    { label: "List of Prescriptions" },
                 ]}
             />
 
             <HeadingCard
-                title="Inpatient Prescriptions"
+                title="List of Prescriptions"
                 subtitle="Manage and dispense medications prescribed for admitted patients with allocated medicines."
             />
 
@@ -173,7 +160,7 @@ function Inpatient_View_Details() {
                         value={searchText}
                         onChange={(val) => setSearchText(val)}
                         sx={{ flex: 1 }}
-                        placeholder="Search by patient, doctor, room, diagnosis, or medicine..."
+                        placeholder="Search by patient"
                     />
                 </Box>
                 <Box sx={{ display: "flex", gap: 1 }}>
@@ -195,4 +182,4 @@ function Inpatient_View_Details() {
     );
 }
 
-export default Inpatient_View_Details;
+export default List_View_Details;

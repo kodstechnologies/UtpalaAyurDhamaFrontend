@@ -10,11 +10,14 @@ import {
     Box,
     Typography,
     Grid,
+    Button,
     Autocomplete,
     CircularProgress,
     Checkbox,
     Chip,
     OutlinedInput,
+    IconButton,
+    Paper,
 } from "@mui/material";
 import SubmitButton from "../../../components/buttons/SubmitButton";
 import CancelButton from "../../../components/buttons/CancelButton";
@@ -22,6 +25,18 @@ import { X } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+
+// Per-therapy row template (same structure as OPD Therapy Plan)
+const getEmptyTherapyRow = () => ({
+    therapyId: "",
+    therapistId: [],
+    totalSessions: "",
+    timeline: "AlternateDay",
+    notes: "",
+    subTherapy: "",
+    duration: "",
+    treatmentDescription: "",
+});
 
 function AssignTherapyAddPage() {
     const navigate = useNavigate();
@@ -44,15 +59,8 @@ function AssignTherapyAddPage() {
     const [formData, setFormData] = useState({
         inpatientId: inpatientId,
         patientName: patientName,
-        therapistId: [], // Array for multi-selection
-        therapyType: [], // Array for multi-selection
-        totalSessions: "",
         assignedDate: new Date().toISOString().split("T")[0],
-        timeline: "AlternateDay",
-        notes: "",
-        subTherapy: "",
-        duration: "",
-        treatmentDescription: "",
+        therapiesRows: [getEmptyTherapyRow()],
     });
 
     // Fetch inpatients
@@ -186,29 +194,32 @@ function AssignTherapyAddPage() {
                     assignedTherapistIds = [plan.therapistId];
                 }
 
-                // Find matching therapies for all related plans
-                const relatedPlans = plan.relatedPlans || [];
-                const allTherapyNames = [plan.treatmentName, ...relatedPlans.map(rp => rp.treatmentName)];
-                const assignedTherapyIds = therapies
-                    .filter(t => allTherapyNames.includes(t.therapyName))
-                    .map(t => t._id);
+                // Primary plan as single row (edit mode supports one plan from this screen)
+                const primaryTherapy = therapies.find(
+                    (t) => t.therapyName === plan.treatmentName
+                );
 
-                // Set form data
                 setFormData((prev) => ({
                     ...prev,
                     inpatientId: inpatient?._id || "",
                     patientName: patient?.user?.name || "",
-                    therapistId: assignedTherapistIds,
-                    therapyType: assignedTherapyIds,
-                    totalSessions: plan.daysOfTreatment?.toString() || "",
-                    assignedDate: plan.createdAt
-                        ? new Date(plan.createdAt).toISOString().split("T")[0]
-                        : new Date().toISOString().split("T")[0],
-                    timeline: plan.timeline || "AlternateDay",
-                    notes: plan.specialInstructions || "",
-                    subTherapy: plan.subTherapy || "",
-                    duration: plan.duration || "",
-                    treatmentDescription: plan.treatmentDescription || "",
+                    assignedDate: plan.startDate
+                        ? new Date(plan.startDate).toISOString().split("T")[0]
+                        : (plan.createdAt
+                            ? new Date(plan.createdAt).toISOString().split("T")[0]
+                            : new Date().toISOString().split("T")[0]),
+                    therapiesRows: [
+                        {
+                            therapyId: primaryTherapy?._id || "",
+                            therapistId: assignedTherapistIds,
+                            totalSessions: plan.daysOfTreatment?.toString() || "",
+                            timeline: plan.timeline || "AlternateDay",
+                            notes: plan.specialInstructions || "",
+                            subTherapy: plan.subTherapy || "",
+                            duration: plan.duration || "",
+                            treatmentDescription: plan.treatmentDescription || "",
+                        },
+                    ],
                 }));
             }
         } catch (error) {
@@ -255,12 +266,48 @@ function AssignTherapyAddPage() {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
+    const handleTherapyRowChange = (index, field, value) => {
+        setFormData((prev) => {
+            const updated = [...prev.therapiesRows];
+            updated[index] = {
+                ...updated[index],
+                [field]: value,
+            };
+            return { ...prev, therapiesRows: updated };
+        });
+    };
+
+    const handleAddTherapyRow = () => {
+        setFormData((prev) => ({
+            ...prev,
+            therapiesRows: [...prev.therapiesRows, getEmptyTherapyRow()],
+        }));
+    };
+
+    const handleRemoveTherapyRow = (index) => {
+        setFormData((prev) => ({
+            ...prev,
+            therapiesRows: prev.therapiesRows.filter((_, i) => i !== index),
+        }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation
-        if (!formData.inpatientId || formData.therapistId.length === 0 || formData.therapyType.length === 0 || !formData.totalSessions) {
-            toast.error("Please fill in all required fields.");
+        if (!formData.inpatientId) {
+            toast.error("Please select an inpatient.");
+            return;
+        }
+
+        const validTherapies = formData.therapiesRows.filter(
+            (row) =>
+                row.therapyId &&
+                row.therapistId?.length > 0 &&
+                row.totalSessions
+        );
+
+        if (validTherapies.length === 0) {
+            toast.error("Please configure at least one therapy with therapist and sessions.");
             return;
         }
 
@@ -268,54 +315,64 @@ function AssignTherapyAddPage() {
 
         try {
             const results = [];
-            for (const therapyId of formData.therapyType) {
-                const selectedTherapy = therapies.find(t => t._id === therapyId);
+
+            for (const row of validTherapies) {
+                const selectedTherapy = therapies.find(
+                    (t) => t._id === row.therapyId || t.therapyName === row.therapyId
+                );
+                const treatmentNameToSend = selectedTherapy
+                    ? selectedTherapy.therapyName
+                    : row.therapyId;
+
                 const requestData = {
-                    treatmentName: selectedTherapy?.therapyName || therapyId,
-                    daysOfTreatment: parseInt(formData.totalSessions, 10),
-                    timeline: formData.timeline || "AlternateDay",
-                    specialInstructions: formData.notes.trim() || "",
-                    subTherapy: formData.subTherapy.trim() || "",
-                    duration: formData.duration.trim() || "",
-                    treatmentDescription: formData.treatmentDescription.trim() || "",
-                    therapistId: formData.therapistId, // Pass the array
+                    treatmentName: treatmentNameToSend,
+                    daysOfTreatment: parseInt(row.totalSessions, 10),
+                    timeline: row.timeline || "AlternateDay",
+                    specialInstructions: row.notes.trim() || "",
+                    subTherapy: row.subTherapy.trim() || "",
+                    duration: row.duration.trim() || "",
+                    treatmentDescription: row.treatmentDescription.trim() || "",
+                    therapistId: row.therapistId,
+                    startDate: formData.assignedDate ? new Date(formData.assignedDate).toISOString() : undefined,
                 };
 
                 let response;
                 if (isEditMode) {
-                    // Update existing therapy plan
                     response = await axios.patch(
                         getApiUrl(`examinations/therapy-plans/ipd/${therapyPlanId}`),
                         requestData,
                         { headers: getAuthHeaders() }
                     );
+                    results.push(response.data.success);
+                    break; // Edit mode: only one plan
                 } else {
-                    // Create therapy plan for inpatient
                     response = await axios.post(
                         getApiUrl(`inpatients/${formData.inpatientId}/therapy-plans`),
                         requestData,
                         { headers: getAuthHeaders() }
                     );
+                    results.push(response.data.success);
                 }
-                results.push(response.data.success);
             }
 
             if (results.every(r => r)) {
-                toast.success(isEditMode ? "IPD Therapy plan updated successfully!" : "IPD Therapy plans added successfully!");
+                toast.success(isEditMode ? "IPD Therapy plan updated successfully!" : "IPD Therapy plans created successfully!");
                 setTimeout(() => {
                     navigate("/doctor/assign-therapy");
                 }, 1500);
             } else {
-                toast.error(isEditMode ? "Failed to update IPD therapy plan" : "Failed to add some IPD therapy plans");
+                toast.error(isEditMode ? "Failed to update IPD therapy plan" : "Failed to create some IPD therapy plans");
                 setIsSubmitting(false);
             }
         } catch (error) {
             console.error("Error saving therapy plan:", error);
-            const errorMessage = error.response?.data?.message || error.message || (isEditMode ? "Error updating therapy plan" : "Error adding therapy plan");
+            const errorMessage = error.response?.data?.message || error.message || "Error saving therapy plan";
             toast.error(errorMessage);
             setIsSubmitting(false);
         }
     };
+
+    const timelineOptions = ["AlternateDay", "Weekly", "Daily", "Monthly"];
 
     return (
         <div className="mx-[2rem]">
@@ -404,137 +461,7 @@ function AssignTherapyAddPage() {
                                 />
                             </Grid>
 
-                            {/* Therapist */}
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Therapist <span style={{ color: "red" }}>*</span>
-                                </Typography>
-                                <FormControl fullWidth required disabled={isLoadingTherapists}>
-                                    <InputLabel>Select Therapist</InputLabel>
-                                    <Select
-                                        name="therapistId"
-                                        multiple
-                                        value={formData.therapistId}
-                                        label="Select Therapist"
-                                        onChange={handleChange}
-                                        input={<OutlinedInput label="Select Therapist" />}
-                                        renderValue={(selected) => (
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                {selected.map((value) => {
-                                                    const therapist = therapists.find(t => {
-                                                        const therapistUserId = t.user?._id || t.user || t._id;
-                                                        return therapistUserId === value;
-                                                    });
-                                                    const name = therapist?.user?.name || therapist?.name || value;
-                                                    return (
-                                                        <Chip
-                                                            key={value}
-                                                            label={name}
-                                                            size="small"
-                                                        />
-                                                    );
-                                                })}
-                                            </Box>
-                                        )}
-                                    >
-                                        {therapists.map((therapist) => {
-                                            const therapistName = therapist.user?.name || therapist.name || "Unknown";
-                                            const therapistSpeciality = therapist.speciality || therapist.specialization || "N/A";
-                                            const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
-
-                                            return (
-                                                <MenuItem key={therapist._id} value={therapistUserId}>
-                                                    <Checkbox checked={formData.therapistId.indexOf(therapistUserId) > -1} />
-                                                    <Typography>
-                                                        {therapistName} - {therapistSpeciality}
-                                                    </Typography>
-                                                </MenuItem>
-                                            );
-                                        })}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            {/* Therapy Type */}
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Therapy Type <span style={{ color: "red" }}>*</span>
-                                </Typography>
-                                <FormControl fullWidth required disabled={isLoadingTherapies}>
-                                    <InputLabel>Select Therapy Type</InputLabel>
-                                    <Select
-                                        name="therapyType"
-                                        multiple
-                                        value={formData.therapyType}
-                                        label="Select Therapy Type"
-                                        onChange={handleChange}
-                                        input={<OutlinedInput label="Select Therapy Type" />}
-                                        renderValue={(selected) => (
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                {selected.map((value) => {
-                                                    const therapy = therapies.find(t => t._id === value);
-                                                    return (
-                                                        <Chip
-                                                            key={value}
-                                                            label={therapy ? therapy.therapyName : value}
-                                                            size="small"
-                                                        />
-                                                    );
-                                                })}
-                                            </Box>
-                                        )}
-                                    >
-                                        {therapies.map((therapy) => (
-                                            <MenuItem key={therapy._id} value={therapy._id}>
-                                                <Checkbox checked={formData.therapyType.indexOf(therapy._id) > -1} />
-                                                <Typography>
-                                                    {therapy.therapyName}
-                                                </Typography>
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            {/* Total Sessions */}
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Total Sessions <span style={{ color: "red" }}>*</span>
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    name="totalSessions"
-                                    type="number"
-                                    value={formData.totalSessions}
-                                    onChange={handleChange}
-                                    placeholder="Enter total number of sessions"
-                                    inputProps={{ min: 1 }}
-                                    required
-                                />
-                            </Grid>
-
-                            {/* Timeline */}
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Timeline
-                                </Typography>
-                                <FormControl fullWidth>
-                                    <InputLabel>Select Timeline</InputLabel>
-                                    <Select
-                                        name="timeline"
-                                        value={formData.timeline}
-                                        label="Select Timeline"
-                                        onChange={handleChange}
-                                    >
-                                        <MenuItem value="AlternateDay">Alternate Day</MenuItem>
-                                        <MenuItem value="Weekly">Weekly</MenuItem>
-                                        <MenuItem value="Daily">Daily</MenuItem>
-                                        <MenuItem value="Monthly">Monthly</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-
-                            {/* Assigned Date */}
+                            {/* Assigned Date (form-level, applies to all rows in create) */}
                             <Grid item xs={12} md={6}>
                                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
                                     Assigned Date <span style={{ color: "red" }}>*</span>
@@ -550,64 +477,249 @@ function AssignTherapyAddPage() {
                                 />
                             </Grid>
 
-                            {/* Sub Therapy */}
+                            {/* Therapy Planning: multiple rows (same as OPD) */}
                             <Grid item xs={12}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Sub Therapy
+                                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                                    Therapy Planning <span style={{ color: "red" }}>*</span>
                                 </Typography>
-                                <TextField
-                                    fullWidth
-                                    name="subTherapy"
-                                    value={formData.subTherapy}
-                                    onChange={handleChange}
-                                    placeholder="Enter sub therapy details (e.g. oil type, special additions)"
-                                />
-                            </Grid>
 
-                            {/* Duration */}
-                            <Grid item xs={12}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Duration
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    name="duration"
-                                    value={formData.duration}
-                                    onChange={handleChange}
-                                    placeholder="e.g. 45 mins, 1 hour"
-                                />
-                            </Grid>
+                                {formData.therapiesRows.map((row, index) => (
+                                    <Paper
+                                        key={index}
+                                        elevation={0}
+                                        sx={{
+                                            mb: 2,
+                                            p: 2,
+                                            borderRadius: 2,
+                                            border: "1px solid var(--color-border)",
+                                            position: "relative",
+                                        }}
+                                    >
+                                        {formData.therapiesRows.length > 1 && (
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleRemoveTherapyRow(index)}
+                                                sx={{
+                                                    position: "absolute",
+                                                    top: 8,
+                                                    right: 8,
+                                                }}
+                                            >
+                                                <X size={14} />
+                                            </IconButton>
+                                        )}
 
-                            {/* Treatment Description */}
-                            <Grid item xs={12}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Treatment Description
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    name="treatmentDescription"
-                                    value={formData.treatmentDescription}
-                                    onChange={handleChange}
-                                    multiline
-                                    rows={3}
-                                    placeholder="Enter detailed description of the treatment..."
-                                />
-                            </Grid>
+                                        <Grid container spacing={2}>
+                                            {/* Therapy Type */}
+                                            <Grid item xs={12} md={6}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Therapy Type <span style={{ color: "red" }}>*</span>
+                                                </Typography>
+                                                <FormControl fullWidth required disabled={isLoadingTherapies}>
+                                                    <InputLabel>Select Therapy</InputLabel>
+                                                    <Select
+                                                        value={row.therapyId}
+                                                        label="Select Therapy"
+                                                        onChange={(e) =>
+                                                            handleTherapyRowChange(index, "therapyId", e.target.value)
+                                                        }
+                                                    >
+                                                        <MenuItem value="">
+                                                            <em>Select Therapy...</em>
+                                                        </MenuItem>
+                                                        {therapies.map((therapy) => (
+                                                            <MenuItem key={therapy._id} value={therapy._id}>
+                                                                {therapy.therapyName}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
 
-                            {/* Notes */}
-                            <Grid item xs={12}>
-                                <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Notes
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    name="notes"
-                                    multiline
-                                    rows={4}
-                                    value={formData.notes}
-                                    onChange={handleChange}
-                                    placeholder="Enter any additional notes or instructions"
-                                />
+                                            {/* Total Sessions */}
+                                            <Grid item xs={12} md={6}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Total Sessions <span style={{ color: "red" }}>*</span>
+                                                </Typography>
+                                                <TextField
+                                                    fullWidth
+                                                    type="number"
+                                                    value={row.totalSessions}
+                                                    onChange={(e) =>
+                                                        handleTherapyRowChange(index, "totalSessions", e.target.value)
+                                                    }
+                                                    placeholder="Enter total number of sessions"
+                                                    inputProps={{ min: 1 }}
+                                                    required
+                                                />
+                                            </Grid>
+
+                                            {/* Therapist Selection */}
+                                            <Grid item xs={12} md={6}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Therapists <span style={{ color: "red" }}>*</span>
+                                                </Typography>
+                                                <FormControl fullWidth required disabled={isLoadingTherapists}>
+                                                    <InputLabel>Select Therapist</InputLabel>
+                                                    <Select
+                                                        multiple
+                                                        value={row.therapistId}
+                                                        label="Select Therapist"
+                                                        onChange={(e) =>
+                                                            handleTherapyRowChange(
+                                                                index,
+                                                                "therapistId",
+                                                                typeof e.target.value === "string"
+                                                                    ? e.target.value.split(",")
+                                                                    : e.target.value
+                                                            )
+                                                        }
+                                                        input={<OutlinedInput label="Select Therapist" />}
+                                                        renderValue={(selected) => (
+                                                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                                                                {selected.map((value) => {
+                                                                    const therapist = therapists.find(
+                                                                        (t) => (t.user?._id || t.user || t._id) === value
+                                                                    );
+                                                                    const name =
+                                                                        therapist?.user?.name ||
+                                                                        therapist?.name ||
+                                                                        value;
+                                                                    return (
+                                                                        <Chip
+                                                                            key={value}
+                                                                            label={name}
+                                                                            size="small"
+                                                                        />
+                                                                    );
+                                                                })}
+                                                            </Box>
+                                                        )}
+                                                    >
+                                                        {therapists.map((therapist) => {
+                                                            const therapistUserId = therapist.user?._id || therapist.user || therapist._id;
+                                                            return (
+                                                                <MenuItem key={therapist._id} value={therapistUserId}>
+                                                                    <Checkbox
+                                                                        checked={row.therapistId.indexOf(therapistUserId) > -1}
+                                                                    />
+                                                                    <Typography>
+                                                                        {therapist.user?.name || therapist.name || "Unknown"}
+                                                                        {(therapist.speciality || therapist.specialization) &&
+                                                                            ` - ${therapist.speciality || therapist.specialization}`}
+                                                                    </Typography>
+                                                                </MenuItem>
+                                                            );
+                                                        })}
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+
+                                            {/* Timeline */}
+                                            <Grid item xs={12} md={6}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Timeline
+                                                </Typography>
+                                                <FormControl fullWidth>
+                                                    <InputLabel>Select Timeline</InputLabel>
+                                                    <Select
+                                                        value={row.timeline}
+                                                        label="Select Timeline"
+                                                        onChange={(e) =>
+                                                            handleTherapyRowChange(index, "timeline", e.target.value)
+                                                        }
+                                                    >
+                                                        {timelineOptions.map((timeline) => (
+                                                            <MenuItem key={timeline} value={timeline}>
+                                                                {timeline === "AlternateDay"
+                                                                    ? "Alternate Day"
+                                                                    : timeline}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+
+                                            {/* Sub Therapy */}
+                                            <Grid item xs={12}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Sub Therapy
+                                                </Typography>
+                                                <TextField
+                                                    fullWidth
+                                                    value={row.subTherapy}
+                                                    onChange={(e) =>
+                                                        handleTherapyRowChange(index, "subTherapy", e.target.value)
+                                                    }
+                                                    placeholder="Enter sub therapy details (e.g. oil type, special additions)"
+                                                />
+                                            </Grid>
+
+                                            {/* Duration */}
+                                            <Grid item xs={12}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Duration
+                                                </Typography>
+                                                <TextField
+                                                    fullWidth
+                                                    value={row.duration}
+                                                    onChange={(e) =>
+                                                        handleTherapyRowChange(index, "duration", e.target.value)
+                                                    }
+                                                    placeholder="e.g. 45 mins, 1 hour"
+                                                />
+                                            </Grid>
+
+                                            {/* Treatment Description */}
+                                            <Grid item xs={12}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Treatment Description
+                                                </Typography>
+                                                <TextField
+                                                    fullWidth
+                                                    multiline
+                                                    rows={3}
+                                                    value={row.treatmentDescription}
+                                                    onChange={(e) =>
+                                                        handleTherapyRowChange(
+                                                            index,
+                                                            "treatmentDescription",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    placeholder="Enter detailed description of the treatment..."
+                                                />
+                                            </Grid>
+
+                                            {/* Notes */}
+                                            <Grid item xs={12}>
+                                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                                    Special Instructions
+                                                </Typography>
+                                                <TextField
+                                                    fullWidth
+                                                    multiline
+                                                    rows={3}
+                                                    value={row.notes}
+                                                    onChange={(e) =>
+                                                        handleTherapyRowChange(index, "notes", e.target.value)
+                                                    }
+                                                    placeholder="Enter any special instructions or notes"
+                                                />
+                                            </Grid>
+                                        </Grid>
+                                    </Paper>
+                                ))}
+
+                                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={handleAddTherapyRow}
+                                    >
+                                        Add Another Therapy
+                                    </Button>
+                                </Box>
                             </Grid>
                         </Grid>
 

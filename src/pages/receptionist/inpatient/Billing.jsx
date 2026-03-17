@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Box,
-  SvgIcon,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,18 +27,16 @@ import doctorService from "../../../services/doctorService";
 import therapistService from "../../../services/therapistService";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
-
 // Icons
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import SpaIcon from "@mui/icons-material/Spa";
-import MedicationIcon from "@mui/icons-material/Medication";
 import LocalHotelIcon from "@mui/icons-material/LocalHotel";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
 
-// Custom Rupee Icon Component - styled to match other Material-UI icons
+// Custom Rupee Icon
 const RupeeIcon = (props) => {
   const { sx, ...other } = props;
   return (
@@ -70,35 +67,22 @@ const ChargesPanel = ({
   isEditable = true,
   useHeaderAction = false,
 }) => {
-  // Group therapy charges by examination (or treatmentPlan if no examination)
-  // Note: useMemo must be called before any early returns
   const groupedCharges = useMemo(() => {
-    if (!charges || !Array.isArray(charges)) {
-      return [];
-    }
-    if (category !== "therapy") {
-      return charges; // No grouping needed for other categories
-    }
+    if (!charges || !Array.isArray(charges)) return [];
+    if (category !== "therapy") return charges;
 
     const groups = new Map();
-
     charges.forEach((charge) => {
-      // Create a unique key: examinationId (or treatmentPlanId, or date+therapist if neither exists)
       const examinationId = charge.examinationId || charge.examination || "";
-      const treatmentPlanId =
-        charge.treatmentPlanId || charge.treatmentPlan || "";
-      const date = charge.date
-        ? new Date(charge.date).toISOString().split("T")[0]
-        : "";
+      const treatmentPlanId = charge.treatmentPlanId || charge.treatmentPlan || "";
+      const date = charge.date ? new Date(charge.date).toISOString().split("T")[0] : "";
       const therapistName = charge.therapistName || "";
 
-      // Group by examination first, then treatmentPlan, then by date+therapist
-      const groupKey =
-        examinationId || treatmentPlanId || `${date}-${therapistName}`;
+      const groupKey = examinationId || treatmentPlanId || `${date}-${therapistName}`;
 
       if (!groups.has(groupKey)) {
         groups.set(groupKey, {
-          ...charge, // Use first charge's common fields
+          ...charge,
           therapies: [],
           totalTherapyCharge: 0,
           totalTherapistCharge: 0,
@@ -126,20 +110,14 @@ const ChargesPanel = ({
   }, [charges, category]);
 
   const totalAmount = groupedCharges.reduce((sum, ch) => {
-    if (category === "therapy" && ch.totalAmount) {
-      return sum + ch.totalAmount;
-    }
+    if (category === "therapy" && ch.totalAmount) return sum + ch.totalAmount;
     return sum + Number(ch.amount || 0);
   }, 0);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return date.toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
   };
 
   const formatCurrency = (amount) => {
@@ -154,45 +132,23 @@ const ChargesPanel = ({
   const getStatusBadgeClass = (status) => {
     if (!status) return null;
     const normalized = status.toLowerCase();
-    if (normalized === "completed" || normalized === "dispensed") {
-      return "badge bg-success";
-    } else if (normalized === "in progress" || normalized === "ongoing") {
-      return "badge bg-warning";
-    } else if (normalized === "pending") {
-      return "badge bg-info";
-    }
+    if (normalized === "completed" || normalized === "dispensed") return "badge bg-success";
+    if (normalized === "in progress" || normalized === "ongoing") return "badge bg-warning";
+    if (normalized === "pending") return "badge bg-info";
     return "badge bg-secondary";
   };
 
-  const columnCount =
-    category === "therapy"
-      ? 6
-      : category === "pharmacy"
-        ? 9
-        : category === "consultation"
-          ? 4
-          : category === "ward"
-            ? 3
-            : 3;
+  const columnCount = category === "therapy" ? 6 : category === "consultation" ? 4 : 3;
 
   return (
     <div className="card shadow-sm mb-4">
-      <div
-        className="card-header d-flex justify-content-between align-items-center"
-        style={{ padding: "12px 20px" }}
-      >
-        <h5
-          className="card-title mb-0"
-          style={{ fontWeight: 700, fontSize: "1.1rem" }}
-        >
+      <div className="card-header d-flex justify-content-between align-items-center" style={{ padding: "12px 20px" }}>
+        <h5 className="card-title mb-0" style={{ fontWeight: 700, fontSize: "1.1rem" }}>
           {title}
         </h5>
         <div className="d-flex align-items-center gap-2">
           {category === "ward" && charges.length > 0 && (
-            <span
-              className="badge bg-primary"
-              style={{ fontSize: "0.875rem", padding: "6px 12px" }}
-            >
+            <span className="badge bg-primary" style={{ fontSize: "0.875rem", padding: "6px 12px" }}>
               Total: {formatCurrency(totalAmount)}
             </span>
           )}
@@ -230,338 +186,105 @@ const ChargesPanel = ({
                   <>
                     <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                     <th style={{ fontSize: "0.875rem" }}>Therapist</th>
-                    <th style={{ fontSize: "0.875rem", textAlign: "center" }}>
-                      Status
-                    </th>
-                    <th style={{ fontSize: "0.875rem", textAlign: "right" }}>
-                      Therapy Charge
-                    </th>
-                    <th style={{ fontSize: "0.875rem", textAlign: "right" }}>
-                      Therapist Charge
-                    </th>
+                    <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Status</th>
+                    <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapy Charge</th>
+                    <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapist Charge</th>
                   </>
-                ) : category === "pharmacy" ? (
-                  <>
-                    <th style={{ fontSize: "0.875rem" }}>Medicine Name</th>
-                    <th style={{ fontSize: "0.875rem" }}>Dosage</th>
-                    <th style={{ fontSize: "0.875rem" }}>Frequency</th>
-                    <th style={{ fontSize: "0.875rem" }}>Duration</th>
-                    <th style={{ fontSize: "0.875rem" }}>Food Timing</th>
-                    <th style={{ fontSize: "0.875rem", textAlign: "center" }}>
-                      Dispensed Qty
-                    </th>
-                    <th style={{ fontSize: "0.875rem", textAlign: "right" }}>
-                      Unit Price
-                    </th>
-                  </>
-                ) : category === "ward" ? (
-                  <>
-                    <th style={{ fontSize: "0.875rem" }}>Ward Category</th>
-                    <th style={{ fontSize: "0.875rem" }}>Description</th>
-                  </>
-                ) : category === "food" ? (
-                  <th style={{ fontSize: "0.875rem" }}>Description</th>
                 ) : (
                   <th style={{ fontSize: "0.875rem" }}>Description</th>
                 )}
                 {category === "consultation" && (
                   <th style={{ fontSize: "0.875rem" }}>Doctor</th>
                 )}
-                <th style={{ fontSize: "0.875rem", textAlign: "right" }}>
-                  Amount
-                </th>
+                <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Amount</th>
                 {!useHeaderAction && isEditable && onEdit && (
-                  <th style={{ fontSize: "0.875rem", textAlign: "center" }}>
-                    Actions
-                  </th>
+                  <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Actions</th>
                 )}
               </tr>
             </thead>
             <tbody>
               {groupedCharges.map((charge, idx) => {
-                // Calculate the correct amount for grouped charges
-                const displayAmount =
-                  category === "therapy" && charge.totalAmount
-                    ? charge.totalAmount
-                    : charge.amount || 0;
-
+                const displayAmount = category === "therapy" && charge.totalAmount ? charge.totalAmount : charge.amount || 0;
                 return (
                   <tr key={charge.id || `group-${idx}`}>
-                    <td style={{ fontSize: "0.875rem" }}>
-                      {formatDate(
-                        charge.date || charge.dispensedAt || charge.createdAt,
-                      )}
-                    </td>
+                    <td style={{ fontSize: "0.875rem" }}>{formatDate(charge.date || charge.createdAt)}</td>
                     {category === "therapy" ? (
                       <>
                         <td style={{ fontSize: "0.875rem" }}>
-                          {charge.therapies && charge.therapies.length > 0 ? (
+                          {charge.therapies?.length > 0 ? (
                             <div>
                               {(() => {
-                                // Check if all therapies have the same sub-therapy
-                                const uniqueSubTherapies = [
-                                  ...new Set(
-                                    charge.therapies.map(
-                                      (t) => t.subTherapy || "",
-                                    ),
-                                  ),
-                                ];
-                                const hasCommonSubTherapy =
-                                  uniqueSubTherapies.length === 1 &&
-                                  uniqueSubTherapies[0] !== "";
-
-                                if (hasCommonSubTherapy) {
-                                  // Show main therapies side by side, sub-therapy once below
+                                const uniqueSub = [...new Set(charge.therapies.map(t => t.subTherapy || ""))];
+                                const commonSub = uniqueSub.length === 1 && uniqueSub[0];
+                                if (commonSub) {
                                   return (
-                                    <div>
-                                      <div
-                                        style={{
-                                          display: "flex",
-                                          flexWrap: "wrap",
-                                          gap: "8px",
-                                          alignItems: "center",
-                                        }}
-                                      >
-                                        {charge.therapies.map(
-                                          (therapy, tIdx) => (
-                                            <span
-                                              key={tIdx}
-                                              style={{ fontWeight: 500 }}
-                                            >
-                                              {therapy.therapyName}
-                                              {tIdx <
-                                                charge.therapies.length - 1 && (
-                                                <span
-                                                  style={{
-                                                    margin: "0 4px",
-                                                    color: "#6c757d",
-                                                  }}
-                                                >
-                                                  •
-                                                </span>
-                                              )}
-                                            </span>
-                                          ),
-                                        )}
+                                    <>
+                                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                                        {charge.therapies.map((t, i) => (
+                                          <span key={i} style={{ fontWeight: 500 }}>
+                                            {t.therapyName}
+                                            {i < charge.therapies.length - 1 && <span style={{ margin: "0 4px", color: "#6c757d" }}>•</span>}
+                                          </span>
+                                        ))}
                                       </div>
-                                      <div
-                                        style={{
-                                          fontSize: "0.75rem",
-                                          color: "#6c757d",
-                                          marginTop: "4px",
-                                        }}
-                                      >
-                                        Sub-Therapy: {uniqueSubTherapies[0]}
+                                      <div style={{ fontSize: "0.75rem", color: "#6c757d", mt: 1 }}>
+                                        Sub-Therapy: {commonSub}
                                       </div>
-                                    </div>
-                                  );
-                                } else {
-                                  // Show each therapy with its own sub-therapy
-                                  return (
-                                    <div>
-                                      {charge.therapies.map((therapy, tIdx) => (
-                                        <div
-                                          key={tIdx}
-                                          style={{
-                                            marginBottom:
-                                              tIdx < charge.therapies.length - 1
-                                                ? "6px"
-                                                : "0",
-                                          }}
-                                        >
-                                          <div style={{ fontWeight: 500 }}>
-                                            {therapy.therapyName}
-                                          </div>
-                                          {therapy.subTherapy && (
-                                            <div
-                                              style={{
-                                                fontSize: "0.75rem",
-                                                color: "#6c757d",
-                                                marginTop: "2px",
-                                              }}
-                                            >
-                                              Sub-Therapy: {therapy.subTherapy}
-                                            </div>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
+                                    </>
                                   );
                                 }
+                                return charge.therapies.map((t, i) => (
+                                  <div key={i} style={{ marginBottom: i < charge.therapies.length - 1 ? "6px" : "0" }}>
+                                    <div style={{ fontWeight: 500 }}>{t.therapyName}</div>
+                                    {t.subTherapy && (
+                                      <div style={{ fontSize: "0.75rem", color: "#6c757d" }}>
+                                        Sub-Therapy: {t.subTherapy}
+                                      </div>
+                                    )}
+                                  </div>
+                                ));
                               })()}
                             </div>
                           ) : (
                             charge.therapyName || charge.description || "N/A"
                           )}
                         </td>
-                        <td style={{ fontSize: "0.875rem" }}>
-                          {charge.therapistName || "—"}
-                        </td>
-                        <td
-                          style={{ fontSize: "0.875rem", textAlign: "center" }}
-                        >
+                        <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
+                        <td style={{ textAlign: "center" }}>
                           {charge.status ? (
-                            <span
-                              className={getStatusBadgeClass(charge.status)}
-                              style={{
-                                fontSize: "0.75rem",
-                                padding: "4px 10px",
-                                borderRadius: "50px",
-                              }}
-                            >
+                            <span className={getStatusBadgeClass(charge.status)} style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
                               {charge.status}
                             </span>
-                          ) : (
-                            <span style={{ color: "#888" }}>—</span>
-                          )}
+                          ) : "—"}
                         </td>
-                        <td
-                          style={{
-                            fontSize: "0.875rem",
-                            textAlign: "right",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {formatCurrency(
-                            charge.totalTherapyCharge ??
-                              charge.therapyCharge ??
-                              0,
-                          )}
+                        <td style={{ textAlign: "right", fontWeight: 500 }}>
+                          {formatCurrency(charge.totalTherapyCharge ?? charge.therapyCharge ?? 0)}
                         </td>
-                        <td
-                          style={{
-                            fontSize: "0.875rem",
-                            textAlign: "right",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {formatCurrency(
-                            charge.totalTherapistCharge ??
-                              charge.therapistCharge ??
-                              0,
-                          )}
+                        <td style={{ textAlign: "right", fontWeight: 500 }}>
+                          {formatCurrency(charge.totalTherapistCharge ?? charge.therapistCharge ?? 0)}
                         </td>
                       </>
-                    ) : category === "pharmacy" ? (
-                      <>
-                        <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                          {charge.medication || "N/A"}
-                          {charge.type && (
-                            <span
-                              className={`badge ${charge.type === "inpatient" ? "bg-info" : "bg-success"} ms-2`}
-                              style={{ fontSize: "0.65rem" }}
-                            >
-                              {charge.type === "inpatient" ? "IPD" : "OPD"}
-                            </span>
-                          )}
-                          {charge.remarks && (
-                            <div
-                              style={{
-                                fontSize: "0.75rem",
-                                color: "#666",
-                                marginTop: "4px",
-                                fontStyle: "italic",
-                              }}
-                            >
-                              <strong>Remarks:</strong> {charge.remarks}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ fontSize: "0.875rem" }}>
-                          {charge.dosage || "N/A"}
-                        </td>
-                        <td style={{ fontSize: "0.875rem" }}>
-                          {charge.frequency || "N/A"}
-                        </td>
-                        <td style={{ fontSize: "0.875rem" }}>
-                          {charge.duration || "N/A"}
-                        </td>
-                        <td style={{ fontSize: "0.875rem" }}>
-                          {charge.foodTiming ? (
-                            <span
-                              className={`badge ${charge.foodTiming === "Before Food" ? "bg-warning" : "bg-info"}`}
-                              style={{ fontSize: "0.7rem" }}
-                            >
-                              {charge.foodTiming}
-                            </span>
-                          ) : (
-                            "N/A"
-                          )}
-                        </td>
-                        <td
-                          style={{ fontSize: "0.875rem", textAlign: "center" }}
-                        >
-                          {charge.dispensedQuantity !== undefined
-                            ? charge.dispensedQuantity
-                            : charge.quantity || 0}
-                        </td>
-                        <td
-                          style={{ fontSize: "0.875rem", textAlign: "right" }}
-                        >
-                          {formatCurrency(charge.unitPrice || 0)}
-                        </td>
-                      </>
-                    ) : category === "ward" ? (
-                      <>
-                        <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                          {charge.wardCategory || "N/A"}
-                        </td>
-                        <td style={{ fontSize: "0.875rem" }}>
-                          {charge.description || "Ward Charge"}
-                        </td>
-                      </>
-                    ) : category === "food" ? (
-                      <td style={{ fontSize: "0.875rem" }}>
-                        {charge.description || "Food Charge"}
-                      </td>
                     ) : (
                       <td style={{ fontSize: "0.875rem" }}>
-                        {charge.description || charge.medication}
-                        {charge.type && (
-                          <span
-                            className={`badge ${charge.type === "inpatient" ? "bg-info" : "bg-success"} ms-2`}
-                            style={{ fontSize: "0.65rem" }}
-                          >
-                            {charge.type === "inpatient" ? "IPD" : "OPD"}
-                          </span>
-                        )}
+                        {charge.description || "Ward Charge"}
                       </td>
                     )}
                     {category === "consultation" && (
-                      <td style={{ fontSize: "0.875rem" }}>
-                        {charge.doctorName || "—"}
-                        {charge.type && (
-                          <span
-                            className={`badge ${charge.type === "inpatient" ? "bg-info" : "bg-success"} ms-2`}
-                            style={{ fontSize: "0.65rem" }}
-                          >
-                            {charge.type === "inpatient" ? "IPD" : "OPD"}
-                          </span>
-                        )}
-                      </td>
+                      <td style={{ fontSize: "0.875rem" }}>{charge.doctorName || "—"}</td>
                     )}
-                    <td
-                      style={{
-                        fontSize: "0.875rem",
-                        textAlign: "right",
-                        fontWeight: 600,
-                      }}
-                    >
+                    <td style={{ textAlign: "right", fontWeight: 600 }}>
                       {formatCurrency(displayAmount)}
                     </td>
                     {!useHeaderAction && isEditable && onEdit && (
-                      <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
+                      <td style={{ textAlign: "center" }}>
                         <button
-                          type="button"
                           className="btn btn-sm"
                           onClick={() => onEdit(charge)}
                           style={{
                             backgroundColor: "#D4A574",
-                            borderColor: "#D4A574",
                             color: "#000",
                             borderRadius: "8px",
                             padding: "4px 8px",
-                            fontWeight: 500,
                             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                           }}
                         >
@@ -574,50 +297,8 @@ const ChargesPanel = ({
               })}
               {charges.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={columnCount + (isEditable && onEdit ? 1 : 0)}
-                    className="text-center text-muted py-4"
-                  >
+                  <td colSpan={columnCount + (isEditable && onEdit ? 1 : 0)} className="text-center text-muted py-4">
                     No charges added yet.
-                  </td>
-                </tr>
-              )}
-              {/* Therapy footer removed to match OPD style */}
-              {charges.length > 0 && category === "ward" && (
-                <tr
-                  style={{
-                    backgroundColor: "#f8f9fa",
-                    fontWeight: 600,
-                    borderTop: "2px solid #dee2e6",
-                  }}
-                >
-                  <td
-                    colSpan={3}
-                    style={{
-                      fontSize: "0.9rem",
-                      textAlign: "right",
-                      padding: "12px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    Total:
-                  </td>
-                  <td
-                    style={{
-                      fontSize: "0.9rem",
-                      textAlign: "right",
-                      padding: "12px",
-                      fontWeight: 700,
-                      color: "#4CAF50",
-                    }}
-                  >
-                    {formatCurrency(
-                      charges.reduce(
-                        (sum, ch) =>
-                          sum + Number(ch.amount || ch.dailyRate || 0),
-                        0,
-                      ),
-                    )}
                   </td>
                 </tr>
               )}
@@ -632,220 +313,115 @@ const ChargesPanel = ({
 function InpatientBilling() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [billingData, setBillingData] = useState(null);
-  const [discountRate, setDiscountRate] = useState(0);
-  const [discountType, setDiscountType] = useState("percentage");
-  const [taxRate, setTaxRate] = useState(5);
-  const [isDischarging, setIsDischarging] = useState(false);
-  const [patientId, setPatientId] = useState(null);
 
-  // Edit consultation dialog state
-  const [editConsultationDialog, setEditConsultationDialog] = useState({
-    open: false,
-    charge: null,
-  });
+  const [patientId, setPatientId] = useState(null);
+  const [inpatientId, setInpatientId] = useState(null);
+
+  const [isDischarging, setIsDischarging] = useState(false);
+  const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
+
+  // Consultation edit dialog
+  const [editConsultationDialog, setEditConsultationDialog] = useState({ open: false, charge: null });
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState("");
   const [consultationAmount, setConsultationAmount] = useState("");
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
   const [isUpdatingConsultation, setIsUpdatingConsultation] = useState(false);
-  const [inpatientId, setInpatientId] = useState(null);
-  const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
 
-  // Edit Therapist Dialog State
-  const [editTherapistDialog, setEditTherapistDialog] = useState({
-    open: false,
-    charge: null,
-  });
+  // Therapist edit dialog
+  const [editTherapistDialog, setEditTherapistDialog] = useState({ open: false, charge: null });
   const [therapists, setTherapists] = useState([]);
   const [selectedTherapist, setSelectedTherapist] = useState("");
   const [therapyCost, setTherapyCost] = useState("");
   const [therapistCharge, setTherapistCharge] = useState("");
-  const [therapyEditRows, setTherapyEditRows] = useState([]); // For grouped therapies
-  const [replaceTherapists, setReplaceTherapists] = useState(false); // Flag to replace all therapists
+  const [therapyEditRows, setTherapyEditRows] = useState([]);
+  const [replaceTherapists, setReplaceTherapists] = useState(false);
   const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
   const [isUpdatingTherapist, setIsUpdatingTherapist] = useState(false);
 
-  // Edit Pharmacy Dialog State
-  const [editPharmacyDialog, setEditPharmacyDialog] = useState({
-    open: false,
-    charge: null,
-  });
-  const [pharmacyUnitPrice, setPharmacyUnitPrice] = useState("");
-  const [isUpdatingPharmacy, setIsUpdatingPharmacy] = useState(false);
-
-  // First, get patient ID from inpatient if id is an inpatient ID
+  // Get patient & inpatient IDs
   useEffect(() => {
-    const fetchPatientId = async () => {
-      if (id) {
-        try {
-          const response = await inpatientService.getInpatientById(id);
-          if (response && response.success && response.data) {
-            const inpatient = response.data;
-            const pid = inpatient.patient?._id || inpatient.patient;
-            setPatientId(pid);
-            setInpatientId(id); // Store inpatient ID for consultation updates
-          } else {
-            // If not an inpatient ID, assume it's a patient ID
-            setPatientId(id);
-          }
-        } catch (error) {
-          // If error, assume id is a patient ID
-          setPatientId(id);
+    const fetchIds = async () => {
+      try {
+        const res = await inpatientService.getInpatientById(id);
+        if (res?.success && res.data) {
+          const inp = res.data;
+          setPatientId(inp.patient?._id || inp.patient);
+          setInpatientId(id);
         }
+      } catch {
+        setPatientId(id);
       }
     };
-    fetchPatientId();
+    if (id) fetchIds();
   }, [id]);
 
   const fetchBillingDetails = async () => {
-    if (!patientId) return;
-
+    if (!patientId || !inpatientId) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      console.log(
-        "Fetching unified billing details for patient ID:",
-        patientId,
-      );
-      const response = await inpatientService.getUnifiedBillingSummary(
-        patientId,
-        inpatientId,
-      );
-      console.log("Billing API Response:", response);
-
-      if (response && response.success && response.data) {
-        const data = response.data;
-
-        // Ensure charges arrays exist
+      const res = await inpatientService.getUnifiedBillingSummary(patientId, inpatientId);
+      if (res?.success && res.data) {
+        const data = res.data;
         const charges = {
           food: Array.isArray(data.charges?.food) ? data.charges.food : [],
-          consultation: Array.isArray(data.charges?.consultation)
-            ? data.charges.consultation
-            : [],
-          therapy: Array.isArray(data.charges?.therapy)
-            ? data.charges.therapy
-            : [],
-          pharmacy: Array.isArray(data.charges?.pharmacy)
-            ? data.charges.pharmacy
-            : [],
+          consultation: Array.isArray(data.charges?.consultation) ? data.charges.consultation : [],
+          therapy: Array.isArray(data.charges?.therapy) ? data.charges.therapy : [],
           ward: Array.isArray(data.charges?.ward) ? data.charges.ward : [],
         };
-
-        const billingDataWithCharges = {
-          ...data,
-          charges,
-        };
-
-        console.log("Processed billing data:", billingDataWithCharges);
-        setBillingData(billingDataWithCharges);
-
-        // Set initial values from invoice if available
-        if (data.invoice && data.invoice.id) {
-          setDiscountRate(
-            data.invoice.discountValue !== undefined
-              ? data.invoice.discountValue
-              : data.invoice.discountRate || 0,
-          );
-          setDiscountType(data.invoice.discountType || "percentage");
-          setTaxRate(data.invoice.taxRate || 5);
-        }
+        setBillingData({ ...data, charges });
       } else {
-        console.error("Invalid response structure:", response);
-        toast.error("Invalid response from server");
+        toast.error("Invalid server response");
       }
-    } catch (error) {
-      console.error("Error fetching billing details:", error);
-      const msg =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to load billing details.";
-      toast.error(msg);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to load billing");
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch billing details whenever patientId or inpatientId changes.
-  // Both are set from fetchPatientId above; once both are stable, this will fire correctly.
   useEffect(() => {
-    if (patientId) {
-      fetchBillingDetails();
-    }
+    if (patientId && inpatientId) fetchBillingDetails();
   }, [patientId, inpatientId]);
 
   const chargeTotals = useMemo(() => {
-    if (!billingData?.charges)
-      return { food: 0, consultation: 0, therapy: 0, pharmacy: 0, ward: 0 };
+    if (!billingData?.charges) return { food: 0, consultation: 0, therapy: 0, ward: 0 };
     const { charges } = billingData;
     return {
-      food: charges.food.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
-      consultation: charges.consultation.reduce(
-        (sum, ch) => sum + Number(ch.amount || 0),
-        0,
-      ),
-      therapy: charges.therapy.reduce(
-        (sum, ch) => sum + Number(ch.amount || 0),
-        0,
-      ),
-      pharmacy: charges.pharmacy.reduce(
-        (sum, ch) => sum + Number(ch.amount || 0),
-        0,
-      ),
-      ward: charges.ward.reduce((sum, ch) => sum + Number(ch.amount || 0), 0),
+      food: charges.food.reduce((s, c) => s + Number(c.amount || 0), 0),
+      consultation: charges.consultation.reduce((s, c) => s + Number(c.amount || 0), 0),
+      therapy: charges.therapy.reduce((s, c) => s + Number(c.amount || 0), 0),
+      ward: charges.ward.reduce((s, c) => s + Number(c.amount || 0), 0),
     };
   }, [billingData]);
 
-  // Step 1: Is the bill already finalized?
-  // Treat the bill as finalized if we have a persisted invoice from the backend.
-  const isFinalized = useMemo(() => {
-    return !!billingData?.isFinalized || !!billingData?.invoice?.id;
-  }, [billingData]);
-
-  // Step 2: Compute GST on pharmacy FIRST (before discount)
-  const taxAmount = useMemo(() => {
-    // GST applied only on medicines (pharmacy)
-    return chargeTotals.pharmacy * (taxRate / 100);
-  }, [chargeTotals.pharmacy, taxRate]);
-
-  // Step 3: grandTotal = all categories + pharmacy-WITH-GST (no rounding)
   const grandTotal = useMemo(() => {
-    if (!billingData) return 0;
-    const sumAll = Object.values(chargeTotals).reduce((a, b) => a + b, 0);
-    return sumAll + taxAmount;
-  }, [billingData, chargeTotals, taxAmount]);
+    return Object.values(chargeTotals).reduce((a, b) => a + b, 0);
+  }, [chargeTotals]);
 
-  // Step 4: Apply discount on GST-inclusive grandTotal (no rounding)
-  const discountAmount = useMemo(() => {
-    if (discountType === "percentage") {
-      return grandTotal * (discountRate / 100);
-    } else {
-      return Math.min(discountRate, grandTotal);
-    }
-  }, [grandTotal, discountRate, discountType]);
-
-  // Step 5: Final total = grandTotal - discount — ROUND ONLY HERE for display
   const totalCharges = useMemo(() => {
-    // If bill is finalized (has invoice), use invoice totalPayable
-    if (isFinalized) {
-      return billingData.invoice.totalPayable;
-    }
-    // Otherwise calculate from charges
-    return Math.round(Math.max(0, grandTotal - discountAmount) * 100) / 100;
-  }, [grandTotal, discountAmount, billingData, isFinalized]);
+    if (billingData?.invoice?.id) return billingData.invoice.totalPayable;
+    return grandTotal;
+  }, [billingData, grandTotal]);
 
-  const amountPaid = useMemo(() => {
-    return billingData?.invoice?.amountPaid || 0;
-  }, [billingData]);
+  const amountPaid = useMemo(() => billingData?.invoice?.amountPaid || 0, [billingData]);
 
   const outstandingAmount = useMemo(() => {
-    // If bill is finalized (has invoice), calculate outstanding = totalPayable - amountPaid
-    if (isFinalized) {
-      return Math.max(0, totalCharges - amountPaid);
-    }
-    // If not finalized, outstanding is the same as total charges minus any amount already paid toward the invoice
-    return Math.max(0, totalCharges - amountPaid);
-  }, [totalCharges, amountPaid, isFinalized]);
+    if (billingData?.invoice?.id) return Math.max(0, totalCharges - amountPaid);
+    return totalCharges;
+  }, [billingData, totalCharges, amountPaid]);
+
+  const isDischarged = useMemo(() => {
+    if (!billingData) return false;
+    return (
+      billingData.admission?.status === "Discharged" ||
+      billingData.admission?.status === "readyToDischarged" ||
+      !!billingData.invoice?.id
+    );
+  }, [billingData]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-IN", {
@@ -856,458 +432,187 @@ function InpatientBilling() {
     }).format(amount || 0);
   };
 
-  const handleDiscountInput = (rawValue) => {
-    if (billingData?.admission?.status === "Discharged") return;
-
-    const value = parseFloat(rawValue);
-    let sanitized = 0;
-    if (Number.isFinite(value)) {
-      if (discountType === "percentage") {
-        sanitized = Math.min(Math.max(value, 0), 100);
-      } else {
-        sanitized = Math.max(value, 0);
-      }
-    }
-    setDiscountRate(sanitized);
-  };
-
-  // Fetch doctors for edit dialog
   const fetchDoctors = async () => {
     setIsLoadingDoctors(true);
     try {
-      const response = await doctorService.getAllDoctorProfiles({
-        page: 1,
-        limit: 1000,
-      });
-      if (response && response.success) {
-        setDoctors(response.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching doctors:", error);
+      const res = await doctorService.getAllDoctorProfiles({ page: 1, limit: 1000 });
+      if (res?.success) setDoctors(res.data || []);
+    } catch {
       toast.error("Failed to load doctors");
     } finally {
       setIsLoadingDoctors(false);
     }
   };
 
-  // Fetch therapists for edit dialog
   const fetchTherapists = async () => {
     setIsLoadingTherapists(true);
     try {
-      const response = await therapistService.getAllTherapists({
-        page: 1,
-        limit: 1000,
-      });
-      if (response && response.success) {
-        setTherapists(response.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching therapists:", error);
+      const res = await therapistService.getAllTherapists({ page: 1, limit: 1000 });
+      if (res?.success) setTherapists(res.data || []);
+    } catch {
       toast.error("Failed to load therapists");
     } finally {
       setIsLoadingTherapists(false);
     }
   };
 
-  // Handle edit therapist
-  const handleEditTherapist = (charge) => {
-    setEditTherapistDialog({ open: true, charge });
-
-    // Initialize therapist selection - use therapistId if available
-    const therapistId =
-      charge.therapistId || charge.therapist?._id || charge.therapist || "";
-    setSelectedTherapist(therapistId);
-
-    // Multiple therapies: one row per therapy with its own cost and therapist charge
-    if (charge.therapies && charge.therapies.length > 1) {
-      setTherapyEditRows(
-        charge.therapies.map((t) => ({
-          therapyName: t.therapyName || "Therapy",
-          sessionId: t.sessionId || t.id,
-          therapyCharge: String(t.therapyCharge ?? 0),
-          therapistCharge: String(t.therapistCharge ?? 0),
-        })),
-      );
-      setTherapyCost("");
-      setTherapistCharge("");
-    } else {
-      setTherapyEditRows([]);
-      const therapyCostVal =
-        charge.totalTherapyCharge !== undefined
-          ? charge.totalTherapyCharge
-          : charge.therapyCharge || 0;
-      const therapistCostVal =
-        charge.totalTherapistCharge !== undefined
-          ? charge.totalTherapistCharge
-          : charge.therapistCharge || 0;
-      setTherapyCost(therapyCostVal.toString());
-      setTherapistCharge(therapistCostVal.toString());
-    }
-
-    setReplaceTherapists(false);
-
-    if (!therapists.length) {
-      fetchTherapists();
-    }
-  };
-
-  // Update a single row in therapyEditRows (for grouped edit)
-  const updateTherapyEditRow = (index, field, value) => {
-    setTherapyEditRows((prev) => {
-      const next = [...prev];
-      if (next[index]) next[index] = { ...next[index], [field]: value };
-      return next;
-    });
-  };
-
-  // Update therapist
-  const handleUpdateTherapist = async () => {
-    if (!selectedTherapist) {
-      toast.error("Please select a therapist");
-      return;
-    }
-
-    const isValidObjectId = (id) => {
-      if (!id || typeof id !== "string") return false;
-      return /^[0-9a-fA-F]{24}$/.test(id) && !id.includes("-");
-    };
-
-    // Multiple therapies: update each session with its row's cost and therapist charge
-    if (therapyEditRows.length > 0) {
-      const invalid = therapyEditRows.find(
-        (r) => !r.sessionId || !isValidObjectId(r.sessionId),
-      );
-      if (invalid) {
-        toast.error(
-          "Invalid therapy session record. Please refresh the page and try again.",
-        );
-        return;
-      }
-      const invalidCost = therapyEditRows.find(
-        (r) =>
-          parseFloat(r.therapyCharge || 0) < 0 ||
-          parseFloat(r.therapistCharge || 0) < 0,
-      );
-      if (invalidCost) {
-        toast.error("Please enter valid cost and charge for all therapies.");
-        return;
-      }
-
-      setIsUpdatingTherapist(true);
-      try {
-        let successCount = 0;
-        for (const row of therapyEditRows) {
-          const response = await axios.patch(
-            getApiUrl(`therapist-sessions/${row.sessionId}`),
-            {
-              therapist: selectedTherapist,
-              cost: parseFloat(row.therapyCharge || 0),
-              therapistCharge: parseFloat(row.therapistCharge || 0),
-              replaceTherapists: replaceTherapists,
-            },
-            { headers: getAuthHeaders() },
-          );
-          if (response.data && response.data.success) successCount++;
-        }
-
-        if (successCount === therapyEditRows.length) {
-          toast.success(
-            `All ${successCount} therapy session(s) updated successfully!`,
-          );
-          setEditTherapistDialog({ open: false, charge: null });
-          setSelectedTherapist("");
-          setTherapyEditRows([]);
-          setReplaceTherapists(false);
-          if (patientId) await fetchBillingDetails();
-        } else {
-          toast.warning(
-            `Updated ${successCount} of ${therapyEditRows.length} session(s). Please refresh and retry if needed.`,
-          );
-          if (patientId) await fetchBillingDetails();
-        }
-      } catch (error) {
-        console.error("Error updating therapist sessions:", error);
-        toast.error(
-          error.response?.data?.message ||
-            error.message ||
-            "Failed to update therapist",
-        );
-      } finally {
-        setIsUpdatingTherapist(false);
-      }
-      return;
-    }
-
-    // Single therapy
-    if (!therapyCost || parseFloat(therapyCost) < 0) {
-      toast.error("Please enter a valid therapy cost");
-      return;
-    }
-
-    // Get sessionId from charge
-    const sessionId =
-      editTherapistDialog.charge?.sessionId || editTherapistDialog.charge?.id;
-
-    if (!sessionId) {
-      toast.error("Invalid therapy session record");
-      return;
-    }
-
-    setIsUpdatingTherapist(true);
-    try {
-      // Update the therapist session's therapist AND cost
-      // Using PATCH /therapist-sessions/:id
-      const response = await axios.patch(
-        getApiUrl(`therapist-sessions/${sessionId}`),
-        {
-          therapist: selectedTherapist,
-          cost: parseFloat(therapyCost),
-          therapistCharge: parseFloat(therapistCharge || 0),
-          replaceTherapists: replaceTherapists, // Flag to replace all therapists instead of adding
-        },
-        { headers: getAuthHeaders() },
-      );
-
-      if (response.data && response.data.success) {
-        toast.success(
-          replaceTherapists
-            ? "Therapist replaced and cost updated successfully!"
-            : "Therapist added and cost updated successfully!",
-        );
-        setEditTherapistDialog({ open: false, charge: null });
-        setSelectedTherapist("");
-        setTherapyCost("");
-        setTherapistCharge("");
-        setReplaceTherapists(false);
-
-        // Refresh billing data
-        if (patientId) {
-          await fetchBillingDetails();
-        }
-      } else {
-        toast.error(response.data?.message || "Failed to update therapist");
-      }
-    } catch (error) {
-      console.error("Error updating therapist:", error);
-      toast.error(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to update therapist",
-      );
-    } finally {
-      setIsUpdatingTherapist(false);
-    }
-  };
-
-  // Handle edit pharmacy charge
-  const handleEditPharmacy = (charge) => {
-    setEditPharmacyDialog({ open: true, charge });
-    setPharmacyUnitPrice((charge.unitPrice || 0).toString());
-  };
-
-  // Update pharmacy charge
-  const handleUpdatePharmacy = async () => {
-    if (!pharmacyUnitPrice || parseFloat(pharmacyUnitPrice) < 0) {
-      toast.error("Please enter a valid unit price");
-      return;
-    }
-
-    const charge = editPharmacyDialog.charge;
-    if (!charge?.id) {
-      toast.error("Invalid pharmacy record");
-      return;
-    }
-
-    setIsUpdatingPharmacy(true);
-    try {
-      const response = await axios.patch(
-        getApiUrl(`examinations/prescriptions/${charge.id}`),
-        {
-          unitPrice: parseFloat(pharmacyUnitPrice),
-        },
-        { headers: getAuthHeaders() },
-      );
-
-      if (response.data && response.data.success) {
-        toast.success("Pharmacy price updated successfully!");
-        setEditPharmacyDialog({ open: false, charge: null });
-        setPharmacyUnitPrice("");
-
-        // Refresh billing data
-        if (patientId) {
-          await fetchBillingDetails();
-        }
-      } else {
-        toast.error(
-          response.data?.message || "Failed to update pharmacy price",
-        );
-      }
-    } catch (error) {
-      console.error("Error updating pharmacy price:", error);
-      toast.error(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to update pharmacy price",
-      );
-    } finally {
-      setIsUpdatingPharmacy(false);
-    }
-  };
-
-  // Handle edit consultation charge
   const handleEditConsultation = (charge) => {
     setEditConsultationDialog({ open: true, charge });
     setSelectedDoctor(charge.doctorId || "");
-    setConsultationAmount((charge.amount || 0).toString());
-    if (!doctors.length) {
-      fetchDoctors();
-    }
+    setConsultationAmount(String(charge.amount || 0));
+    if (!doctors.length) fetchDoctors();
   };
 
-  // Update consultation charge
   const handleUpdateConsultation = async () => {
-    if (!consultationAmount || parseFloat(consultationAmount) < 0) {
-      toast.error("Please enter a valid consultation amount");
+    if (!consultationAmount || Number(consultationAmount) < 0) {
+      toast.error("Enter valid amount");
       return;
     }
-
     const charge = editConsultationDialog.charge;
     if (!charge?.id || !inpatientId) {
-      toast.error("Invalid consultation record");
+      toast.error("Invalid record");
       return;
     }
-
     setIsUpdatingConsultation(true);
     try {
-      let apiUrl;
-      if (
-        charge.type === "outpatient" ||
-        charge.chargeSource === "examination"
-      ) {
-        // Outpatient or IPD examination consultation: use examinations API (Edit Doctor updates exam)
-        apiUrl = getApiUrl(`examinations/${charge.id}/consultation`);
+      let url;
+      if (charge.type === "outpatient" || charge.chargeSource === "examination") {
+        url = getApiUrl(`examinations/${charge.id}/consultation`);
       } else {
-        // IPD daily checkup consultation
-        const checkupId = charge.id.includes("-")
-          ? charge.id.split("-")[1]
-          : charge.id;
-        apiUrl = getApiUrl(
-          `inpatients/${inpatientId}/checkups/${checkupId}/consultation`,
-        );
+        const checkupId = charge.id.includes("-") ? charge.id.split("-")[1] : charge.id;
+        url = getApiUrl(`inpatients/${inpatientId}/checkups/${checkupId}/consultation`);
       }
 
-      const response = await axios.patch(
-        apiUrl,
-        {
-          doctorId: selectedDoctor || null,
-          price: parseFloat(consultationAmount),
-        },
-        { headers: getAuthHeaders() },
-      );
+      const res = await axios.patch(url, {
+        doctorId: selectedDoctor || null,
+        price: Number(consultationAmount),
+      }, { headers: getAuthHeaders() });
 
-      if (response.data && response.data.success) {
-        toast.success("Consultation charge updated successfully!");
+      if (res.data?.success) {
+        toast.success("Updated");
         setEditConsultationDialog({ open: false, charge: null });
-        setSelectedDoctor("");
-        setConsultationAmount("");
-
-        // Refresh billing data
-        if (patientId) {
-          await fetchBillingDetails();
-        }
+        await fetchBillingDetails();
       } else {
-        toast.error(
-          response.data?.message || "Failed to update consultation charge",
-        );
+        toast.error(res.data?.message || "Failed");
       }
-    } catch (error) {
-      console.error("Error updating consultation charge:", error);
-      toast.error(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to update consultation charge",
-      );
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Update failed");
     } finally {
       setIsUpdatingConsultation(false);
     }
   };
 
-  const handleEditCharge = (charge) => {
-    // For consultation charges, use the dialog
-    if (charge.category === "consultation" || charge.type === "consultation") {
-      handleEditConsultation(charge);
-      return;
-    }
+  const handleEditTherapist = (charge) => {
+    setEditTherapistDialog({ open: true, charge });
+    const tid = charge.therapistId || charge.therapist?._id || charge.therapist || "";
+    setSelectedTherapist(tid);
 
-    // For therapy charges, use the new dialog
-    if (charge.category === "therapy" || charge.type === "therapy") {
-      handleEditTherapist(charge);
-      return;
-    }
-
-    // For pharmacy charges, use the new dialog
-    if (charge.category === "pharmacy" || charge.type === "pharmacy") {
-      handleEditPharmacy(charge);
-      return;
-    }
-
-    // For other charges, navigate to edit page
-    const params = new URLSearchParams({
-      chargeId: charge.id || "",
-      chargeName: charge.description || charge.medication || "",
-      amount: (charge.amount || "").toString(),
-    });
-    navigate(
-      `/receptionist/inpatient-billing/edit-charge?${params.toString()}`,
-    );
-  };
-
-  const handleFinalizeDischarge = () => {
-    setFinalizeDialogOpen(true);
-  };
-
-  const handleConfirmFinalize = async () => {
-    setFinalizeDialogOpen(false);
-    try {
-      setIsDischarging(true);
-      const response = await inpatientService.finalizeDischarge(
-        inpatientId || id,
-        {
-          discountType,
-          discountValue: discountRate, // State is named "discountRate" but holds the value
-          discountRate, // Kept for backend backward compatibility if needed, though backend should prioritize type/value
-          taxRate,
-        },
+    if (charge.therapies?.length > 1) {
+      setTherapyEditRows(
+        charge.therapies.map(t => ({
+          therapyName: t.therapyName || "Therapy",
+          sessionId: t.sessionId || t.id,
+          therapyCharge: String(t.therapyCharge ?? 0),
+          therapistCharge: String(t.therapistCharge ?? 0),
+        }))
       );
+      setTherapyCost("");
+      setTherapistCharge("");
+    } else {
+      setTherapyEditRows([]);
+      setTherapyCost(String(charge.totalTherapyCharge ?? charge.therapyCharge ?? 0));
+      setTherapistCharge(String(charge.totalTherapistCharge ?? charge.therapistCharge ?? 0));
+    }
+    setReplaceTherapists(false);
+    if (!therapists.length) fetchTherapists();
+  };
 
-      if (response && response.success) {
-        toast.success(
-          `Discharge completed. Invoice #${response.data.invoiceNumber} generated.`,
-        );
+  const updateTherapyEditRow = (idx, field, val) => {
+    setTherapyEditRows(prev => {
+      const next = [...prev];
+      if (next[idx]) next[idx][field] = val;
+      return next;
+    });
+  };
 
-        // Refresh billing data to show updated invoice information
-        if (patientId) {
+  const handleUpdateTherapist = async () => {
+    if (!selectedTherapist) {
+      toast.error("Select therapist");
+      return;
+    }
+    setIsUpdatingTherapist(true);
+    try {
+      if (therapyEditRows.length > 0) {
+        let success = 0;
+        for (const row of therapyEditRows) {
+          const res = await axios.patch(
+            getApiUrl(`therapist-sessions/${row.sessionId}`),
+            {
+              therapist: selectedTherapist,
+              cost: Number(row.therapyCharge || 0),
+              therapistCharge: Number(row.therapistCharge || 0),
+              replaceTherapists,
+            },
+            { headers: getAuthHeaders() }
+          );
+          if (res.data?.success) success++;
+        }
+        if (success === therapyEditRows.length) {
+          toast.success("All updated");
+          setEditTherapistDialog({ open: false, charge: null });
+          setTherapyEditRows([]);
+          await fetchBillingDetails();
+        } else {
+          toast.warning(`Updated ${success}/${therapyEditRows.length}`);
           await fetchBillingDetails();
         }
+      } else {
+        const sid = editTherapistDialog.charge?.sessionId || editTherapistDialog.charge?.id;
+        if (!sid) throw new Error("No session");
 
-        // Navigate to payments page after a short delay
-        setTimeout(() => {
-          navigate("/receptionist/payments");
-        }, 2000);
+        const res = await axios.patch(
+          getApiUrl(`therapist-sessions/${sid}`),
+          {
+            therapist: selectedTherapist,
+            cost: Number(therapyCost),
+            therapistCharge: Number(therapistCharge || 0),
+            replaceTherapists,
+          },
+          { headers: getAuthHeaders() }
+        );
+
+        if (res.data?.success) {
+          toast.success("Updated");
+          setEditTherapistDialog({ open: false, charge: null });
+          await fetchBillingDetails();
+        } else {
+          toast.error(res.data?.message || "Failed");
+        }
       }
-    } catch (error) {
-      console.error("Discharge error:", error);
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to finalize discharge.";
-      toast.error(errorMessage);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error");
+    } finally {
+      setIsUpdatingTherapist(false);
+    }
+  };
+
+  const handleFinalizeDischarge = async () => {
+    setFinalizeDialogOpen(false);
+    setIsDischarging(true);
+    try {
+      const res = await inpatientService.finalizeDischarge(inpatientId || id, {});
+      if (res?.success) {
+        toast.success(`Invoice #${res.data.invoiceNumber} generated`);
+        await fetchBillingDetails();
+        setTimeout(() => navigate("/receptionist/payments"), 1800);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Finalize failed");
     } finally {
       setIsDischarging(false);
     }
   };
 
-  // Breadcrumb items
   const breadcrumbItems = [
     { label: "Home", url: "/" },
     { label: "Inpatients", url: "/receptionist/inpatient" },
@@ -1316,15 +621,7 @@ function InpatientBilling() {
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          padding: "20px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
-        }}
-      >
+      <Box sx={{ p: 5, display: "flex", justifyContent: "center" }}>
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -1334,316 +631,84 @@ function InpatientBilling() {
 
   if (!billingData) {
     return (
-      <Box sx={{ padding: "20px" }}>
-        <div className="alert alert-danger">Failed to load billing data.</div>
+      <Box sx={{ p: 4 }}>
+        <Breadcrumb items={breadcrumbItems} />
+        <div className="alert alert-danger mt-4">Failed to load billing data</div>
       </Box>
     );
   }
 
-  const { patient, admission, charges, doctor, hasInpatient, hasOutpatient } =
-    billingData;
-  const isDischarged =
-    admission?.status === "Discharged" ||
-    admission?.status === "readyToDischarged";
+  const { patient, admission, charges } = billingData;
 
   return (
     <Box sx={{ padding: "20px" }}>
-      {/* ⭐ Breadcrumb */}
       <Breadcrumb items={breadcrumbItems} />
 
-      {/* ⭐ Page Heading */}
       <HeadingCardingCard
         category="INPATIENT BILLING"
-        title={`Billing Details - ${patient.name}`}
-        subtitle={
-          hasInpatient && hasOutpatient
-            ? "View and manage all charges for this patient (Inpatient & Outpatient)."
-            : hasInpatient
-              ? "View and manage all charges for this inpatient."
-              : "View and manage all charges for this outpatient."
-        }
+        title={`Billing Details - ${patient?.name || "Patient"}`}
+        subtitle="Food • Consultation • Therapy • Ward charges"
       />
 
-      {/* ⭐ Patient Info Card */}
-      <div
-        className="card shadow-sm mb-4"
-        style={{ border: "none", borderRadius: "12px", overflow: "hidden" }}
-      >
-        <div className="card-body" style={{ padding: "24px" }}>
+      {/* Patient Info Card */}
+      <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
+        <div className="card-body p-4">
           <div className="row align-items-center">
             <div className="col-md-8">
-              <h3
-                className="mb-3"
-                style={{
-                  fontSize: "1.75rem",
-                  fontWeight: 700,
-                  color: "#1a1a1a",
-                }}
-              >
-                {patient.name}
-              </h3>
-              <div
-                className="d-flex flex-wrap gap-3"
-                style={{ fontSize: "0.875rem" }}
-              >
-                <span className="badge bg-light text-dark p-2">
-                  <strong className="text-muted me-1">Ward:</strong>{" "}
-                  {admission?.wardCategory || "N/A"}
-                </span>
-                {admission?.roomNumber && (
-                  <span className="badge bg-light text-dark p-2">
-                    <strong className="text-muted me-1">Room:</strong>{" "}
-                    {admission.roomNumber}
-                  </span>
-                )}
-                {admission?.bedNumber && (
-                  <span className="badge bg-light text-dark p-2">
-                    <strong className="text-muted me-1">Bed:</strong>{" "}
-                    {admission.bedNumber}
-                  </span>
-                )}
-                {doctor && (
-                  <span className="badge bg-light text-dark p-2">
-                    <strong className="text-muted me-1">Doctor:</strong>{" "}
-                    {doctor.name || "N/A"}
-                  </span>
-                )}
-                {patient.uhid && (
-                  <span className="badge bg-light text-dark p-2">
-                    <strong className="text-muted me-1">UHID:</strong>{" "}
-                    {patient.uhid}
-                  </span>
-                )}
-                <span className="badge bg-light text-dark p-2">
-                  <strong className="text-muted me-1">Admitted:</strong>{" "}
-                  {admission?.admissionDate
-                    ? new Date(admission.admissionDate).toLocaleDateString()
-                    : "N/A"}
-                </span>
-                {admission?.status && (
-                  <span
-                    className={`badge ${isDischarged ? "bg-secondary" : "bg-success"} p-2`}
-                  >
-                    {admission.status}
-                  </span>
-                )}
+              <h3 className="mb-3 fw-bold">{patient?.name}</h3>
+              <div className="d-flex flex-wrap gap-3">
+                <span className="badge bg-light text-dark p-2"><strong>Ward:</strong> {admission?.wardCategory || "—"}</span>
+                {admission?.roomNumber && <span className="badge bg-light text-dark p-2"><strong>Room:</strong> {admission.roomNumber}</span>}
+                {admission?.bedNumber && <span className="badge bg-light text-dark p-2"><strong>Bed:</strong> {admission.bedNumber}</span>}
+                <span className="badge bg-light text-dark p-2"><strong>Admitted:</strong> {admission?.admissionDate ? new Date(admission.admissionDate).toLocaleDateString() : "—"}</span>
+                <span className={`badge p-2 ${isDischarged ? "bg-secondary" : "bg-success"}`}>{admission?.status || "Active"}</span>
               </div>
             </div>
             <div className="col-md-4 text-md-end">
               <div
                 style={{
-                  background: isDischarged
-                    ? "linear-gradient(135deg, #6c757d 0%, #495057 100%)"
-                    : "linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)",
+                  background: isDischarged ? "linear-gradient(135deg, #6c757d, #495057)" : "linear-gradient(135deg, #4CAF50, #66BB6A)",
                   borderRadius: "16px",
                   padding: "24px 32px",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
                   display: "inline-block",
-                  boxShadow: "0 8px 24px rgba(0,0,0, 0.25)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
                   minWidth: "220px",
-                  position: "relative",
-                  overflow: "hidden",
                 }}
               >
-                <div style={{ position: "relative", zIndex: 1 }}>
-                  <p
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      color: "rgba(255, 255, 255, 0.9)",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}
-                  >
-                    {isDischarged
-                      ? outstandingAmount === 0
-                        ? "Total Paid (Finalized)"
-                        : "Amount Due"
-                      : "Total Outstanding"}
+                <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "white", marginBottom: "8px", textTransform: "uppercase" }}>
+                  {isDischarged ? (outstandingAmount === 0 ? "Total Paid" : "Amount Due") : "Total Amount"}
+                </p>
+                <h2 style={{ color: "white", fontWeight: 700, margin: 0 }}>
+                  {formatCurrency(isDischarged && outstandingAmount === 0 ? totalCharges : outstandingAmount)}
+                </h2>
+                {isDischarged && outstandingAmount > 0 && (
+                  <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.9)", marginTop: "6px" }}>
+                    Paid: {formatCurrency(amountPaid)}
                   </p>
-                  <h2
-                    style={{
-                      fontSize: "2rem",
-                      fontWeight: 700,
-                      color: "#FFFFFF",
-                      marginBottom: 0,
-                      lineHeight: "1.2",
-                    }}
-                  >
-                    {formatCurrency(
-                      isDischarged
-                        ? outstandingAmount === 0
-                          ? totalCharges
-                          : outstandingAmount
-                        : totalCharges,
-                    )}
-                  </h2>
-                  {isDischarged && outstandingAmount > 0 && (
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "rgba(255, 255, 255, 0.8)",
-                        marginTop: "4px",
-                      }}
-                    >
-                      Paid: {formatCurrency(amountPaid)}
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ⭐ Summary Cards */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            sm: "repeat(2, 1fr)",
-            md: "repeat(3, 1fr)",
-            lg: "repeat(5, 1fr)",
-          },
-          gap: "15px",
-          marginBottom: 3,
-        }}
-      >
-        <DashboardCard
-          title="Food"
-          count={chargeTotals.food}
-          prefix="₹"
-          icon={RupeeIcon}
-        />
-        <DashboardCard
-          title="Consultation"
-          count={chargeTotals.consultation}
-          prefix="₹"
-          icon={LocalHospitalIcon}
-        />
-        <DashboardCard
-          title="Therapy"
-          count={chargeTotals.therapy}
-          prefix="₹"
-          icon={SpaIcon}
-        />
-        <DashboardCard
-          title="Pharmacy"
-          count={chargeTotals.pharmacy}
-          prefix="₹"
-          icon={MedicationIcon}
-        />
-        <DashboardCard
-          title="Ward"
-          count={chargeTotals.ward}
-          prefix="₹"
-          icon={LocalHotelIcon}
-        />
+      {/* Summary Cards */}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2,1fr)", md: "repeat(4,1fr)" }, gap: 3, mb: 4 }}>
+        <DashboardCard title="Food"        count={chargeTotals.food}        prefix="₹" icon={RupeeIcon} />
+        <DashboardCard title="Consultation" count={chargeTotals.consultation} prefix="₹" icon={LocalHospitalIcon} />
+        <DashboardCard title="Therapy"     count={chargeTotals.therapy}     prefix="₹" icon={SpaIcon} />
+        <DashboardCard title="Ward"        count={chargeTotals.ward}        prefix="₹" icon={LocalHotelIcon} />
       </Box>
 
-      {/* ⭐ Adjustments Panel */}
-      <div className="card shadow-sm mb-4">
-        <div className="card-body">
-          <div className="row align-items-center">
-            <div className="col-md-6">
-              <h5 className="mb-1">Adjustments</h5>
-              <p className="text-muted small mb-0">
-                {isDischarged
-                  ? "Final adjustments applied at discharge."
-                  : "Apply discount before finalizing discharge."}
-              </p>
-            </div>
-            <div className="col-md-6">
-              <div className="d-flex flex-wrap align-items-center gap-3">
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <InputLabel>Discount Type</InputLabel>
-                  <Select
-                    value={discountType}
-                    label="Discount Type"
-                    onChange={(e) => {
-                      if (billingData?.admission?.status === "Discharged")
-                        return;
-                      setDiscountType(e.target.value);
-                      // Reset value when switching types to avoid confusion or errors
-                      setDiscountRate(0);
-                    }}
-                    disabled={isDischarged}
-                  >
-                    <MenuItem value="percentage">Percentage (%)</MenuItem>
-                    <MenuItem value="fixed">Fixed Amount (₹)</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <div className="d-flex align-items-center">
-                  <TextField
-                    label={
-                      discountType === "percentage"
-                        ? "Discount (%)"
-                        : "Discount (₹)"
-                    }
-                    type="number"
-                    size="small"
-                    inputProps={{
-                      min: 0,
-                      max: discountType === "percentage" ? 100 : undefined,
-                      step: discountType === "percentage" ? 0.5 : 1,
-                    }}
-                    sx={{ width: 120 }}
-                    value={discountRate}
-                    onChange={(e) =>
-                      handleDiscountInput(parseFloat(e.target.value))
-                    }
-                    disabled={isDischarged}
-                  />
-                </div>
-
-                <div className="d-flex align-items-center ms-3">
-                  <TextField
-                    label="GST (%) on Meds"
-                    type="number"
-                    size="small"
-                    inputProps={{
-                      min: 0,
-                      max: 100,
-                      step: 0.5,
-                    }}
-                    sx={{ width: 140 }}
-                    value={taxRate}
-                    onChange={(e) => {
-                      if (billingData?.admission?.status === "Discharged")
-                        return;
-                      const val = parseFloat(e.target.value);
-                      setTaxRate(Number.isFinite(val) && val >= 0 ? val : 0);
-                    }}
-                    disabled={isDischarged}
-                  />
-                  <span
-                    className="ms-2 text-muted fw-bold"
-                    style={{ fontSize: "0.875rem", minWidth: "80px" }}
-                  >
-                    {formatCurrency(taxAmount)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ⭐ Charges Panels - All Vertical */}
+      {/* Charges Panels */}
       <div className="row">
         <div className="col-12 mb-4">
           <ChargesPanel
             title="Doctor Consultation"
-            charges={charges.consultation.map((ch) => ({
-              ...ch,
-              category: "consultation",
-            }))}
+            charges={charges.consultation}
             category="consultation"
             isEditable={!isDischarged}
-            onEdit={handleEditCharge}
+            onEdit={handleEditConsultation}
           />
         </div>
         <div className="col-12 mb-4">
@@ -1652,19 +717,7 @@ function InpatientBilling() {
             charges={charges.therapy}
             category="therapy"
             isEditable={!isDischarged}
-            onEdit={handleEditCharge}
-          />
-        </div>
-        <div className="col-12 mb-4">
-          <ChargesPanel
-            title="Pharmacy Charges"
-            charges={charges.pharmacy.map((ch) => ({
-              ...ch,
-              category: "pharmacy",
-            }))}
-            category="pharmacy"
-            isEditable={!isDischarged}
-            onEdit={handleEditCharge}
+            onEdit={handleEditTherapist}
           />
         </div>
         <div className="col-12 mb-4">
@@ -1685,29 +738,22 @@ function InpatientBilling() {
         </div>
       </div>
 
-      {/* ⭐ Action Buttons */}
-      <div className="d-flex flex-wrap gap-3 mb-4">
-        <Link
-          to="/receptionist/inpatient"
-          className="btn btn-outline-secondary"
-        >
-          <ArrowBackIcon className="me-2" />
-          Back to In-Patient List
+      {/* Action Buttons */}
+      <div className="d-flex flex-wrap gap-3 mb-5">
+        <Link to="/receptionist/inpatient" className="btn btn-outline-secondary">
+          <ArrowBackIcon className="me-2" /> Back to Inpatients
         </Link>
+
         {!isDischarged && (
           <button
-            type="button"
             className="btn btn-success"
-            onClick={handleFinalizeDischarge}
+            onClick={() => setFinalizeDialogOpen(true)}
             disabled={isDischarging}
+            style={{ fontWeight: 600, padding: "10px 28px" }}
           >
             {isDischarging ? (
               <>
-                <span
-                  className="spinner-border spinner-border-sm me-2"
-                  role="status"
-                  aria-hidden="true"
-                ></span>
+                <span className="spinner-border spinner-border-sm me-2" />
                 Finalizing...
               </>
             ) : (
@@ -1721,261 +767,118 @@ function InpatientBilling() {
       </div>
 
       {/* Edit Consultation Dialog */}
-      <Dialog
-        open={editConsultationDialog.open}
-        onClose={() =>
-          !isUpdatingConsultation &&
-          setEditConsultationDialog({ open: false, charge: null })
-        }
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Edit Consultation Charge
-          </Typography>
-          <Button
-            onClick={() =>
-              setEditConsultationDialog({ open: false, charge: null })
-            }
-            disabled={isUpdatingConsultation}
-            sx={{ minWidth: "auto", p: 0.5 }}
-          >
-            <CloseIcon />
-          </Button>
+      <Dialog open={editConsultationDialog.open} onClose={() => !isUpdatingConsultation && setEditConsultationDialog({ open: false, charge: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <div className="d-flex justify-content-between align-items-center">
+            <Typography variant="h6" fontWeight={700}>Edit Consultation</Typography>
+            <Button onClick={() => setEditConsultationDialog({ open: false, charge: null })} disabled={isUpdatingConsultation}>
+              <CloseIcon />
+            </Button>
+          </div>
         </DialogTitle>
         <Divider />
         <DialogContent sx={{ mt: 2 }}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Consultation:{" "}
-              <strong>
-                {editConsultationDialog.charge?.description || "N/A"}
-              </strong>
-            </Typography>
+          <Box mb={2}>
             <Typography variant="body2" color="text.secondary">
-              Current Doctor:{" "}
-              <strong>
-                {editConsultationDialog.charge?.doctorName || "N/A"}
-              </strong>
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Current Amount:{" "}
-              <strong>
-                {formatCurrency(editConsultationDialog.charge?.amount || 0)}
-              </strong>
+              Current: <strong>{formatCurrency(editConsultationDialog.charge?.amount || 0)}</strong>
             </Typography>
           </Box>
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="doctor-select-label">Select Doctor</InputLabel>
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>Doctor</InputLabel>
             <Select
-              labelId="doctor-select-label"
               value={selectedDoctor}
-              onChange={(e) => setSelectedDoctor(e.target.value)}
-              label="Select Doctor"
+              label="Doctor"
+              onChange={e => setSelectedDoctor(e.target.value)}
               disabled={isLoadingDoctors || isUpdatingConsultation}
             >
-              <MenuItem value="">
-                {isLoadingDoctors ? "Loading doctors..." : "No Change"}
-              </MenuItem>
-              {doctors.map((doctor) => {
-                const doctorName =
-                  doctor.user?.name ||
-                  `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() ||
-                  "Doctor";
-                const displayName = doctor.specialization
-                  ? `${doctorName} - ${doctor.specialization}`
-                  : doctorName;
-                return (
-                  <MenuItem
-                    key={doctor._id || doctor.id}
-                    value={doctor._id || doctor.id}
-                  >
-                    {displayName}
-                  </MenuItem>
-                );
-              })}
+              <MenuItem value="">No change</MenuItem>
+              {doctors.map(d => (
+                <MenuItem key={d._id} value={d._id}>
+                  {d.user?.name || `${d.firstName || ""} ${d.lastName || ""}`.trim()}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <TextField
             fullWidth
-            label="Consultation Amount (INR) *"
+            label="Amount (₹)"
             type="number"
             value={consultationAmount}
-            onChange={(e) => setConsultationAmount(e.target.value)}
-            variant="outlined"
-            inputProps={{ min: 0, step: 0.01 }}
-            required
+            onChange={e => setConsultationAmount(e.target.value)}
             disabled={isUpdatingConsultation}
+            inputProps={{ min: 0, step: 1 }}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={() =>
-              setEditConsultationDialog({ open: false, charge: null })
-            }
-            disabled={isUpdatingConsultation}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdateConsultation}
-            disabled={!consultationAmount || isUpdatingConsultation}
-            sx={{ backgroundColor: "#8B4513" }}
-            startIcon={
-              isUpdatingConsultation ? (
-                <CircularProgress size={20} sx={{ color: "white" }} />
-              ) : null
-            }
-          >
-            {isUpdatingConsultation ? "Updating..." : "Update Consultation"}
+        <DialogActions>
+          <Button onClick={() => setEditConsultationDialog({ open: false, charge: null })} disabled={isUpdatingConsultation}>Cancel</Button>
+          <Button variant="contained" sx={{ bgcolor: "#8B4513" }} onClick={handleUpdateConsultation} disabled={isUpdatingConsultation || !consultationAmount}>
+            {isUpdatingConsultation ? "Updating..." : "Update"}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Therapist Dialog */}
-      <Dialog
-        open={editTherapistDialog.open}
-        onClose={() => {
-          if (!isUpdatingTherapist) {
-            setEditTherapistDialog({ open: false, charge: null });
-            setTherapyEditRows([]);
-          }
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Edit Therapist
-          </Typography>
-          <Button
-            onClick={() =>
-              setEditTherapistDialog({ open: false, charge: null })
-            }
-            disabled={isUpdatingTherapist}
-            sx={{ minWidth: "auto", p: 0.5 }}
-          >
-            <CloseIcon />
-          </Button>
+      <Dialog open={editTherapistDialog.open} onClose={() => !isUpdatingTherapist && setEditTherapistDialog({ open: false, charge: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <div className="d-flex justify-content-between align-items-center">
+            <Typography variant="h6" fontWeight={700}>Edit Therapist</Typography>
+            <Button onClick={() => setEditTherapistDialog({ open: false, charge: null })} disabled={isUpdatingTherapist}>
+              <CloseIcon />
+            </Button>
+          </div>
         </DialogTitle>
         <Divider />
         <DialogContent sx={{ mt: 2 }}>
           <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Therapy:{" "}
-              <strong>
-                {editTherapistDialog.charge?.therapyName || "N/A"}
-              </strong>
+            <Typography variant="body2" color="text.secondary">
+              Therapy: <strong>{editTherapistDialog.charge?.therapies?.map(t => t.therapyName).join(" • ") || editTherapistDialog.charge?.therapyName || "N/A"}</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Current Therapist:{" "}
-              <strong>
-                {editTherapistDialog.charge?.therapistName || "N/A"}
-              </strong>
+              Current Therapist: <strong>{editTherapistDialog.charge?.therapistName || "N/A"}</strong>
             </Typography>
           </Box>
+
           <FormControl fullWidth required>
-            <InputLabel id="therapist-select-label-ipd">
-              Select Therapist
-            </InputLabel>
+            <InputLabel>Select Therapist</InputLabel>
             <Select
-              labelId="therapist-select-label-ipd"
               value={selectedTherapist}
-              onChange={(e) => setSelectedTherapist(e.target.value)}
               label="Select Therapist"
+              onChange={e => setSelectedTherapist(e.target.value)}
               disabled={isLoadingTherapists || isUpdatingTherapist}
             >
-              <MenuItem value="" disabled>
-                {isLoadingTherapists
-                  ? "Loading therapists..."
-                  : "Select Therapist"}
-              </MenuItem>
-              {therapists.map((therapist) => {
-                const therapistName =
-                  therapist.user?.name || therapist.name || "Therapist";
-                const displayName = therapist.speciality
-                  ? `${therapistName} - ${therapist.speciality}`
-                  : therapistName;
-                const therapistUserId =
-                  therapist.user?._id || therapist.user || therapist._id;
-                return (
-                  <MenuItem
-                    key={therapist._id || therapist.id}
-                    value={therapistUserId}
-                  >
-                    {displayName}
-                  </MenuItem>
-                );
-              })}
+              <MenuItem value="" disabled>{isLoadingTherapists ? "Loading..." : "Select Therapist"}</MenuItem>
+              {therapists.map(t => (
+                <MenuItem key={t._id} value={t.user?._id || t._id}>
+                  {t.user?.name || t.name || "Therapist"}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
+
           {therapyEditRows.length > 0 ? (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
-                Per-therapy cost &amp; charge
-              </Typography>
-              {therapyEditRows.map((row, index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    mb: 2,
-                    p: 1.5,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    borderRadius: 1,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                    {row.therapyName}
-                  </Typography>
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Per-therapy costs</Typography>
+              {therapyEditRows.map((row, i) => (
+                <Box key={i} sx={{ mb: 2, p: 2, border: "1px solid #ddd", borderRadius: 1 }}>
+                  <Typography sx={{ fontWeight: 600, mb: 1 }}>{row.therapyName}</Typography>
                   <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                     <TextField
-                      label="Therapy Cost (INR)"
+                      label="Therapy Cost"
                       type="number"
-                      value={row.therapyCharge}
-                      onChange={(e) =>
-                        updateTherapyEditRow(
-                          index,
-                          "therapyCharge",
-                          e.target.value,
-                        )
-                      }
-                      variant="outlined"
                       size="small"
-                      inputProps={{ min: 0, step: 1 }}
+                      value={row.therapyCharge}
+                      onChange={e => updateTherapyEditRow(i, "therapyCharge", e.target.value)}
+                      sx={{ flex: 1 }}
                       disabled={isUpdatingTherapist}
-                      sx={{ minWidth: 140 }}
                     />
                     <TextField
-                      label="Therapist Charge (INR)"
+                      label="Therapist Charge"
                       type="number"
-                      value={row.therapistCharge}
-                      onChange={(e) =>
-                        updateTherapyEditRow(
-                          index,
-                          "therapistCharge",
-                          e.target.value,
-                        )
-                      }
-                      variant="outlined"
                       size="small"
-                      inputProps={{ min: 0, step: 1 }}
+                      value={row.therapistCharge}
+                      onChange={e => updateTherapyEditRow(i, "therapistCharge", e.target.value)}
+                      sx={{ flex: 1 }}
                       disabled={isUpdatingTherapist}
-                      sx={{ minWidth: 140 }}
                     />
                   </Box>
                 </Box>
@@ -1983,335 +886,62 @@ function InpatientBilling() {
             </Box>
           ) : (
             <>
-              <TextField
-                fullWidth
-                label="Therapy Cost (INR)"
-                type="number"
-                value={therapyCost}
-                onChange={(e) => setTherapyCost(e.target.value)}
-                variant="outlined"
-                inputProps={{ min: 0, step: 1 }}
-                disabled={isUpdatingTherapist}
-                sx={{ mt: 2 }}
-              />
-              <TextField
-                fullWidth
-                label="Therapist Charge (INR)"
-                type="number"
-                value={therapistCharge}
-                onChange={(e) => setTherapistCharge(e.target.value)}
-                variant="outlined"
-                inputProps={{ min: 0, step: 1 }}
-                disabled={isUpdatingTherapist}
-                sx={{ mt: 2 }}
-              />
+              <TextField fullWidth label="Therapy Cost (₹)" type="number" value={therapyCost} onChange={e => setTherapyCost(e.target.value)} sx={{ mt: 2 }} disabled={isUpdatingTherapist} />
+              <TextField fullWidth label="Therapist Charge (₹)" type="number" value={therapistCharge} onChange={e => setTherapistCharge(e.target.value)} sx={{ mt: 2 }} disabled={isUpdatingTherapist} />
             </>
           )}
-          <Box
-            sx={{
-              mt: 2,
-              p: 2,
-              bgcolor: "rgba(255, 193, 7, 0.1)",
-              borderRadius: "8px",
-              border: "1px solid rgba(255, 193, 7, 0.3)",
-            }}
-          >
+
+          <Box sx={{ mt: 3, p: 2, bgcolor: "rgba(255,193,7,0.08)", borderRadius: 2 }}>
             <FormControlLabel
-              control={
-                <Checkbox
-                  checked={replaceTherapists}
-                  onChange={(e) => setReplaceTherapists(e.target.checked)}
-                  disabled={isUpdatingTherapist}
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  <strong>Replace all therapists</strong> (instead of adding to
-                  existing list)
-                </Typography>
-              }
+              control={<Checkbox checked={replaceTherapists} onChange={e => setReplaceTherapists(e.target.checked)} disabled={isUpdatingTherapist} />}
+              label={<strong>Replace all therapists</strong>}
             />
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mt: 0.5, ml: 4 }}
-            >
-              {replaceTherapists
-                ? "All existing therapists will be removed and replaced with the selected therapist."
-                : "The selected therapist will be added to the existing therapists list."}
-            </Typography>
           </Box>
-          <Box
-            sx={{
-              mt: 2,
-              p: 2,
-              bgcolor: "rgba(212, 165, 116, 0.1)",
-              borderRadius: "8px",
-              border: "1px solid rgba(212, 165, 116, 0.2)",
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Total Therapy Cost:
-              </Typography>
-              <Typography
-                variant="h6"
-                sx={{ fontWeight: 700, color: "#8B4513" }}
-              >
+
+          <Box sx={{ mt: 3, p: 2, bgcolor: "rgba(139,69,19,0.05)", borderRadius: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="subtitle1" fontWeight={600}>Total:</Typography>
+              <Typography variant="h6" color="#8B4513" fontWeight={700}>
                 {therapyEditRows.length > 0
-                  ? formatCurrency(
-                      therapyEditRows.reduce(
-                        (sum, r) =>
-                          sum +
-                          parseFloat(r.therapyCharge || 0) +
-                          parseFloat(r.therapistCharge || 0),
-                        0,
-                      ),
-                    )
-                  : formatCurrency(
-                      parseFloat(therapyCost || 0) +
-                        parseFloat(therapistCharge || 0),
-                    )}
+                  ? formatCurrency(therapyEditRows.reduce((s, r) => s + Number(r.therapyCharge||0) + Number(r.therapistCharge||0), 0))
+                  : formatCurrency(Number(therapyCost||0) + Number(therapistCharge||0))}
               </Typography>
             </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={() =>
-              setEditTherapistDialog({ open: false, charge: null })
-            }
-            disabled={isUpdatingTherapist}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdateTherapist}
-            disabled={!selectedTherapist || isUpdatingTherapist}
-            sx={{ backgroundColor: "#8B4513" }}
-            startIcon={
-              isUpdatingTherapist ? (
-                <CircularProgress size={20} sx={{ color: "white" }} />
-              ) : null
-            }
-          >
+          <Button onClick={() => setEditTherapistDialog({ open: false, charge: null })} disabled={isUpdatingTherapist}>Cancel</Button>
+          <Button variant="contained" sx={{ bgcolor: "#8B4513" }} onClick={handleUpdateTherapist} disabled={isUpdatingTherapist || !selectedTherapist}>
             {isUpdatingTherapist ? "Updating..." : "Update Therapist"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Edit Pharmacy Dialog */}
-      <Dialog
-        open={editPharmacyDialog.open}
-        onClose={() =>
-          !isUpdatingPharmacy &&
-          setEditPharmacyDialog({ open: false, charge: null })
-        }
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Edit Pharmacy Price
-          </Typography>
-          <Button
-            onClick={() => setEditPharmacyDialog({ open: false, charge: null })}
-            disabled={isUpdatingPharmacy}
-            sx={{ minWidth: "auto", p: 0.5 }}
-          >
-            <CloseIcon />
-          </Button>
+      {/* Finalize Confirmation */}
+      <Dialog open={finalizeDialogOpen} onClose={() => !isDischarging && setFinalizeDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <div className="d-flex justify-content-between align-items-center">
+            <Typography variant="h6" fontWeight={700}>Confirm Discharge</Typography>
+            <Button onClick={() => setFinalizeDialogOpen(false)} disabled={isDischarging}><CloseIcon /></Button>
+          </div>
         </DialogTitle>
         <Divider />
         <DialogContent sx={{ mt: 2 }}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Medicine:{" "}
-              <strong>
-                {editPharmacyDialog.charge?.description ||
-                  editPharmacyDialog.charge?.medication ||
-                  "N/A"}
-              </strong>
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Quantity:{" "}
-              <strong>
-                {editPharmacyDialog.charge?.dispensedQuantity ||
-                  editPharmacyDialog.charge?.quantity ||
-                  1}
-              </strong>
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Current Amount:{" "}
-              <strong>
-                {formatCurrency(editPharmacyDialog.charge?.amount || 0)}
-              </strong>
-            </Typography>
-          </Box>
-          <TextField
-            fullWidth
-            label="Unit Price (INR) *"
-            type="number"
-            value={pharmacyUnitPrice}
-            onChange={(e) => setPharmacyUnitPrice(e.target.value)}
-            variant="outlined"
-            inputProps={{ min: 0, step: 0.01 }}
-            required
-            disabled={isUpdatingPharmacy}
-            helperText="This will override the default price of the medicine for this billing."
-          />
-          <Box
-            sx={{
-              mt: 2,
-              p: 2,
-              bgcolor: "rgba(212, 165, 116, 0.1)",
-              borderRadius: "8px",
-              border: "1px solid rgba(212, 165, 116, 0.2)",
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Total Pharmacy Cost:
-              </Typography>
-              <Typography
-                variant="h6"
-                sx={{ fontWeight: 700, color: "#8B4513" }}
-              >
-                {formatCurrency(
-                  parseFloat(pharmacyUnitPrice || 0) *
-                    (editPharmacyDialog.charge?.dispensedQuantity ||
-                      editPharmacyDialog.charge?.quantity ||
-                      1),
-                )}
-              </Typography>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={() => setEditPharmacyDialog({ open: false, charge: null })}
-            disabled={isUpdatingPharmacy}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdatePharmacy}
-            disabled={!pharmacyUnitPrice || isUpdatingPharmacy}
-            sx={{ backgroundColor: "#8B4513" }}
-            startIcon={
-              isUpdatingPharmacy ? (
-                <CircularProgress size={20} sx={{ color: "white" }} />
-              ) : null
-            }
-          >
-            {isUpdatingPharmacy ? "Updating..." : "Update Price"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Finalize Discharge Confirmation Dialog */}
-      <Dialog
-        open={finalizeDialogOpen}
-        onClose={() => !isDischarging && setFinalizeDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Finalize Discharge
+          <Typography>Finalize discharge and generate invoice?</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            This will lock the bill and mark patient as discharged.
           </Typography>
-          <Button
-            onClick={() => setFinalizeDialogOpen(false)}
-            disabled={isDischarging}
-            sx={{ minWidth: "auto", p: 0.5 }}
-          >
-            <CloseIcon />
-          </Button>
-        </DialogTitle>
-        <Divider />
-        <DialogContent sx={{ mt: 2 }}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              Are you sure you want to finalize the discharge and generate the
-              final bill?
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              This action will:
-            </Typography>
-            <Box component="ul" sx={{ mt: 1, mb: 0, pl: 3 }}>
-              <Typography
-                component="li"
-                variant="body2"
-                color="text.secondary"
-                sx={{ mb: 0.5 }}
-              >
-                Generate the final invoice for all charges
-              </Typography>
-              <Typography
-                component="li"
-                variant="body2"
-                color="text.secondary"
-                sx={{ mb: 0.5 }}
-              >
-                Mark the patient as discharged
-              </Typography>
-              <Typography component="li" variant="body2" color="text.secondary">
-                Make the bill final and uneditable
-              </Typography>
-            </Box>
-          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button
-            onClick={() => setFinalizeDialogOpen(false)}
-            disabled={isDischarging}
-            variant="outlined"
-          >
-            Cancel
-          </Button>
+        <DialogActions>
+          <Button onClick={() => setFinalizeDialogOpen(false)} disabled={isDischarging}>Cancel</Button>
           <Button
             variant="contained"
-            onClick={handleConfirmFinalize}
+            sx={{ bgcolor: "#4CAF50" }}
+            onClick={handleFinalizeDischarge}
             disabled={isDischarging}
-            sx={{
-              backgroundColor: "#4CAF50",
-              "&:hover": { backgroundColor: "#45a049" },
-            }}
-            startIcon={
-              isDischarging ? (
-                <CircularProgress size={20} sx={{ color: "white" }} />
-              ) : (
-                <CheckCircleIcon />
-              )
-            }
+            startIcon={isDischarging ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
           >
-            {isDischarging ? "Finalizing..." : "Confirm & Finalize"}
+            {isDischarging ? "Finalizing..." : "Confirm Discharge"}
           </Button>
         </DialogActions>
       </Dialog>
