@@ -879,10 +879,15 @@ function Execution() {
                                             <AccessTimeIcon />
                                         </Avatar>
                                         <Box>
-                                            <Typography variant="caption" color="text.secondary">DURATION</Typography>
+                                            <Typography variant="caption" color="text.secondary">DURATION PER SESSION</Typography>
                                             <Typography variant="body1" fontWeight={600}>
-                                                {progressData.duration ? `${progressData.duration} (Auto-stop enabled)` : "Not set"}
+                                                {progressData.duration || "Not set"}
                                             </Typography>
+                                            {progressData.duration && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                                    Auto-stops when duration reached
+                                                </Typography>
+                                            )}
                                         </Box>
                                     </Box>
                                 </Grid>
@@ -918,8 +923,8 @@ function Execution() {
                                         key={index}
                                         sx={{
                                             borderRadius: "20px",
-                                            border: "1px solid #E2E8F0",
-                                            boxShadow: slot.isCompleted ? "none" : "0 4px 6px rgba(0,0,0,0.02)",
+                                            border: isInProgress ? "2px solid #F59E0B" : "1px solid #E2E8F0",
+                                            boxShadow: slot.isCompleted ? "none" : isInProgress ? "0 4px 12px rgba(245,158,11,0.15)" : "0 4px 6px rgba(0,0,0,0.02)",
                                             background: slot.isCompleted ? "#F7FAFC" : isInProgress ? "#FFFBF0" : "white",
                                             transition: "transform 0.2s ease, box-shadow 0.2s ease",
                                             "&:hover": {
@@ -954,33 +959,38 @@ function Execution() {
                                                         </Typography>
                                                     </Box>
                                                 </Grid>
-                                                <Grid item xs={12} sm={3}>
+                                                <Grid item xs={12} sm={4}>
                                                     <Box>
                                                         <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                                                             {isInProgress ? "STARTED AT / ELAPSED" : "PLANNED TIME"}
                                                         </Typography>
                                                         {isInProgress ? (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <Typography variant="body1" sx={{ color: "#4A5568" }}>
+                                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                                <Typography variant="body2" sx={{ color: "#4A5568" }}>
                                                                     {getElapsedTimeForSlot(slot)?.startTimeFormatted || slot.timeLabel}
                                                                 </Typography>
-                                                                <Chip
-                                                                    size="small"
-                                                                    icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
-                                                                    label={getElapsedTimeForSlot(slot)?.display || "00:00"}
-                                                                    sx={{
-                                                                        bgcolor: "#FEF3C7",
-                                                                        color: "#D97706",
-                                                                        fontWeight: 700,
-                                                                        fontFamily: "monospace",
-                                                                        fontSize: "0.85rem",
-                                                                        animation: "pulse 2s infinite",
-                                                                        "@keyframes pulse": {
-                                                                            "0%, 100%": { opacity: 1 },
-                                                                            "50%": { opacity: 0.7 }
-                                                                        }
-                                                                    }}
-                                                                />
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                    <Typography
+                                                                        variant="h6"
+                                                                        sx={{
+                                                                            color: "#D97706",
+                                                                            fontWeight: 800,
+                                                                            fontFamily: "monospace",
+                                                                            animation: "pulse 2s infinite",
+                                                                            "@keyframes pulse": {
+                                                                                "0%, 100%": { opacity: 1 },
+                                                                                "50%": { opacity: 0.7 }
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {getElapsedTimeForSlot(slot)?.display || "00:00"}
+                                                                    </Typography>
+                                                                    {progressData.duration && (
+                                                                        <Typography variant="caption" color="text.secondary">
+                                                                            / {progressData.duration}
+                                                                        </Typography>
+                                                                    )}
+                                                                </Box>
                                                             </Box>
                                                         ) : (
                                                             <Typography variant="body1" sx={{ color: "#4A5568" }}>
@@ -989,7 +999,7 @@ function Execution() {
                                                         )}
                                                     </Box>
                                                 </Grid>
-                                                <Grid item xs={12} sm={3}>
+                                                <Grid item xs={12} sm={2}>
                                                     <Box>
                                                         <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>STATUS</Typography>
                                                         <Chip
@@ -1003,6 +1013,11 @@ function Execution() {
                                                                 fontWeight: 600
                                                             }}
                                                         />
+                                                        {isInProgress && (
+                                                            <Typography variant="caption" sx={{ color: "#F59E0B", display: "block", mt: 0.5 }}>
+                                                                Running...
+                                                            </Typography>
+                                                        )}
                                                     </Box>
                                                 </Grid>
                                                 <Grid item xs={12} sm={2} sx={{ textAlign: "right" }}>
@@ -1032,17 +1047,23 @@ function Execution() {
                                                             Start
                                                         </Button>
                                                     ) : isInProgress ? (
-                                                        <Chip
+                                                        <Button
+                                                            variant="contained"
                                                             size="small"
-                                                            icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
-                                                            label={progressData.duration ? `Auto-stops in ${progressData.duration} min` : "Running..."}
+                                                            onClick={() => handleStopSession(slot)}
+                                                            disabled={updatingSlot === slot.dateLabel}
+                                                            startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <StopCircleIcon />}
                                                             sx={{
-                                                                bgcolor: "#FEF3C7",
-                                                                color: "#D97706",
-                                                                fontWeight: 600,
-                                                                fontSize: "0.75rem",
+                                                                borderRadius: "10px",
+                                                                textTransform: "none",
+                                                                bgcolor: "#E53E3E",
+                                                                boxShadow: "0 4px 6px rgba(229, 62, 62, 0.25)",
+                                                                "&:hover": { bgcolor: "#C53030" },
+                                                                "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
                                                             }}
-                                                        />
+                                                        >
+                                                            Stop
+                                                        </Button>
                                                     ) : (
                                                         <Button
                                                             variant="outlined"

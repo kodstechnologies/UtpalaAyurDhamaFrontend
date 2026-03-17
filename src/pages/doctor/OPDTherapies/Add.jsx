@@ -392,7 +392,7 @@ function OPDTherapiesAddPage() {
     return (
         <div className="mx-[2rem]">
             <HeadingCard
-                title={isEditMode ? "Edit OPD Therapy Plan" : "Create OPD Therapy Plan"}
+                title={isEditMode ? "Edit OPD Therapy Plan " : "Create OPD Therapy Plan"}
                 subtitle={formData.patientName ? `Therapy plan for ${formData.patientName}` : "Create a new OPD therapy plan"}
                 breadcrumbItems={[
                     { label: "Doctor", url: "/doctor/dashboard" },
