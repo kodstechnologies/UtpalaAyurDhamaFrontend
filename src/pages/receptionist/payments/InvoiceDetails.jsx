@@ -1909,9 +1909,9 @@ function InvoiceDetails() {
               <Box sx={{ bgcolor: "#f8f9fa", p: 2, borderRadius: 1 }}>
                 <Typography><strong>Name:</strong> {invoice.patient?.user?.name || invoice.patient?.name || "N/A"}</Typography>
                 {invoice.patient?.uhid && <Typography><strong>UHID:</strong> {invoice.patient.uhid}</Typography>}
-                <Typography><strong>Age/Gender:</strong> {invoice.patient?.age || "N/A"} / {invoice.patient?.user?.gender || invoice.patient?.gender || "N/A"}</Typography>
-                <Typography><strong>Phone:</strong> {invoice.patient?.user?.phone || "N/A"}</Typography>
-                <Typography><strong>Email:</strong> {invoice.patient?.user?.email || "N/A"}</Typography>
+                <Typography><strong>Age/Gender:</strong> {invoice.patient?.age || ""} / {invoice.patient?.user?.gender || invoice.patient?.gender || ""}</Typography>
+                <Typography><strong>Phone:</strong> {invoice.patient?.user?.phone || ""}</Typography>
+                <Typography><strong>Email:</strong> {invoice.patient?.user?.email || ""}</Typography>
               </Box>
             </Box>
 

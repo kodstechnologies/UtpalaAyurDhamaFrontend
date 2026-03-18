@@ -149,6 +149,8 @@ export const invoiceHandlePrint = async (invoice) => {
   <html>
   <head>
     <title>Invoice - Utpala Ayurdhama - ${invoiceNo}</title>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+     
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
@@ -163,15 +165,37 @@ export const invoiceHandlePrint = async (invoice) => {
         flex-direction: column;
         min-height: 297mm;
       }
-      .header {
-        background: #fff3e0;
-        padding: 10px;
-        text-align: center;
-        border-bottom: 2px solid #000;
-      }
-      .header img { height: 100px; }
-      .header .title { font-size: 24px; font-weight: bold; color: #5d4037; margin: 5px 0; }
-      .header .subtitle { font-size: 11px; color: #555; margin: 3px 0; }
+     .header {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  background: #f4d7b5;
+  border-bottom: 2px solid #000;
+}
+
+.logo {
+  height: 70px;
+  margin-right: 15px;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #4e342e;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: #333;
+  margin-top: 4px;
+  line-height: 1.4;
+}
       .header .invoice-title {
         font-size: 18px;
         font-weight: bold;
@@ -223,16 +247,17 @@ export const invoiceHandlePrint = async (invoice) => {
   <body>
 
     <!-- HEADER -->
-    <div class="header">
-      <img src="${logo}" alt="Logo" />
-      <div class="title">Utpala Ayurdhama</div>
-      <div class="subtitle">
-        New BEL Rd, Chikkamaranahalli, Dollars Colony, R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
-      </div>
-      <div class="subtitle">✉ info@utpalaayurdhama.com &nbsp; ✆ +91-7259195959 &nbsp; GSTIN: 29ACXPL2065P1ZL</div>
-      <div class="invoice-title">TAX INVOICE</div>
-    </div>
+<div class="header">
+  <img src="${logo}" alt="Logo" class="logo"/>
 
+  <div class="header-text">
+    <div class="title">UTPALA AYURDHAMA</div>
+    <div class="subtitle">
+      New BEL Rd, Chikkamaranahalli, Dollars Colony,<br/>
+      R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
+    </div>
+  </div>
+</div>
     <!-- PATIENT + RECEIPT INFO -->
     <div class="info-container">
       <div class="patient-box">
@@ -353,24 +378,31 @@ export const invoiceHandlePrint = async (invoice) => {
 
 
     <!-- FOOTER -->
-    <div class="footer">
-      <div class="footer-left">
-        <div class="footer-title">REACH US AT</div>
-        <div>✉ info@utpalaayurdhama.com</div>
-        <div>✆ +91-7259195959</div>
-        <div>✆ 080-4054-0333</div>
-      </div>
-      <div class="footer-divider"></div>
-      <div class="footer-right">
-        <div class="footer-title">OUR BRANCH(S)</div>
-        <div>
-          📍 RAJESHWARI AYURDHAMA<br>
-          #607, Ravi Nenapu, 7th Main road, Havanur Extn,<br>
-          Near Hesaraghatta Main Road, Bengaluru – 560073<br>
-          ✉ rajeshwariayurdhama@gmail.com
-        </div>
-      </div>
+<div class="footer">
+  <div class="footer-left">
+    <div class="footer-title">REACH US AT</div>
+
+    <div><i class="fa-solid fa-envelope"></i> info@utpalaayurdhama.com</div>
+
+    <div><i class="fa-solid fa-phone"></i> +91-7259195959</div>
+
+    <div><i class="fa-solid fa-phone-volume"></i> 080-4054-0333</div>
+  </div>
+
+  <div class="footer-divider"></div>
+
+  <div class="footer-right">
+    <div class="footer-title">OUR BRANCH(S)</div>
+
+    <div>
+      <i class="fa-solid fa-location-dot"></i> RAJESHWARI AYURDHAMA<br>
+      #607, Ravi Nenapu, 7th Main road, Havanur Extn,<br>
+      Near Hesaraghatta Main Road, Bengaluru – 560073<br>
+      <i class="fa-solid fa-envelope"></i> rajeshwariayurdhama@gmail.com
     </div>
+  </div>
+</div>
+
 
     <script>
       window.onload = function () {
