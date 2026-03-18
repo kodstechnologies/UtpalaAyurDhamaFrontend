@@ -17,6 +17,7 @@ import {
     Thermostat as TempIcon,
     Bloodtype as BPIcon,
     MonitorHeart as HeartIcon,
+    Air as SpO2Icon,
     Note as NotesIcon,
     Add as AddIcon,
 } from "@mui/icons-material";
@@ -33,6 +34,7 @@ function UpdateVitalsPage() {
         temperature: "",
         bloodPressure: "",
         heartRate: "",
+        spo2: "",
         notes: "",
     });
 
@@ -74,6 +76,7 @@ function UpdateVitalsPage() {
                             temperature: latestCheckup.temperature || "",
                             bloodPressure: latestCheckup.bloodPressure || "",
                             heartRate: latestCheckup.pulseRate || "", // Map pulseRate to heartRate
+                            spo2: latestCheckup.spo2 || "",
                             notes: latestCheckup.notes || "",
                         });
                     }
@@ -101,7 +104,7 @@ function UpdateVitalsPage() {
         }
 
         // Validate that at least one vital is entered
-        if (!form.temperature && !form.bloodPressure && !form.heartRate) {
+        if (!form.temperature && !form.bloodPressure && !form.heartRate && !form.spo2) {
             toast.error("Please enter at least one vital sign");
             return;
         }
@@ -114,6 +117,7 @@ function UpdateVitalsPage() {
                 temperature: form.temperature ? String(form.temperature).trim() : undefined,
                 bloodPressure: form.bloodPressure ? String(form.bloodPressure).trim() : undefined,
                 pulseRate: form.heartRate ? String(form.heartRate).trim() : undefined, // Map heartRate to pulseRate
+                spo2: form.spo2 ? String(form.spo2).trim() : undefined,
                 notes: form.notes ? String(form.notes).trim() : undefined,
                 date: new Date().toISOString(), // Current date
             };
@@ -241,6 +245,26 @@ function UpdateVitalsPage() {
                                 </InputAdornment>
                             ),
                         }}
+                    />
+                </Field>
+
+                {/* SpO2 */}
+                <Field label="SpO2 (%)">
+                    <StyledTextField
+                        name="spo2"
+                        type="number"
+                        value={form.spo2}
+                        onChange={handleChange}
+                        placeholder="e.g., 98"
+                        disabled={isSaving}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SpO2Icon sx={{ color: "var(--color-icon-2)", fontSize: 20 }} />
+                                </InputAdornment>
+                            ),
+                        }}
+                        inputProps={{ min: 0, max: 100, step: "0.1" }}
                     />
                 </Field>
 

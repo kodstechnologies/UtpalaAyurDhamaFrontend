@@ -897,7 +897,7 @@ function Execution() {
                 </Grid>
 
                 {/* Therapy Charges Card */}
-               
+
 
                 {/* Session Timeline */}
                 <Grid item xs={12}>
@@ -1065,22 +1065,23 @@ function Execution() {
                                                             Stop
                                                         </Button>
                                                     ) : (
-                                                        <Button
-                                                            variant="outlined"
-                                                            size="small"
-                                                            onClick={() => handleToggleComplete(slot)}
-                                                            disabled={updatingSlot === slot.dateLabel}
-                                                            startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} /> : <HistoryIcon />}
-                                                            sx={{
-                                                                borderRadius: "10px",
-                                                                textTransform: "none",
-                                                                borderColor: "#E2E8F0",
-                                                                color: "#718096",
-                                                                "&:hover": { bgcolor: "#F7FAFC", borderColor: "#CBD5E0" }
-                                                            }}
-                                                        >
-                                                            Undo
-                                                        </Button>
+                                                        <></>
+                                                        // <Button
+                                                        //     variant="outlined"
+                                                        //     size="small"
+                                                        //     onClick={() => handleToggleComplete(slot)}
+                                                        //     disabled={updatingSlot === slot.dateLabel}
+                                                        //     startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} /> : <HistoryIcon />}
+                                                        //     sx={{
+                                                        //         borderRadius: "10px",
+                                                        //         textTransform: "none",
+                                                        //         borderColor: "#E2E8F0",
+                                                        //         color: "#718096",
+                                                        //         "&:hover": { bgcolor: "#F7FAFC", borderColor: "#CBD5E0" }
+                                                        //     }}
+                                                        // >
+                                                        //     Undo
+                                                        // </Button>
                                                     )}
                                                 </Grid>
                                             </Grid>

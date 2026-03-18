@@ -15,7 +15,7 @@ import {
     Thermostat as TempIcon,
     Bloodtype as BPIcon,
     MonitorHeart as HeartIcon,
-    Speed as RespIcon,
+    Air as SpO2Icon,
     Note as NotesIcon,
     Add as AddIcon,
 } from "@mui/icons-material";
@@ -26,7 +26,7 @@ function UpdateVitalsCard({ patient, onClose }) {
         temperature: "",
         bloodPressure: "",
         heartRate: "",
-        respiratoryRate: "",
+        spo2: "",
         notes: "",
     });
 
@@ -114,7 +114,7 @@ function UpdateVitalsCard({ patient, onClose }) {
                 <Divider sx={{ mb: 3, borderColor: "var(--color-border)" }} />
 
                 {/* Temperature */}
-                <Field label="Temperature (°F)">
+                <Field label="Temperature (°F) ">
                     <StyledTextField
                         name="temperature"
                         type="number"
@@ -166,21 +166,22 @@ function UpdateVitalsCard({ patient, onClose }) {
                     />
                 </Field>
 
-                {/* Respiratory Rate */}
-                <Field label="Respiratory Rate">
+                {/* SpO2 */}
+                <Field label="SpO2 (%)">
                     <StyledTextField
-                        name="respiratoryRate"
+                        name="spo2"
                         type="number"
-                        value={form.respiratoryRate}
+                        value={form.spo2}
                         onChange={handleChange}
-                        placeholder="e.g., 16"
+                        placeholder="e.g., 98"
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <RespIcon sx={{ color: "var(--color-icon-2)", fontSize: 20 }} />
+                                    <SpO2Icon sx={{ color: "var(--color-icon-2)", fontSize: 20 }} />
                                 </InputAdornment>
                             ),
                         }}
+                        inputProps={{ min: 0, max: 100, step: "0.1" }}
                     />
                 </Field>
 

@@ -55,6 +55,8 @@ function AssignTherapyAddPage() {
     const [isLoadingExisting, setIsLoadingExisting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedInpatient, setSelectedInpatient] = useState(null);
+    const [subTherapies, setSubTherapies] = useState([]);
+    const [isLoadingSubTherapies, setIsLoadingSubTherapies] = useState(false);
 
     const [formData, setFormData] = useState({
         inpatientId: inpatientId,
@@ -159,6 +161,27 @@ function AssignTherapyAddPage() {
         }
     }, []);
 
+    // Fetch sub-therapies
+    const fetchSubTherapies = useCallback(async () => {
+        setIsLoadingSubTherapies(true);
+        try {
+            const response = await axios.get(
+                getApiUrl("sub-therapies"),
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                setSubTherapies(response.data.data || []);
+            } else {
+                console.error("Failed to fetch sub-therapies:", response.data.message);
+            }
+        } catch (error) {
+            console.error("Error fetching sub-therapies:", error);
+        } finally {
+            setIsLoadingSubTherapies(false);
+        }
+    }, []);
+
     // Fetch existing therapy plan data in edit mode
     const fetchExistingTherapyPlan = useCallback(async () => {
         if (!therapyPlanId || !isEditMode) return;
@@ -234,7 +257,8 @@ function AssignTherapyAddPage() {
         fetchInpatients();
         fetchTherapists();
         fetchTherapies();
-    }, [fetchInpatients, fetchTherapists, fetchTherapies]);
+        fetchSubTherapies();
+    }, [fetchInpatients, fetchTherapists, fetchTherapies, fetchSubTherapies]);
 
     // Fetch existing data when in edit mode and dependencies are ready
     useEffect(() => {
@@ -645,14 +669,25 @@ function AssignTherapyAddPage() {
                                                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
                                                     Sub Therapy
                                                 </Typography>
-                                                <TextField
-                                                    fullWidth
-                                                    value={row.subTherapy}
-                                                    onChange={(e) =>
-                                                        handleTherapyRowChange(index, "subTherapy", e.target.value)
-                                                    }
-                                                    placeholder="Enter sub therapy details (e.g. oil type, special additions)"
-                                                />
+                                                <FormControl fullWidth disabled={isLoadingSubTherapies}>
+                                                    <InputLabel>Select Sub Therapy</InputLabel>
+                                                    <Select
+                                                        value={row.subTherapy || ""}
+                                                        label="Select Sub Therapy"
+                                                        onChange={(e) =>
+                                                            handleTherapyRowChange(index, "subTherapy", e.target.value)
+                                                        }
+                                                    >
+                                                        <MenuItem value="">
+                                                            <em>None</em>
+                                                        </MenuItem>
+                                                        {subTherapies.map((st) => (
+                                                            <MenuItem key={st._id} value={st.name}>
+                                                                {st.name}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
                                             </Grid>
 
                                             {/* Duration */}

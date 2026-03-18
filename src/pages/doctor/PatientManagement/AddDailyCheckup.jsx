@@ -48,7 +48,7 @@ function AddDailyCheckupPage() {
             if (response.data.success && response.data.data) {
                 const inpatient = response.data.data;
                 const checkups = inpatient.dailyCheckups || [];
-                
+
                 if (checkups.length > 0) {
                     // Get the most recent checkup (sorted by date, most recent first)
                     const sortedCheckups = [...checkups].sort((a, b) => {
@@ -61,11 +61,11 @@ function AddDailyCheckupPage() {
                     if (latestCheckup && latestCheckup._id) {
                         setExistingCheckupId(latestCheckup._id);
                         setIsEditMode(true);
-                        
+
                         // Pre-populate form with existing data
                         setFormData({
-                            date: latestCheckup.date 
-                                ? new Date(latestCheckup.date).toISOString().split('T')[0] 
+                            date: latestCheckup.date
+                                ? new Date(latestCheckup.date).toISOString().split('T')[0]
                                 : new Date().toISOString().split('T')[0],
                             temperature: latestCheckup.temperature || '',
                             bloodPressure: latestCheckup.bloodPressure || '',
@@ -95,7 +95,7 @@ function AddDailyCheckupPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!inpatientId) {
             toast.error("Invalid patient information. Please try again.");
             navigate(-1);
