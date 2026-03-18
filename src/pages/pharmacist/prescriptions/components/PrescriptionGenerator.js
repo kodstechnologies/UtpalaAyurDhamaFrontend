@@ -361,11 +361,7 @@ export const handlePrint = async (id) => {
         <td>${patient.mobileOrUHID}</td>
       </tr>
 
-      <tr>
-        <td class="label">E-MAIL</td>
-        <td class="colon">:</td>
-        <td>${patient.email || ""}</td>
-      </tr>
+    
 
       <tr>
         <td class="label">ADDRESS</td>

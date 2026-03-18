@@ -132,11 +132,7 @@ export const handleDownload = async (id) => {
               <td style="width:10px; padding:3px 5px;">:</td>
               <td style="padding:3px 5px;">${patient.mobileOrUHID}</td>
             </tr>
-            <tr>
-              <td style="font-weight:bold; width:140px; padding:3px 5px;">E-MAIL</td>
-              <td style="width:10px; padding:3px 5px;">:</td>
-              <td style="padding:3px 5px;">${patient.email || ""}</td>
-            </tr>
+        
             <tr>
               <td style="font-weight:bold; width:140px; padding:3px 5px;">ADDRESS</td>
               <td style="width:10px; padding:3px 5px;">:</td>
