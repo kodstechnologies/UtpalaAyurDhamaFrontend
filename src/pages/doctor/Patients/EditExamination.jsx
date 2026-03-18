@@ -180,7 +180,7 @@ function EditExamination() {
                             <Stack direction="row" spacing={2} mt={0.5} flexWrap="wrap">
                                 <Chip
                                     icon={<PersonOutline fontSize="small" />}
-                                    label={`${patient.age} years`}
+                                    // label={`${patient.age} years`}
                                     size="small"
                                 />
                                 {patient.uhid && <Chip label={`UHID: ${patient.uhid}`} size="small" />}

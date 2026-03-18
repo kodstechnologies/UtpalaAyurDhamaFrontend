@@ -39,8 +39,8 @@ export const handleDownload = async (id) => {
       name: data.patientName || "MRS. SUPRITA SHETTY",
       gender: data.gender || "Female",
       age: data.age || "",
-      address: data.address || "YESWANTHPUR",
-      mobileOrUHID: data.uhid || "91842846456",
+      // address: data.address || "YESWANTHPUR",
+      mobileOrUHID: data.mobile || "",
       email: data.email || "",
       gstin: data.patientGSTIN || ""
     };
@@ -133,11 +133,7 @@ export const handleDownload = async (id) => {
               <td style="padding:3px 5px;">${patient.mobileOrUHID}</td>
             </tr>
         
-            <tr>
-              <td style="font-weight:bold; width:140px; padding:3px 5px;">ADDRESS</td>
-              <td style="width:10px; padding:3px 5px;">:</td>
-              <td style="padding:3px 5px;">${patient.address}</td>
-            </tr>
+        
           </table>
         </div>
 

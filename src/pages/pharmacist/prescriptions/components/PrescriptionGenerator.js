@@ -39,8 +39,8 @@ export const handlePrint = async (id) => {
       name: data.patientName || "MRS. SUPRITA SHETTY",
       gender: data.gender || "Female",
       age: data.age || "",
-      address: data.address || "YESWANTHPUR",
-      mobileOrUHID: data.uhid || "91842846456",
+      // address: data.address || "YESWANTHPUR",
+      mobileOrUHID: data.mobile || "",
       gstin: data.patientGSTIN || "" // usually empty for patients
     };
 
@@ -361,13 +361,6 @@ export const handlePrint = async (id) => {
         <td>${patient.mobileOrUHID}</td>
       </tr>
 
-    
-
-      <tr>
-        <td class="label">ADDRESS</td>
-        <td class="colon">:</td>
-        <td>${patient.address}</td>
-      </tr>
     </table>
   </div>
 
