@@ -85,6 +85,13 @@ function WalkInHub() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletedTherapyIds, setDeletedTherapyIds] = useState([]);
+
+  const formatDateForInput = (date) => {
+    if (!date) return new Date().toLocaleDateString("en-CA");
+    const d = new Date(date);
+    return d.toLocaleDateString("en-CA");
+  };
 
   const fetchData = useCallback(async () => {
     setIsLoadingData(true);
@@ -125,16 +132,105 @@ function WalkInHub() {
     }
   }, []);
 
+  const loadTherapiesForMode = useCallback(
+    async (targetMode) => {
+      if (!patientProfileId) return;
+      try {
+        if (targetMode === "IPD") {
+          const sessionsRes = await axios.get(
+            getApiUrl(
+              `therapist-sessions/treatment-list?type=IPD&patientId=${patientProfileId}`,
+            ),
+            { headers: getAuthHeaders() },
+          );
+          const sessions =
+            sessionsRes.data?.success && Array.isArray(sessionsRes.data.data)
+              ? sessionsRes.data.data
+              : [];
+
+          const mapped = sessions.map((s) => {
+            // Keep therapistId values aligned with the Select options (therapist user IDs)
+            const therapistIds = Array.isArray(s.therapists)
+              ? s.therapists
+                  .map((t) => t?.user?._id || t?.user)
+                  .filter(Boolean)
+              : s.therapist?.user?._id || s.therapist?.user
+                ? [s.therapist.user?._id || s.therapist.user]
+                : [];
+            return {
+              _id: s._id,
+              treatmentName: s.treatmentName || "",
+              subTherapy: s.subTherapy || "",
+              daysOfTreatment: s.daysOfTreatment || 0,
+              timeline: s.timeline || "Daily",
+              duration: s.duration || "",
+              treatmentDescription: s.treatmentDescription || "",
+              therapistId: therapistIds,
+              specialInstructions: s.specialInstructions || "",
+              startDate: formatDateForInput(s.sessionDate || s.createdAt),
+            };
+          });
+
+          setFormData((prev) => ({
+            ...prev,
+            therapies:
+              mapped.length > 0
+                ? mapped
+                : [getEmptyTherapy(prev.appointmentDate)],
+          }));
+          return;
+        }
+
+        // OPD: treatment plans
+        const plansRes = await axios.get(
+          getApiUrl(`examinations/therapy-plans/patient/${patientProfileId}`),
+          { headers: getAuthHeaders() },
+        );
+
+        if (plansRes.data.success && plansRes.data.data?.length > 0) {
+          const plans = plansRes.data.data;
+          const mappedTherapies = plans.map((plan) => {
+            const assignedTherapistIds = Array.isArray(plan.therapistId)
+              ? plan.therapistId
+              : plan.therapistId
+                ? [plan.therapistId]
+                : [];
+            return {
+              _id: plan._id,
+              treatmentName: Array.isArray(plan.treatmentName)
+                ? plan.treatmentName[0] || ""
+                : plan.treatmentName || "",
+              daysOfTreatment: plan.daysOfTreatment || 0,
+              timeline: plan.timeline || "Daily",
+              specialInstructions: plan.specialInstructions || "",
+              subTherapy: plan.subTherapy || "",
+              duration: plan.duration || "",
+              treatmentDescription: plan.treatmentDescription || "",
+              therapistId: assignedTherapistIds,
+              startDate: formatDateForInput(plan.startDate),
+            };
+          });
+
+          setFormData((prev) => ({
+            ...prev,
+            therapies:
+              mappedTherapies.length > 0
+                ? mappedTherapies
+                : [getEmptyTherapy(prev.appointmentDate)],
+          }));
+        }
+      } catch (e) {
+        console.error("[WalkInHub] Error loading therapies for mode:", e);
+      }
+    },
+    [patientProfileId],
+  );
+
   // Fetch existing patient assignments
   const loadExistingAssignments = useCallback(async () => {
     if (!patientProfileId) return;
 
     setIsLoadingExistingData(true);
-    const formatDateForInput = (date) => {
-      if (!date) return new Date().toLocaleDateString("en-CA");
-      const d = new Date(date);
-      return d.toLocaleDateString("en-CA");
-    };
 
     const formatTimeForInput = (timeStr) => {
       if (!timeStr) return "";
@@ -457,55 +553,19 @@ function WalkInHub() {
           }
         }
 
-        // Load therapy data
-        try {
-          const plansRes = await axios.get(
-            getApiUrl(`examinations/therapy-plans/patient/${patientProfileId}`),
-            { headers: getAuthHeaders() },
-          );
+        // Load therapy data for current mode (OPD plans vs IPD sessions)
+        await loadTherapiesForMode(
+          patient.admissionStatus === "In-patient" ||
+            patient.inpatient === true ||
+            hasActiveAdmission
+            ? "IPD"
+            : "OPD",
+        );
 
-          if (plansRes.data.success && plansRes.data.data?.length > 0) {
-            const plans = plansRes.data.data;
-
-            // Map all plans to the therapy array structure
-            // We need to fetch assigned therapists for each plan ideally
-            // For optimization, we might just assume basic structure or fetch details if needed
-            // Here we map basic details.
-
-            const mappedTherapies = await Promise.all(
-              plans.map(async (plan) => {
-                const assignedTherapistIds = Array.isArray(plan.therapistId)
-                  ? plan.therapistId
-                  : plan.therapistId
-                    ? [plan.therapistId]
-                    : [];
-
-
-                return {
-                  _id: plan._id, // vital for preventing duplication
-                  treatmentName: Array.isArray(plan.treatmentName)
-                    ? plan.treatmentName[0] || ""
-                    : plan.treatmentName || "",
-                  daysOfTreatment: plan.daysOfTreatment || 0,
-                  timeline: plan.timeline || "Daily",
-                  specialInstructions: plan.specialInstructions || "",
-                  subTherapy: plan.subTherapy || "",
-                  duration: plan.duration || "",
-                  treatmentDescription: plan.treatmentDescription || "",
-                  therapistId: assignedTherapistIds,
-                  startDate: formatDateForInput(plan.startDate),
-                };
-              }),
-            );
-
-            setFormData((prev) => ({
-              ...prev,
-              therapies:
-                mappedTherapies.length > 0
-                  ? mappedTherapies
-                  : [getEmptyTherapy(prev.appointmentDate)],
-            }));
-          } else if (patient.assignedTherapy) {
+        if (
+          (!formData?.therapies || formData.therapies.length === 0) &&
+          patient.assignedTherapy
+        ) {
             // Fallback to patient profile data
 
             setFormData((prev) => ({
@@ -529,9 +589,6 @@ function WalkInHub() {
                 },
               ],
             }));
-          }
-        } catch (planErr) {
-          console.error("Error loading treatment plans:", planErr);
         }
       }
     } catch (error) {
@@ -539,7 +596,7 @@ function WalkInHub() {
     } finally {
       setIsLoadingExistingData(false);
     }
-  }, [patientProfileId, existingDoctorId]);
+  }, [patientProfileId, existingDoctorId, loadTherapiesForMode]);
 
   useEffect(() => {
     fetchData();
@@ -554,6 +611,9 @@ function WalkInHub() {
   const handleModeChange = (event, newMode) => {
     if (newMode !== null) {
       setMode(newMode);
+      setDeletedTherapyIds([]);
+      // Immediately sync therapy list to selected mode to avoid OPD/IPD mismatch
+      loadTherapiesForMode(newMode);
     }
   };
 
@@ -591,10 +651,18 @@ function WalkInHub() {
   };
 
   const handleRemoveTherapy = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      therapies: prev.therapies.filter((_, i) => i !== index),
-    }));
+    setFormData((prev) => {
+      const toRemove = prev.therapies[index];
+      if (toRemove?._id) {
+        setDeletedTherapyIds((ids) =>
+          ids.includes(toRemove._id) ? ids : [...ids, toRemove._id],
+        );
+      }
+      return {
+        ...prev,
+        therapies: prev.therapies.filter((_, i) => i !== index),
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -639,6 +707,7 @@ function WalkInHub() {
           daysOfTreatment: t.daysOfTreatment,
           timeline: t.timeline,
         })),
+      therapyDeleteIds: deletedTherapyIds,
     };
 
     setIsSubmitting(true);
@@ -1111,7 +1180,9 @@ function WalkInHub() {
                             >
                               {selected.map((value) => {
                                 const therapist = therapists.find(
-                                  (th) => (th.user?._id || th._id) === value,
+                                  (th) =>
+                                    th?._id === value ||
+                                    th?.user?._id === value,
                                 );
                                 return (
                                   <Chip
