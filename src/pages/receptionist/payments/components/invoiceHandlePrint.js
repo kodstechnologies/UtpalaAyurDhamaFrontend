@@ -321,6 +321,37 @@ export const invoiceHandlePrint = async (invoice) => {
       </div>
     </div>
 
+<!-- NOTES SECTION -->
+<div style="border-top:1px solid #000; padding:12px; font-size:11px; line-height:1.6;">
+  <div style="display:flex; justify-content:space-between;">
+    
+    <!-- LEFT SIDE NOTES -->
+    <div style="width:70%;">
+      <div style="font-weight:bold; margin-bottom:5px;">Notes:</div>
+      <div>• Ensure to verify the invoice before you leave.</div>
+      <div>• If you have any questions or concerns about this invoice, please contact or E-mail us.</div>
+      <div>• Thank you for your continued trust and support!</div>
+      <div>• We greatly appreciate your visit. You're a valued customer at UTPALA AYURDHAMA.</div>
+      <div>• To know more about our services please visit https://utpalaayurdhama.com</div>
+      
+      <div style="margin-top:8px; font-weight:bold;">Please visit us again...!</div>
+    </div>
+
+    <!-- RIGHT SIDE SIGNATURE -->
+    <div style="width:25%; text-align:right;">
+      <div style="margin-bottom:40px;">For UTPALA AYURDHAMA</div>
+      <div>Authorized Signature</div>
+    </div>
+
+  </div>
+
+  <!-- SYSTEM NOTE -->
+  <div style="text-align:center; margin-top:10px; font-size:10px; color:#555;">
+    This is a system generated invoice. You can use invoice number to track in future.
+  </div>
+</div>
+
+
     <!-- FOOTER -->
     <div class="footer">
       <div class="footer-left">

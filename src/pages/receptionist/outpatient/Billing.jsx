@@ -2466,6 +2466,10 @@ function OutpatientBilling() {
   const [isLoadingTherapists, setIsLoadingTherapists] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Discount
+  const [discountType, setDiscountType] = useState("percentage"); // "percentage" | "fixed"
+  const [discountValue, setDiscountValue] = useState("");
+
   const fetchBillingDetails = async () => {
     if (!patientId) {
       setError("No patient ID provided");
@@ -2533,12 +2537,21 @@ function OutpatientBilling() {
     return chargeTotals.consultation + chargeTotals.therapy;
   }, [chargeTotals]);
 
+  const discountAmount = useMemo(() => {
+    const val = parseFloat(discountValue) || 0;
+    if (!val || val <= 0) return 0;
+    if (discountType === "percentage") {
+      return Math.min((grandTotal * val) / 100, grandTotal);
+    }
+    return Math.min(val, grandTotal);
+  }, [discountType, discountValue, grandTotal]);
+
   const totalCharges = useMemo(() => {
     if (billingData?.isFinalized && billingData?.invoice) {
       return billingData.invoice.totalPayable;
     }
-    return grandTotal;
-  }, [billingData, grandTotal]);
+    return Math.max(0, grandTotal - discountAmount);
+  }, [billingData, grandTotal, discountAmount]);
 
   const amountPaid = useMemo(() => billingData?.invoice?.amountPaid || 0, [billingData]);
 
@@ -2715,9 +2728,17 @@ function OutpatientBilling() {
   const handleFinalizeBilling = async () => {
     setIsFinalizing(true);
     try {
+      const payload = {};
+      const dVal = parseFloat(discountValue) || 0;
+      if (dVal > 0) {
+        payload.discountType = discountType;
+        payload.discountValue = dVal;
+        payload.discountAmount = discountAmount;
+      }
+
       const response = await inpatientService.finalizeOutpatientBilling(
         patientId,
-        {}, // no discount, no tax
+        payload,
         { examinationId }
       );
 
@@ -2863,6 +2884,57 @@ function OutpatientBilling() {
           />
         </div>
       </div>
+
+      {/* Discount & Bill Summary */}
+      {!isFinalized && (
+        <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
+          <div className="card-header" style={{ padding: "12px 20px" }}>
+            <h5 className="card-title mb-0" style={{ fontWeight: 700, fontSize: "1.1rem" }}>Discount</h5>
+          </div>
+          <div className="card-body p-4">
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-start", mb: 3 }}>
+              <FormControl sx={{ minWidth: 180 }}>
+                <InputLabel>Discount Type</InputLabel>
+                <Select
+                  value={discountType}
+                  label="Discount Type"
+                  onChange={e => { setDiscountType(e.target.value); setDiscountValue(""); }}
+                >
+                  <MenuItem value="percentage">Percentage (%)</MenuItem>
+                  <MenuItem value="fixed">Fixed Amount (₹)</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label={discountType === "percentage" ? "Discount %" : "Discount Amount (₹)"}
+                type="number"
+                value={discountValue}
+                onChange={e => setDiscountValue(e.target.value)}
+                inputProps={{ min: 0, step: discountType === "percentage" ? 0.1 : 1, max: discountType === "percentage" ? 100 : undefined }}
+                sx={{ minWidth: 180 }}
+                placeholder={discountType === "percentage" ? "e.g. 10" : "e.g. 500"}
+              />
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, maxWidth: 360, ml: "auto" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography color="text.secondary">Gross Total</Typography>
+                <Typography fontWeight={600}>{formatCurrency(grandTotal)}</Typography>
+              </Box>
+              {discountAmount > 0 && (
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography color="error.main">Discount ({discountType === "percentage" ? `${discountValue}%` : "Fixed"})</Typography>
+                  <Typography color="error.main" fontWeight={600}>-{formatCurrency(discountAmount)}</Typography>
+                </Box>
+              )}
+              <Divider sx={{ my: 1 }} />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="h6" fontWeight={700}>Final Total</Typography>
+                <Typography variant="h6" fontWeight={700} color="primary.main">{formatCurrency(totalCharges)}</Typography>
+              </Box>
+            </Box>
+          </div>
+        </div>
+      )}
 
       {/* Edit Doctor Dialog */}
       <Dialog open={editDoctorDialog.open} onClose={() => !isUpdating && setEditDoctorDialog({ open: false, charge: null })} maxWidth="sm" fullWidth>

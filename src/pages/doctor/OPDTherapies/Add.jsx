@@ -349,7 +349,8 @@ function OPDTherapiesAddPage() {
                     : row.therapyId;
 
                 const requestData = {
-                    examinationId: formData.examinationId,
+                    examinationId: formData.examinationId || undefined,
+                    patientId: formData.patientId,
                     treatmentName: treatmentNameToSend,
                     daysOfTreatment: parseInt(row.totalSessions, 10),
                     timeline: row.timeline || "AlternateDay",
