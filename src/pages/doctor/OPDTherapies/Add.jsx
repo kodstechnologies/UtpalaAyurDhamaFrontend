@@ -105,9 +105,7 @@ function OPDTherapiesAddPage() {
             );
 
             if (response.data.success) {
-                // Filter OPD examinations (no inpatient)
-                const opdExams = (response.data.data || []).filter(exam => !exam.inpatient);
-                setExaminations(opdExams);
+                setExaminations(response.data.data || []);
             }
         } catch (error) {
             console.error("Error fetching examinations:", error);
