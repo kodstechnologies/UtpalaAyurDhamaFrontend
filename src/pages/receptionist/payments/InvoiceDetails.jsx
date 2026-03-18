@@ -1787,36 +1787,15 @@ function InvoiceDetails() {
   ];
 
   const handleDownloadPdf = async () => {
-    if (!invoice?.prescription) {
-      toast.info("PDF not available for this invoice");
-      return;
-    }
-    try {
-      const response = await invoiceService.downloadInvoicePdf(
-        invoice.prescription._id || invoice.prescription
-      );
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Invoice_${invoice.invoiceNumber}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success("PDF downloaded");
-    } catch (err) {
-      toast.error("Failed to download PDF");
-    }
+    await invoiceHandleDownload(invoice);
   };
 
   const handlePrint = async () => {
-    // ... (keep your existing print logic - unchanged)
-    // Omitted here for brevity — paste your original handlePrint function
+    invoiceHandlePrint(invoice);
   };
 
   const handleDownloadDischargeReport = async () => {
-    // ... (keep your existing download logic - unchanged)
-    // Omitted here — paste your original function
+    await invoiceHandleDownload(invoice);
   };
 
   if (loading) {
@@ -1886,7 +1865,7 @@ function InvoiceDetails() {
             <Button
               variant="contained"
               startIcon={<DownloadIcon />}
-              onClick={invoiceHandleDownload}
+              onClick={() => invoiceHandleDownload(invoice)}
               disabled={downloadingReport}
               sx={{ backgroundColor: "#1976d2" }}
             >
@@ -1895,7 +1874,7 @@ function InvoiceDetails() {
             <Button
               variant="contained"
               startIcon={<PrintIcon />}
-              onClick={invoiceHandlePrint}
+              onClick={() => invoiceHandlePrint(invoice)}
               disabled={printingReport}
               sx={{ backgroundColor: "#4CAF50" }}
             >
@@ -1928,9 +1907,11 @@ function InvoiceDetails() {
                 <PersonIcon sx={{ color: "#D4A574" }} /> Patient Information
               </Typography>
               <Box sx={{ bgcolor: "#f8f9fa", p: 2, borderRadius: 1 }}>
-                <Typography><strong>Name:</strong> {invoice.patient?.user?.name || "N/A"}</Typography>
+                <Typography><strong>Name:</strong> {invoice.patient?.user?.name || invoice.patient?.name || "N/A"}</Typography>
                 {invoice.patient?.uhid && <Typography><strong>UHID:</strong> {invoice.patient.uhid}</Typography>}
-                {invoice.patient?.user?.phone && <Typography><strong>Phone:</strong> {invoice.patient.user.phone}</Typography>}
+                <Typography><strong>Age/Gender:</strong> {invoice.patient?.age || "N/A"} / {invoice.patient?.user?.gender || invoice.patient?.gender || "N/A"}</Typography>
+                <Typography><strong>Phone:</strong> {invoice.patient?.user?.phone || "N/A"}</Typography>
+                <Typography><strong>Email:</strong> {invoice.patient?.user?.email || "N/A"}</Typography>
               </Box>
             </Box>
 
@@ -1942,6 +1923,9 @@ function InvoiceDetails() {
               <Box sx={{ bgcolor: "#f8f9fa", p: 2, borderRadius: 1 }}>
                 <Typography><strong>Date:</strong> {formatDate(invoice.createdAt)}</Typography>
                 {invoice.inpatient && <Typography><strong>Type:</strong> Inpatient</Typography>}
+                {invoice.doctor && (
+                  <Typography><strong>Doctor:</strong> {invoice.doctor.firstName ? `${invoice.doctor.firstName} ${invoice.doctor.lastName}` : invoice.doctor.user?.name || "N/A"}</Typography>
+                )}
               </Box>
             </Box>
           </Box>

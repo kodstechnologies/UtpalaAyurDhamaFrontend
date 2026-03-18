@@ -67,14 +67,18 @@ export const invoiceHandlePrint = async (invoice) => {
   }
 
   const patient = {
-    name: invoice.patient?.user?.name || "N/A",
-    gender: invoice.patient?.user?.gender || "",
-    age: invoice.patient?.age || "",
-    phone: invoice.patient?.user?.phone || "",
-    email: invoice.patient?.user?.email || "",
-    uhid: invoice.patient?.uhid || "",
-    address: invoice.patient?.user?.address || "",
+    name: invoice.patient?.user?.name || invoice.patient?.name || "N/A",
+    gender: invoice.patient?.user?.gender || invoice.patient?.gender || "N/A",
+    age: invoice.patient?.age || "N/A",
+    phone: invoice.patient?.user?.phone || "N/A",
+    email: invoice.patient?.user?.email || "N/A",
+    uhid: invoice.patient?.uhid || invoice.patient?.patientId || "",
+    address: invoice.patient?.user?.address || "N/A",
   };
+
+  const doctorName = invoice.doctor
+    ? (invoice.doctor.firstName ? `${invoice.doctor.firstName} ${invoice.doctor.lastName}` : invoice.doctor.user?.name || "N/A")
+    : "N/A";
 
   const invoiceDate = formatDate(invoice.createdAt);
   const invoiceNo = invoice.invoiceNumber || "N/A";
@@ -234,12 +238,12 @@ export const invoiceHandlePrint = async (invoice) => {
       <div class="patient-box">
         <table class="info-table">
           <tr><td class="label">NAME</td><td>:</td><td>${patient.name}</td></tr>
+          ${doctorName !== "N/A" ? `<tr><td class="label">DOCTOR</td><td>:</td><td>${doctorName}</td></tr>` : ""}
           ${patient.uhid ? `<tr><td class="label">UHID</td><td>:</td><td>${patient.uhid}</td></tr>` : ""}
-          ${patient.age ? `<tr><td class="label">AGE</td><td>:</td><td>${patient.age}</td></tr>` : ""}
-          ${patient.gender ? `<tr><td class="label">GENDER</td><td>:</td><td>${patient.gender}</td></tr>` : ""}
-          ${patient.phone ? `<tr><td class="label">PHONE</td><td>:</td><td>${patient.phone}</td></tr>` : ""}
-          ${patient.email ? `<tr><td class="label">E-MAIL</td><td>:</td><td>${patient.email}</td></tr>` : ""}
-          ${patient.address ? `<tr><td class="label">ADDRESS</td><td>:</td><td>${patient.address}</td></tr>` : ""}
+          <tr><td class="label">AGE/GENDER</td><td>:</td><td>${patient.age} / ${patient.gender}</td></tr>
+          ${patient.phone !== "N/A" ? `<tr><td class="label">PHONE</td><td>:</td><td>${patient.phone}</td></tr>` : ""}
+          ${patient.email !== "N/A" ? `<tr><td class="label">E-MAIL</td><td>:</td><td>${patient.email}</td></tr>` : ""}
+          ${patient.address !== "N/A" ? `<tr><td class="label">ADDRESS</td><td>:</td><td>${patient.address}</td></tr>` : ""}
         </table>
       </div>
       <div class="receipt-box">
