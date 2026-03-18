@@ -312,7 +312,7 @@ function Therapy_Progress() {
             <HeadingCard
                 category="THERAPY PROGRESS"
                 title="My Therapy Appointments"
-                subtitle="View and manage your scheduled therapy sessions"
+                subtitle="View and manage your scheduled therapy sessions11"
                 action={
                     <div
                         style={{
