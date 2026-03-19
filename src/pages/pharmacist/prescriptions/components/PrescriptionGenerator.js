@@ -325,7 +325,7 @@ export const handlePrint = async (id) => {
       <div class="logo">
   <img src="${logo}" style="height:200px;" />
 </div>
-        <div class="logo">Utpala Ayurdham</div>
+        <div class="logo">Utpala Ayurdhama</div>
         <div class="clinic-info">
           New BEL Rd, Chikkamaranahalli, Dollars Colony, R.M.V. 2nd Stage,
           Bengaluru, Karnataka 560094
