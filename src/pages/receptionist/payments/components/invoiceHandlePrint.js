@@ -106,7 +106,7 @@ export const invoiceHandlePrint = async (invoice) => {
 
     // Category header row
     itemsHtml += `
-      <tr style="background:#e8f4f8;">
+      <tr >
         <td colspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; font-size:12px;">${cat}</td>
         <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; font-size:12px;">₹${formatCurrency(catTotal)}</td>
       </tr>
@@ -207,14 +207,14 @@ export const invoiceHandlePrint = async (invoice) => {
         border-radius: 4px;
       }
       .info-container { display: flex; border: 1px solid #000; margin: 0; }
-      .patient-box { width: 60%; background: #fafafa; padding: 12px; border-right: 1px solid #000; }
-      .receipt-box { width: 40%; background: #fafafa; }
-      .receipt-title { text-align: center; font-weight: bold; font-size: 16px; border-bottom: 1px solid #000; padding: 8px; background: #f5f0eb; }
+      .patient-box { width: 60%;  padding: 12px; border-right: 1px solid #000; }
+      .receipt-box { width: 40%;  }
+      .receipt-title { text-align: center; font-weight: bold; font-size: 16px; border-bottom: 1px solid #000; padding: 8px; }
       .info-table { width: 100%; font-size: 12px; }
       .info-table td { padding: 3px 6px; }
       .info-table .label { font-weight: bold; width: 100px; }
       .items-table { width: 100%; border-collapse: collapse; }
-      .items-table th { border: 1px solid #000; padding: 6px; font-size: 11px; background: #f5f0eb; text-align: center; font-weight: bold; }
+      .items-table th { border: 1px solid #000; padding: 6px; font-size: 11px; text-align: center; font-weight: bold; }
       .summary-container { display: flex; border-top: 2px solid #000; margin-top: 10px; }
       .summary-left { width: 55%; padding: 12px; border-right: 1px solid #000; }
       .summary-right { width: 45%; padding: 12px; }
@@ -299,7 +299,7 @@ export const invoiceHandlePrint = async (invoice) => {
       </thead>
       <tbody>
         ${itemsHtml}
-        <tr style="font-weight:bold; background:#f5f0eb;">
+        <tr style="font-weight:bold;">
           <td colspan="5" style="border:1px solid #000; padding:6px; font-size:12px;">SUBTOTAL</td>
           <td style="border:1px solid #000; padding:6px; text-align:right; font-size:12px;">₹${formatCurrency(subtotal)}</td>
         </tr>

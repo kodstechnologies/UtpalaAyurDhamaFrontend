@@ -98,7 +98,7 @@ export const invoiceHandleDownload = async (invoice) => {
       const catTotal = catItems.reduce((sum, i) => sum + (i.total || i.amount || 0), 0);
 
       itemsHtml += `
-        <tr style="background:#e8f4f8;">
+        <tr>
           <td colspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; font-size:12px;">${cat}</td>
           <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; font-size:12px;">₹${formatCurrency(catTotal)}</td>
         </tr>
@@ -141,8 +141,9 @@ export const invoiceHandleDownload = async (invoice) => {
     // ── HTML structure (very close to print version) ──
     const htmlContent = `
       <div style="font-family: Arial, Helvetica, sans-serif; color:#000; width:794px; padding:15px; border:1px solid #000; background:#fff; box-sizing:border-box;">
+      
         <!-- HEADER -->
-        <div style="display:flex; align-items:center; padding:12px 15px; background:#f4d7b5; border-bottom:2px solid #000;">
+        <div style="display:flex; align-items:center; padding:12px 15px; background:#f4d7b5; ">
           <img src="${logo}" style="height:70px; margin-right:15px;" alt="Logo"/>
           <div style="flex:1;">
             <div style="font-size:18px; font-weight:bold; color:#4e342e;">UTPALA AYURDHAMA</div>
@@ -168,7 +169,7 @@ export const invoiceHandleDownload = async (invoice) => {
             </table>
           </div>
           
-      <div style="width:40%; background:#f9f9f9; border-left:1px solid #000;">
+      <div style="width:40%; border-left:1px solid #000;">
 
 
             <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:8px; background:#f5f0eb;">
@@ -220,7 +221,7 @@ export const invoiceHandleDownload = async (invoice) => {
         <!-- ITEMS TABLE -->
         <table style="width:100%; border-collapse:collapse; font-size:11px;">
           <thead>
-            <tr style="background:#f5f0eb;">
+            <tr style="">
               <th style="border:1px solid #000; padding:6px; width:40px;">Srl</th>
               <th style="border:1px solid #000; padding:6px;">Item Name</th>
               <th style="border:1px solid #000; padding:6px;">Description</th>
@@ -231,7 +232,7 @@ export const invoiceHandleDownload = async (invoice) => {
           </thead>
           <tbody>
             ${itemsHtml}
-            <tr style="font-weight:bold; background:#f5f0eb;">
+            <tr style="font-weight:bold;">
               <td colspan="5" style="border:1px solid #000; padding:6px;">SUBTOTAL</td>
               <td style="border:1px solid #000; padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
             </tr>
@@ -239,7 +240,7 @@ export const invoiceHandleDownload = async (invoice) => {
         </table>
 
         <!-- SUMMARY + NOTES -->
-        <div style="display:flex; margin-top:15px; border-top:2px solid #000; padding-top:10px;">
+        <div style="display:flex; margin-top:15px; padding-top:10px;">
           <div style="width:55%; padding-right:15px;">
             <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
             <div style="font-style:italic; font-size:12px;">${amountInWords}</div>
@@ -276,7 +277,7 @@ export const invoiceHandleDownload = async (invoice) => {
         </div>
 
         <!-- NOTES + SIGNATURE -->
-        <div style="border-top:1px solid #000; margin-top:20px; padding:12px 0; font-size:11px; line-height:1.5;">
+        <div style=" margin-top:20px; padding:12px 0; font-size:11px; line-height:1.5;">
           <div style="display:flex; justify-content:space-between;">
             <div style="width:70%;">
               <div style="font-weight:bold; margin-bottom:6px;">Notes:</div>
@@ -299,7 +300,7 @@ export const invoiceHandleDownload = async (invoice) => {
         </div>
 
         <!-- FOOTER -->
-        <div style="margin-top:20px; background:#5d4037; color:#fff; display:flex; justify-content:space-between; padding:15px 20px; font-size:11px; border-top:2px solid #000;">
+        <div style="margin-top:20px; background:#5d4037; color:#fff; display:flex; justify-content:space-between; padding:15px 20px; font-size:11px; ">
           <div style="width:40%;">
             <div style="font-weight:bold; margin-bottom:6px; font-size:13px;">REACH US AT</div>
             <div><i style="margin-right:6px;" class="fa-solid fa-envelope"></i> info@utpalaayurdhama.com</div>
