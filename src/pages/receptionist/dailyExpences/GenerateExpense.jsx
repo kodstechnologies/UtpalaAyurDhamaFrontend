@@ -37,6 +37,8 @@ import {
   CreditCard as CreditCardIcon,
   AccountBalance as AccountBalanceIcon,
 } from "@mui/icons-material";
+import { handlePrint } from "./ExpenceGenerator";
+import { handleDownload } from "./ExpenceDownload";
 
 function GenerateExpense() {
   const [selectedDate, setSelectedDate] = useState("");
@@ -72,7 +74,7 @@ function GenerateExpense() {
 
   // Get payment method icon
   const getPaymentIcon = (method) => {
-    switch(method) {
+    switch (method) {
       case "Cash":
         return <RupeeIcon sx={{ fontSize: 14, color: "var(--color-success)" }} />;
       case "Card":
@@ -133,28 +135,8 @@ function GenerateExpense() {
     fetchExpenses(today);
   }, []);
 
-  // Handle print
-  const handlePrint = () => {
-    window.print();
-  };
 
-  // Handle download as JSON
-  const handleDownload = () => {
-    const data = {
-      date: formatDateForDisplay(selectedDate),
-      total,
-      expenses,
-      generatedAt: new Date().toISOString(),
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `expense-report-${formatDateForDisplay(selectedDate)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+
 
   return (
     <Container maxWidth={false} disableGutters sx={{ bgcolor: "var(--color-bg-a)", minHeight: "100vh", px: { xs: 2, sm: 3, md: 4 }, pb: 4 }}>
@@ -167,10 +149,10 @@ function GenerateExpense() {
       />
 
       {/* Date Filter Section */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 2, 
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
           mb: 3,
           bgcolor: "var(--color-bg-card)",
           border: "1px solid var(--color-border)",
@@ -192,7 +174,7 @@ function GenerateExpense() {
             value={selectedDate}
             onChange={handleDateChange}
             size="small"
-            sx={{ 
+            sx={{
               width: 180,
               "& .MuiOutlinedInput-root": {
                 bgcolor: "var(--color-bg-input)",
@@ -206,14 +188,14 @@ function GenerateExpense() {
             }}
           />
         </Box>
-        
+
         <Box sx={{ display: "flex", gap: 1 }}>
           <Tooltip title="Print Report">
             <Button
               size="small"
               variant="outlined"
               startIcon={<PrintIcon />}
-              onClick={handlePrint}
+              onClick={() => handlePrint(selectedDate)}
               disabled={expenses.length === 0}
               sx={{
                 borderColor: "var(--color-border)",
@@ -233,7 +215,7 @@ function GenerateExpense() {
               size="small"
               variant="outlined"
               startIcon={<DownloadIcon />}
-              onClick={handleDownload}
+              onClick={() => handleDownload(selectedDate)}
               disabled={expenses.length === 0}
               sx={{
                 borderColor: "var(--color-border)",
@@ -253,16 +235,16 @@ function GenerateExpense() {
 
       {/* Error Alert */}
       {error && (
-        <Alert 
-          severity="error" 
-          sx={{ 
+        <Alert
+          severity="error"
+          sx={{
             mb: 3,
             bgcolor: "var(--color-error)",
             color: "white",
             "& .MuiAlert-icon": {
               color: "white"
             }
-          }} 
+          }}
           onClose={() => setError("")}
         >
           {error}
@@ -273,7 +255,7 @@ function GenerateExpense() {
       {!loading && expenses.length > 0 && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={4}>
-            <Card sx={{ 
+            <Card sx={{
               bgcolor: "var(--color-primary-light-v)",
               border: "1px solid var(--color-primary)",
               borderRadius: 2,
@@ -288,9 +270,9 @@ function GenerateExpense() {
               </CardContent>
             </Card>
           </Grid>
-          
+
           <Grid item xs={12} sm={4}>
-            <Card sx={{ 
+            <Card sx={{
               bgcolor: "var(--color-bg-card-b)",
               border: "1px solid var(--color-btn-b)",
               borderRadius: 2,
@@ -305,9 +287,9 @@ function GenerateExpense() {
               </CardContent>
             </Card>
           </Grid>
-          
+
           <Grid item xs={12} sm={4}>
-            <Card sx={{ 
+            <Card sx={{
               bgcolor: "var(--color-bg-card)",
               border: "1px solid var(--color-border)",
               borderRadius: 2,
@@ -326,9 +308,9 @@ function GenerateExpense() {
       )}
 
       {/* Expense List Table */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
+      <Paper
+        elevation={0}
+        sx={{
           overflowX: "auto",
           bgcolor: "var(--color-bg-table)",
           border: "1px solid var(--color-border)",
@@ -364,8 +346,8 @@ function GenerateExpense() {
             </TableHead>
             <TableBody>
               {expenses.map((item, index) => (
-                <TableRow 
-                  key={item._id} 
+                <TableRow
+                  key={item._id}
                   hover
                   sx={{
                     '&:hover': {
@@ -380,9 +362,9 @@ function GenerateExpense() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={item.type || "General"} 
-                      size="small" 
+                    <Chip
+                      label={item.type || "General"}
+                      size="small"
                       sx={{
                         bgcolor: item.type === "Food" ? "var(--color-warning)" : "var(--color-primary-light-v)",
                         color: item.type === "Food" ? "white" : "var(--color-primary-dark)",
@@ -418,7 +400,7 @@ function GenerateExpense() {
                   </TableCell>
                 </TableRow>
               ))}
-              
+
               {/* Total Row */}
               <TableRow sx={{ bgcolor: "var(--color-bg-hover)" }}>
                 <TableCell colSpan={6} align="right" sx={{ fontWeight: "bold", color: "var(--color-text-dark)" }}>
