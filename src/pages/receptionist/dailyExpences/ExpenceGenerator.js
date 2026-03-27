@@ -708,7 +708,6 @@ export const handlePrint = async (dateStr) => {
     const expensesRows = expenses.map((item, i) => {
       const qty = Number(item.count || 1);
       const total = Number(item.cost || 0);
-      const rate = qty > 0 ? total / qty : 0;
       const paymentMethod = item.method || item.paymentMethod || "Cash";
       const expenseName = item.name || item.type || "Unknown Item";
       const approvedByName = item.approvedBy || "-";
