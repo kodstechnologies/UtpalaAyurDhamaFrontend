@@ -38,6 +38,7 @@ function CreateExpense() {
   const [newExpense, setNewExpense] = useState({
     name: "",
     type: "General",
+    paymentMethod: "Cash",
     count: 1,
     cost: 0,
     approvedBy: ""
@@ -233,6 +234,7 @@ function CreateExpense() {
     setNewExpense({
       name: "",
       type: "General",
+      paymentMethod: "Cash",
       count: 1,
       cost: 0,
       approvedBy: ""
@@ -259,6 +261,7 @@ function CreateExpense() {
       const expenseData = {
         name: newExpense.name.trim(),
         type: newExpense.type.trim() || "General",
+        paymentMethod: newExpense.paymentMethod,
         count: newExpense.count || 1,
         cost: newExpense.cost || 0,
         approvedBy: newExpense.approvedBy?.trim() || "",
@@ -288,6 +291,7 @@ function CreateExpense() {
     setNewExpense({
       name: expense.name || "",
       type: expenseType,
+      paymentMethod: expense.method || "Cash",
       count: expense.count || 1,
       cost: expense.cost || 0,
       approvedBy: expense.approvedBy || expense.expenseRouter || ""
@@ -347,7 +351,7 @@ function CreateExpense() {
         action={
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary"/*  */
             onClick={() => navigate("/receptionist/expenses/add-expenses-name", {
               state: { expenseDate: displayDate },
             })}
@@ -551,7 +555,7 @@ function CreateExpense() {
           <form onSubmit={handleSubmit}>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "2fr 1.5fr 0.8fr 0.8fr 1.2fr",
+              gridTemplateColumns: "1.8fr 1.2fr 1.2fr 0.7fr 0.7fr 1.2fr",
               gap: "16px",
               alignItems: "start"
             }}>
@@ -573,7 +577,10 @@ function CreateExpense() {
                     name="name"
                     value={searchTerm}
                     onChange={handleInputChange}
-                    onFocus={() => setShowSuggestions(true)}
+                    onFocus={(e) => {
+                      setShowSuggestions(true);
+                      e.target.style.borderColor = "var(--color-success)";
+                    }}
                     placeholder="Search or enter expense name..."
                     style={{
                       width: "100%",
@@ -585,7 +592,6 @@ function CreateExpense() {
                       outline: "none",
                       transition: "all 0.2s ease"
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "var(--color-success)"}
                     onBlur={(e) => {
                       e.target.style.borderColor = "var(--color-border)";
                       setTimeout(() => setShowSuggestions(false), 200);
@@ -838,6 +844,55 @@ function CreateExpense() {
                 )}
               </div>
 
+              {/* Payment Method Field */}
+              <div style={{ position: "relative" }}>
+                <label style={{
+                  display: "block",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                  color: "var(--color-text-muted)",
+                  marginBottom: "8px",
+                  letterSpacing: "0.5px"
+                }}>
+                  PAYMENT METHOD
+                </label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    name="paymentMethod"
+                    value={newExpense.paymentMethod}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-bg-input)",
+                      fontSize: "14px",
+                      outline: "none",
+                      cursor: "pointer",
+                      appearance: "none",
+                      transition: "all 0.2s ease"
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = "var(--color-success)"}
+                    onBlur={(e) => e.target.style.borderColor = "var(--color-border)"}
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Online">Online</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+                  <ArrowDropDownIcon style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--color-text-muted)",
+                    fontSize: "20px",
+                    pointerEvents: "none"
+                  }} />
+                </div>
+              </div>
+
               {/* Count Field */}
               <div>
                 <label style={{
@@ -1046,7 +1101,7 @@ function CreateExpense() {
           <div>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "auto 1.5fr 1fr 0.8fr 1fr auto",
+              gridTemplateColumns: "auto 1.5fr 1fr 1fr 0.8fr 1fr auto",
               gap: "16px",
               padding: "12px 20px",
               background: "var(--color-bg-input)",
@@ -1060,6 +1115,7 @@ function CreateExpense() {
               <div style={{ width: "40px" }}>#</div>
               <div>EXPENSE NAME</div>
               <div>TYPE</div>
+              <div>METHOD</div>
               <div style={{ textAlign: "center" }}>QTY</div>
               <div style={{ textAlign: "right" }}>AMOUNT</div>
               <div style={{ textAlign: "center", width: "80px" }}>ACTIONS</div>
@@ -1070,7 +1126,7 @@ function CreateExpense() {
                 key={item._id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "auto 1.5fr 1fr 0.8fr 1fr auto",
+                  gridTemplateColumns: "auto 1.5fr 1fr 1fr 0.8fr 1fr auto",
                   gap: "16px",
                   alignItems: "center",
                   padding: "16px 20px",
@@ -1132,6 +1188,17 @@ function CreateExpense() {
                   <CategoryIcon style={{ fontSize: "14px", color: "var(--color-text-muted)" }} />
                   <span style={{ fontSize: "14px", color: "var(--color-text-dark)" }}>
                     {item.type || "General"}
+                  </span>
+                </div>
+
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}>
+                  {/* <AttachMoneyIcon style={{ fontSize: "14px", color: "var(--color-text-muted)" }} /> */}
+                  <span style={{ fontSize: "14px", color: "var(--color-text-dark)" }}>
+                    {item.method || "Cash"}
                   </span>
                 </div>
 

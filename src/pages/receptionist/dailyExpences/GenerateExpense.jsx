@@ -9,7 +9,6 @@ import {
   Typography,
   Paper,
   Container,
-  Stack,
   Card,
   CardContent,
   Grid,
@@ -34,6 +33,9 @@ import {
   ShoppingCart as CartIcon,
   Person as PersonIcon,
   CheckCircle as CheckCircleIcon,
+  Payment as PaymentIcon,
+  CreditCard as CreditCardIcon,
+  AccountBalance as AccountBalanceIcon,
 } from "@mui/icons-material";
 
 function GenerateExpense() {
@@ -44,7 +46,7 @@ function GenerateExpense() {
   const [error, setError] = useState("");
 
   const breadcrumbItems = [
-    { label: "Home", url: "/" },
+    { label: "Home", url: "/receptionist/dashboard" },
     { label: "Expense Management", url: "/receptionist/expenses" },
     { label: "Generate Expense Report" },
   ];
@@ -68,6 +70,22 @@ function GenerateExpense() {
     return expensesList.reduce((sum, item) => sum + (item.cost || 0), 0);
   };
 
+  // Get payment method icon
+  const getPaymentIcon = (method) => {
+    switch(method) {
+      case "Cash":
+        return <RupeeIcon sx={{ fontSize: 14, color: "var(--color-success)" }} />;
+      case "Card":
+        return <CreditCardIcon sx={{ fontSize: 14, color: "var(--color-primary)" }} />;
+      case "Online":
+        return <PaymentIcon sx={{ fontSize: 14, color: "var(--color-info)" }} />;
+      case "Bank Transfer":
+        return <AccountBalanceIcon sx={{ fontSize: 14, color: "var(--color-warning)" }} />;
+      default:
+        return <PaymentIcon sx={{ fontSize: 14, color: "var(--color-text-muted)" }} />;
+    }
+  };
+
   // Fetch expenses by selected date
   const fetchExpenses = async (date) => {
     if (!date) {
@@ -81,6 +99,8 @@ function GenerateExpense() {
 
       const formattedDate = formatDateForAPI(date);
       const res = await expenseService.getExpensesByDate(formattedDate);
+
+      console.log("API Response:", res);
 
       const expensesData = res?.data?.expenses || [];
       const totalAmount = res?.data?.total || calculateTotal(expensesData);
@@ -146,7 +166,7 @@ function GenerateExpense() {
         subtitle="View, filter, and generate daily expense reports"
       />
 
-      {/* Date Filter Section - Simplified */}
+      {/* Date Filter Section */}
       <Paper 
         elevation={0} 
         sx={{ 
@@ -338,6 +358,7 @@ function GenerateExpense() {
                 <TableCell sx={{ fontWeight: "bold", color: "var(--color-primary-dark)" }}>Type</TableCell>
                 <TableCell sx={{ fontWeight: "bold", textAlign: "center", color: "var(--color-primary-dark)" }}>Quantity</TableCell>
                 <TableCell sx={{ fontWeight: "bold", textAlign: "right", color: "var(--color-primary-dark)" }}>Cost (₹)</TableCell>
+                <TableCell sx={{ fontWeight: "bold", color: "var(--color-primary-dark)" }}>Payment Method</TableCell>
                 <TableCell sx={{ fontWeight: "bold", color: "var(--color-primary-dark)" }}>Approved By</TableCell>
               </TableRow>
             </TableHead>
@@ -376,6 +397,14 @@ function GenerateExpense() {
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      {getPaymentIcon(item.method)}
+                      <Typography variant="body2" sx={{ color: "var(--color-text-dark)" }}>
+                        {item.method || "Cash"}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Avatar sx={{ width: 24, height: 24, bgcolor: "var(--color-primary-light-v)" }}>
                         <PersonIcon sx={{ fontSize: 14, color: "var(--color-primary-dark)" }} />
                       </Avatar>
@@ -392,7 +421,7 @@ function GenerateExpense() {
               
               {/* Total Row */}
               <TableRow sx={{ bgcolor: "var(--color-bg-hover)" }}>
-                <TableCell colSpan={5} align="right" sx={{ fontWeight: "bold", color: "var(--color-text-dark)" }}>
+                <TableCell colSpan={6} align="right" sx={{ fontWeight: "bold", color: "var(--color-text-dark)" }}>
                   Grand Total
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: "bold", fontSize: "1rem", color: "var(--color-btn-dark-b)" }}>
