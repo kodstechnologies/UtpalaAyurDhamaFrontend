@@ -37,7 +37,9 @@ const ScheduleTherapyPage = lazy(() => import("../../pages/receptionist/appointm
 const WalkInAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/WalkInAppointment"));
 const EditChargePage = lazy(() => import("../../pages/receptionist/inpatient/EditCharge"));
 const SubTherapy_View = lazy(() => import("../../pages/receptionist/subtherapy/View"));
-
+const CreateExpense = lazy(() => import("../../pages/receptionist/dailyExpences/CreateExpense"))
+const GenerateExpense = lazy(() => import("../../pages/receptionist/dailyExpences/GenerateExpense"))
+const AddDailyExpenceProduct = lazy(() => import("../../pages/receptionist/dailyExpences/AddDailyExpenceProduct"))
 
 export const receptionRoutes = [
     {
@@ -405,4 +407,42 @@ export const receptionRoutes = [
             </>
         ),
     },
+       {
+    path: "/receptionist/expenses/create-expense",
+    element: (
+        <>
+            <Helmet>
+                <title>Create Expense | UTPALA</title>
+            </Helmet>
+            <CreateExpense />
+        </>
+    ),
+},
+{
+    path: "/receptionist/expenses/generate-expense",
+    element: (
+        <>
+            <Helmet>
+                <title>Generate Expense | UTPALA</title>
+            </Helmet>
+            <GenerateExpense />
+        </>
+    ),
+},
+{
+    path: "/receptionist/expenses/add-expenses-name",
+    element: (
+        <>
+            <Helmet>
+                <title>Generate Expense | UTPALA</title>
+            </Helmet>
+            <AddDailyExpenceProduct />
+        </>
+    ),
+},
+
+
+
+
+    
 ];

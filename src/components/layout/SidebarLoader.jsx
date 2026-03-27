@@ -30,9 +30,9 @@ import {
     CreditCard as PaymentsIcon,
     Megaphone as CampaignIcon,
     ClipboardList as AssessmentIcon,
-
-    // therapist 
-    Shield as HealthAndSafetyIcon,
+    
+// therapist 
+Shield as HealthAndSafetyIcon,
     Brain as PsychologyIcon,
 
     // patient 
@@ -41,9 +41,11 @@ import {
     RotateCw as ReplayIcon,
 
     // events
-    Sparkles as SparklesIcon
+    Sparkles as SparklesIcon,
+    ReceiptIndianRupee
 
 } from "lucide-react";
+
 
 // Sidebar menus configuration
 export const sidebarMenus = {
@@ -280,6 +282,24 @@ export const sidebarMenus = {
             icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
             to: "/receptionist/swarna-bindu-events",
         },
+
+        {
+    key: "daily_expences",
+    label: "Expense",
+    icon: <ReceiptIndianRupee style={{ color: "var(--color-icons)" }} />,
+    children: [
+        {
+            key: "create_expense",
+            label: "Create Expense",
+            to: "/receptionist/expenses/create-expense",
+        },
+        {
+            key: "generate_expense",
+            label: "Daily Expense",
+            to: "/receptionist/expenses/generate-expense",
+        },
+    ],
+}
     ],
     pharmacist: [
         {
