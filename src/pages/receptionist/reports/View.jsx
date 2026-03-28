@@ -19,6 +19,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import { handlePrint } from "./ReportsGenerator";
 
 function Reports_View() {
     const [reportData, setReportData] = useState([]);
@@ -244,16 +245,7 @@ function Reports_View() {
         }
     };
 
-    // Handle print
-    const handlePrint = () => {
-        // Note: Browser print headers/footers (URL, page numbers, timestamps) 
-        // are controlled by browser print settings and cannot be removed via CSS/JS.
-        // Users need to disable them in the browser's print dialog:
-        // Chrome/Edge: Click "More settings" → Uncheck "Headers and footers"
-        // Firefox: Settings → Uncheck "Print headers and footers"
-        window.print();
-    };
-
+ 
     // Get payment method icon and color (₹ for Cash to match INR amounts)
     const getPaymentMethodIcon = (method) => {
         switch (method) {
@@ -575,7 +567,7 @@ function Reports_View() {
                                         <button
                                             type="button"
                                             className="btn btn-outline-secondary"
-                                            onClick={handlePrint}
+                                            onClick={() => handlePrint(startDate, endDate)}
                                         >
                                             <PrintIcon className="me-2" />
                                             Print / PDF
