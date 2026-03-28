@@ -41,7 +41,9 @@ function CreateExpense() {
     paymentMethod: "Cash",
     count: 1,
     cost: 0,
-    approvedBy: ""
+    approvedBy: "",
+    transactionId: "",
+    lastFourDigits: ""
   });
   
   const [editingId, setEditingId] = useState(null);
@@ -237,7 +239,9 @@ function CreateExpense() {
       paymentMethod: "Cash",
       count: 1,
       cost: 0,
-      approvedBy: ""
+      approvedBy: "",
+      transactionId: "",
+      lastFourDigits: ""
     });
     setTypeSearchTerm("");
     setSearchTerm("");
@@ -255,6 +259,25 @@ function CreateExpense() {
       return;
     }
 
+    // Validation for payment method specific fields
+    if (["Card", "Online", "Bank Transfer"].includes(newExpense.paymentMethod)) {
+      if (!newExpense.transactionId.trim()) {
+        alert("Please enter Transaction/Reference ID");
+        return;
+      }
+    }
+
+    if (newExpense.paymentMethod === "Card") {
+      if (!newExpense.lastFourDigits.trim()) {
+        alert("Please enter Last 4 Digits");
+        return;
+      }
+      if (newExpense.lastFourDigits.length !== 4) {
+        alert("Last 4 digits must be exactly 4 digits");
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       
@@ -265,6 +288,8 @@ function CreateExpense() {
         count: newExpense.count || 1,
         cost: newExpense.cost || 0,
         approvedBy: newExpense.approvedBy?.trim() || "",
+        transactionId: newExpense.transactionId?.trim() || "",
+        lastFourDigits: newExpense.lastFourDigits?.trim() || "",
         date: displayDate
       };
 
@@ -294,7 +319,9 @@ function CreateExpense() {
       paymentMethod: expense.method || "Cash",
       count: expense.count || 1,
       cost: expense.cost || 0,
-      approvedBy: expense.approvedBy || expense.expenseRouter || ""
+      approvedBy: expense.approvedBy || expense.expenseRouter || "",
+      transactionId: expense.transactionId || "",
+      lastFourDigits: expense.lastFourDigits || ""
     });
     setTypeSearchTerm(typeOption?.label || expenseType);
     setSearchTerm(expense.name || "");
@@ -1004,6 +1031,78 @@ function CreateExpense() {
                 </div>
               </div>
 
+              {/* Conditional Field: Transaction/Reference ID */}
+              {(newExpense.paymentMethod === "Card" || newExpense.paymentMethod === "Online" || newExpense.paymentMethod === "Bank Transfer") && (
+                <div>
+                  <label style={{
+                    display: "block",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    color: "var(--color-text-muted)",
+                    marginBottom: "8px",
+                    letterSpacing: "0.5px"
+                  }}>
+                    TRANSACTION/REFERENCE ID <span style={{ color: "var(--color-error)" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="transactionId"
+                    value={newExpense.transactionId}
+                    onChange={handleInputChange}
+                    placeholder="Enter transaction ID..."
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-bg-input)",
+                      fontSize: "14px",
+                      outline: "none"
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = "var(--color-success)"}
+                    onBlur={(e) => e.target.style.borderColor = "var(--color-border)"}
+                  />
+                </div>
+              )}
+
+              {/* Conditional Field: Last 4 Digits (Only for Card) */}
+              {newExpense.paymentMethod === "Card" && (
+                <div>
+                  <label style={{
+                    display: "block",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    color: "var(--color-text-muted)",
+                    marginBottom: "8px",
+                    letterSpacing: "0.5px"
+                  }}>
+                    LAST 4 DIGITS <span style={{ color: "var(--color-error)" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="lastFourDigits"
+                    value={newExpense.lastFourDigits}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setNewExpense(prev => ({ ...prev, lastFourDigits: value }));
+                    }}
+                    placeholder="1234"
+                    maxLength={4}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      borderRadius: "10px",
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-bg-input)",
+                      fontSize: "14px",
+                      outline: "none"
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = "var(--color-success)"}
+                    onBlur={(e) => e.target.style.borderColor = "var(--color-border)"}
+                  />
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div>
                 <button
@@ -1193,13 +1292,41 @@ function CreateExpense() {
 
                 <div style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: "6px"
+                  flexDirection: "column",
+                  gap: "2px",
+                  justifyContent: "center"
                 }}>
-                  {/* <AttachMoneyIcon style={{ fontSize: "14px", color: "var(--color-text-muted)" }} /> */}
-                  <span style={{ fontSize: "14px", color: "var(--color-text-dark)" }}>
-                    {item.method || "Cash"}
-                  </span>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}>
+                    <span style={{ fontSize: "14px", color: "var(--color-text-dark)" }}>
+                      {item.method || "Cash"}
+                    </span>
+                  </div>
+                  {item.transactionId && (
+                    <div style={{
+                      fontSize: "11px",
+                      color: "var(--color-text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}>
+                      <span style={{ fontWeight: "600" }}>ID:</span> {item.transactionId}
+                    </div>
+                  )}
+                  {item.lastFourDigits && (
+                    <div style={{
+                      fontSize: "11px",
+                      color: "var(--color-text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}>
+                      <span style={{ fontWeight: "600" }}>Card:</span> ****{item.lastFourDigits}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{

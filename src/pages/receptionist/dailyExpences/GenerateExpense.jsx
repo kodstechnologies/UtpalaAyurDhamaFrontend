@@ -378,11 +378,23 @@ function GenerateExpense() {
                     ₹{item.cost?.toLocaleString('en-IN') || 0}
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      {getPaymentIcon(item.method)}
-                      <Typography variant="body2" sx={{ color: "var(--color-text-dark)" }}>
-                        {item.method || "Cash"}
-                      </Typography>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        {getPaymentIcon(item.method)}
+                        <Typography variant="body2" sx={{ color: "var(--color-text-dark)" }}>
+                          {item.method || "Cash"}
+                        </Typography>
+                      </Box>
+                      {item.transactionId && (
+                        <Typography variant="caption" sx={{ color: "var(--color-text-muted)", fontSize: "0.7rem", ml: 3 }}>
+                          ID: {item.transactionId}
+                        </Typography>
+                      )}
+                      {item.lastFourDigits && (
+                        <Typography variant="caption" sx={{ color: "var(--color-text-muted)", fontSize: "0.7rem", ml: 3 }}>
+                          Card: ****{item.lastFourDigits}
+                        </Typography>
+                      )}
                     </Box>
                   </TableCell>
                   <TableCell>

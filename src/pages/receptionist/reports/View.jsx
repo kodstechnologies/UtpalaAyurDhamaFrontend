@@ -62,10 +62,29 @@ function Reports_View() {
         }).format(amount || 0);
     };
 
+    // Safe date parser helper
+    const safeParseDate = (dateString) => {
+        if (!dateString) return null;
+        
+        let date;
+        // Handle DD-MM-YYYY format (e.g., "28-03-2026")
+        if (typeof dateString === 'string' && /^\d{2}-\d{2}-\d{4}/.test(dateString)) {
+            const [day, month, year] = dateString.split('-');
+            // Re-order to YYYY-MM-DD for reliable parsing
+            date = new Date(`${year}-${month}-${day}`);
+        } else {
+            // Fallback for ISO or other standard formats
+            date = new Date(dateString);
+        }
+        
+        return isNaN(date.getTime()) ? null : date;
+    };
+
     // Format date
     const formatDate = (dateString) => {
-        if (!dateString) return "N/A";
-        const date = new Date(dateString);
+        const date = safeParseDate(dateString);
+        if (!date) return "N/A";
+        
         return date.toLocaleDateString("en-IN", {
             year: "numeric",
             month: "short",
@@ -75,8 +94,9 @@ function Reports_View() {
 
     // Format date for display
     const formatDateDisplay = (dateString) => {
-        if (!dateString) return "N/A";
-        const date = new Date(dateString);
+        const date = safeParseDate(dateString);
+        if (!date) return "N/A";
+
         return date.toLocaleDateString("en-IN", {
             year: "numeric",
             month: "long",

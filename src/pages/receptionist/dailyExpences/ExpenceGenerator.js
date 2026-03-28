@@ -717,7 +717,11 @@ export const handlePrint = async (dateStr) => {
           <td style="text-align:center; padding: 8px;">${i + 1}</td>
           <td style="padding: 8px;">${escapeHtml(expenseName)}</td>
           <td style="text-align:center; padding: 8px;">${qty}</td>
-          <td style="text-align:center; padding: 8px;">${escapeHtml(paymentMethod)}</td>
+          <td style="text-align:center; padding: 8px;">
+            ${escapeHtml(paymentMethod)}
+            ${item.transactionId ? `<br/><small style="color:#666; font-size:9px;">ID: ${escapeHtml(item.transactionId)}</small>` : ""}
+            ${item.lastFourDigits ? `<br/><small style="color:#666; font-size:9px;">Card: ****${escapeHtml(item.lastFourDigits)}</small>` : ""}
+          </td>
           <td style="text-align:center; padding: 8px;">${escapeHtml(approvedByName)}</td>
           <td style="text-align:right; padding: 8px;">₹${total.toFixed(2)}</td>
         </tr>
