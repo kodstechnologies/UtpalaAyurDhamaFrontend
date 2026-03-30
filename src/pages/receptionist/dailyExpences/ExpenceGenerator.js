@@ -1,588 +1,8 @@
-// import axios from "axios";
-// import logo from "../../../assets/logo/logo2.png";
-// import { getApiUrl, getAuthHeaders } from "../../../config/api";
-
-// // Indian rupees number to words with proper Indian numbering system
-// const numberToWords = (num) => {
-//   if (num === 0) return "Zero";
-
-//   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
-//     "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-//   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-
-//   const convertToWords = (n) => {
-//     if (n < 20) return ones[n];
-//     if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
-//     if (n < 1000) return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convertToWords(n % 100) : "");
-//     if (n < 100000) {
-//       const thousands = Math.floor(n / 1000);
-//       const remainder = n % 1000;
-//       return convertToWords(thousands) + " Thousand" + (remainder ? " " + convertToWords(remainder) : "");
-//     }
-//     if (n < 10000000) {
-//       const lakhs = Math.floor(n / 100000);
-//       const remainder = n % 100000;
-//       return convertToWords(lakhs) + " Lakh" + (remainder ? " " + convertToWords(remainder) : "");
-//     }
-//     if (n < 1000000000) {
-//       const crores = Math.floor(n / 10000000);
-//       const remainder = n % 10000000;
-//       return convertToWords(crores) + " Crore" + (remainder ? " " + convertToWords(remainder) : "");
-//     }
-//     return n.toString();
-//   };
-
-//   return convertToWords(num);
-// };
-
-// export const handlePrint = async (dateStr) => {
-//   try {
-//     // Validate date
-//     if (!dateStr) {
-//       alert("Please select a date");
-//       return;
-//     }
-
-//     const [year, month, day] = dateStr.split("-");
-//     const formattedDate = `${day}-${month}-${year}`;
-
-//     // Show loading in a modal or alert
-//     const loadingDiv = document.createElement('div');
-//     loadingDiv.style.cssText = `
-//       position: fixed;
-//       top: 50%;
-//       left: 50%;
-//       transform: translate(-50%, -50%);
-//       background: white;
-//       padding: 20px;
-//       border-radius: 8px;
-//       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-//       z-index: 9999;
-//       text-align: center;
-//       font-family: Arial, sans-serif;
-//     `;
-//     loadingDiv.innerHTML = `
-//       <div style="margin-bottom: 10px;">
-//         <div style="width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid #8B4513; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
-//       </div>
-//       <div>Loading Expense Report...</div>
-//       <div style="font-size: 12px; color: #666; margin-top: 8px;">Please wait while we fetch the data</div>
-//       <style>
-//         @keyframes spin {
-//           0% { transform: rotate(0deg); }
-//           100% { transform: rotate(360deg); }
-//         }
-//       </style>
-//     `;
-//     document.body.appendChild(loadingDiv);
-
-//     const response = await axios.get(
-//       getApiUrl("expense/expenseItem"),
-//       {
-//         headers: getAuthHeaders(),
-//         params: { date: formattedDate },
-//       }
-//     );
-
-//     console.log("API Response:", response.data);
-
-//     // Access expenses from the correct path
-//     const expenses = response.data?.data?.expenses || [];
-//     const totalAmount = response.data?.data?.total || 0;
-
-//     // Remove loading div
-//     if (loadingDiv && loadingDiv.parentNode) {
-//       loadingDiv.parentNode.removeChild(loadingDiv);
-//     }
-
-//     if (!expenses || expenses.length === 0) {
-//       alert(`No expenses found for date: ${formattedDate}`);
-//       return;
-//     }
-
-//     // Calculate total if not provided
-//     const calculatedTotal = expenses.reduce((sum, item) => sum + (item.cost || 0), 0);
-//     const finalTotal = totalAmount || calculatedTotal;
-
-//     const invoice = {
-//       no: "EXP-" + formattedDate.replace(/-/g, "") + "-" + new Date().getTime(),
-//       date: formattedDate,
-//       generatedAt: new Date().toLocaleString(),
-//     };
-
-//     // Map expenses to table rows with proper formatting
-//     const expensesRows = expenses.map((item, i) => {
-//       const qty = Number(item.count || 1);
-//       const total = Number(item.cost || 0);
-//       const rate = qty > 0 ? total / qty : 0;
-//       const paymentMethod = item.method || item.paymentMethod || "Cash";
-//       const expenseName = item.name || item.type || "Unknown Item";
-
-//       return `
-//          <tr>
-//           <td style="text-align:center; padding: 8px;">${i + 1}</td>
-//           <td style="padding: 8px;">${escapeHtml(expenseName)}</td>
-//           <td style="text-align:center; padding: 8px;">${qty}</td>
-//           <td style="text-align:center; padding: 8px;">${escapeHtml(paymentMethod)}</td>
-//           <td style="text-align:right; padding: 8px;">₹${rate.toFixed(2)}</td>
-//           <td style="text-align:right; padding: 8px;">₹${total.toFixed(2)}</td>
-//          </tr>
-//       `;
-//     }).join("");
-
-//     const subtotal = finalTotal.toFixed(2);
-//     const totalWithGst = finalTotal.toFixed(2);
-//     const amountInWords = `Rupees ${numberToWords(Math.round(finalTotal))} Only`;
-
-//     const html = `
-//     <!DOCTYPE html>
-//     <html>
-//     <head>
-//       <title>Expense Report - Utpala Ayurdhama</title>
-//       <meta charset="UTF-8">
-//       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-//       <style>
-//         * {
-//           margin: 0;
-//           padding: 0;
-//           box-sizing: border-box;
-//         }
-//         body {
-//           font-family: 'Segoe UI', Arial, sans-serif;
-//           font-size: 12px;
-//           margin: 0;
-//           padding: 20px;
-//           color: #000;
-//           background: #f0f0f0;
-//         }
-//         .print-container {
-//           max-width: 1200px;
-//           margin: 0 auto;
-//           background: white;
-//           border: 1px solid #ddd;
-//           box-shadow: 0 0 20px rgba(0,0,0,0.1);
-//         }
-//         .header {
-//           background: #fff3e0;
-//           padding: 20px;
-//           text-align: center;
-//           border-bottom: 2px solid #8B4513;
-//         }
-//         .logo img {
-//           max-height: 80px;
-//           margin-bottom: 10px;
-//         }
-//         .clinic-name {
-//           font-size: 28px;
-//           font-weight: bold;
-//           color: #8B4513;
-//           margin: 5px 0;
-//         }
-//         .clinic-info {
-//           font-size: 11px;
-//           margin: 5px 0;
-//           color: #666;
-//           line-height: 1.4;
-//         }
-//         .title {
-//           font-size: 22px;
-//           font-weight: bold;
-//           margin: 20px 0;
-//           text-align: center;
-//           color: #8B4513;
-//           text-transform: uppercase;
-//           letter-spacing: 1px;
-//         }
-//         .receipt-container {
-//           display: flex;
-//           border: 1px solid #ddd;
-//           margin: 20px;
-//           background: #fafafa;
-//         }
-//         .info-box {
-//           flex: 1;
-//           padding: 15px;
-//         }
-//         .info-box:first-child {
-//           border-right: 1px solid #ddd;
-//         }
-//         .info-box table {
-//           width: 100%;
-//           font-size: 13px;
-//         }
-//         .info-box td {
-//           padding: 6px;
-//         }
-//         .label {
-//           font-weight: bold;
-//           width: 110px;
-//           color: #555;
-//         }
-//         .colon {
-//           width: 15px;
-//           text-align: center;
-//         }
-//         .value {
-//           color: #333;
-//         }
-//         .items-table {
-//           width: calc(100% - 40px);
-//           margin: 20px;
-//           border-collapse: collapse;
-//           font-size: 12px;
-//         }
-//         .items-table th,
-//         .items-table td {
-//           border: 1px solid #ddd;
-//           padding: 10px 8px;
-//         }
-//         .items-table th {
-//           background: #f5f5f5;
-//           font-weight: bold;
-//           text-align: center;
-//           color: #555;
-//         }
-//         .total-row {
-//           background: #f9f9f9;
-//         }
-//         .total-row td {
-//           font-weight: bold;
-//         }
-//         .final-total {
-//           background: #e8f5e9;
-//         }
-//         .final-total td {
-//           font-weight: bold;
-//           font-size: 14px;
-//         }
-//         .amount-words {
-//           margin: 20px;
-//           padding: 12px;
-//           background: #fff3e0;
-//           border-left: 4px solid #8B4513;
-//           font-style: italic;
-//           font-size: 13px;
-//           color: #555;
-//         }
-//         .footer {
-//           margin-top: 30px;
-//           background: #6b3f36;
-//           color: #fff;
-//           display: flex;
-//           justify-content: space-between;
-//           padding: 20px;
-//           font-size: 11px;
-//         }
-//         .footer-left,
-//         .footer-right {
-//           flex: 1;
-//         }
-//         .footer-title {
-//           font-weight: bold;
-//           margin-bottom: 10px;
-//           font-size: 13px;
-//           color: #ffd966;
-//         }
-//         .footer i {
-//           margin-right: 8px;
-//           width: 20px;
-//         }
-//         .footer div {
-//           margin-bottom: 6px;
-//           line-height: 1.4;
-//         }
-//         .signature {
-//           margin: 30px 20px 20px;
-//           text-align: right;
-//           border-top: 1px dashed #ccc;
-//           padding-top: 20px;
-//         }
-//         @media print {
-//           body {
-//             background: white;
-//             padding: 0;
-//             margin: 0;
-//           }
-//           .print-container {
-//             box-shadow: none;
-//             margin: 0;
-//           }
-//           .no-print {
-//             display: none;
-//           }
-//         }
-//         @media screen {
-//           .print-button {
-//             position: fixed;
-//             bottom: 20px;
-//             right: 20px;
-//             background: #8B4513;
-//             color: white;
-//             border: none;
-//             padding: 10px 20px;
-//             border-radius: 5px;
-//             cursor: pointer;
-//             font-size: 14px;
-//             z-index: 1000;
-//           }
-//           .print-button:hover {
-//             background: #6b3f36;
-//           }
-//           .close-button {
-//             position: fixed;
-//             bottom: 20px;
-//             right: 140px;
-//             background: #666;
-//             color: white;
-//             border: none;
-//             padding: 10px 20px;
-//             border-radius: 5px;
-//             cursor: pointer;
-//             font-size: 14px;
-//             z-index: 1000;
-//           }
-//           .close-button:hover {
-//             background: #555;
-//           }
-//         }
-//       </style>
-//     </head>
-//     <body>
-//       <div class="print-container">
-//         <!-- Header -->
-//         <div class="header">
-//           <div class="logo">
-//             <img src="${logo}" alt="Utpala Ayurdhama Logo" style="height: 70px;" />
-//           </div>
-//           <div class="clinic-name">Utpala Ayurdhama</div>
-//           <div class="clinic-info">
-//             New BEL Rd, Chikkamaranahalli, Dollars Colony,
-// R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
-//           </div>
-//         </div>
-
-//         <!-- Title -->
-//         <div class="title">📋 DAILY EXPENSE REPORT</div>
-
-//         <!-- Info Section -->
-//         <div class="receipt-container">
-//           <div class="info-box">
-//             <table>
-//               <tr>
-//                 <td class="label">Expense Date</td>
-//                 <td class="colon">:</td>
-//                 <td class="value">${formattedDate}</td>
-//               </tr>
-//               <tr>
-//                 <td class="label">Report Generated</td>
-//                 <td class="colon">:</td>
-//                 <td class="value">${invoice.generatedAt}</td>
-//               </tr>
-//               <tr>
-//                 <td class="label">Total Items</td>
-//                 <td class="colon">:</td>
-//                 <td class="value">${expenses.length}</td>
-//               </tr>
-//             </table>
-//           </div>
-//           <div class="info-box">
-//             <table>
-//               <tr>
-//                 <td class="label">Receipt No</td>
-//                 <td class="colon">:</td>
-//                 <td class="value">${invoice.no}</td>
-//               </tr>
-//               <tr>
-//                 <td class="label">Generated By</td>
-//                 <td class="colon">:</td>
-//                 <td class="value">System Admin</td>
-//               </tr>
-//               <tr>
-//                 <td class="label">Status</td>
-//                 <td class="colon">:</td>
-//                 <td class="value">✅ Confirmed</td>
-//               </tr>
-//             </table>
-//           </div>
-//         </div>
-
-//         <!-- Expenses Table -->
-//         <table class="items-table">
-//           <thead>
-//             <tr>
-//               <th style="width: 5%">#</th>
-//               <th style="width: 35%">Expense Name</th>
-//               <th style="width: 10%">Qty</th>
-//               <th style="width: 20%">Payment Method</th>
-//               <th style="width: 15%">Rate (₹)</th>
-//               <th style="width: 15%">Total (₹)</th>
-//             </tr>
-//           </thead>
-//           <tbody>
-//             ${expensesRows}
-//             <tr class="total-row">
-//                <td></td>
-//               <td colspan="4" style="text-align:right; font-weight:bold;">Sub Total</td>
-              
-//               <td style="text-align:right; font-weight:bold;">₹${subtotal}</td>
-           
-//             </tr>
-//             <tr class="final-total">
-
-//               <td></td>
-//               <td colspan="4" style="text-align:right; font-weight:bold; font-size:14px;">
-//                 Grand Total
-//               </td>
-            
-//                 <td style="text-align:right; font-weight:bold; font-size:14px; color: #8B4513;">
-//                 ₹${totalWithGst}
-//               </td>
-//             </tr>
-//           </tbody>
-//         </table>
-
-//         <!-- Amount in Words -->
-//         <div class="amount-words">
-//           <strong>💰 Amount in Words:</strong> ${amountInWords}
-//         </div>
-
-//         <!-- Footer -->
-//         <div class="footer">
-//           <div class="footer-left">
-//             <div class="footer-title">📞 REACH US AT</div>
-//             <div><i class="fa-solid fa-envelope"></i> info@utpalaayurdhama.com</div>
-//             <div><i class="fa-solid fa-phone"></i> +91-7259195959</div>
-//             <div><i class="fa-solid fa-phone-volume"></i> 080-4054-0333</div>
-//           </div>
-//           <div class="footer-right">
-//             <div class="footer-title">🏥 OUR BRANCH</div>
-//             <div>
-//               <i class="fa-solid fa-location-dot"></i> RAJESHWARI AYURDHAMA<br/>
-//               #607, Ravi Nenapu, 7th Main road, Havanur Extn,<br/>
-//               Near Hesaraghatta Main Road, Bengaluru – 560073<br/>
-//               <i class="fa-solid fa-envelope"></i> rajeshwariayurdhama@gmail.com
-//             </div>
-//           </div>
-//         </div>
-
-//         <!-- Signature -->
-//         <div class="signature">
-//           <div>_________________________</div>
-//           <div style="margin-top: 5px;">Authorized Signatory</div>
-//         </div>
-//       </div>
-      
-//       <!-- Control buttons for screen view -->
-//       <div class="no-print">
-//         <button class="print-button" onclick="window.print()">🖨️ Print Report</button>
-//         <button class="close-button" onclick="window.close()">❌ Close Window</button>
-//       </div>
-
-//       <script>
-//         // Auto-print when page loads
-//         window.onload = function() {
-//           // Auto-print after a short delay
-//           setTimeout(function() {
-//             window.print();
-//           }, 1000);
-          
-//           // Handle after print
-//           window.onafterprint = function() {
-//             // Optional: auto-close after printing
-//             // setTimeout(function() {
-//             //   window.close();
-//             // }, 1000);
-//           };
-//         };
-//       </script>
-//     </body>
-//     </html>
-//     `;
-
-//     // Escape HTML to prevent XSS
-//     function escapeHtml(text) {
-//       const div = document.createElement('div');
-//       div.textContent = text;
-//       return div.innerHTML;
-//     }
-
-//     // Try to open a new window with user interaction first
-//     const printWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes,toolbar=yes,menubar=yes");
-
-//     if (printWindow) {
-//       printWindow.document.write(html);
-//       printWindow.document.close();
-//     } else {
-//       // If popup is blocked, show instructions and create a fallback
-//       alert("Popup blocked! Please allow popups for this website to print the report.\n\nIf you're using Chrome, click the popup blocked icon in the address bar and select 'Always allow popups'.\n\nAlternatively, you can copy the report data from the console.");
-
-//       // Create a fallback iframe
-//       const fallbackDiv = document.createElement('div');
-//       fallbackDiv.style.cssText = `
-//         position: fixed;
-//         top: 0;
-//         left: 0;
-//         right: 0;
-//         bottom: 0;
-//         background: white;
-//         z-index: 10000;
-//         overflow: auto;
-//         padding: 20px;
-//       `;
-
-//       fallbackDiv.innerHTML = `
-//         <div style="text-align: center; margin-bottom: 20px;">
-//           <h3>Popup Blocked</h3>
-//           <p>Please allow popups to print the report, or click the button below to print.</p>
-//           <button onclick="window.print()" style="padding: 10px 20px; background: #8B4513; color: white; border: none; border-radius: 5px; cursor: pointer;">
-//             🖨️ Print This Page
-//           </button>
-//           <button onclick="this.parentElement.parentElement.remove()" style="padding: 10px 20px; margin-left: 10px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer;">
-//             ❌ Close
-//           </button>
-//         </div>
-//         <div id="report-content"></div>
-//       `;
-
-//       document.body.appendChild(fallbackDiv);
-
-//       const reportContent = fallbackDiv.querySelector('#report-content');
-//       reportContent.innerHTML = html;
-
-//       // Add print functionality
-//       const style = document.createElement('style');
-//       style.textContent = `
-//         @media print {
-//           body > div:first-child {
-//             display: none;
-//           }
-//           #report-content {
-//             position: absolute;
-//             top: 0;
-//             left: 0;
-//             width: 100%;
-//           }
-//         }
-//       `;
-//       document.head.appendChild(style);
-//     }
-
-//   } catch (error) {
-//     console.error("Error fetching expense report:", error);
-//     // Remove loading div if exists
-//     const loadingDiv = document.querySelector('div[style*="position: fixed"]');
-//     if (loadingDiv && loadingDiv.parentNode) {
-//       loadingDiv.parentNode.removeChild(loadingDiv);
-//     }
-
-//     const errorMessage = error.response?.data?.message || error.message || "Unknown error occurred";
-//     alert(`Error fetching expense report: ${errorMessage}`);
-//   }
-// };
-
 import axios from "axios";
 import logo from "../../../assets/logo/logo2.png";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { getHeader } from "../../../components/pdf/pdfHeader";
+import { getFooter } from "../../../components/pdf/pdfFooter";
 
 // Indian rupees number to words with proper Indian numbering system
 const numberToWords = (num) => {
@@ -724,7 +144,7 @@ export const handlePrint = async (dateStr) => {
           </td>
           <td style="text-align:center; padding: 8px;">${escapeHtml(approvedByName)}</td>
           <td style="text-align:right; padding: 8px;">₹${total.toFixed(2)}</td>
-        </tr>
+         </tr>
       `;
     }).join("");
 
@@ -746,12 +166,16 @@ export const handlePrint = async (dateStr) => {
           box-sizing: border-box;
         }
         body {
-          font-family: 'Segoe UI', Arial, sans-serif;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 12px;
-          margin: 0;
-          padding: 20px;
+          margin: 10px auto;
           color: #000;
-          background: #f0f0f0;
+          border: 1px solid black;
+          max-width: 50rem;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          min-height: 297mm;
         }
         .print-container {
           max-width: 1200px;
@@ -759,28 +183,6 @@ export const handlePrint = async (dateStr) => {
           background: white;
           border: 1px solid #ddd;
           box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        .header {
-          background: #fff3e0;
-          padding: 20px;
-          text-align: center;
-          border-bottom: 2px solid #8B4513;
-        }
-        .logo img {
-          max-height: 80px;
-          margin-bottom: 10px;
-        }
-        .clinic-name {
-          font-size: 28px;
-          font-weight: bold;
-          color: #8B4513;
-          margin: 5px 0;
-        }
-        .clinic-info {
-          font-size: 11px;
-          margin: 5px 0;
-          color: #666;
-          line-height: 1.4;
         }
         .title {
           font-size: 22px;
@@ -862,47 +264,6 @@ export const handlePrint = async (dateStr) => {
           font-size: 13px;
           color: #555;
         }
-        .footer {
-          margin-top: 30px;
-          background: #6b3f36;
-          color: #fff;
-          display: flex;
-          justify-content: space-between;
-          padding: 20px;
-          font-size: 11px;
-        }
-        .footer-left,
-        .footer-right {
-          flex: 1;
-        }
-        .footer-title {
-          font-weight: bold;
-          margin-bottom: 10px;
-          font-size: 13px;
-          color: #ffd966;
-        }
-        .footer i {
-          margin-right: 8px;
-          width: 20px;
-          font-size: 12px;
-        }
-        .footer div {
-          margin-bottom: 8px;
-          line-height: 1.4;
-        }
-        .footer a {
-          color: #fff;
-          text-decoration: none;
-        }
-        .footer a:hover {
-          text-decoration: underline;
-        }
-        .signature {
-          margin: 30px 20px 20px;
-          text-align: right;
-          border-top: 1px dashed #ccc;
-          padding-top: 20px;
-        }
         @media print {
           body {
             background: white;
@@ -955,17 +316,7 @@ export const handlePrint = async (dateStr) => {
     </head>
     <body>
       <div class="print-container">
-        <!-- Header -->
-        <div class="header">
-          <div class="logo">
-            <img src="${logo}" alt="Utpala Ayurdhama Logo" style="height: 70px;" />
-          </div>
-          <div class="clinic-name">Utpala Ayurdhama</div>
-          <div class="clinic-info">
-            New BEL Rd, Chikkamaranahalli, Dollars Colony, R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
-          </div>
-       
-        </div>
+        ${getHeader()}
 
         <!-- Title -->
         <div class="title">📋 DAILY EXPENSE REPORT</div>
@@ -979,7 +330,7 @@ export const handlePrint = async (dateStr) => {
                 <td class="colon">:</td>
                 <td class="value">${formattedDate}</td>
               </tr>
-                 <tr>
+              <tr>
                 <td class="label">Approved By</td>
                 <td class="colon">:</td>
                 <td class="value">${escapeHtml(approvedBy)}</td>
@@ -994,7 +345,6 @@ export const handlePrint = async (dateStr) => {
                 <td class="colon">:</td>
                 <td class="value">${expenses.length}</td>
               </tr>
-           
             </table>
           </div>
           <div class="info-box">
@@ -1027,18 +377,14 @@ export const handlePrint = async (dateStr) => {
               <th style="width: 8%">Qty</th>
               <th style="width: 15%">Payment Method</th>
               <th style="width: 18%">Approved By</th>
-         
               <th style="width: 12%">Total (₹)</th>
-              
             </tr>
           </thead>
           <tbody>
             ${expensesRows}
             <tr class="total-row">
-           
               <td colspan="5" style="text-align:right; font-weight:bold;">Sub Total</td>
               <td style="text-align:right; font-weight:bold;">₹${subtotal}</td>
-            
             </tr>
             <tr class="final-total">
               <td colspan="5" style="text-align:right; font-weight:bold; font-size:14px;">
@@ -1050,72 +396,10 @@ export const handlePrint = async (dateStr) => {
             </tr>
           </tbody>
         </table>
-
-        <!-- Amount in Words -->
-        <div class="amount-words">
-          <strong>💰 Amount in Words:</strong> ${amountInWords}
-        </div>
-
-        <!-- Footer with Font Awesome Icons -->
-        <div class="footer">
-          <div class="footer-left">
-            <div class="footer-title">
-              <i class="fas fa-phone-alt"></i> REACH US AT
-            </div>
-            <div>
-              <i class="fas fa-envelope"></i> 
-              <a href="mailto:info@utpalaayurdhama.com">info@utpalaayurdhama.com</a>
-            </div>
-            <div>
-              <i class="fas fa-phone"></i> 
-              <a href="tel:+917259195959">+91-7259195959</a>
-            </div>
-            <div>
-              <i class="fas fa-phone-volume"></i> 
-              <a href="tel:08040540333">080-4054-0333</a>
-            </div>
-            <div>
-              <i class="fab fa-whatsapp"></i> 
-              <a href="https://wa.me/917259195959">+91-7259195959</a>
-            </div>
-          </div>
-          <div class="footer-right">
-            <div class="footer-title">
-              <i class="fas fa-hospital-user"></i> OUR BRANCH
-            </div>
-            <div>
-              <i class="fas fa-map-marker-alt"></i> <strong>RAJESHWARI AYURDHAMA</strong><br/>
-              #607, Ravi Nenapu, 7th Main road, Havanur Extn,<br/>
-              Near Hesaraghatta Main Road, Bengaluru – 560073
-            </div>
-            <div style="margin-top: 8px;">
-              <i class="fas fa-envelope"></i> 
-              <a href="mailto:rajeshwariayurdhama@gmail.com">rajeshwariayurdhama@gmail.com</a>
-            </div>
-            <div>
-              <i class="fas fa-phone"></i> 
-              <a href="tel:+919845678900">+91-9845678900</a>
-            </div>
-          </div>
-        </div>
-
-        <!-- Signature -->
-        <div class="signature">
-          <div>_________________________</div>
-          <div style="margin-top: 5px;">Authorized Signatory</div>
-        </div>
+        
+        ${getFooter()}
       </div>
-      
-      <!-- Control buttons for screen view -->
-      <div class="no-print">
-        <button class="print-button" onclick="window.print()">
-          <i class="fas fa-print"></i> Print Report
-        </button>
-        <button class="close-button" onclick="window.close()">
-          <i class="fas fa-times"></i> Close Window
-        </button>
-      </div>
-
+     
       <script>
         // Auto-print when page loads
         window.onload = function() {

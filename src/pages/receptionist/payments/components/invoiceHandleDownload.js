@@ -1,9 +1,8 @@
-
-
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import logo from "../../../../assets/logo/logo2.png";
+import { getFooter } from "../../../../components/pdf/pdfFooter";
+import { getHeader } from "../../../../components/pdf/pdfHeader";
 
 // ── Reused helpers (same as in print version) ──
 const numberToWords = (num) => {
@@ -138,82 +137,68 @@ export const invoiceHandleDownload = async (invoice) => {
 
     const amountInWords = `Rupees ${numberToWords(Math.round(totalPayable))} Only`;
 
-    // ── HTML structure (very close to print version) ──
+    // Escape HTML function for safety
+    const escapeHtml = (text) => {
+      if (!text) return "";
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
+    // ── HTML structure with header and footer from components ──
     const htmlContent = `
-      <div style="font-family: Arial, Helvetica, sans-serif; color:#000; width:794px; padding:15px; border:1px solid #000; background:#fff; box-sizing:border-box;">
+      <div style="margin:0 auto; font-family: Arial, Helvetica, sans-serif; color:#000; width:794px; padding:15px; border:1px solid #000; background:#fff; box-sizing:border-box;">
       
-        <!-- HEADER -->
-        <div style="display:flex; align-items:center; padding:12px 15px; background:#f4d7b5; ">
-          <img src="${logo}" style="height:70px; margin-right:15px;" alt="Logo"/>
-          <div style="flex:1;">
-            <div style="font-size:18px; font-weight:bold; color:#4e342e;">UTPALA AYURDHAMA</div>
-            <div style="font-size:11px; color:#333; margin-top:4px; line-height:1.4;">
-              New BEL Rd, Chikkamaranahalli, Dollars Colony,<br/>
-              R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
-            </div>
-          </div>
-      
-        </div>
+        ${getHeader()}
 
         <!-- PATIENT + INVOICE INFO -->
         <div style="display:flex; border:1px solid #000; margin:10px 0;">
           <div style="width:60%; background:#fafafa; padding:12px; border-right:1px solid #000;">
             <table style="width:100%; font-size:12px;">
-              <tr><td style="font-weight:bold; width:100px;">NAME</td><td>:</td><td>${patient.name}</td></tr>
-              ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${doctorName}</td></tr>` : ""}
-              ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${patient.uhid}</td></tr>` : ""}
-              <tr><td style="font-weight:bold;">AGE/GENDER</td><td>:</td><td>${patient.age} / ${patient.gender}</td></tr>
-              ${patient.phone !== "N/A" ? `<tr><td style="font-weight:bold;">PHONE</td><td>:</td><td>${patient.phone}</td></tr>` : ""}
-              ${patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${patient.email}</td></tr>` : ""}
-              ${patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${patient.address}</td></tr>` : ""}
+              <tr><td style="font-weight:bold; width:100px;">NAME</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
+              ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName)}</td></tr>` : ""}
+              ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>` : ""}
+              <tr><td style="font-weight:bold;">AGE/GENDER</td><td>:</td><td>${escapeHtml(patient.age)} / ${escapeHtml(patient.gender)}</td></tr>
+              ${patient.phone !== "N/A" ? `<tr><td style="font-weight:bold;">PHONE</td><td>:</td><td>${escapeHtml(patient.phone)}</td></tr>` : ""}
+              ${patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email)}</td></tr>` : ""}
+              ${patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${escapeHtml(patient.address)}</td></tr>` : ""}
             </table>
           </div>
           
-      <div style="width:40%; border-left:1px solid #000;">
-
-
+          <div style="width:40%; border-left:1px solid #000;">
             <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:8px; background:#f5f0eb;">
-              INVOICE DETAILS
+              INVOICE DETAILS / RECEIPT
             </div>
-        <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:5px; margin-left:5px;">
-
-  <tr>
-    <td style="font-weight:bold; width:45%; padding:6px 0;">Invoice No</td>
-    <td style="padding:6px 0;">: ${invoiceNo}</td>
-  </tr>
-
-  <tr>
-    <td style="font-weight:bold; padding:6px 0;">Date</td>
-    <td style="padding:6px 0;">: ${invoiceDate}</td>
-  </tr>
-
-  <tr>
-    <td style="font-weight:bold; padding:6px 0;">Time</td>
-    <td style="padding:6px 0;">: ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
-  </tr>
-
-<tr >
-  <td style="font-weight:bold; padding:6px 0;  vertical-align:middle;">Status</td>
-  <td style="">
-    <span style="
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-
-      color:${statusColor};
-      padding:3px 10px;
-      border-radius:4px;
-      font-weight:600;
-      font-size:11px;
-    ">
-      ${paymentStatus}
-    </span>
-  </td>
-</tr>
-
-</table>
-            
-            
+            <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:5px; margin-left:5px;">
+              <tr>
+                <td style="font-weight:bold; width:45%; padding:6px 0;">Invoice No</td>
+                <td style="padding:6px 0;">: ${escapeHtml(invoiceNo)}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Date</td>
+                <td style="padding:6px 0;">: ${invoiceDate}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Time</td>
+                <td style="padding:6px 0;">: ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0; vertical-align:middle;">Status</td>
+                <td style="">
+                  <span style="
+                    display:inline-flex;
+                    align-items:center;
+                    justify-content:center;
+                    color:${statusColor};
+                    padding:3px 10px;
+                    border-radius:4px;
+                    font-weight:600;
+                    font-size:11px;
+                  ">
+                    ${paymentStatus}
+                  </span>
+                </td>
+              </tr>
             </table>
           </div>
         </div>
@@ -294,30 +279,12 @@ export const invoiceHandleDownload = async (invoice) => {
             </div>
           </div>
 
-          <div style="text-align:center; margin-top:15px; font-size:10px; color:#555;">
+          <div style="text-align:center; margin-top:15px; font-size:18px; color:#555;">
             This is a system generated invoice. You can use invoice number to track in future.
           </div>
         </div>
 
-        <!-- FOOTER -->
-        <div style="margin-top:20px; background:#5d4037; color:#fff; display:flex; justify-content:space-between; padding:15px 20px; font-size:11px; ">
-          <div style="width:40%;">
-            <div style="font-weight:bold; margin-bottom:6px; font-size:13px;">REACH US AT</div>
-            <div><i style="margin-right:6px;" class="fa-solid fa-envelope"></i> info@utpalaayurdhama.com</div>
-            <div><i style="margin-right:6px;" class="fa-solid fa-phone"></i> +91-7259195959</div>
-            <div><i style="margin-right:6px;" class="fa-solid fa-phone-volume"></i> 080-4054-0333</div>
-          </div>
-          <div style="width:2px; background:rgba(255,255,255,0.5);"></div>
-          <div style="width:55%;">
-            <div style="font-weight:bold; margin-bottom:6px; font-size:13px;">OUR BRANCH(S)</div>
-            <div>
-              <i style="margin-right:6px;" class="fa-solid fa-location-dot"></i> RAJESHWARI AYURDHAMA<br>
-              #607, Ravi Nenapu, 7th Main road, Havanur Extn,<br>
-              Near Hesaraghatta Main Road, Bengaluru – 560073<br>
-              <i style="margin-right:6px;" class="fa-solid fa-envelope"></i> rajeshwariayurdhama@gmail.com
-            </div>
-          </div>
-        </div>
+        ${getFooter()}
       </div>
     `;
 
@@ -336,7 +303,7 @@ export const invoiceHandleDownload = async (invoice) => {
 
     // Generate canvas
     const canvas = await html2canvas(container, {
-      scale: 2.5,           // higher quality
+      scale: 2.5,
       useCORS: true,
       backgroundColor: "#ffffff",
       windowWidth: 794,
@@ -345,7 +312,7 @@ export const invoiceHandleDownload = async (invoice) => {
 
     document.body.removeChild(container);
 
-    // Create PDF
+    // Create PDF with margins
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -354,22 +321,30 @@ export const invoiceHandleDownload = async (invoice) => {
 
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    // Set margins (10mm on both sides)
+    const margin = 10;
+    const contentWidth = pdfWidth - (margin * 2);
+    
     const imgData = canvas.toDataURL("image/png");
-
-    // Fit content to one page (most invoices should fit)
-    const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
-    const imgW = canvas.width * ratio;
+    
+    // Calculate dimensions to fit within content width with equal margins
+    const ratio = contentWidth / canvas.width;
+    const imgW = contentWidth;
     const imgH = canvas.height * ratio;
 
-    pdf.addImage(imgData, "PNG", 0, 0, imgW, imgH);
+    // Add image with equal left and right margins
+    pdf.addImage(imgData, "PNG", margin, 0, imgW, imgH);
 
     // If content is too long → add extra pages (rare for invoices)
     if (imgH > pdfHeight) {
-      let position = 0;
-      while (position < canvas.height) {
-        if (position > 0) pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, -position * (pdfHeight / canvas.height * canvas.width / pdfWidth), pdfWidth, 0);
-        position += pdfHeight * (canvas.height / pdfHeight);
+      let position = margin;
+      let pageNumber = 1;
+      while (position < imgH) {
+        if (position > margin) pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, -position + (pageNumber * pdfHeight), imgW, imgH);
+        position += pdfHeight;
+        pageNumber++;
       }
     }
 

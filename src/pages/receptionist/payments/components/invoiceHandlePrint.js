@@ -1,5 +1,5 @@
-
-import logo from "../../../../assets/logo/logo2.png";
+import { getFooter } from "../../../../components/pdf/pdfFooter";
+import { getHeader } from "../../../../components/pdf/pdfHeader";
 
 // Simple Indian rupees number to words
 const numberToWords = (num) => {
@@ -106,7 +106,7 @@ export const invoiceHandlePrint = async (invoice) => {
 
     // Category header row
     itemsHtml += `
-      <tr >
+      <tr>
         <td colspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; font-size:12px;">${cat}</td>
         <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; font-size:12px;">₹${formatCurrency(catTotal)}</td>
       </tr>
@@ -149,8 +149,7 @@ export const invoiceHandlePrint = async (invoice) => {
   <html>
   <head>
     <title>Invoice - Utpala Ayurdhama - ${invoiceNo}</title>
-     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-     
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
@@ -165,59 +164,19 @@ export const invoiceHandlePrint = async (invoice) => {
         flex-direction: column;
         min-height: 297mm;
       }
-     .header {
-  display: flex;
-  align-items: center;
-  padding: 12px 15px;
-  background: #f4d7b5;
-  border-bottom: 2px solid #000;
-}
-
-.logo {
-  height: 70px;
-  margin-right: 15px;
-}
-
-.header-text {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-}
-
-.title {
-  font-size: 18px;
-  font-weight: bold;
-  color: #4e342e;
-}
-
-.subtitle {
-  font-size: 11px;
-  color: #333;
-  margin-top: 4px;
-  line-height: 1.4;
-}
-      .header .invoice-title {
-        font-size: 18px;
-        font-weight: bold;
-        background: #5d4037;
-        color: white;
-        padding: 6px 20px;
-        display: inline-block;
-        margin-top: 8px;
-        border-radius: 4px;
-      }
       .info-container { display: flex; border: 1px solid #000; margin: 0; }
-      .patient-box { width: 60%;  padding: 12px; border-right: 1px solid #000; }
-      .receipt-box { width: 40%;  }
-      .receipt-title { text-align: center; font-weight: bold; font-size: 16px; border-bottom: 1px solid #000; padding: 8px; }
+      .patient-box { width: 60%; padding: 12px; border-right: 1px solid #000; }
+      .receipt-box { width: 40%; }
+      .receipt-title { text-align: center; font-weight: bold; font-size: 16px; border-bottom: 1px solid #000; padding: 8px; background: #f5f0eb; }
       .info-table { width: 100%; font-size: 12px; }
       .info-table td { padding: 3px 6px; }
       .info-table .label { font-weight: bold; width: 100px; }
-      .items-table { width: 100%; border-collapse: collapse; }
-      .items-table th { border: 1px solid #000; padding: 6px; font-size: 11px; text-align: center; font-weight: bold; }
-      .summary-container { display: flex; border-top: 2px solid #000; margin-top: 10px; }
-      .summary-left { width: 55%; padding: 12px; border-right: 1px solid #000; }
-      .summary-right { width: 45%; padding: 12px; }
+      .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      .items-table th, .items-table td { border: 1px solid #000; }
+      .items-table th { padding: 6px; font-size: 11px; text-align: center; font-weight: bold; background: #f5f5f5; }
+      .summary-container { display: flex; margin-top: 15px; padding-top: 10px; }
+      .summary-left { width: 55%; padding-right: 15px; }
+      .summary-right { width: 45%; }
       .summary-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
       .summary-row.total { font-size: 14px; font-weight: bold; border-top: 2px solid #000; padding-top: 8px; margin-top: 8px; }
       .status-badge {
@@ -225,39 +184,24 @@ export const invoiceHandlePrint = async (invoice) => {
         padding: 4px 12px;
         border-radius: 4px;
         font-weight: bold;
-        font-size: 13px;
-        margin-top: 5px;
-      }
-      .footer {
-        margin-top: auto;
-        background: #5d4037;
-        color: #fff;
-        display: flex;
-        justify-content: space-between;
-        padding: 15px 20px;
         font-size: 11px;
       }
-      .footer-left { width: 40%; }
-      .footer-right { width: 55%; }
-      .footer-title { font-weight: bold; margin-bottom: 6px; font-size: 13px; }
-      .footer-divider { width: 2px; background: rgba(255,255,255,0.5); margin: 0 15px; }
-      @media print { body { border: none; margin: 0; } }
+      .notes-section {
+        border-top: 1px solid #000;
+        padding: 12px;
+        font-size: 11px;
+        line-height: 1.6;
+        margin-top: 15px;
+      }
+      @media print {
+        body { border: none; margin: 0; }
+      }
     </style>
   </head>
   <body>
 
-    <!-- HEADER -->
-<div class="header">
-  <img src="${logo}" alt="Logo" class="logo"/>
+    ${getHeader()}
 
-  <div class="header-text">
-    <div class="title">UTPALA AYURDHAMA</div>
-    <div class="subtitle">
-      New BEL Rd, Chikkamaranahalli, Dollars Colony,<br/>
-      R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
-    </div>
-  </div>
-</div>
     <!-- PATIENT + RECEIPT INFO -->
     <div class="info-container">
       <div class="patient-box">
@@ -272,8 +216,8 @@ export const invoiceHandlePrint = async (invoice) => {
         </table>
       </div>
       <div class="receipt-box">
-        <div class="receipt-title">INVOICE DETAILS</div>
-        <table class="info-table" style="padding:10px;">
+        <div class="receipt-title">INVOICE DETAILS / RECEIPT</div>
+        <table class="info-table" style="margin-top:5px; margin-left:5px;">
           <tr><td class="label">Invoice No:</td><td>${invoiceNo}</td></tr>
           <tr><td class="label">Date:</td><td>${invoiceDate}</td></tr>
           <tr><td class="label">Time:</td><td>${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td></tr>
@@ -300,8 +244,8 @@ export const invoiceHandlePrint = async (invoice) => {
       <tbody>
         ${itemsHtml}
         <tr style="font-weight:bold;">
-          <td colspan="5" style="border:1px solid #000; padding:6px; font-size:12px;">SUBTOTAL</td>
-          <td style="border:1px solid #000; padding:6px; text-align:right; font-size:12px;">₹${formatCurrency(subtotal)}</td>
+          <td colspan="5" style="border:1px solid #000; padding:6px;">SUBTOTAL</td>
+          <td style="border:1px solid #000; padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
         </tr>
       </tbody>
     </table>
@@ -346,63 +290,29 @@ export const invoiceHandlePrint = async (invoice) => {
       </div>
     </div>
 
-<!-- NOTES SECTION -->
-<div style="border-top:1px solid #000; padding:12px; font-size:11px; line-height:1.6;">
-  <div style="display:flex; justify-content:space-between;">
-    
-    <!-- LEFT SIDE NOTES -->
-    <div style="width:70%;">
-      <div style="font-weight:bold; margin-bottom:5px;">Notes:</div>
-      <div>• Ensure to verify the invoice before you leave.</div>
-      <div>• If you have any questions or concerns about this invoice, please contact or E-mail us.</div>
-      <div>• Thank you for your continued trust and support!</div>
-      <div>• We greatly appreciate your visit. You're a valued customer at UTPALA AYURDHAMA.</div>
-      <div>• To know more about our services please visit https://utpalaayurdhama.com</div>
-      
-      <div style="margin-top:8px; font-weight:bold;">Please visit us again...!</div>
+    <!-- NOTES SECTION -->
+    <div class="notes-section">
+      <div style="display:flex; justify-content:space-between;">
+        <div style="width:70%;">
+          <div style="font-weight:bold; margin-bottom:5px;">Notes:</div>
+          <div>• Ensure to verify the invoice before you leave.</div>
+          <div>• If you have any questions or concerns about this invoice, please contact or E-mail us.</div>
+          <div>• Thank you for your continued trust and support!</div>
+          <div>• We greatly appreciate your visit. You're a valued customer at UTPALA AYURDHAMA.</div>
+          <div>• To know more about our services please visit https://utpalaayurdhama.com</div>
+          <div style="margin-top:8px; font-weight:bold;">Please visit us again...!</div>
+        </div>
+        <div style="width:25%; text-align:right;">
+          <div style="margin-bottom:40px;">For UTPALA AYURDHAMA</div>
+          <div>Authorized Signature</div>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:80px; font-size:18px; color:#555;">
+        This is a system generated invoice. You can use invoice number to track in future.
+      </div>
     </div>
 
-    <!-- RIGHT SIDE SIGNATURE -->
-    <div style="width:25%; text-align:right;">
-      <div style="margin-bottom:40px;">For UTPALA AYURDHAMA</div>
-      <div>Authorized Signature</div>
-    </div>
-
-  </div>
-
-  <!-- SYSTEM NOTE -->
-  <div style="text-align:center; margin-top:10px; font-size:10px; color:#555;">
-    This is a system generated invoice. You can use invoice number to track in future.
-  </div>
-</div>
-
-
-    <!-- FOOTER -->
-<div class="footer">
-  <div class="footer-left">
-    <div class="footer-title">REACH US AT</div>
-
-    <div><i class="fa-solid fa-envelope"></i> info@utpalaayurdhama.com</div>
-
-    <div><i class="fa-solid fa-phone"></i> +91-7259195959</div>
-
-    <div><i class="fa-solid fa-phone-volume"></i> 080-4054-0333</div>
-  </div>
-
-  <div class="footer-divider"></div>
-
-  <div class="footer-right">
-    <div class="footer-title">OUR BRANCH(S)</div>
-
-    <div>
-      <i class="fa-solid fa-location-dot"></i> RAJESHWARI AYURDHAMA<br>
-      #607, Ravi Nenapu, 7th Main road, Havanur Extn,<br>
-      Near Hesaraghatta Main Road, Bengaluru – 560073<br>
-      <i class="fa-solid fa-envelope"></i> rajeshwariayurdhama@gmail.com
-    </div>
-  </div>
-</div>
-
+    ${getFooter()}
 
     <script>
       window.onload = function () {

@@ -1,8 +1,7 @@
-
-
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../../config/api";
-import logo from "../../../../assets/logo/logo2.png";
+import { getFooter } from "../../../../components/pdf/pdfFooter";
+import { getHeader } from "../../../../components/pdf/pdfHeader";
 
 // Simple Indian rupees number to words (basic – extend for production)
 const numberToWords = (num) => {
@@ -34,445 +33,313 @@ export const handlePrint = async (id) => {
       return;
     }
 
-    // Map your API data fields (adjust names if different)
+    // Escape HTML function for safety
+    const escapeHtml = (text) => {
+      if (!text) return "";
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
+    // Map your API data fields
     const patient = {
-      name: data.patientName || "MRS. SUPRITA SHETTY",
-      gender: data.gender || "Female",
+      name: data.patientName || "N/A",
+      gender: data.gender || "N/A",
       age: data.age || "",
-      // address: data.address || "YESWANTHPUR",
-      mobileOrUHID: data.mobile || "",
-      gstin: data.patientGSTIN || "" // usually empty for patients
+      mobile: data.mobile || "",
     };
 
     const invoice = {
-      no: data.invoiceNo || "S/25-26/135",
-      date: data.invoiceDate || "12/07/2025",
-      referenceDate: data.referenceDate || "12/07/2025",
-      doctor: data.doctorName || "Dr. Rajeshwari"
+      no: data.invoiceNo || "N/A",
+      date: data.date || new Date().toLocaleDateString("en-IN"),
+      doctor: data.doctorName || "Dr. Nagaraj",
+      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
     };
+
+    // Financials
+    const subtotal = Number(data.subtotal || 0).toFixed(2);
+    const gstAmount = Number(data.gstAmount || 0).toFixed(2);
+    const totalWithGst = Number(data.totalWithGst || 0).toFixed(2);
+
+    // GST rate display
+    let gstRateText = "";
+    if (gstAmount > 0 && subtotal > 0) {
+      const calculatedRate = (gstAmount / subtotal) * 100;
+      gstRateText = `${Math.round(calculatedRate)}%`;
+    }
+
+    const amountInWords = `Rupees ${numberToWords(Math.round(totalWithGst))} Only`;
 
     // Medicines – adapt your API structure
     const items = data.medicines || [];
     const medicinesRows = items.map((m, i) => {
       const qty = Number(m.quantity || 1);
-      const rate = Number(m.rate || m.price || 0);
+      const rate = Number(m.price || m.rate || 0);
       const total = qty * rate;
 
       return `
-    <tr>
-      <td style="text-align:center;">${i + 1}</td>
-      <td>${m.medicineName || m.itemName || ""}</td>
-      <td style="text-align:center;">${qty}</td>
-      <td style="text-align:right;">${rate.toFixed(2)}</td>
-      <td style="text-align:right;">${total.toFixed(2)}</td>
-    </tr>
-  `;
+        <tr>
+          <td style="text-align:center; border:1px solid #000; padding:5px;">${i + 1}</td>
+          <td style="border:1px solid #000; padding:5px;">${escapeHtml(m.medicineName || m.itemName || "")}</td>
+          <td style="text-align:center; border:1px solid #000; padding:5px;">${qty}</td>
+          <td style="text-align:right; border:1px solid #000; padding:5px;">${rate.toFixed(2)}</td>
+          <td style="text-align:right; border:1px solid #000; padding:5px;">${total.toFixed(2)}</td>
+         </tr>
+      `;
     }).join("");
 
-    const subtotal = Number(data.subtotal || 342.86).toFixed(2);
-    const gstAmount = Number(data.gstAmount || 17.14).toFixed(2);
-    const totalWithGst = Number(data.totalWithGst || 360.00).toFixed(2);
-    const cgst = (gstAmount / 2).toFixed(2);
-    const sgst = cgst;
-
-    const amountInWords = `Rs. ${numberToWords(Math.round(totalWithGst))} Only`;
+    const totalQty = items.reduce((sum, m) => sum + Number(m.quantity || 1), 0);
 
     const html = `
+    <!DOCTYPE html>
     <html>
     <head>
-      <title>Tax Invoice - Utpala Ayurdhama</title>
+      <title>Prescription - Utpala Ayurdhama</title>
+      <meta charset="UTF-8">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
       <style>
-     body {
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 12px;
-  margin: 10px auto;
-  color: #000;
-  border: 1px solid black;
-  max-width: 50rem;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 297mm;
-}
-        .header {
-          background: #fff3e0; /* light orange-beige like sample */
-          padding: 10px;
-          text-align: center;
-          border-bottom: 2px solid #000;
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
         }
-        .logo {
-          font-size: 28px;
-          font-weight: bold;
-          color: #000000; /* saffron/orange tone */
-          margin: 5px 0;
+        body {
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 12px;
+          margin: 0;
+          padding: 20px;
+          color: #000;
+          background: #fff;
         }
-        .clinic-info {
-          font-size: 11px;
-          margin: 5px 0;
-        }
-        .title {
-          font-size: 16px;
-          font-weight: bold;
-          margin: 10px 0 5px;
-        }
-        table.info {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 10px 0;
-        }
-        table.info td {
-          padding: 4px 6px;
-          vertical-align: top;
-          border: none;
-        }
-        table.items {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 10px 0;
-        }
-        table.items th, table.items td {
+        .print-container {
+          max-width: 800px;
+          margin: 0 auto;
+          background: white;
           border: 1px solid #000;
-          padding: 5px;
+          min-height: 297mm;
+          display: flex;
+          flex-direction: column;
+        }
+        .content {
+          flex: 1;
+          padding: 20px;
+        }
+        .info-container {
+          display: flex;
+          border: 1px solid #000;
+          margin: 10px 0;
+        }
+        .patient-box {
+          width: 65%;
+          background: #fafafa;
+          padding: 12px;
+          border-right: 1px solid #000;
+        }
+        .receipt-box {
+          width: 35%;
+          background: #fafafa;
+        }
+        .receipt-title {
+          text-align: center;
+          font-weight: bold;
+          font-size: 18px;
+          border-bottom: 1px solid #000;
+          padding: 8px;
+          background: #f5f0eb;
+        }
+        .info-table {
+          width: 100%;
+          font-size: 12px;
+        }
+        .info-table td {
+          padding: 5px 8px;
+        }
+        .info-table .label {
+          font-weight: bold;
+          width: 100px;
+        }
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 16px 0;
           font-size: 11px;
         }
-        table.items th {
+        .items-table th,
+        .items-table td {
+          border: 1px solid #000;
+          padding: 6px;
+        }
+        .items-table th {
           background: #f5f5f5;
+          font-weight: bold;
           text-align: center;
         }
-        table.items .total-row {
+        .total-row {
           font-weight: bold;
-          background: #f0f0f0;
+          background: #f9f9f9;
+        }
+        .final-total {
+          background: #e8f5e9;
         }
         .amount-words {
-          margin: 10px 0;
+          margin: 16px 0;
+          padding: 12px;
+          background: #fff3e0;
+          border-left: 4px solid #8B4513;
           font-style: italic;
-          font-weight: bold;
+          font-size: 12px;
         }
-        table.gst-summary {
-          width: 60%;
-          border-collapse: collapse;
-          margin: 10px 0;
-        }
-        table.gst-summary th, table.gst-summary td {
-          border: 1px solid #000;
-          padding: 4px;
-          text-align: left;
-        }
-        table.gst-summary th {
-          background: #e0e0e0;
-        }
-        .bank-notes {
-          margin-top: 20px;
-          border-top: 1px solid #000;
-          padding-top: 10px;
+        .notes-section {
+          margin: 16px 0;
+          padding: 12px;
+          background: #f9f5f0;
+          border: 1px solid #ddd;
+          border-radius: 4px;
           font-size: 11px;
         }
-        .notes {
-          background: #fff3e0;
-          padding: 8px;
-          margin-top: 15px;
-          border: 1px solid #d7a37a;
+        .notes-section ul {
+          margin-top: 8px;
+          margin-left: 20px;
         }
-        .sign {
-          margin-top: 30px;
-          text-align: right;
+        .notes-section li {
+          margin-bottom: 4px;
         }
-             .footer{
-  margin-top:auto;
-  background:#6b3f36;
-  color:#fff;
-  display:flex;
-  justify-content:space-between;
-  padding:15px 20px;
-  font-size:12px;
-}
-
-.footer-left{
-  width:40%;
-}
-
-.footer-right{
-  width:55%;
-}
-
-.footer-title{
-  font-weight:bold;
-  margin-bottom:6px;
-  font-size:14px;
-}
-
-.footer-divider{
-  width:2px;
-  background:#ffffff80;
-  margin:0 15px;
-}
-
-.receipt-container{
-  display:flex;
-  border:1px solid #000;
-  margin-top:10px;
-}
-
-.patient-box{
-  width:65%;
-  background:#f2f2f2;
-  padding:10px;
-  border-right:1px solid #000;
-}
-
-.patient-box table{
-  width:100%;
-  font-size:13px;
-}
-
-.patient-box td{
-  padding:3px 5px;
-}
-
-.label{
-  font-weight:bold;
-  width:140px;
-}
-
-.colon{
-  width:10px;
-}
-
-.receipt-box{
-  width:35%;
-  background:#f2f2f2;
-}
-
-.receipt-title{
-  text-align:center;
-  font-weight:bold;
-  font-size:18px;
-  border-bottom:1px solid #000;
-  padding:8px;
-}
-
-.receipt-box table{
-  width:100%;
-  padding:10px;
-  font-size:13px;
-}
-
-.receipt-box td{
-  padding:5px;
-}
-
-.payment-container{
-  display:flex;
-  border-top:2px solid #000;
-  border-bottom:2px solid #000;
-  background:#f0f0f0;
-  padding:15px;
-  margin-top:15px;
-}
-
-.payment-left{
-  width:50%;
-}
-
-.payment-right{
-  width:50%;
-  padding-left:20px;
-}
-
-.payment-row{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:8px;
-  font-size:13px;
-}
-
-.payment-line{
-  display:flex;
-  justify-content:space-between;
-  margin-top:8px;
-  font-weight:bold;
-}
-
-.payment-sub{
-  font-size:11px;
-  color:#444;
-  margin-bottom:8px;
-}
-
-.balance-line{
-  display:flex;
-  justify-content:space-between;
-  border-top:2px solid #555;
-  margin-top:10px;
-  padding-top:5px;
-  font-weight:bold;
-}
-  .total-row td {
-  font-weight: bold;
-  background: #f5f5f5;
-}
-
-.total-row:last-child td {
-  background: #e0e0e0;
-  font-size: 13px;
-}
+        @media print {
+          body {
+            padding: 0;
+            margin: 0;
+          }
+          .print-container {
+            border: none;
+            margin: 0;
+            min-height: auto;
+          }
+          .content {
+            padding: 15px;
+          }
+        }
       </style>
     </head>
     <body>
+      <div class="print-container">
+        ${getHeader()}
+        
+        <div class="content">
+          <!-- Patient + Prescription Info -->
+          <div class="info-container">
+            <div class="patient-box">
+              <table class="info-table">
+                <tr><td class="label">Patient Name</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
+                <tr><td class="label">Age / Gender</td><td>:</td><td>${patient.age ? patient.age + ' / ' : ''}${patient.gender}</td></tr>
+                <tr><td class="label">Mobile No</td><td>:</td><td>${escapeHtml(patient.mobile)}</td></tr>
+              </table>
+            </div>
+            <div class="receipt-box">
+              <div class="receipt-title">PRESCRIPTION</div>
+              <table class="info-table" style="margin-top:8px;">
+                <tr><td class="label">Prescription No:</td><td>${escapeHtml(invoice.no)}</td></tr>
+                <tr><td class="label">Date:</td><td>${invoice.date}</td></tr>
+                <tr><td class="label">Time:</td><td>${invoice.time}</td></tr>
+                <tr><td class="label">Doctor:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
+              </table>
+            </div>
+          </div>
 
-      <div class="header">
-      <div class="logo">
-  <img src="${logo}" style="height:200px;" />
-</div>
-        <div class="logo">Utpala Ayurdhama</div>
-        <div class="clinic-info">
-          New BEL Rd, Chikkamaranahalli, Dollars Colony, R.M.V. 2nd Stage,
-          Bengaluru, Karnataka 560094
-          info@utpalaayurdhama.com
-          GSTIN: 29ACXPL2065P1ZL
-        </div>
+          <!-- Items Table -->
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 8%">Srl</th>
+                <th style="width: 52%">Medicine Name</th>
+                <th style="width: 10%">Qty</th>
+                <th style="width: 15%">Rate (₹)</th>
+                <th style="width: 15%">Total (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${medicinesRows}
+              
+              <!-- Subtotal -->
+              <tr class="total-row">
+                <td colspan="3" style="text-align:right; font-weight:bold;">Sub Total</td>
+                <td style="text-align:center;">${totalQty}</td>
+                <td style="text-align:right; font-weight:bold;">₹${subtotal}</td>
+              </tr>
+              
+              <!-- GST Row -->
+              ${gstAmount > 0 ? `
+                <tr class="total-row">
+                  <td colspan="4" style="text-align:right; font-weight:bold;">GST (${gstRateText})</td>
+                  <td style="text-align:right; font-weight:bold;">₹${gstAmount}</td>
+                </tr>
+              ` : ''}
+              
+              <!-- Grand Total -->
+              <tr class="final-total" >
+                <td colspan="4" style="text-align:right; font-weight:bold; font-size:13px;">Total (with GST)</td>
+                <td style="text-align:right; font-weight:bold; font-size:13px; color:#8B4513;">₹${totalWithGst}</td>
+              </tr>
+            </tbody>
+          </table>
+
+     
+
+  
+
+        ${getFooter()}
       </div>
 
-    <div class="receipt-container">
-
-  <div class="patient-box">
-    <table>
-      <tr>
-        <td class="label">NAME</td>
-        <td class="colon">:</td>
-        <td>${patient.name}</td>
-      </tr>
-
-      <tr>
-        <td class="label">AGE </td>
-        <td class="colon">:</td>
-        <td class="colon">${patient.age} YEARS,</td>
-      </tr>
-   <tr>
-        <td class="label">GENDER</td>
-        <td class="colon">:</td>
-        <td> ${patient.gender}</td>
-      </tr>
-
-      <tr>
-        <td class="label">PHONE</td>
-        <td class="colon">:</td>
-        <td>${patient.mobileOrUHID}</td>
-      </tr>
-
-    </table>
-  </div>
-
-  <div class="receipt-box">
-
-    <div class="receipt-title">RECEIPT DETAILS</div>
-
-    <table>
-      <tr>
-        <td>Receipt No:</td>
-        <td>${invoice.no}</td>
-      </tr>
-
-      <tr>
-        <td>Date</td>
-        <td>${invoice.date}</td>
-      </tr>
-
-      <tr>
-        <td>Time</td>
-        <td>${new Date().toLocaleTimeString()}</td>
-      </tr>
-    </table>
-
-  </div>
-
-</div>
-
-      <table class="items">
-        <thead>
-          <tr>
+      <script>
+        // Ensure proper print handling
+        (function() {
+          // Wait for all content to load
+          window.addEventListener('load', function() {
+            // Small delay to ensure all content is rendered
+            setTimeout(function() {
+              // Trigger print dialog
+              window.print();
+            }, 300);
+          });
           
-            <th>Srl</th>
-            <th>Item Name</th>
-            <th>Qty</th>
-            <th>Rate</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-<tbody>
-  ${medicinesRows}
-
-  <!-- Subtotal -->
-  <tr class="total-row">
-    <td colspan="4" style="text-align:right;">Sub Total</td>
-    <td style="text-align:right;">₹${subtotal}</td>
-  </tr>
-
-  <!-- GST -->
-  <tr class="total-row">
-    <td colspan="4" style="text-align:right;">GST (5%)</td>
-    <td style="text-align:right;">₹${gstAmount}</td>
-  </tr>
-
-  <!-- Final Total -->
-  <tr class="final-total">
-    <td colspan="4" style="text-align:right; font-weight:bold; font-size:14px;">
-      Total (with GST)
-    </td>
-    <td style="text-align:right; font-weight:bold; font-size:14px;">
-      ₹${totalWithGst}
-    </td>
-  </tr>
-</tbody>
-      </table>
-
-<div class="footer">
-  <div class="footer-left">
-    <div class="footer-title">REACH US AT</div>
-
-    <div><i class="fa-solid fa-envelope"></i> info@utpalaayurdhama.com</div>
-
-    <div><i class="fa-solid fa-phone"></i> +91-7259195959</div>
-
-    <div><i class="fa-solid fa-phone-volume"></i> 080-4054-0333</div>
-  </div>
-
-  <div class="footer-divider"></div>
-
-  <div class="footer-right">
-    <div class="footer-title">OUR BRANCH(S)</div>
-
-    <div>
-      <i class="fa-solid fa-location-dot"></i> RAJESHWARI AYURDHAMA<br>
-      #607, Ravi Nenapu, 7th Main road, Havanur Extn,<br>
-      Near Hesaraghatta Main Road, Bengaluru – 560073<br>
-      <i class="fa-solid fa-envelope"></i> rajeshwariayurdhama@gmail.com
-    </div>
-  </div>
-</div>
-
-     <script>
-window.onload = function () {
-  window.print();
-
-  // When print dialog closes (print or cancel)
-  window.onafterprint = function () {
-    window.close();
-  };
-};
-</script>
-
+          // Handle after print - don't close immediately, wait for user
+          let printTimeout;
+          window.onafterprint = function() {
+            // Add a small delay before closing to ensure user sees the print dialog closed
+            if (printTimeout) clearTimeout(printTimeout);
+            printTimeout = setTimeout(function() {
+              // Only close if this is a popup window
+              if (window.opener && !window.opener.closed) {
+                window.close();
+              }
+            }, 1000);
+          };
+          
+          // Handle before print to ensure layout is ready
+          window.onbeforeprint = function() {
+            // Optional: Add any pre-print adjustments
+            document.body.style.margin = '0';
+            document.body.style.padding = '0';
+          };
+        })();
+      </script>
     </body>
     </html>
     `;
 
-    const printWindow = window.open("", "_blank", "width=950,height=800");
-    printWindow.document.write(html);
-    printWindow.document.close();
+    // Open print window
+    const printWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes,resizable=yes");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      // Focus the print window
+      printWindow.focus();
+    } else {
+      alert("Popup blocked! Please allow popups to print the prescription.");
+    }
 
   } catch (error) {
-    console.error(error);
-    alert("Error fetching prescription");
+    console.error("Error fetching prescription:", error);
+    alert("Error fetching prescription. Please try again.");
   }
 };

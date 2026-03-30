@@ -66,7 +66,7 @@ function Reports_View() {
     // Safe date parser helper
     const safeParseDate = (dateString) => {
         if (!dateString) return null;
-        
+
         let date;
         // Handle DD-MM-YYYY format (e.g., "28-03-2026")
         if (typeof dateString === 'string' && /^\d{2}-\d{2}-\d{4}/.test(dateString)) {
@@ -77,7 +77,7 @@ function Reports_View() {
             // Fallback for ISO or other standard formats
             date = new Date(dateString);
         }
-        
+
         return isNaN(date.getTime()) ? null : date;
     };
 
@@ -85,7 +85,7 @@ function Reports_View() {
     const formatDate = (dateString) => {
         const date = safeParseDate(dateString);
         if (!date) return "N/A";
-        
+
         return date.toLocaleDateString("en-IN", {
             year: "numeric",
             month: "short",
@@ -162,7 +162,7 @@ function Reports_View() {
                 setReportData(formattedTransactions);
                 setSummaryData(summary || null);
                 setHasGenerated(true);
-                
+
                 // Update pagination metadata
                 let totalCount = 0;
                 if (response.meta && response.meta.total !== undefined && response.meta.total !== null) {
@@ -177,7 +177,7 @@ function Reports_View() {
                     // Fallback: use transactions length if meta is not available
                     totalCount = formattedTransactions.length || 0;
                 }
-                
+
                 setPagination(prev => ({
                     ...prev,
                     total: totalCount,
@@ -203,7 +203,7 @@ function Reports_View() {
             setLoading(false);
         }
     };
-    
+
     // Reset pagination when date range changes
     const handleDateChange = () => {
         setPagination(prev => ({ ...prev, page: 0 }));
@@ -245,7 +245,7 @@ function Reports_View() {
         }
     };
 
- 
+
     // Get payment method icon and color (₹ for Cash to match INR amounts)
     const getPaymentMethodIcon = (method) => {
         switch (method) {
@@ -455,16 +455,12 @@ function Reports_View() {
                 {hasGenerated && reportData.length > 0 && (
                     <Box
                         sx={{
+                            width: "100%",
                             display: "grid",
-                            gridTemplateColumns: {
-                                xs: "1fr",
-                                sm: "repeat(2, 1fr)",
-                                md: "repeat(4, 1fr)",
-                            },
+                            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
                             gap: "15px",
-                            marginTop: 4,
+                            mt: 4,
                         }}
-                        className="no-print"
                     >
                         <DashboardCard
                             title="Total Credit"
@@ -478,12 +474,7 @@ function Reports_View() {
                             prefix="₹"
                             icon={MoneyOffIcon}
                         />
-                        <DashboardCard
-                            title="Net Balance"
-                            count={totals.balance}
-                            prefix="₹"
-                            icon={AccountBalanceIcon}
-                        />
+
                         <DashboardCard
                             title="Total Transactions"
                             count={totals.transactionCount}
@@ -637,7 +628,7 @@ function Reports_View() {
                                                     {formatCurrency(totals.debit)}
                                                 </td>
                                             </tr>
-                                            <tr>
+                                            {/* <tr>
                                                 <td colSpan="4" style={{ fontSize: "0.875rem", fontWeight: 700, textAlign: "right" }}>
                                                     Net Balance:
                                                 </td>
@@ -651,11 +642,11 @@ function Reports_View() {
                                                 >
                                                     {formatCurrency(totals.balance)}
                                                 </td>
-                                            </tr>
+                                            </tr> */}
                                         </tfoot>
                                     </table>
                                 </div>
-                                
+
                                 {/* Pagination */}
                                 {!loading && reportData.length > 0 && (
                                     <TablePagination

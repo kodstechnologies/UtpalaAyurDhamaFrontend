@@ -1,10 +1,10 @@
-
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../../config/api";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import logo from "../../../../assets/logo/logo2.png";
+import { getHeader } from "../../../../components/pdf/pdfHeader";
+import { getFooter } from "../../../../components/pdf/pdfFooter";
 
 // Number to words (Indian style)
 const numberToWords = (num) => {
@@ -118,6 +118,14 @@ export const handleDownload = async (id) => {
 
     const totalQty = items.reduce((sum, m) => sum + Number(m.quantity || 1), 0);
 
+    // Escape HTML function for safety
+    const escapeHtml = (text) => {
+      if (!text) return "";
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
     // ────────────────────────────────────────────────
     // HTML Container for PDF
     // ────────────────────────────────────────────────
@@ -136,34 +144,26 @@ export const handleDownload = async (id) => {
     container.innerHTML = `
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" />
 
-      <!-- Header -->
-      <div style="background:#fff3e0; padding:14px; text-align:center; margin-bottom:16px; ">
-        <img src="${logo}" style="height:85px; object-fit:contain;" alt="Utpala Ayurdhama" />
-        <div style="font-size:26px; font-weight:bold; margin:8px 0; color:#4a2c1f;">Utpala Ayurdhama</div>
-        <div style="font-size:11px; line-height:1.5;">
-          New BEL Rd, Chikkamaranahalli, Dollars Colony,<br/>
-          R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
-        </div>
-      </div>
+      ${getHeader()}
 
       <!-- Patient + Invoice Info -->
-      <div style="display:flex; border:1px solid #000; margin-bottom:16px; font-size:13px;">
+      <div style="display:flex; border:1px solid #000; margin:10px 0; font-size:13px;">
         <div style="width:65%; background:#f9f5f0; padding:12px; border-right:1px solid #000;">
           <table style="width:100%;">
-            <tr><td style="font-weight:bold; width:110px;">Patient Name</td><td>:</td><td>${patient.name}</td></tr>
+            <tr><td style="font-weight:bold; width:110px;">Patient Name</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
             <tr><td style="font-weight:bold;">Age / Gender</td><td>:</td><td>${patient.age ? patient.age + ' / ' : ''}${patient.gender}</td></tr>
-            <tr><td style="font-weight:bold;">Mobile</td><td>:</td><td>${patient.mobile}</td></tr>
+            <tr><td style="font-weight:bold;">Mobile</td><td>:</td><td>${escapeHtml(patient.mobile)}</td></tr>
           </table>
         </div>
         <div style="width:35%; background:#f9f5f0; padding:12px;">
           <div style="text-align:center; font-weight:bold; font-size:17px; margin-bottom:10px; border-bottom:1px solid #000; padding-bottom:6px;">
-            INVOICE
+            PRESCRIPTION
           </div>
           <table style="width:100%;">
-            <tr><td style="font-weight:bold; width:70px;">No:</td><td>${invoice.no}</td></tr>
+            <tr><td style="font-weight:bold; width:70px;">No:</td><td>${escapeHtml(invoice.no)}</td></tr>
             <tr><td style="font-weight:bold;">Date:</td><td>${invoice.date}</td></tr>
             <tr><td style="font-weight:bold;">Time:</td><td>${invoice.time}</td></tr>
-            <tr><td style="font-weight:bold;">Doctor:</td><td>${invoice.doctor}</td></tr>
+            <tr><td style="font-weight:bold;">Doctor:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
           </table>
         </div>
       </div>
@@ -173,7 +173,7 @@ export const handleDownload = async (id) => {
         <thead>
           <tr style="background:#f5f5f5;">
             <th style="border:1px solid #000; padding:6px; width:45px;">Srl</th>
-            <th style="border:1px solid #000; padding:6px;">Item Name</th>
+            <th style="border:1px solid #000; padding:6px;">Medicine Name</th>
             <th style="border:1px solid #000; padding:6px; width:60px;">Qty</th>
             <th style="border:1px solid #000; padding:6px; width:85px;">Rate</th>
             <th style="border:1px solid #000; padding:6px; width:85px;">Total</th>
@@ -209,39 +209,9 @@ export const handleDownload = async (id) => {
           </tr>
         </tbody>
       </table>
+<div style="margin-top:150px"></div>
 
-    
-
-      <!-- Footer -->
-      <div style="
-        position: absolute;
-        bottom: 12px;
-        left: 18px;
-        right: 18px;
-        background:#5d4037;
-        color:#fff;
-        padding:14px 20px;
-        font-size:11px;
-        display:flex;
-        justify-content:space-between;
-        border-top:1px solid #8d6e63;
-      ">
-        <div style="width:48%;">
-          <div style="font-weight:bold; font-size:12px; margin-bottom:6px;">REACH US</div>
-          <div><i class="fa-solid fa-envelope"></i> info@utpalaayurdhama.com</div>
-          <div><i class="fa-solid fa-phone"></i> +91-7259195959</div>
-          <div><i class="fa-solid fa-phone-volume"></i> 080-4054-0333</div>
-        </div>
-        <div style="width:50%; text-align:right;">
-          <div style="font-weight:bold; font-size:12px; margin-bottom:6px;">BRANCH</div>
-          <div>
-            <i class="fa-solid fa-location-dot"></i> RAJESHWARI AYURDHAMA<br/>
-            #607, Ravi Nenapu, 7th Main, Havanur Extn,<br/>
-            Near Hesaraghatta Main Rd, Bengaluru – 560073<br/>
-            <i class="fa-solid fa-envelope"></i> rajeshwariayurdhama@gmail.com
-          </div>
-        </div>
-      </div>
+      ${getFooter()}
     `;
 
     document.body.appendChild(container);

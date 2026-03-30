@@ -1,6 +1,7 @@
 import axios from "axios";
-import logo from "../../../assets/logo/logo2.png";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import { getHeader } from "../../../components/pdf/pdfHeader";
+import { getFooter } from "../../../components/pdf/pdfFooter";
 
 // Indian rupees number to words
 const numberToWords = (num) => {
@@ -33,6 +34,29 @@ const numberToWords = (num) => {
     };
 
     return convertToWords(num);
+};
+
+// Helper function to remove duplicate transactions
+const removeDuplicates = (transactions) => {
+    const seen = new Map();
+    return transactions.filter(transaction => {
+        // Create a unique key based on transaction properties
+        const key = `${transaction.date}_${transaction.description}_${transaction.amount}_${transaction.type}`;
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.set(key, true);
+        return true;
+    });
+};
+
+// Helper function to validate and filter transactions with zero amounts
+const filterValidTransactions = (transactions) => {
+    return transactions.filter(t => {
+        const amount = parseFloat(t.amount || 0);
+        // Filter out transactions with zero amount and ensure valid amount
+        return amount !== 0 && !isNaN(amount);
+    });
 };
 
 export const handlePrint = async (startDate, endDate) => {
@@ -80,16 +104,31 @@ export const handlePrint = async (startDate, endDate) => {
                 startDate: startDateISO.toISOString(),
                 endDate: endDateISO.toISOString(),
                 format: "json",
-                limit: 1000 // Get all for printing
+                limit: 1000
             }
         });
 
         document.body.removeChild(loadingDiv);
 
         const { summary, transactions } = response.data.data;
-        const totalIncome = summary.totalIncome || 0;
-        const totalExpense = summary.totalExpense || 0;
-        const netTotal = summary.netTotal || 0;
+        
+        // Clean and deduplicate transactions
+        let cleanedTransactions = removeDuplicates(transactions);
+        cleanedTransactions = filterValidTransactions(cleanedTransactions);
+        
+        // Sort transactions by date (oldest first)
+        cleanedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Calculate totals from cleaned transactions
+        const totalIncome = cleanedTransactions
+            .filter(t => t.type === 'Income')
+            .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            
+        const totalExpense = cleanedTransactions
+            .filter(t => t.type === 'Expense')
+            .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            
+        const netTotal = totalIncome - totalExpense;
 
         // Escape HTML
         const escapeHtml = (text) => {
@@ -111,16 +150,19 @@ export const handlePrint = async (startDate, endDate) => {
             return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
         };
 
-        const rows = transactions.map((t, i) => `
-            <tr>
-                <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${i + 1}</td>
-                <td style="padding: 8px; border:1px solid #ddd;">${formatDate(t.date)}</td>
-                <td style="padding: 8px; border:1px solid #ddd;">${escapeHtml(t.description)}</td>
-                <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${escapeHtml(t.paymentMethod || "Cash")}</td>
-                <td style="text-align:center; padding: 8px; border:1px solid #ddd; color: ${t.type === 'Income' ? '#198754' : '#dc3545'}; font-weight:bold;">${t.type}</td>
-                <td style="text-align:right; padding: 8px; border:1px solid #ddd; font-weight:bold;">₹${(t.amount || 0).toFixed(2)}</td>
-            </tr>
-        `).join("");
+        const rows = cleanedTransactions.map((t, i) => {
+            const amount = parseFloat(t.amount || 0);
+            return `
+                <tr>
+                    <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${i + 1}</td>
+                    <td style="padding: 8px; border:1px solid #ddd;">${formatDate(t.date)}</td>
+                    <td style="padding: 8px; border:1px solid #ddd;">${escapeHtml(t.description)}</td>
+                    <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${escapeHtml(t.paymentMethod || "Cash")}</td>
+                    <td style="text-align:center; padding: 8px; border:1px solid #ddd; color: ${t.type === 'Income' ? '#198754' : '#dc3545'}; font-weight:bold;">${t.type}</td>
+                    <td style="text-align:right; padding: 8px; border:1px solid #ddd; font-weight:bold;">₹${amount.toFixed(2)}</td>
+                </tr>
+            `;
+        }).join("");
 
         const html = `
         <!DOCTYPE html>
@@ -128,55 +170,134 @@ export const handlePrint = async (startDate, endDate) => {
         <head>
             <title>Payment Report - Utpala Ayurdhama</title>
             <meta charset="UTF-8">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
             <style>
-                body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; margin: 0; padding: 20px; }
-                .report-container { max-width: 1000px; margin: 0 auto; background: white; border: 1px solid #ddd; padding: 20px; }
-                .header { text-align: center; border-bottom: 2px solid #8B4513; padding-bottom: 15px; margin-bottom: 20px; }
-                .clinic-name { font-size: 24px; font-weight: bold; color: #8B4513; margin: 5px 0; }
-                .title { font-size: 18px; font-weight: bold; text-align: center; margin: 20px 0; color: #8B4513; text-transform: uppercase; }
-                .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                .summary-box { border: 1px solid #ddd; padding: 15px; background: #fafafa; border-radius: 8px; display: flex; justify-content: space-between; margin-bottom: 20px; }
-                .summary-item { text-align: center; flex: 1; }
-                .summary-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 5px; }
-                .summary-value { font-size: 16px; font-weight: bold; }
-                .items-table { width: 100%; border-collapse: collapse; font-size: 10px; }
-                .items-table th { background: #f5f5f5; padding: 10px; border: 1px solid #ddd; text-align: center; }
-                .footer { margin-top: 30px; display: flex; justify-content: space-between; font-size: 10px; color: #666; }
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                body {
+                    font-family: Arial, Helvetica, sans-serif;
+                    font-size: 12px;
+                    margin: 10px auto;
+                    color: #000;
+                    border: 1px solid black;
+                    max-width: 50rem;
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 297mm;
+                }
+                .report-container {
+                    width: 100%;
+                    background: white;
+                }
+                .title {
+                    font-size: 22px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                    text-align: center;
+                    color: #8B4513;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                .period-info {
+                    text-align: center;
+                    margin-bottom: 20px;
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+                .summary-box {
+                    display: flex;
+                    justify-content: center;
+                    margin: 20px;
+                    gap: 30px;
+                }
+                .summary-card {
+                    flex: 0 1 300px;
+                    border: 1px solid #ddd;
+                    padding: 20px;
+                    background: #fafafa;
+                    border-radius: 8px;
+                    text-align: center;
+                }
+                .summary-label {
+                    font-size: 14px;
+                    color: #666;
+                    text-transform: uppercase;
+                    margin-bottom: 10px;
+                    font-weight: bold;
+                }
+                .summary-value {
+                    font-size: 24px;
+                    font-weight: bold;
+                }
+                .items-table {
+                    width: calc(100% - 40px);
+                    margin: 20px;
+                    border-collapse: collapse;
+                    font-size: 11px;
+                }
+                .items-table th,
+                .items-table td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                }
+                .items-table th {
+                    background: #f5f5f5;
+                    font-weight: bold;
+                    text-align: center;
+                }
+                .amount-words {
+                    margin: 20px;
+                    padding: 12px;
+                    background: #fff3e0;
+                    border-left: 4px solid #8B4513;
+                    font-style: italic;
+                    font-size: 12px;
+                }
+                .footer-note {
+                    margin-top: 30px;
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 10px;
+                    color: #666;
+                    padding: 0 20px 20px 20px;
+                }
                 @media print {
-                    body { padding: 0; }
-                    .report-container { border: none; }
+                    body {
+                        border: none;
+                        margin: 0;
+                    }
+                    .summary-card {
+                        border: 1px solid #000;
+                    }
                 }
             </style>
         </head>
         <body>
             <div class="report-container">
-                <div class="header">
-                    <img src="${logo}" style="height: 60px;" />
-                    <div class="clinic-name">Utpala Ayurdhama</div>
-                    <div style="font-size: 10px; color: #666;">New BEL Rd, Bengaluru, Karnataka 560094</div>
-                </div>
+                ${getHeader()}
 
                 <div class="title">CONSOLIDATED PAYMENT & EXPENSE REPORT</div>
                 
-                <div style="text-align:center; margin-bottom: 20px; font-size: 12px;">
+                <div class="period-info">
                     <strong>Period:</strong> ${formatDate(startDate)} to ${formatDate(endDate)}
                 </div>
 
                 <div class="summary-box">
-                    <div class="summary-item">
-                        <div class="summary-label">Total Income</div>
+                    <div class="summary-card">
+                        <div class="summary-label">Total Credit (Income)</div>
                         <div class="summary-value" style="color: #198754;">₹${totalIncome.toFixed(2)}</div>
                     </div>
-                    <div class="summary-item">
-                        <div class="summary-label">Total Expense</div>
+                    <div class="summary-card">
+                        <div class="summary-label">Total Debit (Expense)</div>
                         <div class="summary-value" style="color: #dc3545;">₹${totalExpense.toFixed(2)}</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-label">Net Balance</div>
-                        <div class="summary-value" style="color: ${netTotal >= 0 ? '#198754' : '#dc3545'};">₹${netTotal.toFixed(2)}</div>
                     </div>
                 </div>
 
+                ${cleanedTransactions.length > 0 ? `
                 <table class="items-table">
                     <thead>
                         <tr>
@@ -193,26 +314,32 @@ export const handlePrint = async (startDate, endDate) => {
                     </tbody>
                     <tfoot>
                         <tr style="background: #f9f9f9; font-weight: bold;">
-                            <td colspan="5" style="text-align:right; padding: 10px; border:1px solid #ddd;">GRAND TOTAL (NET)</td>
-                            <td style="text-align:right; padding: 10px; border:1px solid #ddd; color: ${netTotal >= 0 ? '#198754' : '#dc3545'}; font-size: 12px;">₹${netTotal.toFixed(2)}</td>
+                            <td colspan="5" style="text-align:right; padding: 10px; border:1px solid #ddd;">TOTAL CREDIT</td>
+                            <td style="text-align:right; padding: 10px; border:1px solid #ddd; color: #198754;">₹${totalIncome.toFixed(2)}</td>
                         </tr>
+                        <tr style="background: #f9f9f9; font-weight: bold;">
+                            <td colspan="5" style="text-align:right; padding: 10px; border:1px solid #ddd;">TOTAL DEBIT</td>
+                            <td style="text-align:right; padding: 10px; border:1px solid #ddd; color: #dc3545;">₹${totalExpense.toFixed(2)}</td>
+                        </tr>
+                    
                     </tfoot>
                 </table>
-
-                <div style="margin-top: 30px; font-style: italic; font-size: 11px;">
-                    <strong>Amount in Words:</strong> Rupees ${numberToWords(Math.round(Math.abs(netTotal)))} ${netTotal < 0 ? 'Debit' : 'Only'}
+                ` : `
+                <div style="text-align:center; margin: 40px; padding: 20px; color: #666;">
+                    No transactions found for the selected period.
                 </div>
+                `}
 
-                <div class="footer">
-                    <div>Generated on: ${new Date().toLocaleString()}</div>
-                    <div style="text-align:right;">
-                        <br/><br/>
-                        _________________________<br/>
-                        Authorized Signatory
-                    </div>
-                </div>
+             
+                ${getFooter()}
             </div>
-            <script>window.onload = () => { setTimeout(() => { window.print(); }, 500); }</script>
+            <script>
+                window.onload = () => { 
+                    setTimeout(() => { 
+                        window.print(); 
+                    }, 500); 
+                }
+            </script>
         </body>
         </html>
         `;
@@ -227,6 +354,10 @@ export const handlePrint = async (startDate, endDate) => {
 
     } catch (error) {
         console.error("Error generating report:", error);
+        const loadingDiv = document.querySelector('div[style*="position: fixed"]');
+        if (loadingDiv && loadingDiv.parentNode) {
+            loadingDiv.parentNode.removeChild(loadingDiv);
+        }
         alert("Failed to generate report. Please try again.");
     }
 };
