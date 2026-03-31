@@ -118,24 +118,17 @@ function Reports_View() {
         try {
             setLoading(true);
 
-            // Convert dates to ISO strings for API (YYYY-MM-DD format is fine, API will convert)
-            // The backend validation expects ISO 8601 format
-            const startDateObj = new Date(startDate);
-            startDateObj.setHours(0, 0, 0, 0); // Set to start of day in local time
-            const endDateObj = new Date(endDate);
-            endDateObj.setHours(23, 59, 59, 999); // Set to end of day in local time
+            const startDateStr = startDate; // Format: YYYY-MM-DD
+            const endDateStr = endDate;     // Format: YYYY-MM-DD
 
-            const startDateISO = startDateObj.toISOString();
-            const endDateISO = endDateObj.toISOString();
-
-            console.log("Fetching report with dates:", { startDateISO, endDateISO });
+            console.log("Fetching report with dates:", { startDateStr, endDateStr });
 
             const currentPage = pageOverride !== null ? pageOverride : pagination.page;
             const currentRowsPerPage = rowsPerPageOverride !== null ? rowsPerPageOverride : pagination.rowsPerPage;
 
             const response = await paymentService.getPaymentReport({
-                startDate: startDateISO,
-                endDate: endDateISO,
+                startDate: startDateStr,
+                endDate: endDateStr,
                 format: "json",
                 page: currentPage + 1, // Backend uses 1-based pagination
                 limit: currentRowsPerPage,
@@ -216,13 +209,12 @@ function Reports_View() {
             return;
         }
         try {
-            // Convert dates to ISO strings for API
-            const startDateISO = new Date(startDate).toISOString();
-            const endDateISO = new Date(endDate).toISOString();
+            const startDateStr = startDate; // Format: YYYY-MM-DD
+            const endDateStr = endDate;     // Format: YYYY-MM-DD
 
             const response = await paymentService.getPaymentReport({
-                startDate: startDateISO,
-                endDate: endDateISO,
+                startDate: startDateStr,
+                endDate: endDateStr,
                 format: "excel",
             });
 
@@ -285,7 +277,7 @@ function Reports_View() {
 
     // Breadcrumb items
     const breadcrumbItems = [
-        { label: "Home", url: "/" },
+        { label: "Home", url: "/receptionist/dashboard" },
         { label: "Reports" },
     ];
 

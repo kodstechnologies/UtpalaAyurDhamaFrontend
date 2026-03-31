@@ -668,7 +668,7 @@ function ListPrescriptions() {
                             />
                         </Box>
                     }
-                    subtitle="Review patient details and dispense prescribed medicines with care."
+                    subtitle="View and manage all patient prescriptions with accurate medication details."
                     action={
                         <Stack direction="row" spacing={1}>
                             <Button

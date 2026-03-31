@@ -69,50 +69,13 @@ const ChargesPanel = ({
 }) => {
   const groupedCharges = useMemo(() => {
     if (!charges || !Array.isArray(charges)) return [];
-    if (category !== "therapy") return charges;
-
-    const groups = new Map();
-    charges.forEach((charge) => {
-      const examinationId = charge.examinationId || charge.examination || "";
-      const treatmentPlanId = charge.treatmentPlanId || charge.treatmentPlan || "";
-      const date = charge.date ? new Date(charge.date).toISOString().split("T")[0] : "";
-      const therapistName = charge.therapistName || "";
-
-      const groupKey = examinationId || treatmentPlanId || `${date}-${therapistName}`;
-
-      if (!groups.has(groupKey)) {
-        groups.set(groupKey, {
-          ...charge,
-          therapies: [],
-          totalTherapyCharge: 0,
-          totalTherapistCharge: 0,
-          totalAmount: 0,
-        });
-      }
-
-      const group = groups.get(groupKey);
-      group.therapies.push({
-        therapyName: charge.therapyName || charge.description || "",
-        subTherapy: charge.subTherapy || "",
-        therapyCharge: Number(charge.therapyCharge || 0),
-        therapistCharge: Number(charge.therapistCharge || 0),
-        amount: Number(charge.amount || 0),
-        status: charge.status,
-        sessionId: charge.sessionId || charge.id,
-      });
-
-      group.totalTherapyCharge += Number(charge.therapyCharge || 0);
-      group.totalTherapistCharge += Number(charge.therapistCharge || 0);
-      group.totalAmount += Number(charge.amount || 0);
-    });
-
-    return Array.from(groups.values());
+    // Disable grouping - each session should be its own row as requested
+    return charges;
   }, [charges, category]);
 
-  const totalAmount = groupedCharges.reduce((sum, ch) => {
-    if (category === "therapy" && ch.totalAmount) return sum + ch.totalAmount;
-    return sum + Number(ch.amount || 0);
-  }, 0);
+  const totalAmount = useMemo(() => {
+    return groupedCharges.reduce((sum, ch) => sum + Number(ch.amount || 0), 0);
+  }, [groupedCharges]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -211,42 +174,13 @@ const ChargesPanel = ({
                     {category === "therapy" ? (
                       <>
                         <td style={{ fontSize: "0.875rem" }}>
-                          {charge.therapies?.length > 0 ? (
-                            <div>
-                              {(() => {
-                                const uniqueSub = [...new Set(charge.therapies.map(t => t.subTherapy || ""))];
-                                const commonSub = uniqueSub.length === 1 && uniqueSub[0];
-                                if (commonSub) {
-                                  return (
-                                    <>
-                                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                                        {charge.therapies.map((t, i) => (
-                                          <span key={i} style={{ fontWeight: 500 }}>
-                                            {t.therapyName}
-                                            {i < charge.therapies.length - 1 && <span style={{ margin: "0 4px", color: "#6c757d" }}>•</span>}
-                                          </span>
-                                        ))}
-                                      </div>
-                                      <div style={{ fontSize: "0.75rem", color: "#6c757d", mt: 1 }}>
-                                        Sub-Therapy: {commonSub}
-                                      </div>
-                                    </>
-                                  );
-                                }
-                                return charge.therapies.map((t, i) => (
-                                  <div key={i} style={{ marginBottom: i < charge.therapies.length - 1 ? "6px" : "0" }}>
-                                    <div style={{ fontWeight: 500 }}>{t.therapyName}</div>
-                                    {t.subTherapy && (
-                                      <div style={{ fontSize: "0.75rem", color: "#6c757d" }}>
-                                        Sub-Therapy: {t.subTherapy}
-                                      </div>
-                                    )}
-                                  </div>
-                                ));
-                              })()}
+                          <div style={{ fontWeight: 600 }}>
+                            {charge.therapyName || charge.description || "N/A"}
+                          </div>
+                          {charge.subTherapy && (
+                            <div style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "2px" }}>
+                              Sub-Therapy: {charge.subTherapy}
                             </div>
-                          ) : (
-                            charge.therapyName || charge.description || "N/A"
                           )}
                         </td>
                         <td style={{ fontSize: "0.875rem" }}>{charge.therapistName || "—"}</td>
@@ -258,10 +192,10 @@ const ChargesPanel = ({
                           ) : "—"}
                         </td>
                         <td style={{ textAlign: "right", fontWeight: 500 }}>
-                          {formatCurrency(charge.totalTherapyCharge ?? charge.therapyCharge ?? 0)}
+                          {formatCurrency(charge.therapyCharge || 0)}
                         </td>
                         <td style={{ textAlign: "right", fontWeight: 500 }}>
-                          {formatCurrency(charge.totalTherapistCharge ?? charge.therapistCharge ?? 0)}
+                          {formatCurrency(charge.therapistCharge || 0)}
                         </td>
                       </>
                     ) : (

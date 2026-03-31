@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import Scrollbars from "react-custom-scrollbars-2";
 import { useSelector } from "react-redux";
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformation';
+
 
 import {
     ChevronDown as ArrowDownIcon,
@@ -30,9 +32,9 @@ import {
     CreditCard as PaymentsIcon,
     Megaphone as CampaignIcon,
     ClipboardList as AssessmentIcon,
-    
-// therapist 
-Shield as HealthAndSafetyIcon,
+
+    // therapist 
+    Shield as HealthAndSafetyIcon,
     Brain as PsychologyIcon,
 
     // patient 
@@ -277,6 +279,12 @@ export const sidebarMenus = {
             to: "/receptionist/reports",
         },
         {
+            key: "therapy_reports",
+            label: "Therapy Reports",
+            icon: <MedicalInformationIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/receptionist/therapy/reports",
+        },
+        {
             key: "swarna_bindu_events",
             label: "Swarna Bindu Events",
             icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
@@ -284,22 +292,22 @@ export const sidebarMenus = {
         },
 
         {
-    key: "daily_expences",
-    label: "Expense",
-    icon: <ReceiptIndianRupee style={{ color: "var(--color-icons)" }} />,
-    children: [
-        {
-            key: "create_expense",
-            label: "Create Expense",
-            to: "/receptionist/expenses/create-expense",
-        },
-        {
-            key: "generate_expense",
-            label: "Daily Expense",
-            to: "/receptionist/expenses/generate-expense",
-        },
-    ],
-}
+            key: "daily_expences",
+            label: "Expense",
+            icon: <ReceiptIndianRupee style={{ color: "var(--color-icons)" }} />,
+            children: [
+                {
+                    key: "create_expense",
+                    label: "Create Expense",
+                    to: "/receptionist/expenses/create-expense",
+                },
+                {
+                    key: "generate_expense",
+                    label: "Daily Expense",
+                    to: "/receptionist/expenses/generate-expense",
+                },
+            ],
+        }
     ],
     pharmacist: [
         {

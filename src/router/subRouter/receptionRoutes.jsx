@@ -14,6 +14,7 @@ const Marketing_View = lazy(() => import("../../pages/receptionist/marketing/Vie
 const Payments_View = lazy(() => import("../../pages/receptionist/payments/View"));
 const InvoiceDetails = lazy(() => import("../../pages/receptionist/payments/InvoiceDetails"));
 const Reports_View = lazy(() => import("../../pages/receptionist/reports/View"));
+const TherapyReportsView = lazy(() => import("../../pages/receptionist/therapy/View"))
 const Treatments_View = lazy(() => import("../../pages/receptionist/treatments/View"));
 const PatientTherapyDetails = lazy(() => import("../../pages/receptionist/treatments/PatientTherapyDetails"));
 const ReceptionistProfile = lazy(() => import("../../pages/receptionist/Profile"));
@@ -175,6 +176,17 @@ export const receptionRoutes = [
             </>
         ),
     },
+{
+    path: "/receptionist/therapy/reports",
+    element: (
+        <>
+            <Helmet>
+                <title>Therapy Reports | UTPALA</title>
+            </Helmet>
+            <TherapyReportsView />
+        </>
+    ),
+},
     {
         path: "/receptionist/treatments",
         element: (

@@ -123,7 +123,7 @@ export default function Login() {
             setError("");
             try {
                 const result = await verifyOtp(phone, fullOtp);
-                
+
                 // Check if role selection is required
                 if (result.requiresRoleSelection && result.users) {
                     setAvailableRoles(result.users);
@@ -138,7 +138,10 @@ export default function Login() {
                     token: result.token,
                     role: result.user.role,
                 }));
-
+                // ✅ Save user data in localStorage
+                localStorage.setItem("userName", result.user.name);
+                localStorage.setItem("role", result.user.role);
+                localStorage.setItem("token", result.token);
                 // Log success to console (no reload happens here)
                 console.log("✅ Login Successful!", {
                     phone: `+91${phone}`,
@@ -165,7 +168,7 @@ export default function Login() {
         try {
             const fullOtp = otpDigits.join('');
             const result = await verifyOtp(phone, fullOtp, selectedUser.userId);
-            
+
             dispatch(login({
                 user: result.user,
                 token: result.token,

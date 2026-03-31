@@ -193,6 +193,19 @@ const therapyService = {
             throw error.response?.data || error.message;
         }
     },
+
+    // Get treatment list for receptionist
+    getTreatmentList: async (params = {}) => {
+        try {
+            const response = await axios.get(getApiUrl("therapist-sessions/treatment-list"), {
+                headers: getAuthHeaders(),
+                params,
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default therapyService;
