@@ -28,6 +28,7 @@ import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
 // Empty therapy row template (per-therapy configuration)
 const getEmptyTherapyRow = () => ({
+    id: "", // Added to track existing plans for PATCH
     therapyId: "",
     therapistId: [],
     totalSessions: "",
@@ -206,37 +207,45 @@ function OPDTherapiesAddPage() {
                     }
                 }
 
-                // Resolve therapists
-                let assignedTherapistIds = [];
-                if (plan.therapists?.length > 0) {
-                    assignedTherapistIds = plan.therapists.map(t => t.user?._id || t.user || t);
-                } else if (plan.therapistId) {
-                    assignedTherapistIds = [plan.therapistId];
-                }
+                // Helper to map a plan object to a form row
+                const mapPlanToRow = (planObj) => {
+                    // Find matching therapy by name
+                    const matchedTherapy = therapies.find(
+                        (t) => t.therapyName === planObj.treatmentName
+                    );
 
-                // Find matching therapy for the primary plan
-                const primaryTherapy = therapies.find(
-                    (t) => t.therapyName === plan.treatmentName
-                );
+                    // Resolve therapist IDs
+                    let therapistIds = [];
+                    if (planObj.therapists?.length > 0) {
+                        therapistIds = planObj.therapists.map(t => t.user?._id || t.user || t);
+                    } else if (planObj.therapistId) {
+                        therapistIds = [planObj.therapistId.toString()];
+                    }
 
-                // Set form data (single editable therapy row for now)
+                    return {
+                        id: planObj._id || "",
+                        therapyId: matchedTherapy?._id || planObj.treatmentName || "",
+                        therapistId: therapistIds,
+                        totalSessions: planObj.daysOfTreatment?.toString() || "",
+                        timeline: planObj.timeline || "AlternateDay",
+                        notes: planObj.specialInstructions || "",
+                        subTherapy: planObj.subTherapy || "",
+                        duration: planObj.duration || "",
+                        treatmentDescription: planObj.treatmentDescription || "",
+                    };
+                };
+
+                // Create rows for current plan and all related plans
+                const mainRow = mapPlanToRow(plan);
+                const relatedRows = (plan.relatedPlans || []).map(mapPlanToRow);
+
+                // Set form data with all therapy rows
                 setFormData((prev) => ({
                     ...prev,
                     patientId: patient?._id || "",
                     patientName: patient?.user?.name || "",
                     examinationId: examination?._id || "",
-                    therapiesRows: [
-                        {
-                            therapyId: primaryTherapy?._id || "",
-                            therapistId: assignedTherapistIds,
-                            totalSessions: plan.daysOfTreatment?.toString() || "",
-                            timeline: plan.timeline || "AlternateDay",
-                            notes: plan.specialInstructions || "",
-                            subTherapy: plan.subTherapy || "",
-                            duration: plan.duration || "",
-                            treatmentDescription: plan.treatmentDescription || "",
-                        },
-                    ],
+                    therapiesRows: [mainRow, ...relatedRows],
                 }));
             }
         } catch (error) {
@@ -362,25 +371,22 @@ function OPDTherapiesAddPage() {
                 };
 
                 let response;
-                if (isEditMode) {
-                    // Update existing therapy plan (primary plan only)
+                if (row.id) {
+                    // Update existing therapy plan
                     response = await axios.patch(
-                        getApiUrl(`examinations/therapy-plans/opd/${therapyPlanId}`),
+                        getApiUrl(`examinations/therapy-plans/opd/${row.id}`),
                         requestData,
                         { headers: getAuthHeaders() }
                     );
-                    // In edit mode we only support updating one plan from this screen
-                    results.push(response.data.success);
-                    break;
                 } else {
-                    // Create new therapy plan for each configured therapy
+                    // Create new therapy plan
                     response = await axios.post(
                         getApiUrl("examinations/therapy-plans/opd"),
                         requestData,
                         { headers: getAuthHeaders() }
                     );
-                    results.push(response.data.success);
                 }
+                results.push(response.data.success);
             }
 
             if (results.every(r => r)) {

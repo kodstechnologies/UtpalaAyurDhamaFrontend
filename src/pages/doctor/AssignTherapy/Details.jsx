@@ -87,6 +87,15 @@ function IPDTherapyDetails() {
         return null;
     }
 
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        return new Date(dateString).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
+    };
+
     const patient = therapyPlan.examination?.patient;
     const doctor = therapyPlan.examination?.doctor;
     const therapist = therapyPlan.therapist;
@@ -106,23 +115,11 @@ function IPDTherapyDetails() {
 
     const totalSessions = therapyPlan.daysOfTreatment || 0;
     const timeline = therapyPlan.timeline || "N/A";
-    const assignedDate = therapyPlan.createdAt
-        ? new Date(therapyPlan.createdAt).toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        })
-        : "N/A";
+    const assignedDate = formatDate(therapyPlan.createdAt);
     const specialInstructions = therapyPlan.specialInstructions || "No special instructions provided.";
     const roomNumber = inpatient?.roomNumber || "N/A";
     const wardCategory = inpatient?.wardCategory || "N/A";
-    const admissionDate = inpatient?.admissionDate
-        ? new Date(inpatient.admissionDate).toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        })
-        : "N/A";
+    const admissionDate = formatDate(inpatient?.admissionDate);
     const inpatientStatus = inpatient?.status || "N/A";
 
     // Handle multiple therapists
