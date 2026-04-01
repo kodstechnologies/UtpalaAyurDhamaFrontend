@@ -182,6 +182,33 @@ function Inventory_View_Details() {
             },
         },
         {
+            field: "expiryDate",
+            header: "Expiry Date",
+            render: (row) => {
+                if (!row.expiryDate) return "N/A";
+                const expiryDate = new Date(row.expiryDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+                const isExpired = expiryDate < today;
+
+                return (
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            fontWeight: 600,
+                            color: isExpired ? "error.main" : "success.main",
+                        }}
+                    >
+                        {expiryDate.toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                        })}
+                    </Typography>
+                );
+            },
+        },
+        {
             field: "costPrice",
             header: "Cost Price",
             render: (row) => `₹${Number(row.costPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
