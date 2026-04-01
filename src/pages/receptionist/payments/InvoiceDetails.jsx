@@ -453,6 +453,62 @@ function InvoiceDetails() {
             </Table>
           </Paper>
 
+          {/* Payment History */}
+          {invoice.payments && invoice.payments.length > 0 && (
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" fontWeight={600} mb={2} display="flex" alignItems="center" gap={1}>
+                <PaymentIcon sx={{ color: "#D4A574" }} /> Payment History
+              </Typography>
+              <Paper sx={{ overflow: "hidden", border: "1px solid #eee" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "#fff8f1" }}>
+                      <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Method</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Reference Details</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>Amount</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {invoice.payments.map((payment, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{formatDate(payment.date)}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={payment.paymentMethod} 
+                            size="small" 
+                            variant="outlined"
+                            sx={{ fontWeight: 500, borderColor: "#D4A574", color: "#D4A574" }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box>
+                            {payment.transactionId && (
+                              <Typography variant="body2" sx={{ color: "#666" }}>
+                                <strong>ID:</strong> {payment.transactionId}
+                              </Typography>
+                            )}
+                            {payment.cardLastFourDigits && (
+                              <Typography variant="body2" sx={{ color: "#666" }}>
+                                <strong>Card (last 4):</strong> •••• {payment.cardLastFourDigits}
+                              </Typography>
+                            )}
+                            {!payment.transactionId && !payment.cardLastFourDigits && (
+                              <Typography variant="body2" sx={{ color: "#999" }}>—</Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, color: "#4CAF50" }}>
+                          {formatCurrency(payment.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Box>
+          )}
+
           {/* Summary */}
           <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 4 }}>
             <Box sx={{ width: { xs: "100%", sm: 350 } }}>

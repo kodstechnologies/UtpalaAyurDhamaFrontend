@@ -268,7 +268,9 @@ export const invoiceHandlePrint = async (invoice) => {
           <div style="margin-top:15px; font-weight:bold; font-size:13px; margin-left:10px;">Payment History:</div>
           ${invoice.payments.map((p, i) => `
             <div style="font-size:11px; margin-top:4px; margin-left:10px;">
-              ${i + 1}. ₹${formatCurrency(p.amount)} via ${p.method || "Cash"} on ${formatDate(p.paidAt || p.createdAt)}
+              ${i + 1}. ₹${formatCurrency(p.amount)} via ${p.paymentMethod || "Cash"} on ${formatDate(p.date)}
+              ${p.transactionId ? ` | ID: ${p.transactionId}` : ""}
+              ${p.cardLastFourDigits ? ` | Card: •••• ${p.cardLastFourDigits}` : ""}
             </div>
           `).join("")}
         ` : ""}
