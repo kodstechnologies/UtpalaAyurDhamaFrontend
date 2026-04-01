@@ -111,7 +111,7 @@ export const handleDownload = async (id) => {
       return `
         <tr>
           <td style="text-align:center; border:1px solid #000; padding:5px; font-size:11px;">${i + 1}</td>
-          <td style="border:1px solid #000; padding:5px; font-size:11px;">${m.medicineName || ""}</td>
+          <td style="border:1px solid #000; padding:5px; font-size:11px;">${m.medicineName || ""}${m.subType ? ` (${m.subType})` : ""}</td>
           <td style="text-align:center; border:1px solid #000; padding:5px; font-size:11px;">${qty}</td>
           <td style="text-align:right; border:1px solid #000; padding:5px; font-size:11px;">${rate.toFixed(2)}</td>
           <td style="text-align:right; border:1px solid #000; padding:5px; font-size:11px;">${total.toFixed(2)}</td>

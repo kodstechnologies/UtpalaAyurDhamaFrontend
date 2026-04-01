@@ -44,6 +44,7 @@ function PrescriptionsDetailsPage() {
 
                 if (response.data.success) {
                     const data = response.data.data;
+                    console.log("Prescription raw data from API:", data);
 
                     // Transform the prescription data to match the component structure
                     const transformedPrescription = {
@@ -65,11 +66,15 @@ function PrescriptionsDetailsPage() {
                             dosageSchedule: data.dosageSchedule || "",
                             remarks: data.remarks || "",
                             instructions: data.notes || "",
+                            subType: data.subType || data.subtype || "",
+                            administration: data.administration || "",
+                            medicineType: data.medicineType || "",
                         }] : [],
                         notes: data.notes || "",
                         createdAt: data.createdAt,
                     };
 
+                    console.log("Transformed Prescription object:", transformedPrescription);
                     setPrescription(transformedPrescription);
 
                     // Get patient ID to fetch all prescriptions for this patient
@@ -372,6 +377,46 @@ function PrescriptionsDetailsPage() {
                                                                 : "N/A"}
                                                         </Typography>
                                                     </Grid>
+                                                     {(presc.subType || presc.subtype) && (
+                                                         <Grid item xs={6}>
+                                                             <Typography variant="caption" color="text.secondary" display="block">
+                                                                 Subtypes
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {presc.subType || presc.subtype}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
+                                                     {presc.administration && (
+                                                         <Grid item xs={6}>
+                                                             <Typography variant="caption" color="text.secondary" display="block">
+                                                                 Administration
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {presc.administration}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
+                                                     {presc.medicineType && (
+                                                         <Grid item xs={6}>
+                                                             <Typography variant="caption" color="text.secondary" display="block">
+                                                                 Medicine Type
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {presc.medicineType}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
+                                                    {presc.notes && (
+                                                        <Grid item xs={12}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Special Instructions
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.notes}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                     {presc.remarks && (
                                                         <Grid item xs={12}>
                                                             <Typography variant="caption" color="text.secondary" display="block">
@@ -465,6 +510,36 @@ function PrescriptionsDetailsPage() {
                                                             </Typography>
                                                         </Grid>
                                                     )}
+                                                    {medicine.subType && (
+                                                         <Grid item xs={12} sm={4}>
+                                                             <Typography variant="caption" color="text.secondary">
+                                                                 Subtypes
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {medicine.subType}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
+                                                     {medicine.administration && (
+                                                         <Grid item xs={12} sm={4}>
+                                                             <Typography variant="caption" color="text.secondary">
+                                                                 Administration
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {medicine.administration}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
+                                                     {medicine.medicineType && (
+                                                         <Grid item xs={12} sm={4}>
+                                                             <Typography variant="caption" color="text.secondary">
+                                                                 Medicine Type
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {medicine.medicineType}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
                                                     {medicine.remarks && (
                                                         <Grid item xs={12} sm={6}>
                                                             <Typography variant="caption" color="text.secondary">
@@ -478,7 +553,7 @@ function PrescriptionsDetailsPage() {
                                                     {medicine.instructions && (
                                                         <Grid item xs={12} sm={6}>
                                                             <Typography variant="caption" color="text.secondary">
-                                                                Instructions
+                                                                Special Instructions
                                                             </Typography>
                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                                 {medicine.instructions}

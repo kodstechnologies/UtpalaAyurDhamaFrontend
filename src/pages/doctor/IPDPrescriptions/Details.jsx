@@ -125,6 +125,8 @@ function IPDPrescriptionDetails() {
     const roomNumber = inpatient?.roomNumber || "N/A";
     const bedNumber = inpatient?.bedNumber || "N/A";
     const wardCategory = inpatient?.wardCategory || "N/A";
+    console.log("IPD Prescription raw data:", prescription);
+
     const medicines = prescription.medication
         ? [
             {
@@ -138,9 +140,12 @@ function IPDPrescriptionDetails() {
                 medicineType: prescription.medicineType || "",
                 administration: prescription.administration || "",
                 quantity: prescription.quantity || "",
+                subType: prescription.subType || prescription.subtype || "",
             },
         ]
         : [];
+    
+    console.log("IPD Mapped medicines:", medicines);
     const notes = prescription.notes || "";
 
     const getStatusColor = (status) => {
@@ -529,6 +534,26 @@ function IPDPrescriptionDetails() {
                                                                 : "N/A"}
                                                         </Typography>
                                                     </Grid>
+                                                    {presc.subType && (
+                                                        <Grid item xs={6}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Subtypes
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.subType}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
+                                                    {presc.notes && (
+                                                        <Grid item xs={12}>
+                                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                                Special Instructions
+                                                            </Typography>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {presc.notes}
+                                                            </Typography>
+                                                        </Grid>
+                                                    )}
                                                     {presc.remarks && (
                                                         <Grid item xs={12}>
                                                             <Typography variant="caption" color="text.secondary" display="block">
@@ -647,6 +672,36 @@ function IPDPrescriptionDetails() {
                                                             </Typography>
                                                         </Grid>
                                                     )}
+                                                     {(medicine.subType || medicine.subtype) && (
+                                                         <Grid item xs={12} sm={6} md={3}>
+                                                             <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                                                 Subtypes
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {medicine.subType || medicine.subtype}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
+                                                     {medicine.administration && (
+                                                         <Grid item xs={12} sm={6} md={3}>
+                                                             <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                                                 Administration
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {medicine.administration}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
+                                                     {medicine.medicineType && (
+                                                         <Grid item xs={12} sm={6} md={3}>
+                                                             <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                                                 Medicine Type
+                                                             </Typography>
+                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                 {medicine.medicineType}
+                                                             </Typography>
+                                                         </Grid>
+                                                     )}
                                                     {medicine.remarks && (
                                                         <Grid item xs={12} sm={6}>
                                                             <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
@@ -660,7 +715,7 @@ function IPDPrescriptionDetails() {
                                                     {medicine.instructions && (
                                                         <Grid item xs={12} sm={6}>
                                                             <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-                                                                Instructions
+                                                                Special Instructions
                                                             </Typography>
                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                                 {medicine.instructions}

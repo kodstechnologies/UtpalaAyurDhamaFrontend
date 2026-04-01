@@ -150,6 +150,8 @@ function PrescriptionDetailsPage() {
                         medicineType: data.medicineType || "",
                         administration: data.administration || "Internal",
                         dosage: data.dosage || "",
+                        dosageSchedule: data.dosageSchedule || "",
+                        subType: data.subType || data.subtype || "",
                         frequency: data.frequency || "",
                         duration: data.duration || "",
                         foodTiming: data.foodTiming || "",
@@ -496,7 +498,6 @@ function PrescriptionDetailsPage() {
                                     </Box>
                                 </Grid>
 
-                                {/* Medicine Type */}
                                 {prescription.medicineType && (
                                     <Grid item xs={12} sm={6} md={4}>
                                         <Box
@@ -523,16 +524,66 @@ function PrescriptionDetailsPage() {
                                     </Grid>
                                 )}
 
-                                {/* Administration */}
-                                {/* {prescription.administration && (
+                                {/* Dosage Schedule */}
+                                {prescription.dosageSchedule && (
                                     <Grid item xs={12} sm={6} md={4}>
                                         <Box
                                             sx={{
                                                 p: 2.5,
                                                 borderRadius: 2,
-                                                backgroundColor: alpha(theme.palette.secondary.main, 0.05),
+                                                backgroundColor: alpha(theme.palette.success.main, 0.05),
                                                 border: "1px solid",
-                                                borderColor: alpha(theme.palette.secondary.main, 0.2),
+                                                borderColor: alpha(theme.palette.success.main, 0.2),
+                                            }}
+                                        >
+                                            <Typography
+                                                variant="body2"
+                                                sx={{ color: "var(--color-text)", fontWeight: 500, mb: 1 }}
+                                            >
+                                                Dosage Schedule
+                                            </Typography>
+                                            <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 700 }}>
+                                                {prescription.dosageSchedule}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                )}
+
+                                {/* Subtypes */}
+                                {prescription.subType && (
+                                    <Grid item xs={12} sm={6} md={4}>
+                                        <Box
+                                            sx={{
+                                                p: 2.5,
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                                                border: "1px solid",
+                                                borderColor: alpha(theme.palette.primary.main, 0.2),
+                                            }}
+                                        >
+                                            <Typography
+                                                variant="body2"
+                                                sx={{ color: "var(--color-text)", fontWeight: 500, mb: 1 }}
+                                            >
+                                                Subtypes
+                                            </Typography>
+                                            <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
+                                                {prescription.subType}
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                )}
+
+                                {/* Administration */}
+                                {prescription.administration && (
+                                    <Grid item xs={12} sm={6} md={4}>
+                                        <Box
+                                            sx={{
+                                                p: 2.5,
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(theme.palette.info.main, 0.05),
+                                                border: "1px solid",
+                                                borderColor: alpha(theme.palette.info.main, 0.2),
                                             }}
                                         >
                                             <Typography
@@ -549,7 +600,7 @@ function PrescriptionDetailsPage() {
                                             />
                                         </Box>
                                     </Grid>
-                                )} */}
+                                )}
                             </Grid>
 
                             {/* Important Instructions Section */}

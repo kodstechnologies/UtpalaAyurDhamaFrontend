@@ -583,6 +583,7 @@ function PrescriptionsAddPage() {
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
                         quantity: 1,
+                        subType: medicine.subType || undefined,
                     };
 
                     // Only include diagnosis in the first prescription update
@@ -616,6 +617,7 @@ function PrescriptionsAddPage() {
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
                         quantity: 1,
+                        subType: medicine.subType || undefined,
                     };
 
                     createPromises.push(
