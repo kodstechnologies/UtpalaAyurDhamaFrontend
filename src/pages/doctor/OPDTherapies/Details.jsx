@@ -28,6 +28,9 @@ import {
     PersonPin as TherapistIcon,
     Notes as NotesIcon,
     Healing as TherapyIcon,
+    Restore as HistoryIcon,
+    Schedule as ScheduleIcon,
+    CalendarMonth as CalendarMonthIcon,
 } from "@mui/icons-material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
@@ -340,139 +343,7 @@ function OPDTherapyDetails() {
                     </Card>
                 </Grid>
 
-                {/* Therapy Details */}
-                <Grid item xs={12} md={6}>
-                    <Card
-                        sx={{
-                            backgroundColor: "var(--color-bg-card)",
-                            borderRadius: 3,
-                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                            boxShadow: "var(--shadow-medium)",
-                            height: "100%",
-                        }}
-                    >
-                        <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                                <TherapyIcon sx={{ mr: 1.5, color: "var(--color-primary)", fontSize: 28 }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
-                                    Therapy Details
-                                </Typography>
-                            </Box>
-                            <Divider sx={{ mb: 2, borderColor: "var(--color-border)" }} />
-                            <DetailRow
-                                icon={<TherapyIcon fontSize="small" />}
-                                label="Therapy Type"
-                                value={therapyType}
-                                highlight
-                            />
-                            {subTherapy && (
-                                <DetailRow
-                                    icon={<TherapyIcon fontSize="small" />}
-                                    label="Sub Therapy"
-                                    value={subTherapy}
-                                />
-                            )}
-                            {duration && (
-                                <DetailRow
-                                    icon={<TimeIcon fontSize="small" />}
-                                    label="Duration"
-                                    value={duration}
-                                />
-                            )}
-                            <DetailRow
-                                icon={<CalendarIcon fontSize="small" />}
-                                label="Total Sessions"
-                                value={`${totalSessions} sessions`}
-                            />
-                            <DetailRow
-                                icon={<TimeIcon fontSize="small" />}
-                                label="Timeline"
-                                value={
-                                    <Chip
-                                        label={timeline}
-                                        color={getTimelineColor(timeline)}
-                                        size="small"
-                                        sx={{ fontWeight: 600 }}
-                                    />
-                                }
-                            />
-                            <DetailRow icon={<CalendarIcon fontSize="small" />} label="Assigned Date" value={assignedDate} />
-                            {treatmentDescription && (
-                                <DetailRow
-                                    icon={<NotesIcon fontSize="small" />}
-                                    label="Treatment Description"
-                                    value={treatmentDescription}
-                                />
-                            )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Doctor & Therapist Information */}
-                <Grid item xs={12} md={6}>
-                    <Card
-                        sx={{
-                            backgroundColor: "var(--color-bg-card)",
-                            borderRadius: 3,
-                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                            boxShadow: "var(--shadow-medium)",
-                            height: "100%",
-                        }}
-                    >
-                        <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                                <HospitalIcon sx={{ mr: 1.5, color: "var(--color-primary)", fontSize: 28 }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
-                                    Doctor Information
-                                </Typography>
-                            </Box>
-                            <Divider sx={{ mb: 2, borderColor: "var(--color-border)" }} />
-                            <DetailRow
-                                icon={<PersonIcon fontSize="small" />}
-                                label="Consulting Doctor"
-                                value={doctorName}
-                                highlight
-                            />
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                    <Card
-                        sx={{
-                            backgroundColor: "var(--color-bg-card)",
-                            borderRadius: 3,
-                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                            boxShadow: "var(--shadow-medium)",
-                            height: "100%",
-                        }}
-                    >
-                        <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                                <TherapistIcon sx={{ mr: 1.5, color: "var(--color-primary)", fontSize: 28 }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
-                                    Therapist Information
-                                </Typography>
-                            </Box>
-                            <Divider sx={{ mb: 2, borderColor: "var(--color-border)" }} />
-                            <DetailRow
-                                icon={<PersonIcon fontSize="small" />}
-                                label="Assigned Therapists"
-                                value={therapistDisplay}
-                                highlight
-                            />
-                            {therapistsList.length > 0 && therapistsList[0].speciality && (
-                                <DetailRow
-                                    icon={<AssignmentIcon fontSize="small" />}
-                                    label="Speciality (Primary)"
-                                    value={therapistsList[0].speciality}
-                                />
-                            )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Special Instructions */}
+                {/* Therapy Details List */}
                 <Grid item xs={12}>
                     <Card
                         sx={{
@@ -482,26 +353,112 @@ function OPDTherapyDetails() {
                             boxShadow: "var(--shadow-medium)",
                         }}
                     >
-                        <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                                <NotesIcon sx={{ mr: 1.5, color: "var(--color-primary)", fontSize: 28 }} />
+                        <CardContent sx={{ p: 4 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                                <TherapyIcon sx={{ mr: 1.5, color: "var(--color-primary)", fontSize: 28 }} />
                                 <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
-                                    Special Instructions
+                                    Therapy Details
                                 </Typography>
                             </Box>
-                            <Divider sx={{ mb: 2, borderColor: "var(--color-border)" }} />
-                            <Box
-                                sx={{
-                                    p: 2.5,
-                                    borderRadius: 2,
-                                    backgroundColor: alpha(theme.palette.warning.main, 0.05),
-                                    borderLeft: `4px solid ${theme.palette.warning.main}`,
-                                }}
-                            >
-                                <Typography variant="body1" sx={{ color: "var(--color-text-dark)", lineHeight: 1.8 }}>
-                                    {specialInstructions}
-                                </Typography>
-                            </Box>
+                            <Divider sx={{ mb: 4, borderColor: "var(--color-border)" }} />
+
+                            {/* Individual Therapy Details Mapping */}
+                            {allTherapies.map((plan, index) => (
+                                <Box key={index} sx={{ mb: index !== allTherapies.length - 1 ? 6 : 0 }}>
+                                    <Box sx={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: 2, 
+                                        mb: 3,
+                                        p: 1.5,
+                                        borderRadius: 2,
+                                        backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                                        borderLeft: `4px solid ${theme.palette.primary.main}`
+                                    }}>
+                                        <TherapyIcon sx={{ color: 'var(--color-primary)', fontSize: 24 }} />
+                                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--color-primary)' }}>
+                                            {index + 1}. {plan.treatmentName}
+                                        </Typography>
+                                    </Box>
+
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12} md={6}>
+                                            {plan.therapists && plan.therapists.length > 0 && (
+                                                <DetailRow
+                                                    icon={<TherapistIcon fontSize="small" />}
+                                                    label="Assigned Therapist(s)"
+                                                    value={plan.therapists.map(t => t.user?.name || t.name || "Unknown").join(", ")}
+                                                    highlight
+                                                />
+                                            )}
+                                            
+                                            <DetailRow 
+                                                icon={<CalendarMonthIcon fontSize="small" />} 
+                                                label="Start Date" 
+                                                value={formatDate(plan.startDate)} 
+                                            />
+
+                                            <DetailRow 
+                                                icon={<HistoryIcon fontSize="small" />} 
+                                                label="Total Sessions" 
+                                                value={`${plan.daysOfTreatment || 0} Sessions`} 
+                                            />
+
+                                            <DetailRow 
+                                                icon={<ScheduleIcon fontSize="small" />} 
+                                                label="Timeline" 
+                                                value={
+                                                    <Chip
+                                                        label={plan.timeline || "N/A"}
+                                                        color={getTimelineColor(plan.timeline)}
+                                                        size="small"
+                                                        sx={{ fontWeight: 600 }}
+                                                    />
+                                                } 
+                                            />
+                                        </Grid>
+
+                                        <Grid item xs={12} md={6}>
+                                            {plan.subTherapy && (
+                                                <DetailRow
+                                                    icon={<TherapyIcon fontSize="small" />}
+                                                    label="Sub Therapy"
+                                                    value={plan.subTherapy}
+                                                />
+                                            )}
+                                            {plan.duration && (
+                                                <DetailRow
+                                                    icon={<TimeIcon fontSize="small" />}
+                                                    label="Duration"
+                                                    value={plan.duration}
+                                                />
+                                            )}
+                                            {plan.specialInstructions && (
+                                                <DetailRow
+                                                    icon={<AssignmentIcon fontSize="small" />}
+                                                    label="Special Instructions"
+                                                    value={plan.specialInstructions}
+                                                    highlight={plan.specialInstructions !== "No special instructions provided."}
+                                                />
+                                            )}
+                                        </Grid>
+
+                                        <Grid item xs={12}>
+                                            {plan.treatmentDescription && (
+                                                <DetailRow
+                                                    icon={<NotesIcon fontSize="small" />}
+                                                    label="Treatment Description"
+                                                    value={plan.treatmentDescription}
+                                                />
+                                            )}
+                                        </Grid>
+                                    </Grid>
+
+                                    {index !== allTherapies.length - 1 && (
+                                        <Divider sx={{ mt: 5, mb: 2, borderStyle: 'solid', opacity: 0.1, borderColor: 'var(--color-primary)' }} />
+                                    )}
+                                </Box>
+                            ))}
                         </CardContent>
                     </Card>
                 </Grid>
