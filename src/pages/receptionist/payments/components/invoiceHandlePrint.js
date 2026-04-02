@@ -224,7 +224,7 @@ export const invoiceHandlePrint = async (invoice) => {
         </table>
       </div>
       <div class="receipt-box">
-        <div class="receipt-title">INVOICE DETAILS / RECEIPT</div>
+        <div class="receipt-title">RECEIPT / INVOICE DETAILS</div>
         <table class="info-table" style="margin-top:5px; margin-left:5px;">
           <tr><td class="label">Invoice No:</td><td>${invoiceNo}</td></tr>
           <tr><td class="label">Date:</td><td>${invoiceDate}</td></tr>

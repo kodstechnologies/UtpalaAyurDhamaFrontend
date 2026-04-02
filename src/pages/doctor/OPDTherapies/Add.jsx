@@ -216,10 +216,17 @@ function OPDTherapiesAddPage() {
 
                     // Resolve therapist IDs
                     let therapistIds = [];
-                    if (planObj.therapists?.length > 0) {
-                        therapistIds = planObj.therapists.map(t => t.user?._id || t.user || t);
-                    } else if (planObj.therapistId) {
-                        therapistIds = [planObj.therapistId.toString()];
+                    if (Array.isArray(planObj.therapistId) && planObj.therapistId.length > 0) {
+                        therapistIds = planObj.therapistId.map(id => id.toString());
+                    } else if (planObj.therapists?.length > 0) {
+                        therapistIds = planObj.therapists.map(t => {
+                            if (t.user?._id) return t.user._id.toString();
+                            if (t.user) return t.user.toString();
+                            if (t._id) return t._id.toString();
+                            return t.toString();
+                        });
+                    } else if (planObj.therapistId && typeof planObj.therapistId === 'string') {
+                        therapistIds = [planObj.therapistId];
                     }
 
                     return {

@@ -698,6 +698,7 @@ function WalkInHub() {
         .filter((t) => t._id)
         .map((t) => ({
           planId: t._id,
+          treatmentName: t.treatmentName,
           startDate: t.startDate,
           therapistId: t.therapistId,
           subTherapy: t.subTherapy,

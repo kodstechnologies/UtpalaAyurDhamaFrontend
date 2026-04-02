@@ -121,12 +121,14 @@ function ConsultationDetails() {
 
     const getStatusColor = (status) => {
         const statusColors = {
-            Scheduled: "default",
+            Scheduled: "primary",
             Confirmed: "info",
             Ongoing: "warning",
             Completed: "success",
             Cancelled: "error",
             "No Show": "error",
+            Pending: "default",
+            "In Progress": "warning",
         };
         return statusColors[status] || "default";
     };
@@ -488,21 +490,29 @@ function ConsultationDetails() {
                             <TableHead>
                                 <TableRow>
                                     <TableCell><strong>Date</strong></TableCell>
-                                    <TableCell><strong>Therapist</strong></TableCell>
                                     <TableCell><strong>Treatment</strong></TableCell>
+                                    <TableCell><strong>Sub Therapy</strong></TableCell>
+                                    <TableCell><strong>Duration</strong></TableCell>
+                                    <TableCell><strong>Days</strong></TableCell>
+                                    <TableCell><strong>Timeline</strong></TableCell>
+                                    <TableCell><strong>Therapist</strong></TableCell>
                                     <TableCell><strong>Status</strong></TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {therapySessions.slice(0, 10).map((session) => (
+                                {therapySessions.map((session) => (
                                     <TableRow key={session._id}>
                                         <TableCell>{formatDate(session.sessionDate)}</TableCell>
+                                        <TableCell>{session.treatmentName || session.treatmentPlan?.treatmentName || "N/A"}</TableCell>
+                                        <TableCell>{session.subTherapy || "—"}</TableCell>
+                                        <TableCell>{session.duration || "—"}</TableCell>
+                                        <TableCell>{session.daysOfTreatment || "—"}</TableCell>
+                                        <TableCell>{session.timeline || "—"}</TableCell>
                                         <TableCell>
                                             {session.therapists && session.therapists.length > 0
                                                 ? session.therapists.map(t => t.user?.name || "N/A").join(", ")
                                                 : session.therapist?.user?.name || "N/A"}
                                         </TableCell>
-                                        <TableCell>{session.treatmentPlan?.treatmentName || "N/A"}</TableCell>
                                         <TableCell>
                                             <Chip label={session.status || "N/A"} size="small" color={getStatusColor(session.status)} />
                                         </TableCell>

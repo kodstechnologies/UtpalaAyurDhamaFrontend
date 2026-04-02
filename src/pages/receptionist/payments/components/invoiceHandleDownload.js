@@ -177,7 +177,7 @@ export const invoiceHandleDownload = async (invoice) => {
           
           <div style="width:40%;  border-left:1px solid #000;">
             <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:8px; background:#f5f0eb;">
-              INVOICE DETAILS / RECEIPT
+              RECEIPT / INVOICE DETAILS
             </div>
             <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:5px; margin-left:5px;">
               <tr>
