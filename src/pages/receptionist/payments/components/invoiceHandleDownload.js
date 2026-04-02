@@ -347,19 +347,22 @@ export const invoiceHandleDownload = async (invoice) => {
     const imgW = contentWidth;
     const imgH = canvas.height * ratio;
 
-    // Add image with equal left and right margins
-    pdf.addImage(imgData, "PNG", margin, 0, imgW, imgH);
+    // Add image top margin
+    const topMargin = 0;
+    
+    let heightLeft = imgH;
+    let position = topMargin;
 
-    // If content is too long → add extra pages (rare for invoices)
-    if (imgH > pdfHeight) {
-      let position = margin;
-      let pageNumber = 1;
-      while (position < imgH) {
-        if (position > margin) pdf.addPage();
-        pdf.addImage(imgData, "PNG", margin, -position + (pageNumber * pdfHeight), imgW, imgH);
-        position += pdfHeight;
-        pageNumber++;
-      }
+    // First page
+    pdf.addImage(imgData, "PNG", margin, position, imgW, imgH);
+    heightLeft -= pdfHeight;
+
+    // If content is too long → add extra pages
+    while (heightLeft > 0) {
+      position = position - pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", margin, position, imgW, imgH);
+      heightLeft -= pdfHeight;
     }
 
     pdf.save(`Invoice_${invoiceNo.replace(/[\/\\]/g, "-")}.pdf`);
