@@ -695,6 +695,15 @@
 //     }
 //   }, [patientId]);
 
+//   useEffect(() => {
+//     if (billingData?.invoice) {
+//       if (billingData.invoice.referredBy)
+//         setReferredBy(billingData.invoice.referredBy);
+//       if (billingData.invoice.consultedBy)
+//         setConsultedBy(billingData.invoice.consultedBy);
+//     }
+//   }, [billingData]);
+
 //   const chargeTotals = useMemo(() => {
 //     if (!billingData?.charges)
 //       return { consultation: 0, therapy: 0, pharmacy: 0 };
@@ -2374,6 +2383,8 @@ function OutpatientBilling() {
   const [error, setError] = useState(null);
 
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [referredBy, setReferredBy] = useState("");
+  const [consultedBy, setConsultedBy] = useState("");
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   // Edit dialogs
@@ -2452,6 +2463,15 @@ function OutpatientBilling() {
   useEffect(() => {
     if (patientId) fetchBillingDetails();
   }, [patientId, examinationId]);
+
+  useEffect(() => {
+    if (billingData?.invoice) {
+      if (billingData.invoice.referredBy)
+        setReferredBy(billingData.invoice.referredBy);
+      if (billingData.invoice.consultedBy)
+        setConsultedBy(billingData.invoice.consultedBy);
+    }
+  }, [billingData]);
 
   // Only consultation + therapy — no pharmacy, no discount, no tax
   const chargeTotals = useMemo(() => {
@@ -2666,6 +2686,9 @@ function OutpatientBilling() {
         payload.discountAmount = discountAmount;
       }
 
+      if (referredBy) payload.referredBy = referredBy;
+      if (consultedBy) payload.consultedBy = consultedBy;
+
       const response = await inpatientService.finalizeOutpatientBilling(
         patientId,
         payload,
@@ -2758,6 +2781,18 @@ function OutpatientBilling() {
                   </span>
                 )}
                 <span className="badge bg-success p-2">OUTPATIENT</span>
+                {billingData?.invoice?.referredBy && (
+                  <span className="badge bg-light text-dark p-2">
+                    <strong className="text-muted me-1">Referred By:</strong>{" "}
+                    {billingData.invoice.referredBy}
+                  </span>
+                )}
+                {billingData?.invoice?.consultedBy && (
+                  <span className="badge bg-light text-dark p-2">
+                    <strong className="text-muted me-1">Consulted By:</strong>{" "}
+                    {billingData.invoice.consultedBy}
+                  </span>
+                )}
               </div>
             </div>
             <div className="col-md-4 text-md-end">
@@ -2814,6 +2849,41 @@ function OutpatientBilling() {
           />
         </div>
       </div>
+
+      {/* Referral & Consultant Section */}
+      {!isFinalized && (
+        <div className="card shadow-sm mb-4" style={{ borderRadius: "12px" }}>
+          <div className="card-header bg-white py-3">
+            <h5 className="mb-0" style={{ fontWeight: 700, color: "#1a1a1a" }}>
+              Referral & Consultant
+            </h5>
+          </div>
+          <div className="card-body p-4">
+            <div className="row g-3">
+              <div className="col-md-6">
+                <TextField
+                  fullWidth
+                  label="Referred By"
+                  value={referredBy}
+                  onChange={(e) => setReferredBy(e.target.value)}
+                  placeholder="Enter referrer name"
+                  variant="outlined"
+                />
+              </div>
+              <div className="col-md-6">
+                <TextField
+                  fullWidth
+                  label="Consulted By"
+                  value={consultedBy}
+                  onChange={(e) => setConsultedBy(e.target.value)}
+                  placeholder="Enter consultant name"
+                  variant="outlined"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Discount & Bill Summary */}
       {!isFinalized && (

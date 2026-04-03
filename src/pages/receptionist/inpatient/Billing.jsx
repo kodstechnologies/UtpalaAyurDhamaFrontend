@@ -301,6 +301,14 @@ function InpatientBilling() {
     if (id) fetchIds();
   }, [id]);
 
+  // Sync referral/consultant from existing invoice
+  useEffect(() => {
+    if (billingData?.invoice) {
+      if (billingData.invoice.referredBy) setReferredBy(billingData.invoice.referredBy);
+      if (billingData.invoice.consultedBy) setConsultedBy(billingData.invoice.consultedBy);
+    }
+  }, [billingData]);
+
   const fetchBillingDetails = async () => {
     if (!patientId || !inpatientId) return;
     setLoading(true);
@@ -627,6 +635,16 @@ function InpatientBilling() {
                 {admission?.bedNumber && <span className="badge bg-light text-dark p-2"><strong>Bed:</strong> {admission.bedNumber}</span>}
                 <span className="badge bg-light text-dark p-2"><strong>Admitted:</strong> {admission?.admissionDate ? new Date(admission.admissionDate).toLocaleDateString() : "—"}</span>
                 <span className={`badge p-2 ${isDischarged ? "bg-secondary" : "bg-success"}`}>{admission?.status || "Active"}</span>
+                {billingData?.invoice?.referredBy && (
+                  <span className="badge bg-light text-dark p-2">
+                    <strong>Referred By:</strong> {billingData.invoice.referredBy}
+                  </span>
+                )}
+                {billingData?.invoice?.consultedBy && (
+                  <span className="badge bg-light text-dark p-2">
+                    <strong>Consulted By:</strong> {billingData.invoice.consultedBy}
+                  </span>
+                )}
               </div>
             </div>
             <div className="col-md-4 text-md-end">

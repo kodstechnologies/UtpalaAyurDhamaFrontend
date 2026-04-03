@@ -380,6 +380,12 @@ function InvoiceDetails() {
                 {invoice.doctor && (
                   <Typography><strong>Doctor:</strong> {invoice.doctor.firstName ? `${invoice.doctor.firstName} ${invoice.doctor.lastName}` : invoice.doctor.user?.name || "N/A"}</Typography>
                 )}
+                {invoice.referredBy && (
+                  <Typography><strong>Referred By:</strong> {invoice.referredBy}</Typography>
+                )}
+                {invoice.consultedBy && (
+                  <Typography><strong>Consulted By:</strong> {invoice.consultedBy}</Typography>
+                )}
               </Box>
             </Box>
           </Box>
