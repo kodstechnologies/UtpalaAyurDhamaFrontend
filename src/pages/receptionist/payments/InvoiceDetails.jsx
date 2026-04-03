@@ -426,6 +426,11 @@ function InvoiceDetails() {
                             <TableCell>{idx + 1}</TableCell>
                             <TableCell sx={{ fontWeight: 500 }}>
                               {item.name}
+                              {item.subTherapy && (
+                                <Typography variant="caption" sx={{ display: "block", color: "#666", mt: 0.5 }}>
+                                  <strong>Sub-Therapy:</strong> {item.subTherapy}
+                                </Typography>
+                              )}
                               {item.remarks && (
                                 <Typography variant="caption" sx={{ display: "block", color: "#666", mt: 0.5 }}>
                                   <strong>Remarks:</strong> {item.remarks}

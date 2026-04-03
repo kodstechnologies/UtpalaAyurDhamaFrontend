@@ -38,8 +38,8 @@ const numberToWords = (num) => {
 };
 
 export const handlePrint = async (dateStr) => {
-const receptionist = JSON.parse(localStorage.getItem("user"));
-const receptionistName = receptionist?.name;
+  const receptionist = JSON.parse(localStorage.getItem("user"));
+  const receptionistName = receptionist?.name;
   try {
     // Validate date
     if (!dateStr) {
@@ -361,11 +361,7 @@ const receptionistName = receptionist?.name;
                 <td class="colon">:</td>
                 <td class="value">${receptionistName}</td>
                 </tr>
-                <tr>
-                <td class="label"></td>
-                <td class="colon"></td>
-                <td class="value">Receptionist</td>
-              </tr>
+       
               <tr>
                 <td class="label">Status</td>
                 <td class="colon">:</td>

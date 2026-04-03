@@ -280,6 +280,10 @@ function InpatientBilling() {
   const [discountType, setDiscountType] = useState("percentage"); // "percentage" | "fixed"
   const [discountValue, setDiscountValue] = useState("");
 
+  // Referral and Consultant
+  const [referredBy, setReferredBy] = useState("");
+  const [consultedBy, setConsultedBy] = useState("");
+
   // Get patient & inpatient IDs
   useEffect(() => {
     const fetchIds = async () => {
@@ -558,6 +562,9 @@ function InpatientBilling() {
         payload.discountValue = dval;
         payload.discountAmount = discountAmount;
       }
+      if (referredBy) payload.referredBy = referredBy;
+      if (consultedBy) payload.consultedBy = consultedBy;
+      
       const res = await inpatientService.finalizeDischarge(inpatientId || id, payload);
       if (res?.success) {
         toast.success(`Invoice #${res.data.invoiceNumber} generated`);
@@ -698,7 +705,34 @@ function InpatientBilling() {
 
       {/* Discount & Bill Summary */}
       {!isDischarged && (
-        <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
+        <>
+          <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
+            <div className="card-header" style={{ padding: "12px 20px" }}>
+              <h5 className="card-title mb-0" style={{ fontWeight: 700, fontSize: "1.1rem" }}>Referral & Consultant</h5>
+            </div>
+            <div className="card-body p-4">
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <TextField
+                  label="Referred By (Optional)"
+                  type="text"
+                  value={referredBy}
+                  onChange={e => setReferredBy(e.target.value)}
+                  sx={{ minWidth: 220 }}
+                  placeholder="e.g. Dr. Smith"
+                />
+                <TextField
+                  label="Consulted By (Optional)"
+                  type="text"
+                  value={consultedBy}
+                  onChange={e => setConsultedBy(e.target.value)}
+                  sx={{ minWidth: 220 }}
+                  placeholder="e.g. Dr. John Doe"
+                />
+              </Box>
+            </div>
+          </div>
+
+          <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
           <div className="card-header" style={{ padding: "12px 20px" }}>
             <h5 className="card-title mb-0" style={{ fontWeight: 700, fontSize: "1.1rem" }}>Discount</h5>
           </div>
@@ -747,6 +781,7 @@ function InpatientBilling() {
             </Box>
           </div>
         </div>
+        </>
       )}
 
       {/* Action Buttons */}
