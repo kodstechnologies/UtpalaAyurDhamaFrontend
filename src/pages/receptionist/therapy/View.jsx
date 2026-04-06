@@ -211,7 +211,7 @@ function TherapyReportsView() {
             {/* ⭐ Heading */}
             <HeadingCard
                 category="FINANCIAL REPORTS"
-                title="Therapy Payment Reports"
+                title="Therapy Reports"
                 subtitle="Track and analyze therapy-related transactions"
             />
 
