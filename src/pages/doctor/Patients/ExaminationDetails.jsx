@@ -343,6 +343,7 @@ function ExaminationDetails() {
                     renderField("Vata Dosha", examination.prakritiAssessment?.match(/Vata:\s*([^,]*)/)?.[1]?.trim()),
                     renderField("Pitta Dosha", examination.prakritiAssessment?.match(/Pitta:\s*([^,]*)/)?.[1]?.trim()),
                     renderField("Kapha Dosha", examination.prakritiAssessment?.match(/Kapha:\s*([^,]*)/)?.[1]?.trim()),
+                    renderField("Final Prakriti", examination.finalPrakriti),
                 ])}
 
                 {Object.keys(clinicalFields).length > 0 && renderSection("Clinical Examination", [

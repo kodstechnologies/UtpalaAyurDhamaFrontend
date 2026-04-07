@@ -16,11 +16,9 @@ export const getHeader = () => `
           
           <!-- Text -->
           <div>
-            <div style="font-size:28px; font-weight:bold; color:#4e342e;">
-              UTPALA AYURDHAMA
-            </div>
-            <div style="font-size:18px; color:#333; margin-top:4px; line-height:1.6;">
-              New BEL Rd, Chikkamaranahalli, Dollars Colony,
+          
+            <div style="font-size:16px; color:#000; margin-top:4px; line-height:1.6;">
+              New BEL Road, Chikkamaranahalli, Dollars Colony,
               R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
             </div>
           </div>

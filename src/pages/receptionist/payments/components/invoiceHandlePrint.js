@@ -232,11 +232,11 @@ export const invoiceHandlePrint = async (invoice) => {
         <div class="receipt-title">RECEIPT / INVOICE DETAILS</div>
         <table class="info-table" style="margin-top:5px; margin-left:5px;">
           <tr><td class="label">Invoice No:</td><td>${invoiceNo}</td></tr>
-          <tr><td class="label">Date:</td><td>${invoiceDate}</td></tr>
-          <tr><td class="label">Time:</td><td>${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td></tr>
+          <tr><td class="label">Date / Time:</td><td>${invoiceDate} ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td></tr>
+       
           <tr>
             <td class="label">Status:</td>
-            <td><span class="status-badge" style="background:${statusColor}; color:white;">${paymentStatus}</span></td>
+            <td><span class="status-badge" style=" font-weight:bold; color:${statusColor};">${paymentStatus}</span></td>
           </tr>
      
         </table>
@@ -246,13 +246,13 @@ export const invoiceHandlePrint = async (invoice) => {
     <!-- ITEMS TABLE -->
     <table class="items-table">
       <thead>
-        <tr>
-          <th style="width:40px;">Srl</th>
-          <th>Item Name</th>
-          <th>Description</th>
-          <th style="width:60px;">Qty</th>
-          <th style="width:90px;">Unit Price</th>
-          <th style="width:90px;">Total</th>
+        <tr style="">
+          <th style="width:40px; font-size:16px;">Srl</th>
+          <th style="font-size:16px;">Item Name</th>
+          <th style="font-size:16px;">Description</th>
+          <th style="width:60px; font-size:16px;">Qty</th>
+          <th style="width:90px; font-size:16px;">Unit Price</th>
+          <th style="width:90px; font-size:16px;">Total</th>
         </tr>
       </thead>
       <tbody>
