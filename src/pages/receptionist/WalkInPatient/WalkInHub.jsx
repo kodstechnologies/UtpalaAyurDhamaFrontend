@@ -68,6 +68,7 @@ function WalkInHub() {
       wardCategory: "General",
       roomNumber: "",
       bedNumber: "",
+      isDaycare: false,
       therapies: [getEmptyTherapy(today)],
     };
   };
@@ -464,6 +465,8 @@ function WalkInHub() {
                   ? (resolvedOpdDoctor._id || resolvedOpdDoctor)?.toString?.()
                   : String(resolvedOpdDoctor);
             }
+            const isDaycare = !!latestExam?.isDaycare;
+            setFormData(prev => ({ ...prev, isDaycare }));
           } catch (e) {
             console.warn("[WalkInHub] Error fetching latest examination:", e);
           }
@@ -628,6 +631,11 @@ function WalkInHub() {
           t.startDate === todayStr ? { ...t, startDate: value } : t,
         );
       }
+      // When doctor is removed, also clear appointment time and date
+      if (name === "doctorProfileId" && !value) {
+        next.appointmentTime = "";
+        next.appointmentDate = "";
+      }
       return next;
     });
   };
@@ -676,11 +684,12 @@ function WalkInHub() {
     const payload = {
       mode,
       patientProfileId,
-      doctorProfileId: formData.doctorProfileId || undefined,
+      doctorProfileId: formData.doctorProfileId || null,
       nurseProfileId: formData.nurseProfileId || undefined,
       wardCategory: mode === "IPD" ? formData.wardCategory : undefined,
       roomNumber: mode === "IPD" ? formData.roomNumber : undefined,
       bedNumber: mode === "IPD" ? formData.bedNumber : undefined,
+      isDaycare: mode === "OPD" ? formData.isDaycare : undefined,
       appointmentTime: formData.appointmentTime || undefined,
       appointmentDate: formData.appointmentDate,
       // Filter out existing therapies (have _id) and empty ones to prevent duplication
@@ -739,7 +748,24 @@ function WalkInHub() {
     <Box sx={{ pb: 5 }}>
       <HeadingCard
         title="Walk-in Patient Hub"
-        subtitle={`Current Patient: ${patientName || "Loading..."}`}
+        subtitle={
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {`Current Patient: ${patientName || "Loading..."}`}
+            {formData.isDaycare && (
+              <Chip
+                label="Daycare"
+                size="small"
+                color="primary"
+                sx={{
+                  height: "20px",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                }}
+              />
+            )}
+          </Box>
+        }
         breadcrumbItems={[
           { label: "Receptionist", url: "/receptionist/dashboard" },
           { label: "Appointments", url: "/receptionist/appointments" },
@@ -836,6 +862,28 @@ function WalkInHub() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                   Patient Details
                 </Typography>
+                {mode === "OPD" && (
+                  <Box
+                    sx={{
+                      ml: "auto",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      cursor: "pointer",
+                      "&:hover": { opacity: 0.8 }
+                    }}
+                    onClick={() => setFormData(prev => ({ ...prev, isDaycare: !prev.isDaycare }))}
+                  >
+                    <Checkbox
+                      size="small"
+                      checked={formData.isDaycare}
+                      sx={{ p: 0.5 }}
+                    />
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                      Is Daycare Patient?
+                    </Typography>
+                  </Box>
+                )}
               </Box>
               <TextField
                 fullWidth

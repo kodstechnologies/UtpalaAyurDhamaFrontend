@@ -89,6 +89,7 @@ function IPDPrescriptionsAddPage() {
             quantity: "",
             dosageSchedule: "",
             subType: "",
+            stockStatus: "",
         },
         diagnosis: "",
         notes: "",
@@ -359,6 +360,7 @@ function IPDPrescriptionsAddPage() {
                 instructions: "",
                 dosageSchedule: "",
                 subType: "",
+                stockStatus: "",
             },
         }));
     };
@@ -410,6 +412,7 @@ function IPDPrescriptionsAddPage() {
                 quantity: medicineToEdit.quantity || "",
                 dosageSchedule: medicineToEdit.dosageSchedule || "",
                 subType: medicineToEdit.subType || "",
+                stockStatus: medicineToEdit.stockStatus || "",
                 _id: medicineToEdit._id,
             },
             medicines: prev.medicines.filter((_, i) => i !== index),
@@ -707,7 +710,14 @@ function IPDPrescriptionsAddPage() {
                                             getOptionLabel={(option) => typeof option === 'string' ? option : option.medicineName || ""}
                                             value={medicines.find(m => m.medicineName === formData.currentMedicine.name) || null}
                                             onChange={(event, newValue) => {
-                                                handleMedicineFieldChange("name", newValue ? newValue.medicineName : "");
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    currentMedicine: {
+                                                        ...prev.currentMedicine,
+                                                        name: newValue ? newValue.medicineName : "",
+                                                        stockStatus: newValue ? newValue.stockStatus : "",
+                                                    },
+                                                }));
                                             }}
                                             loading={isLoadingMedicines}
                                             size="small"
@@ -721,6 +731,24 @@ function IPDPrescriptionsAddPage() {
                                             )}
                                             isOptionEqualToValue={(option, value) => option.medicineName === value.medicineName}
                                         />
+                                        {formData.currentMedicine.stockStatus && (
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
+                                                    mt: 0.5,
+                                                    display: "block",
+                                                    fontWeight: 600,
+                                                    color:
+                                                        formData.currentMedicine.stockStatus === "In Stock"
+                                                            ? "success.main"
+                                                            : formData.currentMedicine.stockStatus === "Low Stock"
+                                                                ? "warning.main"
+                                                                : "error.main",
+                                                }}
+                                            >
+                                                Stock Status: {formData.currentMedicine.stockStatus}
+                                            </Typography>
+                                        )}
                                     </Grid>
                                     {/* <Grid item xs={12} md={2}>
                                             <TextField
@@ -782,7 +810,7 @@ function IPDPrescriptionsAddPage() {
                                                 <MenuItem value="After Breakfast">After Breakfast</MenuItem>
                                                 <MenuItem value="Afternoon">Afternoon</MenuItem>
                                                 <MenuItem value="After Dinner">After Dinner</MenuItem>
-                                                <MenuItem value="Before Sleeping">Before Sleeping</MenuItem>
+                                                <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
                                                 <MenuItem value="Before Bed">Before Bed</MenuItem>
                                             </Select>
                                         </FormControl>

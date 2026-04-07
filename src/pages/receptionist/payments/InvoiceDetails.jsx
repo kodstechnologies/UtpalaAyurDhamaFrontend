@@ -392,41 +392,45 @@ function InvoiceDetails() {
 
           <Divider sx={{ my: 3 }} />
 
-          {/* Items Table — No pharmacy/medicines */}
+          {/* Items Tables — Categorized individually */}
           <Typography variant="h6" fontWeight={600} mb={2}>
             Invoice Items
           </Typography>
 
-          <Paper sx={{ overflow: "hidden", mb: 4 }}>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#f8f9fa" }}>
-                  <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Item Name</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 600 }}>Quantity</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Unit Price</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>Total</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {Object.keys(groupedItems).length > 0 ? (
-                  categoryOrder.map((category) => {
-                    const items = groupedItems[category];
-                    if (!items?.length) return null;
+          {Object.keys(groupedItems).length > 0 ? (
+            categoryOrder.map((category) => {
+              const items = groupedItems[category];
+              if (!items?.length) return null;
 
-                    const catTotal = items.reduce((sum, i) => sum + (i.total || 0), 0);
+              const catTotal = items.reduce((sum, i) => sum + (i.total || 0), 0);
+              const isTherapy = category === "Therapy";
+              const isConsultation = category === "Doctor Consultation";
 
-                    return (
-                      <Fragment key={category}>
-                        <TableRow sx={{ bgcolor: "#e8f4f8" }}>
-                          <TableCell colSpan={4} sx={{ fontWeight: 700 }}>
-                            {category}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
-                            {formatCurrency(catTotal)}
-                          </TableCell>
+              return (
+                <Box key={category} mb={4}>
+                  <Paper sx={{ overflow: "hidden" }}>
+                    <Box sx={{ bgcolor: "#e8f4f8", px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography sx={{ fontWeight: 700, m: 0 }}>{category}</Typography>
+                      <Typography sx={{ fontWeight: 700, color: "#1a1a1a", m: 0 }}>
+                         Total: {formatCurrency(catTotal)}
+                      </Typography>
+                    </Box>
+                    <Table>
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: "#f8f9fa" }}>
+                          <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Item Name</TableCell>
+                          {isConsultation ? (
+                            <TableCell sx={{ fontWeight: 600 }}>Doctor Name</TableCell>
+                          ) : (
+                            <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+                          )}
+                          {isTherapy && <TableCell align="center" sx={{ fontWeight: 600 }}>Quantity</TableCell>}
+                          <TableCell align="right" sx={{ fontWeight: 600 }}>Unit Price</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600 }}>Total</TableCell>
                         </TableRow>
-
+                      </TableHead>
+                      <TableBody>
                         {items.map((item, idx) => (
                           <TableRow key={idx} hover>
                             <TableCell>{idx + 1}</TableCell>
@@ -443,26 +447,39 @@ function InvoiceDetails() {
                                 </Typography>
                               )}
                             </TableCell>
-                            <TableCell align="center">{item.quantity || 1}</TableCell>
+                            <TableCell>
+                              {isConsultation ? (
+                                <Typography variant="body2">{item.doctorName || invoice.doctor?.user?.name || "—"}</Typography>
+                              ) : item.description ? (
+                                <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>{item.description}</Typography>
+                              ) : "—"}
+                            </TableCell>
+                            {isTherapy && <TableCell align="center">{item.quantity || 1}</TableCell>}
                             <TableCell align="right">{formatCurrency(item.unitPrice || item.amount)}</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>
                               {formatCurrency(item.total || item.amount)}
                             </TableCell>
                           </TableRow>
                         ))}
-                      </Fragment>
-                    );
-                  })
-                ) : (
+                      </TableBody>
+                    </Table>
+                  </Paper>
+                </Box>
+              );
+            })
+          ) : (
+            <Paper sx={{ overflow: "hidden", mb: 4 }}>
+              <Table>
+                <TableBody>
                   <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 4, color: "#999" }}>
+                    <TableCell align="center" sx={{ py: 4, color: "#999" }}>
                       No items found
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Paper>
+                </TableBody>
+              </Table>
+            </Paper>
+          )}
 
           {/* Payment History */}
           {invoice.payments && invoice.payments.length > 0 && (

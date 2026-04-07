@@ -1,6 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, CircularProgress, TablePagination } from "@mui/material";
+import {
+    Box,
+    CircularProgress,
+    TablePagination,
+    Button
+} from "@mui/material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
@@ -18,6 +23,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import MessageIcon from "@mui/icons-material/Message";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import GroupAddIcon from "@mui/icons-material/GroupAdd";
+
 
 
 // Mock data - will be replaced with API calls later
@@ -151,6 +158,12 @@ function Appointments_View() {
         rowsPerPage: 25,
         total: 0,
     });
+
+    const handleAddFamilyMemberClick = (patient) => {
+        navigate("/receptionist/appointments/add-family-member", {
+            state: { primaryPatient: patient }
+        });
+    };
 
     const navigate = useNavigate();
 
@@ -1047,6 +1060,38 @@ function Appointments_View() {
                                                                 <button
                                                                     type="button"
                                                                     className="btn btn-sm"
+                                                                    onClick={() => handleAddFamilyMemberClick(patient)}
+                                                                    title="Add Family Member"
+                                                                    style={{
+                                                                        backgroundColor: "#9c27b0", // Purple
+                                                                        borderColor: "#9c27b0",
+                                                                        color: "#fff",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        fontWeight: 500,
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                        transition: "all 0.3s ease",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#7b1fa2";
+                                                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                                                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#9c27b0";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                >
+                                                                    <GroupAddIcon fontSize="small" />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
                                                                     onClick={() => handleSendMessageClick(patient)}
                                                                     title="Send WhatsApp Message"
                                                                     style={{
@@ -1228,7 +1273,7 @@ function Appointments_View() {
                                                                 >
                                                                     <MessageIcon fontSize="small" />
                                                                 </button>
-                                                               
+
                                                             </div>
                                                         </td>
                                                     </tr>

@@ -175,6 +175,13 @@ function PatientHistory() {
         return "default";
     };
 
+    const getTypeColor = (type) => {
+        const typeLower = (type || "").toLowerCase();
+        if (typeLower.includes("daycare")) return "secondary";
+        if (typeLower.includes("ipd")) return "warning";
+        return "primary";
+    };
+
     // Handle file selection
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -519,7 +526,11 @@ function PatientHistory() {
                                                 <Card key={idx} sx={{ mb: 2, border: "1px solid #e0e0e0" }}>
                                                     <CardContent>
                                                         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                                                            <Chip label={exam.type} color="primary" size="small" />
+                                                            <Chip 
+                                                                label={exam.type} 
+                                                                color={getTypeColor(exam.type)} 
+                                                                size="small" 
+                                                            />
                                                             <Typography variant="body2" color="text.secondary">
                                                                 {formatDateTime(exam.createdAt)}
                                                             </Typography>
@@ -601,6 +612,11 @@ function PatientHistory() {
                                                                         <Box sx={{ mt: 0.5, p: 1, bgcolor: "#f5f5f5", borderRadius: 1, fontSize: "0.8rem" }}>
                                                                             {exam.prakritiAssessment}
                                                                         </Box>
+                                                                        {exam.finalPrakriti && (
+                                                                            <Box sx={{ mt: 1, fontWeight: 600 }}>
+                                                                                Final Prakriti: {exam.finalPrakriti}
+                                                                            </Box>
+                                                                        )}
                                                                     </Typography>
                                                                 )}
                                                                 {exam.customFields && exam.customFields.length > 0 && (

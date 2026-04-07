@@ -107,13 +107,26 @@ export const invoiceHandlePrint = async (invoice) => {
     if (!catItems || catItems.length === 0) return;
 
     const catTotal = catItems.reduce((sum, i) => sum + (i.total || i.amount || 0), 0);
+    const isTherapy = cat === "Therapy";
+    const isConsultation = cat === "Doctor Consultation";
 
-    // Category header row
     itemsHtml += `
-      <tr>
-        <td colspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; font-size:12px;">${cat}</td>
-        <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; font-size:12px;">₹${formatCurrency(catTotal)}</td>
-      </tr>
+      <div style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
+        <span>${cat}</span>
+        <span>Total: ₹${formatCurrency(catTotal)}</span>
+      </div>
+      <table class="items-table" style="margin-top:0; border-top:none;">
+        <thead>
+          <tr>
+            <th style="width:40px; font-size:14px;">Srl</th>
+            <th style="font-size:14px;">Item Name</th>
+            ${isConsultation ? '<th style="font-size:14px;">Doctor Name</th>' : '<th style="font-size:14px;">Description</th>'}
+            ${isTherapy ? '<th style="width:60px; font-size:14px;">Qty</th>' : ''}
+            <th style="width:90px; font-size:14px;">Unit Price</th>
+            <th style="width:90px; font-size:14px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
     `;
 
     // Item rows
@@ -129,14 +142,22 @@ export const invoiceHandlePrint = async (invoice) => {
           <td style="border:1px solid #000; padding:5px; font-size:11px;">
             ${item.name || "Item"}
             ${item.subTherapy ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Sub-Therapy: ${item.subTherapy}</div>` : ""}
+            ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${item.remarks}</div>` : ""}
           </td>
-          <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${item.description || ""}</td>
-          <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>
+          <td style="border:1px solid #000; padding:5px; font-size:11px;">
+            ${isConsultation ? (item.doctorName || invoice.doctor?.user?.name || "Dr. Consultation") : (item.description ? item.description.replace(/\\n/g, "<br>") : "—")}
+          </td>
+          ${isTherapy ? `<td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>` : ''}
           <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
           <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(total)}</td>
         </tr>
       `;
     });
+
+    itemsHtml += `
+        </tbody>
+      </table>
+    `;
   });
 
   // Totals
@@ -243,26 +264,18 @@ export const invoiceHandlePrint = async (invoice) => {
       </div>
     </div>
 
-    <!-- ITEMS TABLE -->
-    <table class="items-table">
-      <thead>
-        <tr style="">
-          <th style="width:40px; font-size:16px;">Srl</th>
-          <th style="font-size:16px;">Item Name</th>
-          <th style="font-size:16px;">Description</th>
-          <th style="width:60px; font-size:16px;">Qty</th>
-          <th style="width:90px; font-size:16px;">Unit Price</th>
-          <th style="width:90px; font-size:16px;">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsHtml}
+    <!-- ITEMS TABLES (CATEGORIZED) -->
+    <div>
+      ${itemsHtml}
+    </div>
+    <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+      <table style="width:50%; border-collapse:collapse; border:1px solid #000;">
         <tr style="font-weight:bold;">
-          <td colspan="5" style="border:1px solid #000; padding:6px;">SUBTOTAL</td>
-          <td style="border:1px solid #000; padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
+          <td style="padding:6px; border-right:1px solid #000;">SUBTOTAL</td>
+          <td style="padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
         </tr>
-      </tbody>
-    </table>
+      </table>
+    </div>
 
     <!-- SUMMARY -->
     <div class="summary-container">

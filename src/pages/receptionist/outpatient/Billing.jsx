@@ -96,7 +96,7 @@ const ChargesPanel = ({
     return "badge bg-secondary";
   };
 
-  const columnCount = category === "therapy" ? 5 : category === "consultation" ? 4 : 3;
+  const columnCount = category === "therapy" ? 6 : category === "consultation" ? 4 : 3;
 
   return (
     <div className="card shadow-sm mb-4">
@@ -140,6 +140,7 @@ const ChargesPanel = ({
                     <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                     <th style={{ fontSize: "0.875rem" }}>Therapist</th>
                     <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Status</th>
+                    <th style={{ fontSize: "0.875rem", textAlign: "center" }}>Sessions</th>
                     <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapy Charge</th>
                     <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Therapist Charge</th>
                   </>
@@ -184,6 +185,11 @@ const ChargesPanel = ({
                           ) : (
                             <span style={{ color: "#888" }}>—</span>
                           )}
+                        </td>
+                        <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
+                          <span className="badge bg-secondary" style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
+                            {charge.sessionsCount || 1}
+                          </span>
                         </td>
                         <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
                           {formatCurrency(charge.therapyCharge || 0)}
@@ -654,7 +660,7 @@ function OutpatientBilling() {
       <HeadingCardingCard
         category="OUTPATIENT BILLING"
         title={`Billing Details  - ${patient?.name || "Unknown Patient"}`}
-        subtitle="Consultation & Therapy charges"
+        subtitle="Consultation & Therapy charges "
       />
 
       <div className="card shadow-sm mb-4" style={{ borderRadius: "12px", overflow: "hidden" }}>
@@ -728,7 +734,7 @@ function OutpatientBilling() {
         <div className="col-12 mb-4">
           <ChargesPanel
             title="Doctor Consultation"
-            charges={charges?.consultation || []}
+            charges={(charges?.consultation || []).filter(ch => Number(ch.amount || 0) > 0)}
             category="consultation"
             isEditable={!isFinalized}
             onEdit={handleEditDoctor}

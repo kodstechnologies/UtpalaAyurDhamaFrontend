@@ -36,6 +36,7 @@ const ViewPatientPage = lazy(() => import("../../pages/receptionist/appointments
 const WhatsAppPage = lazy(() => import("../../pages/receptionist/appointments/WhatsApp"));
 const ScheduleTherapyPage = lazy(() => import("../../pages/receptionist/appointments/ScheduleTherapy"));
 const WalkInAppointmentPage = lazy(() => import("../../pages/receptionist/appointments/WalkInAppointment"));
+const AddFamilyMemberPage = lazy(() => import("../../pages/receptionist/appointments/AddFamilyMember"));
 const EditChargePage = lazy(() => import("../../pages/receptionist/inpatient/EditCharge"));
 const SubTherapy_View = lazy(() => import("../../pages/receptionist/subtherapy/View"));
 const CreateExpense = lazy(() => import("../../pages/receptionist/dailyExpences/CreateExpense"))
@@ -361,6 +362,17 @@ export const receptionRoutes = [
                     <title>Walk-in Appointment | UTPALA</title>
                 </Helmet>
                 <WalkInAppointmentPage />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/appointments/add-family-member",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Family Member | UTPALA</title>
+                </Helmet>
+                <AddFamilyMemberPage />
             </>
         ),
     },

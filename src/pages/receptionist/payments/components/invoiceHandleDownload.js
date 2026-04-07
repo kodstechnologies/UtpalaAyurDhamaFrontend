@@ -107,11 +107,25 @@ export const invoiceHandleDownload = async (invoice) => {
 
       const catTotal = catItems.reduce((sum, i) => sum + (i.total || i.amount || 0), 0);
 
+      const isTherapy = cat === "Therapy";
+
       itemsHtml += `
-        <tr>
-          <td colspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; font-size:12px;">${cat}</td>
-          <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; font-size:12px;">₹${formatCurrency(catTotal)}</td>
-        </tr>
+        <div style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
+          <span>${cat}</span>
+          <span>Total: ₹${formatCurrency(catTotal)}</span>
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:11px; border-top:none;">
+          <thead>
+            <tr>
+              <th style="border:1px solid #000; border-top:none; padding:6px; width:40px;">Srl</th>
+              <th style="border:1px solid #000; border-top:none; padding:6px;">Item Name</th>
+              <th style="border:1px solid #000; border-top:none; padding:6px;">Description</th>
+              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px;">Qty</th>' : ''}
+              <th style="border:1px solid #000; border-top:none; padding:6px; width:90px;">Unit Price</th>
+              <th style="border:1px solid #000; border-top:none; padding:6px; width:90px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
       `;
 
       catItems.forEach((item) => {
@@ -126,14 +140,20 @@ export const invoiceHandleDownload = async (invoice) => {
             <td style="border:1px solid #000; padding:5px; font-size:11px;">
               ${escapeHtml(item.name || "Item")}
               ${item.subTherapy ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Sub-Therapy: ${escapeHtml(item.subTherapy)}</div>` : ""}
+              ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${escapeHtml(item.remarks)}</div>` : ""}
             </td>
-            <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${item.description || ""}</td>
-            <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>
+            <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${item.description ? escapeHtml(item.description).replace(/\\n/g, "<br>") : "—"}</td>
+            ${isTherapy ? `<td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>` : ''}
             <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
             <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(total)}</td>
           </tr>
         `;
       });
+
+      itemsHtml += `
+          </tbody>
+        </table>
+      `;
     });
 
     const subtotal = invoice.subtotal || 0;
@@ -220,26 +240,18 @@ export const invoiceHandleDownload = async (invoice) => {
           </div>
         </div>
 
-        <!-- ITEMS TABLE -->
-        <table style="width:100%; border-collapse:collapse; font-size:11px;">
-          <thead>
-            <tr style="">
-              <th style="border:1px solid #000; padding:6px; width:40px;">Srl</th>
-              <th style="border:1px solid #000; padding:6px;">Item Name</th>
-              <th style="border:1px solid #000; padding:6px;">Description</th>
-              <th style="border:1px solid #000; padding:6px; width:60px;">Qty</th>
-              <th style="border:1px solid #000; padding:6px; width:90px;">Unit Price</th>
-              <th style="border:1px solid #000; padding:6px; width:90px;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
+        <!-- ITEMS TABLES -->
+        <div>
+          ${itemsHtml}
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+          <table style="width:50%; border-collapse:collapse; border:1px solid #000;">
             <tr style="font-weight:bold;">
-              <td colspan="5" style="border:1px solid #000; padding:6px;">SUBTOTAL</td>
-              <td style="border:1px solid #000; padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
+              <td style="padding:6px; border-right:1px solid #000;">SUBTOTAL</td>
+              <td style="padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
             </tr>
-          </tbody>
-        </table>
+          </table>
+        </div>
 
         <!-- SUMMARY + NOTES -->
         <div style="display:flex; margin-top:15px; padding-top:10px;">

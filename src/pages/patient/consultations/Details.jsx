@@ -133,6 +133,39 @@ function ConsultationDetails() {
         return statusColors[status] || "default";
     };
 
+    const renderField = (label, value) => {
+        if (!value || value === "" || value === "N/A") return null;
+        return (
+            <Grid item xs={12} sm={6} md={4}>
+                <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        {label}
+                    </Typography>
+                    <Typography variant="body1" sx={{ mt: 0.5 }}>
+                        {value}
+                    </Typography>
+                </Box>
+            </Grid>
+        );
+    };
+
+    const renderSection = (title, children) => {
+        const validChildren = Array.isArray(children) ? children.filter(Boolean) : [children].filter(Boolean);
+        if (validChildren.length === 0) return null;
+        return (
+            <Card sx={{ mb: 3 }}>
+                <CardContent>
+                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: "var(--color-primary)" }}>
+                        {title}
+                    </Typography>
+                    <Grid container spacing={2}>
+                        {validChildren}
+                    </Grid>
+                </CardContent>
+            </Card>
+        );
+    };
+
     if (loading) {
         return (
             <div style={{ paddingBottom: "30px" }}>
@@ -259,11 +292,31 @@ function ConsultationDetails() {
                                 Consultation scheduled details
                             </Typography>
                         </Box>
-                        <Chip
-                            label={appointment.status || "Scheduled"}
-                            color={getStatusColor(appointment.status)}
-                            sx={{ fontWeight: 600 }}
-                        />
+                        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                            <Chip
+                                label={
+                                    examination?.isDaycare
+                                        ? "Daycare"
+                                        : examination?.inpatient
+                                        ? "IPD"
+                                        : "OPD"
+                                }
+                                color={
+                                    examination?.isDaycare
+                                        ? "secondary"
+                                        : examination?.inpatient
+                                        ? "warning"
+                                        : "primary"
+                                }
+                                sx={{ fontWeight: 700 }}
+                            />
+                            <Chip
+                                label={appointment.status || "Scheduled"}
+                                color={getStatusColor(appointment.status)}
+                                sx={{ fontWeight: 600 }}
+                                variant="outlined"
+                            />
+                        </Box>
                     </Box>
 
                     <Divider sx={{ marginY: 3 }} />
@@ -366,84 +419,112 @@ function ConsultationDetails() {
                 </CardContent>
             </Card>
 
-            {/* Examination Information */}
-            {examination && (
-                <Card sx={{ boxShadow: 3, borderRadius: 2, marginBottom: 3 }}>
-                    <CardContent sx={{ padding: 4 }}>
-                        <Typography variant="h5" sx={{ fontWeight: 700, color: "#1a1a1a", marginBottom: 3 }}>
-                            Examination Details
-                        </Typography>
-                        <Divider sx={{ marginY: 3 }} />
+            {/* Examination Information - structured like ExaminationDetails.jsx */}
+            {examination && (() => {
+                const customFields = examination.customFields || [];
+                const clinicalFields = {};
+                const systemicFields = {};
+                customFields.forEach((field) => {
+                    if (["Cardiovascular", "Respiratory", "Gastrointestinal", "Musculoskeletal", "Neurological"].includes(field.label)) {
+                        systemicFields[field.label] = field.value;
+                    } else {
+                        clinicalFields[field.label] = field.value;
+                    }
+                });
+                const vitals = examination.vitals?.[0] || {};
 
-                        <Grid container spacing={3}>
-                            {/* Chief Complaint */}
-                            {examination.complaints && (
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, marginBottom: 1 }}>
-                                        Chief Complaint
-                                    </Typography>
-                                    <Box sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}>
-                                        <Typography variant="body2">{examination.complaints}</Typography>
-                                    </Box>
-                                </Grid>
-                            )}
+                return (
+                    <>
+                        {renderSection("Chief Complaint", [
+                            renderField("Chief Complaint", examination.complaints),
+                            renderField("Duration", examination.historyOfPatientIllness?.match(/Duration:\s*([^.]*)/)?.[1]),
+                            renderField("Severity", examination.historyOfPatientIllness?.match(/Severity:\s*([^/]*)/)?.[1]),
+                        ])}
 
-                            {/* History of Present Illness */}
-                            {examination.historyOfPatientIllness && (
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, marginBottom: 1 }}>
-                                        History of Present Illness
-                                    </Typography>
-                                    <Box sx={{ backgroundColor: "#f8f9fa", padding: 2, borderRadius: 1 }}>
-                                        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                                            {examination.historyOfPatientIllness}
-                                        </Typography>
-                                    </Box>
-                                </Grid>
-                            )}
+                        {renderSection("History of Patient Illness", [
+                            renderField("Onset", examination.historyOfPatientIllness?.match(/Onset:\s*([^.]*)/)?.[1]),
+                            renderField("Progression", examination.historyOfPatientIllness?.match(/Progression:\s*([^.]*)/)?.[1]),
+                            renderField("Aggravating Factors", examination.historyOfPatientIllness?.match(/Aggravating Factors:\s*([^.]*)/)?.[1]),
+                            renderField("Relieving Factors", examination.historyOfPatientIllness?.match(/Relieving Factors:\s*([^.]*)/)?.[1]),
+                        ])}
 
-                            {/* Diagnoses */}
-                            {examination.diagnoses && examination.diagnoses.length > 0 && (
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, marginBottom: 1 }}>
-                                        Diagnoses
-                                    </Typography>
-                                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                                        {examination.diagnoses.map((diagnosis, index) => (
-                                            <Chip key={index} label={diagnosis} color="primary" variant="outlined" />
-                                        ))}
-                                    </Box>
-                                </Grid>
-                            )}
+                        {renderSection("Prakriti Assessment", [
+                            renderField("Vata Dosha", examination.prakritiAssessment?.match(/Vata:\s*([^,]*)/)?.[1]?.trim()),
+                            renderField("Pitta Dosha", examination.prakritiAssessment?.match(/Pitta:\s*([^,]*)/)?.[1]?.trim()),
+                            renderField("Kapha Dosha", examination.prakritiAssessment?.match(/Kapha:\s*([^,]*)/)?.[1]?.trim()),
+                            renderField("Final Prakriti", examination.finalPrakriti),
+                        ])}
 
-                            {/* Follow-ups */}
-                            {examination.followUps && examination.followUps.length > 0 && (
-                                <Grid item xs={12}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, marginBottom: 2 }}>
-                                        Follow-up Appointments
+                        {Object.keys(clinicalFields).length > 0 && renderSection("Clinical Examination", [
+                            ...Object.entries(clinicalFields).map(([label, value]) => renderField(label, value)),
+                        ])}
+
+                        {renderSection("Vitals", [
+                            renderField("Height", vitals.height),
+                            renderField("Weight", vitals.weight),
+                            renderField("BMI", vitals.bmi),
+                            renderField("Blood Pressure", vitals.bloodPressure),
+                            renderField("Heart Rate", vitals.heartRate),
+                            renderField("Temperature", vitals.temperature),
+                            renderField("SpO2", vitals.spo2),
+                            renderField("Respiratory Rate", vitals.respiratoryRate),
+                        ])}
+
+                        {Object.keys(systemicFields).length > 0 && renderSection("Systemic Examination", [
+                            ...Object.entries(systemicFields).map(([label, value]) => renderField(label, value)),
+                        ])}
+
+                        {renderSection("Medical History", [
+                            renderField("Past Illness", examination.medicalSurgicalHistory?.match(/Past Illness:\s*([^.]*)/)?.[1]),
+                            renderField("Surgeries", examination.medicalSurgicalHistory?.match(/Surgeries:\s*([^.]*)/)?.[1]),
+                            renderField("Allergies", examination.medicalSurgicalHistory?.match(/Allergies:\s*([^.]*)/)?.[1]),
+                            renderField("Past Medications", examination.medicalSurgicalHistory?.match(/Past Medications:\s*([^.]*)/)?.[1]),
+                        ])}
+
+                        {renderSection("Medications & Investigations", [
+                            renderField("Ongoing Medications", examination.ongoingMedications),
+                            renderField("Previous Investigations", examination.previousInvestigations),
+                            renderField("Present Investigations", examination.presentInvestigations),
+                            renderField("Laboratory Investigation", examination.laboratoryInvestigation),
+                        ])}
+
+                        {renderSection("Diagnosis & Recommendations", [
+                            renderField("Diagnosis", examination.diagnoses?.[0] || (Array.isArray(examination.diagnoses) ? examination.diagnoses.join(", ") : examination.diagnoses)),
+                            renderField("Other Diseases", examination.otherDiseases),
+                            renderField("Treatment Plan", examination.examinationNotes?.match(/Treatment Plan:\s*([^.]*)/)?.[1]),
+                            renderField("Lifestyle Recommendations", examination.examinationNotes?.match(/Lifestyle Recommendations:\s*([^.]*)/)?.[1]),
+                        ])}
+
+                        {examination.followUps && examination.followUps.length > 0 && renderSection("Follow-ups", [
+                            ...examination.followUps.map((followUp, index) =>
+                                renderField(
+                                    `Follow-up ${index + 1}`,
+                                    `${new Date(followUp.date).toISOString().split("T")[0]} - ${followUp.note || "No notes"}`
+                                )
+                            ),
+                        ])}
+
+                        {examination.inpatient && (
+                            <Card sx={{ mb: 3, bgcolor: "#fff3e0" }}>
+                                <CardContent>
+                                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: "#E65100" }}>
+                                        Inpatient Information
                                     </Typography>
-                                    <Table component={Paper} variant="outlined">
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell><strong>Date</strong></TableCell>
-                                                <TableCell><strong>Notes</strong></TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {examination.followUps.map((followUp, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{formatFollowUpDate(followUp.date)}</TableCell>
-                                                    <TableCell>{followUp.note || "—"}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </Grid>
-                            )}
-                        </Grid>
-                    </CardContent>
-                </Card>
-            )}
+                                    <Grid container spacing={2}>
+                                        {renderField("Room Number", examination.inpatient?.roomNumber)}
+                                        {renderField("Bed Number", examination.inpatient?.bedNumber)}
+                                        {renderField("Ward Category", examination.inpatient?.wardCategory)}
+                                        {renderField("Admission Date", examination.inpatient?.admissionDate ? new Date(examination.inpatient.admissionDate).toLocaleDateString() : null)}
+                                        {renderField("Status", examination.inpatient?.status)}
+                                        {renderField("Reason for Admission", examination.inpatient?.reason)}
+                                        {renderField("Admission Notes", examination.inpatient?.notes)}
+                                    </Grid>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </>
+                );
+            })()}
 
             {/* Prescriptions */}
             {prescriptions && prescriptions.length > 0 && (

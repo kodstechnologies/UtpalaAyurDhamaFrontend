@@ -24,7 +24,7 @@ function Family_Members_View() {
                     name: member.fullName || "",
                     relation: member.relation || "",
                     phone: member.phoneNumber || member.user?.phone || "",
-                    dob: member.dateOfBirth 
+                    dob: member.dateOfBirth
                         ? new Date(member.dateOfBirth).toISOString().split('T')[0]
                         : "",
                     gender: member.gender || "",
@@ -66,7 +66,7 @@ function Family_Members_View() {
 
         try {
             const response = await familyMemberService.deleteFamilyMember(id);
-            
+
             if (response && response.success) {
                 toast.success(`${name} has been removed from your family members.`);
                 // Refresh the list

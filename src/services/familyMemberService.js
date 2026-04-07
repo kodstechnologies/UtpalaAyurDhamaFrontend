@@ -38,6 +38,18 @@ const familyMemberService = {
         }
     },
 
+    // Create a new family member for Receptionist
+    createFamilyMemberForReceptionist: async (data) => {
+        try {
+            const response = await axios.post(getApiUrl("family-members/receptionist"), data, {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
+
     // Update an existing family member
     updateFamilyMember: async (id, data) => {
         try {
