@@ -10,6 +10,9 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import PersonIcon from "@mui/icons-material/Person";
 import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import GroupsIcon from "@mui/icons-material/Groups";
+import familyMemberService from "../../../services/familyMemberService";
 
 function ViewPatientPage() {
     const navigate = useNavigate();
@@ -26,6 +29,7 @@ function ViewPatientPage() {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [selectedDoctorId, setSelectedDoctorId] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
+    const [familyMembers, setFamilyMembers] = useState([]);
 
     const fetchDoctors = async () => {
         try {
@@ -201,6 +205,19 @@ function ViewPatientPage() {
                 if (patientData.patientProfile?._id) {
                     await fetchClinicalData(patientData.patientProfile._id);
                 }
+
+                // Fetch family members using patient's user ID
+                const userId = patientData.patientProfile?.user?._id || patientData.patientProfile?.user || patientData.user?._id;
+                if (userId) {
+                    try {
+                        const familyRes = await familyMemberService.getFamilyMembersByUserId(userId);
+                        if (familyRes.success) {
+                            setFamilyMembers(familyRes.data || []);
+                        }
+                    } catch (err) {
+                        console.error("[ViewPatient] Error fetching family members:", err);
+                    }
+                }
             } else {
                 toast.error(response.data.message || "Failed to fetch patient details");
                 navigate("/receptionist/appointments");
@@ -268,6 +285,26 @@ function ViewPatientPage() {
             toast.error(error.response?.data?.message || error.message || "Failed to update doctor");
         } finally {
             setIsUpdating(false);
+        }
+    };
+
+    const handleDeleteFamilyMember = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to remove ${name} from family members?`)) {
+            return;
+        }
+
+        try {
+            const res = await familyMemberService.deleteFamilyMemberByReceptionist(id);
+            if (res.success) {
+                toast.success(`${name} removed successfully`);
+                // Update local state to reflect deletion
+                setFamilyMembers(prev => prev.filter(m => m._id !== id));
+            } else {
+                toast.error(res.message || "Failed to remove family member");
+            }
+        } catch (err) {
+            console.error("Error deleting family member:", err);
+            toast.error(err.response?.data?.message || err.message || "Failed to remove family member");
         }
     };
 
@@ -577,6 +614,41 @@ function ViewPatientPage() {
                             </Box>
                         </Grid>
                     </Grid>
+
+                    <hr style={{ margin: "24px 0", opacity: 0.1 }} />
+
+                    {/* Family Members Section */}
+                    {familyMembers.length > 0 && (
+                        <>
+                            <Typography variant="h6" sx={{ mb: 2, color: "var(--color-primary-a)", fontWeight: "bold", display: "flex", alignItems: "center", gap: 1 }}>
+                                <GroupsIcon /> Family Members
+                            </Typography>
+                            <Grid container spacing={2} sx={{ mb: 3 }}>
+                                {familyMembers.map((member) => (
+                                    <Grid item xs={12} key={member._id}>
+                                        <Box sx={{ p: 2, border: "1px solid #eee", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <Box>
+                                                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                    {member.fullName} ({member.relation})
+                                                </Typography>
+                                                <Typography variant="caption" color="textSecondary" sx={{ display: "block" }}>
+                                                    Phone: {member.phoneNumber} | UHID: {member.user?.uhid || "Not assigned"}
+                                                </Typography>
+                                            </Box>
+                                            <IconButton 
+                                                color="error" 
+                                                size="small" 
+                                                onClick={() => handleDeleteFamilyMember(member._id, member.fullName)}
+                                                sx={{ backgroundColor: "rgba(211, 47, 47, 0.04)", "&:hover": { backgroundColor: "rgba(211, 47, 47, 0.1)" } }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Box>
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </>
+                    )}
 
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 4 }}>
                         <Button variant="outlined" onClick={() => navigate(-1)} sx={{ borderRadius: "8px", px: 4 }}>Back</Button>

@@ -97,6 +97,29 @@ const familyMemberService = {
             throw error.response?.data || error.message;
         }
     },
+    // Get family members by user ID (for Receptionist/Admin)
+    getFamilyMembersByUserId: async (userId) => {
+        try {
+            const response = await axios.get(getApiUrl(`family-members/by-user/${userId}`), {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
+
+    // Delete a family member as Receptionist (no ownership check)
+    deleteFamilyMemberByReceptionist: async (id) => {
+        try {
+            const response = await axios.delete(getApiUrl(`family-members/${id}/receptionist`), {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default familyMemberService;

@@ -242,7 +242,6 @@ export const handlePrint = async (id) => {
             <div class="receipt-box">
               <div class="receipt-title">PRESCRIPTION</div>
               <table class="info-table" style="margin-top:8px;">
-                <tr><td class="label">Prescription No:</td><td>${escapeHtml(invoice.no)}</td></tr>
                 <tr><td class="label">Date:</td><td>${invoice.date}</td></tr>
                 <tr><td class="label">Time:</td><td>${invoice.time}</td></tr>
                 <tr><td class="label">Doctor:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
