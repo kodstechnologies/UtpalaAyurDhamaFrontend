@@ -376,7 +376,28 @@ function InvoiceDetails() {
               </Typography>
               <Box sx={{ bgcolor: "#f8f9fa", p: 2, borderRadius: 1 }}>
                 <Typography><strong>Date:</strong> {formatDate(invoice.createdAt)}</Typography>
-                {invoice.inpatient && <Typography><strong>Type:</strong> Inpatient</Typography>}
+                <Typography>
+                  <strong>Type:</strong>{" "}
+                  {invoice.inpatient ? (
+                    <Chip
+                      label="Inpatient"
+                      size="small"
+                      sx={{ bgcolor: "#e3f2fd", color: "#1976d2", fontWeight: 600, ml: 1 }}
+                    />
+                  ) : invoice.examination?.isDaycare ? (
+                    <Chip
+                      label="Daycare"
+                      size="small"
+                      sx={{ bgcolor: "#e0f7fa", color: "#00838f", fontWeight: 600, ml: 1 }}
+                    />
+                  ) : (
+                    <Chip
+                      label="Outpatient"
+                      size="small"
+                      sx={{ bgcolor: "#e8f5e9", color: "#2e7d32", fontWeight: 600, ml: 1 }}
+                    />
+                  )}
+                </Typography>
                 {invoice.doctor && (
                   <Typography><strong>Doctor:</strong> {invoice.doctor.firstName ? `${invoice.doctor.firstName} ${invoice.doctor.lastName}` : invoice.doctor.user?.name || "N/A"}</Typography>
                 )}

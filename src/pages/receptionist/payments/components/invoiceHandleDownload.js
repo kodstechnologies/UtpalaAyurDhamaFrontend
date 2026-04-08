@@ -125,7 +125,7 @@ export const invoiceHandleDownload = async (invoice) => {
               <th style="border:1px solid #000; border-top:none; padding:6px; width:40px;">Srl</th>
               <th style="border:1px solid #000; border-top:none; padding:6px;">Item Name</th>
               ${isConsultation ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Description</th>' : ''}
-              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px;">Qty</th>' : ''}
+              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px;">Session</th>' : ''}
               <th style="border:1px solid #000; border-top:none; padding:6px; width:90px;">Unit Price</th>
               <th style="border:1px solid #000; border-top:none; padding:6px; width:90px;">Total</th>
             </tr>
@@ -251,8 +251,10 @@ export const invoiceHandleDownload = async (invoice) => {
                   </span>
                 </td>
               </tr>
-                   </tr>
-         
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Type</td>
+                <td style="padding:6px 0;">: ${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
+              </tr>
             </table>
           </div>
         </div>

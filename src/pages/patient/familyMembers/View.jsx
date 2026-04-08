@@ -115,7 +115,7 @@ function Family_Members_View() {
                     Family Profiles
                 </Typography>
 
-                <RedirectButton
+                {/* <RedirectButton
                     text="Add Member"
                     link="/patient/family/add"
                     sx={{
@@ -123,7 +123,7 @@ function Family_Members_View() {
                         padding: "7px 18px",
                         borderRadius: "8px",
                     }}
-                />
+                /> */}
             </Box>
 
             {/* Family Member Cards */}

@@ -125,7 +125,7 @@ export const invoiceHandlePrint = async (invoice) => {
             <th style="width:40px; font-size:14px;">Srl</th>
             <th style="font-size:14px;">Item Name</th>
             ${isConsultation ? '<th style="font-size:14px;">Doctor Name</th>' : !isBedCharges ? '<th style="font-size:14px;">Description</th>' : ''}
-            ${isTherapy ? '<th style="width:60px; font-size:14px;">Qty</th>' : ''}
+            ${isTherapy ? '<th style="width:60px; font-size:14px;">Session</th>' : ''}
             <th style="width:90px; font-size:14px;">Unit Price</th>
             <th style="width:90px; font-size:14px;">Total</th>
           </tr>
@@ -273,6 +273,10 @@ export const invoiceHandlePrint = async (invoice) => {
           <tr>
             <td class="label">Status:</td>
             <td><span class="status-badge" style=" font-weight:bold; color:${statusColor};">${paymentStatus}</span></td>
+          </tr>
+          <tr>
+            <td class="label">Type:</td>
+            <td style="font-weight:bold;">${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
           </tr>
      
         </table>
