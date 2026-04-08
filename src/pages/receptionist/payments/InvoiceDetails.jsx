@@ -344,7 +344,7 @@ function InvoiceDetails() {
           {/* Header */}
           <Box mb={4}>
             <Typography variant="h4" fontWeight={700} color="#1a1a1a">
-              Utpala Ayurdhama 
+              Utpala Ayurdhama
             </Typography>
             <Typography variant="body2" color="#666">
               Invoice #{invoice.invoiceNumber}
@@ -405,6 +405,10 @@ function InvoiceDetails() {
               const catTotal = items.reduce((sum, i) => sum + (i.total || 0), 0);
               const isTherapy = category === "Therapy";
               const isConsultation = category === "Doctor Consultation";
+              const isBedCharges = category === "Bed Charges";
+
+              // Skip rendering "Doctor Consultation" if its total is 0
+              if (isConsultation && catTotal === 0) return null;
 
               return (
                 <Box key={category} mb={4}>
@@ -412,7 +416,7 @@ function InvoiceDetails() {
                     <Box sx={{ bgcolor: "#e8f4f8", px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <Typography sx={{ fontWeight: 700, m: 0 }}>{category}</Typography>
                       <Typography sx={{ fontWeight: 700, color: "#1a1a1a", m: 0 }}>
-                         Total: {formatCurrency(catTotal)}
+                        Total: {formatCurrency(catTotal)}
                       </Typography>
                     </Box>
                     <Table>
@@ -422,10 +426,10 @@ function InvoiceDetails() {
                           <TableCell sx={{ fontWeight: 600 }}>Item Name</TableCell>
                           {isConsultation ? (
                             <TableCell sx={{ fontWeight: 600 }}>Doctor Name</TableCell>
-                          ) : (
+                          ) : !isBedCharges ? (
                             <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                          )}
-                          {isTherapy && <TableCell align="center" sx={{ fontWeight: 600 }}>Quantity</TableCell>}
+                          ) : null}
+                          {isTherapy && <TableCell align="center" sx={{ fontWeight: 600 }}>Sessions</TableCell>}
                           <TableCell align="right" sx={{ fontWeight: 600 }}>Unit Price</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 600 }}>Total</TableCell>
                         </TableRow>
@@ -447,13 +451,17 @@ function InvoiceDetails() {
                                 </Typography>
                               )}
                             </TableCell>
-                            <TableCell>
-                              {isConsultation ? (
-                                <Typography variant="body2">{item.doctorName || invoice.doctor?.user?.name || "—"}</Typography>
-                              ) : item.description ? (
-                                <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>{item.description}</Typography>
-                              ) : "—"}
-                            </TableCell>
+                            {!isBedCharges && (
+                              <TableCell>
+                                {isConsultation ? (
+                                  <Typography variant="body2">
+                                    {(item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : ""}
+                                  </Typography>
+                                ) : item.description ? (
+                                  <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>{item.description}</Typography>
+                                ) : "—"}
+                              </TableCell>
+                            )}
                             {isTherapy && <TableCell align="center">{item.quantity || 1}</TableCell>}
                             <TableCell align="right">{formatCurrency(item.unitPrice || item.amount)}</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>
@@ -502,9 +510,9 @@ function InvoiceDetails() {
                       <TableRow key={idx}>
                         <TableCell>{formatDate(payment.date)}</TableCell>
                         <TableCell>
-                          <Chip 
-                            label={payment.paymentMethod} 
-                            size="small" 
+                          <Chip
+                            label={payment.paymentMethod}
+                            size="small"
                             variant="outlined"
                             sx={{ fontWeight: 500, borderColor: "#D4A574", color: "#D4A574" }}
                           />

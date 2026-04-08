@@ -109,6 +109,10 @@ export const invoiceHandlePrint = async (invoice) => {
     const catTotal = catItems.reduce((sum, i) => sum + (i.total || i.amount || 0), 0);
     const isTherapy = cat === "Therapy";
     const isConsultation = cat === "Doctor Consultation";
+    const isBedCharges = cat === "Bed Charges";
+
+    // Skip rendering "Doctor Consultation" if its total is 0
+    if (isConsultation && catTotal === 0) return;
 
     itemsHtml += `
       <div style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
@@ -120,7 +124,7 @@ export const invoiceHandlePrint = async (invoice) => {
           <tr>
             <th style="width:40px; font-size:14px;">Srl</th>
             <th style="font-size:14px;">Item Name</th>
-            ${isConsultation ? '<th style="font-size:14px;">Doctor Name</th>' : '<th style="font-size:14px;">Description</th>'}
+            ${isConsultation ? '<th style="font-size:14px;">Doctor Name</th>' : !isBedCharges ? '<th style="font-size:14px;">Description</th>' : ''}
             ${isTherapy ? '<th style="width:60px; font-size:14px;">Qty</th>' : ''}
             <th style="width:90px; font-size:14px;">Unit Price</th>
             <th style="width:90px; font-size:14px;">Total</th>
@@ -144,9 +148,11 @@ export const invoiceHandlePrint = async (invoice) => {
             ${item.subTherapy ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Sub-Therapy: ${item.subTherapy}</div>` : ""}
             ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${item.remarks}</div>` : ""}
           </td>
-          <td style="border:1px solid #000; padding:5px; font-size:11px;">
-            ${isConsultation ? (item.doctorName || invoice.doctor?.user?.name || "Dr. Consultation") : (item.description ? item.description.replace(/\\n/g, "<br>") : "—")}
-          </td>
+          ${!isBedCharges ? `
+            <td style="border:1px solid #000; padding:5px; font-size:11px;">
+              ${isConsultation ? ((item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : "") : (item.description ? item.description.replace(/\\n/g, "<br>") : "—")}
+            </td>
+          ` : ""}
           ${isTherapy ? `<td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>` : ''}
           <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
           <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(total)}</td>

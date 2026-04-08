@@ -526,10 +526,10 @@ function PatientHistory() {
                                                 <Card key={idx} sx={{ mb: 2, border: "1px solid #e0e0e0" }}>
                                                     <CardContent>
                                                         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                                                            <Chip 
-                                                                label={exam.type} 
-                                                                color={getTypeColor(exam.type)} 
-                                                                size="small" 
+                                                            <Chip
+                                                                label={exam.type}
+                                                                color={getTypeColor(exam.type)}
+                                                                size="small"
                                                             />
                                                             <Typography variant="body2" color="text.secondary">
                                                                 {formatDateTime(exam.createdAt)}
@@ -598,27 +598,31 @@ function PatientHistory() {
                                                                         </Box>
                                                                     </Typography>
                                                                 )}
+
                                                                 {exam.examinationNotes && (
                                                                     <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                        <strong>Examination Notes:</strong>
-                                                                        <Box sx={{ mt: 1, p: 1, bgcolor: "#f5f5f5", borderRadius: 1, whiteSpace: "pre-wrap", fontSize: "0.8rem" }}>
+                                                                        <strong>Examination Notes:</strong>{" "}
+                                                                        <span style={{ fontSize: "0.8rem" }}>
                                                                             {exam.examinationNotes}
-                                                                        </Box>
+                                                                        </span>
                                                                     </Typography>
                                                                 )}
+
                                                                 {exam.prakritiAssessment && (
                                                                     <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                        <strong>Prakriti Assessment:</strong>
-                                                                        <Box sx={{ mt: 0.5, p: 1, bgcolor: "#f5f5f5", borderRadius: 1, fontSize: "0.8rem" }}>
+                                                                        <strong>Prakriti Assessment:</strong>{" "}
+                                                                        <span style={{ fontSize: "0.8rem" }}>
                                                                             {exam.prakritiAssessment}
-                                                                        </Box>
+                                                                        </span>
+
                                                                         {exam.finalPrakriti && (
-                                                                            <Box sx={{ mt: 1, fontWeight: 600 }}>
-                                                                                Final Prakriti: {exam.finalPrakriti}
-                                                                            </Box>
+                                                                            <span style={{ fontWeight: 200, fontSize: "0.8rem" }}>
+                                                                                , Final Prakriti: {exam.finalPrakriti}
+                                                                            </span>
                                                                         )}
                                                                     </Typography>
                                                                 )}
+
                                                                 {exam.customFields && exam.customFields.length > 0 && (
                                                                     <Typography variant="body2" sx={{ mb: 1 }}>
                                                                         <strong>Clinical Examination:</strong>

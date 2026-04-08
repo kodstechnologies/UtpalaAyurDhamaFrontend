@@ -342,7 +342,7 @@ function OutpatientBilling() {
         setReferredBy(billingData.invoice.referredBy);
       if (billingData.invoice.consultedBy)
         setConsultedBy(billingData.invoice.consultedBy);
-      
+
       // Initialize discount state if invoice exists
       if (billingData.invoice.discountType)
         setDiscountType(billingData.invoice.discountType);
@@ -658,7 +658,7 @@ function OutpatientBilling() {
       <Breadcrumb items={breadcrumbItems} />
 
       <HeadingCardingCard
-        category="OUTPATIENT BILLING"
+        category={billingData.isDaycare ? "DAYCARE BILLING" : "OUTPATIENT BILLING"}
         title={`Billing Details  - ${patient?.name || "Unknown Patient"}`}
         subtitle="Consultation & Therapy charges "
       />
@@ -676,12 +676,16 @@ function OutpatientBilling() {
                     <strong className="text-muted me-1">UHID:</strong> {patient.uhid}
                   </span>
                 )}
+
                 {patient?.patientId && (
                   <span className="badge bg-light text-dark p-2">
                     <strong className="text-muted me-1">Patient ID:</strong> {patient.patientId}
                   </span>
                 )}
-                <span className="badge bg-success p-2">OUTPATIENT</span>
+
+                <span className={`badge ${billingData.isDaycare ? "bg-info" : "bg-success"} p-2`} style={billingData.isDaycare ? { backgroundColor: "#0dcaf0" } : {}}>
+                  {billingData.isDaycare ? "DAYCARE" : "OUTPATIENT"}
+                </span>
                 {billingData?.invoice?.referredBy && (
                   <span className="badge bg-light text-dark p-2">
                     <strong className="text-muted me-1">Referred By:</strong>{" "}
@@ -819,7 +823,7 @@ function OutpatientBilling() {
             </Box>
           )}
           {!isFinalized && <Divider sx={{ mb: 2 }} />}
-          
+
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, maxWidth: 360, ml: "auto" }}>
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography color="text.secondary">Gross Total</Typography>
@@ -836,14 +840,14 @@ function OutpatientBilling() {
               <Typography variant="h6" fontWeight={700}>Final Total</Typography>
               <Typography variant="h6" fontWeight={700} color="primary.main">{formatCurrency(totalCharges)}</Typography>
             </Box>
-            
+
             {isFinalized && amountPaid > 0 && (
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography color="text.secondary">Amount Paid</Typography>
                 <Typography fontWeight={600} color="success.main">{formatCurrency(amountPaid)}</Typography>
               </Box>
             )}
-            
+
             {isFinalized && (
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography variant="h6" fontWeight={700}>Balance Due</Typography>
@@ -992,8 +996,8 @@ function OutpatientBilling() {
               <Typography variant="subtitle1" fontWeight={600}>Total:</Typography>
               <Typography variant="h6" color="#8B4513" fontWeight={700}>
                 {therapyEditRows.length > 0
-                  ? formatCurrency(therapyEditRows.reduce((s, r) => s + Number(r.therapyCharge||0) + Number(r.therapistCharge||0), 0))
-                  : formatCurrency(Number(therapyCost||0) + Number(therapistCharge||0))}
+                  ? formatCurrency(therapyEditRows.reduce((s, r) => s + Number(r.therapyCharge || 0) + Number(r.therapistCharge || 0), 0))
+                  : formatCurrency(Number(therapyCost || 0) + Number(therapistCharge || 0))}
               </Typography>
             </Box>
           </Box>
