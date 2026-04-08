@@ -157,10 +157,18 @@ export const invoiceHandleDownload = async (invoice) => {
     });
 
     const subtotal = invoice.subtotal || 0;
-    const discount = invoice.discountValue || 0;
+    
+    // Calculate Tax and Discount correctly
+    const pharmacySubtotal = (invoice.items || [])
+      .filter(item => item.category?.toLowerCase() === "pharmacy")
+      .reduce((sum, item) => sum + (item.total || 0), 0);
+    const taxAmount = (pharmacySubtotal * (invoice.taxRate || 0)) / 100;
+    const grandTotal = subtotal + taxAmount;
+    const discountAmount = Math.max(0, grandTotal - (invoice.totalPayable || 0));
+
     const discountText = invoice.discountType === "percentage"
       ? `Discount (${invoice.discountRate || 0}%)`
-      : discount > 0 ? "Discount (Fixed)" : "";
+      : discountAmount > 0 ? "Discount (Fixed)" : "";
 
     const totalPayable = invoice.totalPayable || 0;
     const amountPaid = invoice.amountPaid || 0;
@@ -275,9 +283,14 @@ export const invoiceHandleDownload = async (invoice) => {
             <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
               <span>Subtotal:</span><span>₹${formatCurrency(subtotal)}</span>
             </div>
-            ${discount > 0 ? `
+            ${taxAmount > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span>Tax (${invoice.taxRate}%):</span><span>₹${formatCurrency(taxAmount)}</span>
+              </div>
+            ` : ""}
+            ${discountAmount > 0 ? `
               <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#2e7d32;">
-                <span>${discountText}:</span><span>-₹${formatCurrency(discount)}</span>
+                <span>${discountText}:</span><span>-₹${formatCurrency(discountAmount)}</span>
               </div>
             ` : ""}
             <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">

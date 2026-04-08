@@ -162,10 +162,19 @@ export const invoiceHandlePrint = async (invoice) => {
 
   // Totals
   const subtotal = invoice.subtotal || 0;
-  const discount = invoice.discountValue || 0;
+  
+  // Calculate Tax and Discount correctly
+  const pharmacySubtotal = (invoice.items || [])
+    .filter(item => item.category?.toLowerCase() === "pharmacy")
+    .reduce((sum, item) => sum + (item.total || 0), 0);
+  const taxAmount = (pharmacySubtotal * (invoice.taxRate || 0)) / 100;
+  const grandTotal = subtotal + taxAmount;
+  const discountAmount = Math.max(0, grandTotal - (invoice.totalPayable || 0));
+
   const discountText = invoice.discountType === "percentage"
     ? `Discount (${invoice.discountRate || 0}%)`
-    : discount > 0 ? "Discount (Fixed)" : "";
+    : discountAmount > 0 ? "Discount (Fixed)" : "";
+
   const totalPayable = invoice.totalPayable || 0;
   const amountPaid = invoice.amountPaid || 0;
   const balanceDue = totalPayable - amountPaid;
@@ -298,10 +307,16 @@ export const invoiceHandlePrint = async (invoice) => {
           <span>Subtotal:</span>
           <span>₹${formatCurrency(subtotal)}</span>
         </div>
-        ${discount > 0 ? `
+        ${taxAmount > 0 ? `
+          <div class="summary-row">
+            <span>Tax (${invoice.taxRate}%):</span>
+            <span>₹${formatCurrency(taxAmount)}</span>
+          </div>
+        ` : ""}
+        ${discountAmount > 0 ? `
           <div class="summary-row" style="color:#2e7d32;">
             <span>${discountText}:</span>
-            <span>-₹${formatCurrency(discount)}</span>
+            <span>-₹${formatCurrency(discountAmount)}</span>
           </div>
         ` : ""}
         <div class="summary-row total">

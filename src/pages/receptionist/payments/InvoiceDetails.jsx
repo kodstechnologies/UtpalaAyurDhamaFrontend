@@ -545,16 +545,36 @@ function InvoiceDetails() {
                 <Typography fontWeight={500}>{formatCurrency(invoice.subtotal || 0)}</Typography>
               </Box>
 
-              {(invoice.discountValue > 0 || invoice.discountRate > 0) && (
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-                  <Typography color="#666">
-                    Discount {invoice.discountType === "percentage" ? `(${invoice.discountRate}%)` : "(Fixed)"}
-                  </Typography>
-                  <Typography color="#4CAF50" fontWeight={500}>
-                    -{formatCurrency(invoice.discountValue || 0)}
-                  </Typography>
-                </Box>
-              )}
+              {(() => {
+                const pharmacySubtotal = (invoice.items || [])
+                  .filter(item => item.category?.toLowerCase() === "pharmacy")
+                  .reduce((sum, item) => sum + (item.total || 0), 0);
+                const taxAmount = (pharmacySubtotal * (invoice.taxRate || 0)) / 100;
+                const grandTotal = (invoice.subtotal || 0) + taxAmount;
+                const discountAmount = Math.max(0, grandTotal - (invoice.totalPayable || 0));
+
+                return (
+                  <>
+                    {taxAmount > 0 && (
+                      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                        <Typography color="#666">Tax ({invoice.taxRate}%):</Typography>
+                        <Typography fontWeight={500}>{formatCurrency(taxAmount)}</Typography>
+                      </Box>
+                    )}
+
+                    {(invoice.discountValue > 0 || invoice.discountRate > 0) && (
+                      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                        <Typography color="#666">
+                          Discount {invoice.discountType === "percentage" ? `(${invoice.discountRate}%)` : "(Fixed)"}
+                        </Typography>
+                        <Typography color="#4CAF50" fontWeight={500}>
+                          -{formatCurrency(discountAmount)}
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
+                );
+              })()}
 
               <Divider sx={{ my: 2 }} />
 
