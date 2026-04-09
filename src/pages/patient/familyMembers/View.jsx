@@ -153,8 +153,8 @@ function Family_Members_View() {
                             dob={member.dob}
                             gender={member.gender}
                             uhid={member.uhid}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
+                            // onEdit={handleEdit}
+                            // onDelete={handleDelete}
                         />
                     ))}
                 </Box>

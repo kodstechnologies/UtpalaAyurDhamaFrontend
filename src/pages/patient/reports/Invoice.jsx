@@ -316,7 +316,7 @@ function InvoicePage() {
                             </Box>
 
                             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <Button
+                                {/* <Button
                                     onClick={handlePrint}
                                     startIcon={<PrintIcon />}
                                     variant="contained"
@@ -338,7 +338,7 @@ function InvoicePage() {
                                     }}
                                 >
                                     Print Invoice
-                                </Button>
+                                </Button> */}
 
                                 <Button
                                     variant="outlined"
