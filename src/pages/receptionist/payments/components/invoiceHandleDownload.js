@@ -252,13 +252,10 @@ export const invoiceHandleDownload = async (invoice) => {
                 <td style="padding:6px 0;">: ${escapeHtml(invoiceNo)}</td>
               </tr>
               <tr>
-                <td style="font-weight:bold; padding:6px 0;">Date</td>
-                <td style="padding:6px 0;">: ${invoiceDate}</td>
+                <td style="font-weight:bold; padding:6px 0;">Date /Time</td>
+                <td style="padding:6px 0;">: ${invoiceDate} /${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
               </tr>
-              <tr>
-                <td style="font-weight:bold; padding:6px 0;">Time</td>
-                <td style="padding:6px 0;">: ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
-              </tr>
+          
               <tr>
                 <td style="font-weight:bold; padding:6px 0; vertical-align:middle;">Status</td>
                 <td style="">
