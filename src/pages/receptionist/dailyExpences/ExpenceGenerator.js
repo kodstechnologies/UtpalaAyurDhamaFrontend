@@ -1,7 +1,7 @@
 import axios from "axios";
 import logo from "../../../assets/logo/logo2.png";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
-import { getHeader } from "../../../components/pdf/pdfHeader";
+import { pdfPrHeader } from "../../../components/pdf/pdfPrHeader";
 import { getFooter } from "../../../components/pdf/pdfFooter";
 
 // Indian rupees number to words with proper Indian numbering system
@@ -170,22 +170,17 @@ export const handlePrint = async (dateStr) => {
         body {
           font-family: Arial, Helvetica, sans-serif;
           font-size: 12px;
-          margin: 10px auto;
+          margin: 0 auto;
+          padding: 0;
           color: #000;
-          border: 1px solid black;
           max-width: 50rem;
           width: 100%;
-          display: flex;
-          flex-direction: column;
-          min-height: 297mm;
         }
-        .print-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          background: white;
-          border: 1px solid #ddd;
-          box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
+        .report-container { width: 100%; border-collapse: collapse; }
+        .report-header { display: table-header-group; }
+        .report-footer { position: fixed; bottom: 0; left: 0; right: 0; max-width: 50rem; width: 100%; margin: 0 auto; background: white; z-index: 10; }
+        .footer-spacer { height: 180px; }
+        .main-content { padding: 10px; width: 100%; }
         .title {
           font-size: 22px;
           font-weight: bold;
@@ -198,7 +193,7 @@ export const handlePrint = async (dateStr) => {
         .receipt-container {
           display: flex;
           border: 1px solid #ddd;
-          margin: 20px;
+          margin: 20px 0;
           background: #fafafa;
         }
         .info-box {
@@ -228,8 +223,7 @@ export const handlePrint = async (dateStr) => {
           color: #333;
         }
         .items-table {
-          width: calc(100% - 40px);
-          margin: 20px;
+          width: 100%;
           border-collapse: collapse;
           font-size: 12px;
         }
@@ -257,167 +251,127 @@ export const handlePrint = async (dateStr) => {
           font-weight: bold;
           font-size: 14px;
         }
-        .amount-words {
-          margin: 20px;
-          padding: 12px;
-          background: #fff3e0;
-          border-left: 4px solid #8B4513;
-          font-style: italic;
-          font-size: 13px;
-          color: #555;
-        }
         @media print {
-          body {
-            background: white;
-            padding: 0;
-            margin: 0;
-          }
-          .print-container {
-            box-shadow: none;
-            margin: 0;
-          }
-          .no-print {
-            display: none;
-          }
-        }
-        @media screen {
-          .print-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #8B4513;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            z-index: 1000;
-          }
-          .print-button:hover {
-            background: #6b3f36;
-          }
-          .close-button {
-            position: fixed;
-            bottom: 20px;
-            right: 140px;
-            background: #666;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            z-index: 1000;
-          }
-          .close-button:hover {
-            background: #555;
-          }
+          body { border: none; margin: 0; width: 100%; max-width: none; }
+          .report-header { display: table-header-group; }
+          .report-footer { position: fixed; bottom: 0; left: 0; right: 0; max-width: 100%; width: 100%; margin: 0 auto; }
         }
       </style>
     </head>
     <body>
-      <div class="print-container">
-        ${getHeader()}
+      <table class="report-container">
+        <thead>
+          <tr>
+            <td class="report-header">
+              ${pdfPrHeader()}
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="main-content">
+                <!-- Title -->
+                <div class="title">📋 DAILY EXPENSE REPORT</div>
 
-        <!-- Title -->
-        <div class="title">📋 DAILY EXPENSE REPORT</div>
+                <!-- Info Section -->
+                <div class="receipt-container">
+                  <div class="info-box">
+                    <table>
+                      <tr>
+                        <td class="label">Expense Date</td>
+                        <td class="colon">:</td>
+                        <td class="value">${formattedDate}</td>
+                      </tr>
+                      <tr>
+                        <td class="label">Approved By</td>
+                        <td class="colon">:</td>
+                        <td class="value">${escapeHtml(approvedBy)}</td>
+                      </tr>
+                      <tr>
+                        <td class="label">Report Generated</td>
+                        <td class="colon">:</td>
+                        <td class="value">${invoice.generatedAt}</td>
+                      </tr>
+                      <tr>
+                        <td class="label">Total Items</td>
+                        <td class="colon">:</td>
+                        <td class="value">${expenses.length}</td>
+                      </tr>
+                    </table>
+                  </div>
+                  <div class="info-box">
+                    <table>
+                      <tr>
+                        <td class="label">Receipt No</td>
+                        <td class="colon">:</td>
+                        <td class="value">${invoice.no}</td>
+                      </tr>
+                      <tr>
+                        <td class="label">Generated By</td>
+                        <td class="colon">:</td>
+                        <td class="value">${receptionistName}</td>
+                      </tr>
+                      <tr>
+                        <td class="label">Status</td>
+                        <td class="colon">:</td>
+                        <td class="value">✅ Confirmed</td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
 
-        <!-- Info Section -->
-        <div class="receipt-container">
-          <div class="info-box">
-            <table>
-              <tr>
-                <td class="label">Expense Date</td>
-                <td class="colon">:</td>
-                <td class="value">${formattedDate}</td>
-              </tr>
-              <tr>
-                <td class="label">Approved By</td>
-                <td class="colon">:</td>
-                <td class="value">${escapeHtml(approvedBy)}</td>
-              </tr>
-              <tr>
-                <td class="label">Report Generated</td>
-                <td class="colon">:</td>
-                <td class="value">${invoice.generatedAt}</td>
-              </tr>
-              <tr>
-                <td class="label">Total Items</td>
-                <td class="colon">:</td>
-                <td class="value">${expenses.length}</td>
-              </tr>
-            </table>
-          </div>
-          <div class="info-box">
-            <table>
-              <tr>
-                <td class="label">Receipt No</td>
-                <td class="colon">:</td>
-                <td class="value">${invoice.no}</td>
-              </tr>
-              <tr>
-                <td class="label">Generated By</td>
-                <td class="colon">:</td>
-                <td class="value">${receptionistName}</td>
-                </tr>
-       
-              <tr>
-                <td class="label">Status</td>
-                <td class="colon">:</td>
-                <td class="value">✅ Confirmed</td>
-              </tr>
-            </table>
-          </div>
-        </div>
+                <!-- Expenses Table -->
+                <table class="items-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 5%">#</th>
+                      <th style="width: 30%">Expense Name</th>
+                      <th style="width: 8%">Qty</th>
+                      <th style="width: 15%">Payment Method</th>
+                      <th style="width: 18%">Approved By</th>
+                      <th style="width: 12%">Total (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${expensesRows}
+                    <tr class="total-row">
+                      <td colspan="5" style="text-align:right; font-weight:bold;">Sub Total</td>
+                      <td style="text-align:right; font-weight:bold;">₹${subtotal}</td>
+                    </tr>
+                    <tr class="final-total">
+                      <td colspan="5" style="text-align:right; font-weight:bold; font-size:14px;">
+                        Grand Total
+                      </td>
+                      <td colspan="1" style="text-align:right; font-weight:bold; font-size:14px; color: #8B4513;">
+                        ₹${totalWithGst}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>
+              <div class="footer-spacer"></div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
 
-        <!-- Expenses Table -->
-        <table class="items-table">
-          <thead>
-            <tr>
-              <th style="width: 5%">#</th>
-              <th style="width: 30%">Expense Name</th>
-              <th style="width: 8%">Qty</th>
-              <th style="width: 15%">Payment Method</th>
-              <th style="width: 18%">Approved By</th>
-              <th style="width: 12%">Total (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${expensesRows}
-            <tr class="total-row">
-              <td colspan="5" style="text-align:right; font-weight:bold;">Sub Total</td>
-              <td style="text-align:right; font-weight:bold;">₹${subtotal}</td>
-            </tr>
-            <tr class="final-total">
-              <td colspan="5" style="text-align:right; font-weight:bold; font-size:14px;">
-                Grand Total
-              </td>
-              <td colspan="1" style="text-align:right; font-weight:bold; font-size:14px; color: #8B4513;">
-                ₹${totalWithGst}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        
+      <div class="report-footer">
         ${getFooter()}
       </div>
-     
+
       <script>
-        // Auto-print when page loads
         window.onload = function() {
-          // Auto-print after a short delay
           setTimeout(function() {
             window.print();
           }, 1000);
-          
-          // Handle after print
-          window.onafterprint = function() {
-            // Optional: auto-close after printing
-            // setTimeout(function() {
-            //   window.close();
-            // }, 1000);
-          };
+          window.onafterprint = function() {};
         };
       </script>
     </body>

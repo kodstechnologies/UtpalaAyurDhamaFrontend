@@ -1,6 +1,6 @@
 import logo from "../../assets/logo/logo2.png";
 
-export const getHeader = () => `
+export const pdfPrHeader = () => `
    <!-- HEADER -->
         <div style="
           display:flex;
@@ -10,9 +10,10 @@ export const getHeader = () => `
           text-align:center;
           padding:12px 15px;
           background:#f4d7b5;
-          width:100%;
           border-radius:3px;
           box-sizing:border-box;
+          width:50rem;
+          margin:10px 10px 0;     
         ">
           <!-- Logo -->
           <img src="${logo}" style="height:120px; margin-bottom:6px;" alt="Logo"/>

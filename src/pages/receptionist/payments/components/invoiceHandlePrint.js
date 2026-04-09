@@ -1,5 +1,5 @@
 import { getFooter } from "../../../../components/pdf/pdfFooter";
-import { getHeader } from "../../../../components/pdf/pdfHeader";
+import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
 
 // Simple Indian rupees number to words
 const numberToWords = (num) => {
@@ -168,7 +168,7 @@ export const invoiceHandlePrint = async (invoice) => {
 
   // Totals
   const subtotal = invoice.subtotal || 0;
-  
+
   // Calculate Tax and Discount correctly
   const pharmacySubtotal = (invoice.items || [])
     .filter(item => item.category?.toLowerCase() === "pharmacy")
@@ -198,15 +198,18 @@ export const invoiceHandlePrint = async (invoice) => {
       body {
         font-family: Arial, Helvetica, sans-serif;
         font-size: 12px;
-        margin: 10px auto;
+        margin: 0 auto;
+        padding: 0;
         color: #000;
-        border: 1px solid black;
         max-width: 50rem;
+
         width: 100%;
-        display: flex;
-        flex-direction: column;
-        min-height: 297mm;
       }
+      .report-container { width: 100%; border-collapse: collapse; }
+      .report-header { display: table-header-group; }
+      .report-footer { position: fixed; bottom: 0; left: 0; right: 0; max-width: 50rem; width: 100%; margin: 0 auto; background: white; }
+      .footer-spacer { height: 200px; }
+      .main-content { padding: 10px; }
       .info-container { display: flex; border: 1px solid #000; margin: 0; }
       .patient-box { width: 60%; padding: 12px; border-right: 1px solid #000; }
       .receipt-box { width: 40%; }
@@ -238,14 +241,25 @@ export const invoiceHandlePrint = async (invoice) => {
       }
       @media print {
         body { border: none; margin: 0; }
+        .report-header { display: table-header-group; }
+        .report-footer { position: fixed; bottom: 0; left: 0; right: 0; max-width: 100%; width: 100%; margin: 0 auto; }
       }
     </style>
   </head>
   <body>
-
-    ${getHeader()}
-
-    <!-- PATIENT + RECEIPT INFO -->
+    <table class="report-container">
+      <thead>
+        <tr>
+          <td class="report-header">
+            ${pdfPrHeader()}
+          </td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="main-content">
+              <!-- PATIENT + RECEIPT INFO -->
     <div class="info-container">
       <div class="patient-box">
         <table class="info-table">
@@ -312,10 +326,10 @@ export const invoiceHandlePrint = async (invoice) => {
           `).join("")}
         ` : ""}
       </div>
-      <div class="summary-right">
+      <div class="summary-right" style="margin-right:10px;">
         <div class="summary-row">
           <span>Subtotal:</span>
-          <span>₹${formatCurrency(subtotal)}</span>
+          <span style="margin-right:10px;">₹${formatCurrency(subtotal)}</span>
         </div>
         ${taxAmount > 0 ? `
           <div class="summary-row">
@@ -361,12 +375,27 @@ export const invoiceHandlePrint = async (invoice) => {
           <div>Authorized Signature</div>
         </div>
       </div>
-      <div style="text-align:center; margin-top:80px; font-size:18px; color:#555;">
+      <div style="text-align:center; margin-top:5px; font-size:14px; color:#555;">
         This is a system generated invoice. You can use invoice number to track in future.
       </div>
     </div>
 
-    ${getFooter()}
+    </div>
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>
+            <div class="footer-spacer"></div>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="report-footer">
+      ${getFooter()}
+    </div>
 
     <script>
       window.onload = function () {
