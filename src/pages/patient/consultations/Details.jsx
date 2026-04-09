@@ -298,15 +298,15 @@ function ConsultationDetails() {
                                     examination?.isDaycare
                                         ? "Daycare"
                                         : examination?.inpatient
-                                        ? "IPD"
-                                        : "OPD"
+                                            ? "IPD"
+                                            : "OPD"
                                 }
                                 color={
                                     examination?.isDaycare
                                         ? "secondary"
                                         : examination?.inpatient
-                                        ? "warning"
-                                        : "primary"
+                                            ? "warning"
+                                            : "primary"
                                 }
                                 sx={{ fontWeight: 700 }}
                             />
