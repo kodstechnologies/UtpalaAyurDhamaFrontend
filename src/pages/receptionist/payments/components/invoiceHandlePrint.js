@@ -1,13 +1,15 @@
-import { getNote } from "../../../../components/pdf/note";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import { toast } from "react-toastify";
 import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
+import { getNote } from "../../../../components/pdf/note";
 
-// Simple Indian rupees number to words
+// ── Reused helpers (same as in download version) ──
 const numberToWords = (num) => {
   if (num === 0) return "Zero";
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
     "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-
   const convert = (n) => {
     if (n < 20) return ones[n];
     if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
@@ -16,25 +18,24 @@ const numberToWords = (num) => {
     if (n < 10000000) return convert(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + convert(n % 100000) : "");
     return convert(Math.floor(n / 10000000)) + " Crore" + (n % 10000000 ? " " + convert(n % 10000000) : "");
   };
-
   return convert(Math.round(num));
 };
 
-const formatCurrency = (amount) => {
-  return Number(amount || 0).toFixed(2);
-};
+const formatCurrency = (amount) => Number(amount || 0).toFixed(2);
 
 const formatDate = (dateString) => {
   if (!dateString) return new Date().toLocaleDateString("en-IN");
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
-// Categorize items for the bill
+const escapeHtml = (text) => {
+  if (!text) return "";
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+};
+
 const categorizeItem = (item) => {
   if (item.category) {
     const map = {
@@ -46,7 +47,6 @@ const categorizeItem = (item) => {
     };
     return map[item.category.toLowerCase()] || item.category;
   }
-
   const name = (item.name || "").toLowerCase();
   if (name.includes("consultation") || name.includes("doctor") || name.includes("opd")) return "Doctor Consultation";
   if (name.includes("therapy") || name.includes("session") || name.includes("treatment")) return "Therapy";
@@ -57,361 +57,375 @@ const categorizeItem = (item) => {
 };
 
 /**
- * Print invoice bill using the invoice object from InvoiceDetails page
- * @param {Object} invoice - The invoice object already loaded on the page
+ * Print invoice as PDF — design matched to invoiceHandleDownload
  */
-export const invoiceHandlePrint = async (invoice) => {
+const invoiceHandlePrint = async (invoice) => {
 
   const receptionist = JSON.parse(localStorage.getItem("user"));
   const receptionistName = receptionist?.name;
 
   if (!invoice) {
-    alert("No invoice data available");
+    toast.error("No invoice data available");
     return;
   }
 
-  const patient = {
-    name: invoice.patient?.user?.name || invoice.patient?.name || "N/A",
-    gender: invoice.patient?.user?.gender || invoice.patient?.gender || "N/A",
-    age: invoice.patient?.age || "N/A",
-    phone: invoice.patient?.user?.phone || "N/A",
-    email: invoice.patient?.user?.email || "N/A",
-    uhid: invoice.patient?.uhid || invoice.patient?.patientId || "",
-    address: invoice.patient?.address || invoice.patient?.user?.address || "N/A",
-  };
+  try {
+    const patient = {
+      name: invoice.patient?.user?.name || invoice.patient?.name || "N/A",
+      gender: invoice.patient?.user?.gender || invoice.patient?.gender || "N/A",
+      age: invoice.patient?.age || "N/A",
+      phone: invoice.patient?.user?.phone || "N/A",
+      email: invoice.patient?.user?.email || "N/A",
+      uhid: invoice.patient?.uhid || invoice.patient?.patientId || "",
+      address: invoice.patient?.address || invoice.patient?.user?.address || "N/A",
+    };
 
-  const doctorName = invoice.doctor
-    ? (invoice.doctor.firstName ? `${invoice.doctor.firstName} ${invoice.doctor.lastName}` : invoice.doctor.user?.name || "N/A")
-    : "N/A";
+    const doctorName = invoice.doctor
+      ? (invoice.doctor.firstName ? `${invoice.doctor.firstName} ${invoice.doctor.lastName}` : invoice.doctor.user?.name || "N/A")
+      : "N/A";
 
-  const invoiceDate = formatDate(invoice.createdAt);
-  const invoiceNo = invoice.invoiceNumber || "N/A";
+    const invoiceDate = formatDate(invoice.createdAt);
+    const invoiceNo = invoice.invoiceNumber || "N/A";
 
-  // Group items by category
-  const items = invoice.items || [];
-  const grouped = {};
-  items.forEach((item) => {
-    const cat = categorizeItem(item);
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
-  });
+    // Group items by category
+    const items = invoice.items || [];
+    const grouped = {};
+    items.forEach((item) => {
+      const cat = categorizeItem(item);
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(item);
+    });
 
-  const categoryOrder = ["Doctor Consultation", "Therapy", "Medicines", "Food Charges", "Bed Charges", "Other"];
+    const categoryOrder = ["Doctor Consultation", "Therapy", "Medicines", "Food Charges", "Bed Charges", "Other"];
 
-  // Build item rows grouped by category
-  let counter = 0;
-  let itemsHtml = "";
+    let counter = 0;
+    let itemsHtml = "";
 
-  categoryOrder.forEach((cat) => {
-    const catItems = grouped[cat];
-    if (!catItems || catItems.length === 0) return;
+    categoryOrder.forEach((cat) => {
+      const catItems = grouped[cat];
+      if (!catItems || catItems.length === 0) return;
 
-    const catTotal = catItems.reduce((sum, i) => sum + (i.total || i.amount || 0), 0);
-    const isTherapy = cat === "Therapy";
-    const isConsultation = cat === "Doctor Consultation";
-    const isBedCharges = cat === "Bed Charges";
+      const catTotal = catItems.reduce((sum, i) => sum + (i.total || i.amount || 0), 0);
 
-    // Skip rendering "Doctor Consultation" if its total is 0
-    if (isConsultation && catTotal === 0) return;
+      const isTherapy = cat === "Therapy";
+      const isConsultation = cat === "Doctor Consultation";
+      const isBedCharges = cat === "Bed Charges";
 
-    itemsHtml += `
-      <div class="category-block-title" style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
-        <span>${cat}</span>
-      </div>
-      <table class="items-table" style="margin-top:0; border-top:none;">
-        <thead>
-          <tr>
-            <th style="width:40px; font-size:14px;">Srl</th>
-            ${isTherapy ? '<th style="font-size:14px; text-align:center;">Therapy Name</th>' : '<th style="font-size:14px; text-align:center;">Service Name</th>'}
-            ${isConsultation ? '<th style="font-size:14px;">Doctor Name</th>' : !isBedCharges ? '<th style="font-size:14px;">Description</th>' : ''}
-            ${isTherapy ? '<th style="width:60px; font-size:14px;">Session</th>' : ''}
-            <th style="width:90px; font-size:14px; text-align:center;">Unit Price</th>
-            <th style="width:90px; font-size:14px; text-align:center;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    // Item rows
-    catItems.forEach((item) => {
-      counter++;
-      const qty = item.dispensedQuantity || item.quantity || 1;
-      const unitPrice = item.unitPrice || item.amount || 0;
-      const total = item.total || item.amount || 0;
+      // Skip rendering "Doctor Consultation" if its total is 0
+      if (isConsultation && catTotal === 0) return;
 
       itemsHtml += `
-        <tr>
-          <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${counter}</td>
-          <td style="border:1px solid #000; padding:5px; font-size:11px;">
-            ${item.name || "Item"}
-            ${item.subTherapy ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Sub-Therapy: ${item.subTherapy}</div>` : ""}
-            ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${item.remarks}</div>` : ""}
-          </td>
-          ${!isBedCharges ? `
+        <div class="category-block-title" style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
+          <span>${cat}</span>
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:11px; border-top:none;">
+          <thead>
+            <tr>
+              <th style="border:1px solid #000; border-top:none; padding:6px; width:40px;">Srl</th>
+              <th style="border:1px solid #000; border-top:none; text-align:center; padding:6px;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
+              ${isConsultation ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Description</th>' : ''}
+              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px; text-align:center;">Session</th>' : ''}
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Unit Price</th>
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      catItems.forEach((item) => {
+        counter++;
+        const qty = item.dispensedQuantity || item.quantity || 1;
+        const unitPrice = item.unitPrice || item.amount || 0;
+        const total = item.total || item.amount || 0;
+
+        itemsHtml += `
+          <tr>
+            <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${counter}</td>
             <td style="border:1px solid #000; padding:5px; font-size:11px;">
-              ${isConsultation ? ((item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : "") : (item.description ? item.description.replace(/\\n/g, "<br>") : "—")}
+              ${escapeHtml(item.name || "Item")}
+              ${item.subTherapy ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Sub-Therapy: ${escapeHtml(item.subTherapy)}</div>` : ""}
+              ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${escapeHtml(item.remarks)}</div>` : ""}
             </td>
-          ` : ""}
-          ${isTherapy ? `<td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>` : ''}
-          <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
-          <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(total)}</td>
-        </tr>
+            ${!isBedCharges ? `
+              <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">
+                ${isConsultation ? ((item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : "") : (item.description ? escapeHtml(item.description).replace(/\\n/g, "<br>") : "—")}
+              </td>
+            ` : ""}
+            ${isTherapy ? `<td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>` : ''}
+            <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
+            <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(total)}</td>
+          </tr>
+        `;
+      });
+
+      itemsHtml += `
+          </tbody>
+        </table>
       `;
     });
 
-    itemsHtml += `
-        </tbody>
-      </table>
-    `;
-  });
+    const subtotal = invoice.subtotal || 0;
 
-  // Totals
-  const subtotal = invoice.subtotal || 0;
+    // Calculate Tax and Discount correctly
+    const pharmacySubtotal = (invoice.items || [])
+      .filter(item => item.category?.toLowerCase() === "pharmacy")
+      .reduce((sum, item) => sum + (item.total || 0), 0);
+    const taxAmount = (pharmacySubtotal * (invoice.taxRate || 0)) / 100;
+    const grandTotal = subtotal + taxAmount;
+    const discountAmount = Math.max(0, grandTotal - (invoice.totalPayable || 0));
 
-  // Calculate Tax and Discount correctly
-  const pharmacySubtotal = (invoice.items || [])
-    .filter(item => item.category?.toLowerCase() === "pharmacy")
-    .reduce((sum, item) => sum + (item.total || 0), 0);
-  const taxAmount = (pharmacySubtotal * (invoice.taxRate || 0)) / 100;
-  const grandTotal = subtotal + taxAmount;
-  const discountAmount = Math.max(0, grandTotal - (invoice.totalPayable || 0));
+    const discountText = invoice.discountType === "percentage"
+      ? `Discount (${invoice.discountRate || 0}%)`
+      : discountAmount > 0 ? "Discount (Amount)" : "";
 
-  const discountText = invoice.discountType === "percentage"
-    ? `Discount (${invoice.discountRate || 0}%)`
-    : discountAmount > 0 ? "Discount (Amount)" : "";
+    const totalPayable = invoice.totalPayable || 0;
+    const amountPaid = invoice.amountPaid || 0;
+    const balanceDue = totalPayable - amountPaid;
 
-  const totalPayable = invoice.totalPayable || 0;
-  const amountPaid = invoice.amountPaid || 0;
-  const balanceDue = totalPayable - amountPaid;
-  const paymentStatus = amountPaid >= totalPayable ? "PAID" : amountPaid > 0 ? "PARTIALLY PAID" : "UNPAID";
-  const statusColor = amountPaid >= totalPayable ? "#2e7d32" : amountPaid > 0 ? "#f57c00" : "#d32f2f";
-  const amountInWords = `Rupees ${numberToWords(Math.round(totalPayable))} Only`;
+    const paymentStatus = amountPaid >= totalPayable ? "PAID" : amountPaid > 0 ? "PARTIALLY PAID" : "UNPAID";
+    const statusColor = amountPaid >= totalPayable ? "#2e7d32" : amountPaid > 0 ? "#f57c00" : "#d32f2f";
 
-  const html = `
-  <html>
-  <head>
-    <title>Invoice - Utpala Ayurdhama - ${invoiceNo}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body {
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 12px;
-        margin: 0 auto;
-        padding: 0;
-        color: #000;
-        width: 794px; /* A4 printable width approximation */
-      }
-      .report-container { width: 794px; border-collapse: collapse; margin: 0 auto; }
-      .report-header { display: table-header-group; }
-      .report-footer {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
-        background: white;
-        z-index: 10;
-      }
-      .footer-spacer { height: 260px; }
-      .main-content { padding: 10px; }
-      .info-container { display: flex; border: 1px solid #000; margin: 0; }
-      .patient-box { width: 60%; padding: 12px; border-right: 1px solid #000; }
-      .receipt-box { width: 40%; }
-      .receipt-title { text-align: center; font-weight: bold; font-size: 16px; border-bottom: 1px solid #000; padding: 8px; background: #f5f0eb; }
-      .info-table { width: 100%; font-size: 12px; }
-      .info-table td { padding: 3px 6px; }
-      .info-table .label { font-weight: bold; width: 100px; }
-      .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-      .items-table th, .items-table td { border: 1px solid #000; }
-      .items-table th { padding: 6px; font-size: 11px; text-align: center; font-weight: bold; background: #f5f5f5; }
-      .category-block-title { page-break-after: avoid; break-after: avoid; }
-      .summary-container { display: flex; margin-top: 15px; padding-top: 10px; }
-      .summary-left { width: 55%; padding-right: 15px; }
-      .summary-right { width: 45%; }
-      .summary-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
-      .summary-row.total { font-size: 14px; font-weight: bold; border-top: 2px solid #000; padding-top: 8px; margin-top: 8px; }
-      .status-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-weight: bold;
-        font-size: 11px;
-      }
-      .notes-section {
-        border-top: 1px solid #000;
-        padding: 12px;
-        font-size: 11px;
-        line-height: 1.6;
-        margin-top: 15px;
-      }
-      @media print {
-        body { border: none; margin: 0; }
-        .report-header { display: table-header-group; }
-        .report-footer {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          width: 100%;
-        }
-        .main-content { page-break-inside: auto; }
-        .items-table { page-break-inside: auto; }
-        .items-table thead { display: table-header-group; }
-        .items-table tr { page-break-inside: avoid; break-inside: avoid; }
-        .summary-container, .info-container { page-break-inside: avoid; break-inside: avoid; }
-      }
-    </style>
-  </head>
-  <body>
-    <table class="report-container">
-      <thead>
-        <tr>
-          <td class="report-header">
-            ${pdfPrHeader()}
-          </td>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>
-            <div class="main-content">
-              <!-- PATIENT + RECEIPT INFO -->
-    <div class="info-container">
-      <div class="patient-box">
-        <table class="info-table">
-          <tr><td class="label">NAME</td><td>:</td><td>${patient.name}</td></tr>
-          <tr><td class="label">AGE/GENDER</td><td>:</td><td>${patient.age} / ${patient.gender}</td></tr>
-          ${patient.address && patient.address !== "N/A" ? `<tr><td class="label">ADDRESS</td><td>:</td><td>${patient.address}</td></tr>` : ""}
-          ${patient.uhid ? `<tr><td class="label">UHID</td><td>:</td><td>${patient.uhid}</td></tr>` : ""}
-          ${patient.phone && patient.phone !== "N/A" ? `<tr><td class="label">PHONE</td><td>:</td><td>${patient.phone}</td></tr>` : ""}
-          ${patient.email && patient.email !== "N/A" ? `<tr><td class="label">E-MAIL</td><td>:</td><td>${patient.email}</td></tr>` : ""}
-          ${doctorName !== "N/A" ? `<tr><td class="label">DOCTOR</td><td>:</td><td>${doctorName}</td></tr>` : ""}
-             
-               ${invoice.referredBy ? `<tr><td style="font-weight:bold; width:100px;">Referred By</td><td>:</td><td>${invoice.referredBy}</td></tr>` : ""}
-               ${invoice.consultedBy ? `<tr><td style="font-weight:bold; width:100px;">Consulted By</td><td>:</td><td>${invoice.consultedBy}</td></tr>` : ""}
-               
-           
+    const amountInWords = `Rupees ${numberToWords(Math.round(totalPayable))} Only`;
 
-        </table>
-      </div>
-      <div class="receipt-box">
-        <div class="receipt-title">RECEIPT / INVOICE DETAILS</div>
-        <table class="info-table" style="margin-top:5px; margin-left:5px;">
-          <tr><td class="label">Invoice No:</td><td>${invoiceNo}</td></tr>
-          <tr><td class="label">Date / Time:</td><td>${invoiceDate} ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td></tr>
-       
-          <tr>
-            <td class="label">Status:</td>
-            <td><span style=" font-weight:bold; color:${statusColor};">${paymentStatus}</span></td>
-          </tr>
-          <tr>
-            <td class="label">Type:</td>
-            <td style="font-weight:bold;">${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
-          </tr>
-            <tr>
-            <td class="label">Generated By:</td>
-            <td style="font-weight:bold;">${receptionistName}</td>
-          </tr>
-    
-        </table>
-      </div>
-    </div>
+    // ── Helper: render an HTML string to a canvas ──
+    const renderToCanvas = async (html, width = 794) => {
+      const el = document.createElement("div");
+      el.style.position = "absolute";
+      el.style.left = "-9999px";
+      el.style.top = "0";
+      el.style.width = width + "px";
+      el.style.background = "#fff";
+      el.style.fontFamily = "Arial, Helvetica, sans-serif";
+      el.style.color = "#000";
+      el.innerHTML = `
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+        ${html}
+      `;
+      document.body.appendChild(el);
+      // Let the browser load fonts / icons
+      await new Promise((r) => setTimeout(r, 500));
+      const canvas = await html2canvas(el, {
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        windowWidth: width,
+        windowHeight: el.scrollHeight,
+      });
+      document.body.removeChild(el);
+      return canvas;
+    };
 
-    <!-- ITEMS TABLES (CATEGORIZED) -->
-    <div>
-      ${itemsHtml}
-    </div>
-    <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-      <table style="width:50%; border-collapse:collapse; border:1px solid #000;">
-        <tr style="font-weight:bold;">
-          <td style="padding:6px; border-right:1px solid #000;">SUBTOTAL</td>
-          <td style="padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
-        </tr>
-      </table>
-    </div>
+    // ── Render header, footer, and body as separate canvases ──
+    const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:10px;">${pdfPrHeader()}</div>`;
+    const footerHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px 15px;">${getNote()}</div>`;
 
-    <!-- SUMMARY -->
-    <div class="summary-container">
-      <div class="summary-left " >
-        <div style="font-weight:bold; margin-bottom:8px; font-size:13px; margin-left:10px;">Amount in Words:</div>
-        <div style="font-style:italic; font-size:12px; margin-left:10px;">${amountInWords}</div>
-        ${invoice.payments && invoice.payments.length > 0 ? `
-          <div style="margin-top:15px; font-weight:bold; font-size:13px; margin-left:10px;">Payment History:</div>
-          ${invoice.payments.map((p, i) => `
-            <div style="font-size:11px; margin-top:4px; margin-left:10px;">
-              ${i + 1}. ₹${formatCurrency(p.amount)} via ${p.paymentMethod || "Cash"} on ${formatDate(p.date)}
-              ${p.transactionId ? ` | ID: ${p.transactionId}` : ""}
-              ${p.cardLastFourDigits ? ` | Card: •••• ${p.cardLastFourDigits}` : ""}
+    const bodyHtml = `
+      <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
+        <div style="display:flex; border:1px solid #000; margin:10px 0; height:100%">
+          <div style="width:60%; background:#fafafa; padding:12px; border-right:1px solid #000;">
+            <table style="width:100%; font-size:12px;">
+              <tr><td style="font-weight:bold; width:100px;">NAME</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
+              <tr><td style="font-weight:bold;">AGE/GENDER</td><td>:</td><td>${escapeHtml(patient.age)} / ${escapeHtml(patient.gender)}</td></tr>
+              ${patient.address && patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${escapeHtml(patient.address)}</td></tr>` : ""}
+              ${patient.phone && patient.phone !== "N/A" ? `<tr><td style="font-weight:bold;">PHONE</td><td>:</td><td>${escapeHtml(patient.phone)}</td></tr>` : ""}
+              ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>` : ""}
+              ${patient.email && patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email)}</td></tr>` : ""}
+              ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName)}</td></tr>` : ""}
+              ${invoice.referredBy ? `<tr><td style="font-weight:bold; width:100px;">Referred By</td><td>:</td><td>${escapeHtml(invoice.referredBy)}</td></tr>` : ""}
+              ${invoice.consultedBy ? `<tr><td style="font-weight:bold; width:100px;">Consulted By</td><td>:</td><td>${escapeHtml(invoice.consultedBy)}</td></tr>` : ""}
+            </table>
+          </div>
+          <div style="width:40%; border-left:1px solid #000;">
+            <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:8px; background:#f5f0eb;">
+              RECEIPT / INVOICE DETAILS
             </div>
-          `).join("")}
-        ` : ""}
-      </div>
-      <div class="summary-right" style="margin-right:10px;">
-        <div class="summary-row">
-          <span>Subtotal:</span>
-          <span style="margin-right:10px;">₹${formatCurrency(subtotal)}</span>
-        </div>
-        ${taxAmount > 0 ? `
-          <div class="summary-row">
-            <span>Tax (${invoice.taxRate}%):</span>
-            <span>₹${formatCurrency(taxAmount)}</span>
+            <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:5px; margin-left:5px;">
+              <tr>
+                <td style="font-weight:bold; width:45%; padding:6px 0;">Invoice No</td>
+                <td style="padding:6px 0;">: ${escapeHtml(invoiceNo)}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Date /Time</td>
+                <td style="padding:6px 0;">: ${invoiceDate} / ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0; vertical-align:middle;">Status</td>
+                <td style="">
+                  <span style="display:inline-flex; align-items:center; justify-content:center; color:${statusColor}; padding:3px 10px; border-radius:4px; font-weight:600; font-size:11px;">
+                    ${paymentStatus}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Type</td>
+                <td style="padding:6px 0;">: ${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Generated By</td>
+                <td style="padding:6px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
+              </tr>
+            </table>
           </div>
-        ` : ""}
-        ${discountAmount > 0 ? `
-          <div class="summary-row" style="color:#2e7d32;">
-            <span>${discountText}:</span>
-            <span>-₹${formatCurrency(discountAmount)}</span>
+        </div>
+
+        <div>${itemsHtml}</div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+          <table style="width:50%; border-collapse:collapse; border:1px solid #000;">
+            <tr style="font-weight:bold;">
+              <td style="padding:6px; border-right:1px solid #000;">SUBTOTAL</td>
+              <td style="padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="display:flex; margin-top:15px; padding-top:10px;">
+          <div style="width:55%; padding-right:15px;">
+            <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
+            <div style="font-style:italic; font-size:12px;">${amountInWords}</div>
+            ${invoice.payments?.length > 0 ? `
+              <div style="margin-top:20px; font-weight:bold; font-size:13px;">Payment History:</div>
+              ${invoice.payments.map((p, i) => `
+                <div style="font-size:11px; margin-top:4px;">
+                  ${i + 1}. ₹${formatCurrency(p.amount)} via ${p.paymentMethod || "Cash"} on ${formatDate(p.date)}
+                  ${p.transactionId ? ` | ID: ${p.transactionId}` : ""}
+                  ${p.cardLastFourDigits ? ` | Card: •••• ${p.cardLastFourDigits}` : ""}
+                </div>
+              `).join("")}
+            ` : ""}
           </div>
-        ` : ""}
-        <div class="summary-row total">
-          <span>TOTAL PAYABLE:</span>
-          <span>₹${formatCurrency(totalPayable)}</span>
-        </div>
-        <div class="summary-row">
-          <span>Amount Paid:</span>
-          <span style="color:#2e7d32;">₹${formatCurrency(amountPaid)}</span>
-        </div>
-        <div class="summary-row" style="font-weight:bold; font-size:13px; color:${statusColor};">
-          <span>Balance Due:</span>
-          <span>₹${formatCurrency(balanceDue)}</span>
+
+          <div style="width:45%; font-size:12px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span>Subtotal:</span><span>₹${formatCurrency(subtotal)}</span>
+            </div>
+            ${taxAmount > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span>Tax (${invoice.taxRate}%):</span><span>₹${formatCurrency(taxAmount)}</span>
+              </div>
+            ` : ""}
+            ${discountAmount > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#2e7d32;">
+                <span>${discountText}:</span><span>-₹${formatCurrency(discountAmount)}</span>
+              </div>
+            ` : ""}
+            <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">
+              <span>TOTAL PAYABLE:</span><span>₹${formatCurrency(totalPayable)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
+              <span>Amount Paid:</span><span>₹${formatCurrency(amountPaid)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-bottom:20px; color:${statusColor}; margin-top:6px;">
+              <span>Balance Due:</span><span>₹${formatCurrency(balanceDue)}</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    `;
 
+    // Render all parts
+    const [headerCanvas, footerCanvas, bodyCanvas] = await Promise.all([
+      renderToCanvas(headerHtml),
+      renderToCanvas(footerHtml),
+      renderToCanvas(bodyHtml),
+    ]);
 
-    </div>
-          </td>
-        </tr>
-      </tbody>
-      <tfoot>
-        <tr>
-          <td>
-            <div class="footer-spacer"></div>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const contentW = pdfW - margin * 2;
 
-    <div class="report-footer" style="padding: 0 10px 6px 10px;">
-      ${getNote()}
-    </div>
+    const pxToMm = (canvas) => (canvas.height / canvas.width) * contentW;
+    const headerH = pxToMm(headerCanvas);
+    const footerH = pxToMm(footerCanvas);
+    const bodyTotalH = pxToMm(bodyCanvas);
 
-    <script>
-      window.onload = function () {
-        window.print();
-        window.onafterprint = function () { window.close(); };
+    const topPad = 5;
+    const botPad = 5;
+    const bodyAreaH = pdfH - headerH - footerH - topPad - botPad;
+
+    const headerImg = headerCanvas.toDataURL("image/png");
+    const footerImg = footerCanvas.toDataURL("image/png");
+    const bodyImg = bodyCanvas.toDataURL("image/png");
+
+    const totalPages = Math.ceil(bodyTotalH / bodyAreaH);
+
+    for (let page = 0; page < totalPages; page++) {
+      if (page > 0) pdf.addPage();
+      pdf.addImage(headerImg, "PNG", margin, 0, contentW, headerH);
+
+      const bodyY = headerH + topPad;
+      const srcYPx = (page * bodyAreaH / bodyTotalH) * bodyCanvas.height;
+      const srcHPx = Math.min((bodyAreaH / bodyTotalH) * bodyCanvas.height, bodyCanvas.height - srcYPx);
+
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = bodyCanvas.width;
+      sliceCanvas.height = Math.round(srcHPx);
+      const ctx = sliceCanvas.getContext("2d");
+      ctx.drawImage(bodyCanvas, 0, Math.round(srcYPx), bodyCanvas.width, Math.round(srcHPx), 0, 0, bodyCanvas.width, Math.round(srcHPx));
+
+      const sliceImgData = sliceCanvas.toDataURL("image/png");
+      const sliceH = (sliceCanvas.height / sliceCanvas.width) * contentW;
+      pdf.addImage(sliceImgData, "PNG", margin, bodyY, contentW, sliceH);
+
+      const footerY = pdfH - footerH;
+      pdf.addImage(footerImg, "PNG", margin, footerY, contentW, footerH);
+
+      pdf.setFontSize(8);
+      pdf.setTextColor(150);
+      pdf.text(`Page ${page + 1} of ${totalPages}`, pdfW / 2, pdfH - 2, { align: "center" });
+    }
+
+    // ── TRIGGER PRINT ──
+    // Use autoPrint to ensure the PDF itself requests a print dialog
+    pdf.autoPrint({ variant: 'non-conform' });
+
+    const blob = pdf.output("blob");
+    const blobURL = URL.createObjectURL(blob);
+
+    // Technique 1: Hidden Iframe (Most seamless if it works)
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.src = blobURL;
+    document.body.appendChild(iframe);
+
+    // Return a promise that resolves when the print dialog is triggered or after a safety timeout
+    await new Promise((resolve) => {
+      let resolved = false;
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        resolve();
       };
-    </script>
-  </body>
-  </html>
-  `;
 
-  const printWindow = window.open("", "_blank", "width=950,height=800");
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-  } else {
-    alert("Please allow popups to print the invoice.");
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (e) {
+          console.warn("Iframe print failed, falling back to new window", e);
+          window.open(blobURL, "_blank");
+        }
+        // Give the browser some time to pop up the dialog before enabling the button again
+        setTimeout(finish, 2000);
+      };
+
+      // Safety timeout after 10 seconds if nothing happens
+      setTimeout(finish, 10000);
+    });
+
+    toast.success("Print dialog requested");
+
+  } catch (err) {
+    console.error("Print generation error:", err);
+    toast.error("Failed to generate print layout");
   }
 };
+
+export { invoiceHandlePrint };
+export default invoiceHandlePrint;

@@ -241,11 +241,21 @@ function InvoiceDetails() {
   ];
 
   const handleDownloadPdf = async () => {
-    await invoiceHandleDownload(invoice);
+    try {
+      setDownloadingReport(true);
+      await invoiceHandleDownload(invoice);
+    } finally {
+      setDownloadingReport(false);
+    }
   };
 
   const handlePrint = async () => {
-    invoiceHandlePrint(invoice);
+    try {
+      setPrintingReport(true);
+      await invoiceHandlePrint(invoice);
+    } finally {
+      setPrintingReport(false);
+    }
   };
 
   const handleDownloadDischargeReport = async () => {
@@ -308,9 +318,10 @@ function InvoiceDetails() {
             variant="outlined"
             startIcon={<DownloadIcon />}
             onClick={handleDownloadPdf}
+            disabled={downloadingReport}
             sx={{ borderColor: "#1976d2", color: "#1976d2" }}
           >
-            Download PDF
+            {downloadingReport ? "Preparing..." : "Download PDF"}
           </Button>
         )}
 
@@ -319,7 +330,7 @@ function InvoiceDetails() {
             <Button
               variant="contained"
               startIcon={<DownloadIcon />}
-              onClick={() => invoiceHandleDownload(invoice)}
+              onClick={handleDownloadPdf}
               disabled={downloadingReport}
               sx={{ backgroundColor: "#1976d2" }}
             >
@@ -328,7 +339,7 @@ function InvoiceDetails() {
             <Button
               variant="contained"
               startIcon={<PrintIcon />}
-              onClick={() => invoiceHandlePrint(invoice)}
+              onClick={handlePrint}
               disabled={printingReport}
               sx={{ backgroundColor: "#4CAF50" }}
             >

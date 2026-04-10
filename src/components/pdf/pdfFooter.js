@@ -8,7 +8,7 @@ export const getFooter = () => `
     padding:20px 30px;
     font-size:16px;
     border-radius:4px;
-    margin-top: 35px;
+    margin-top: 25px;
   ">
     
     <div style="width:45%;">
