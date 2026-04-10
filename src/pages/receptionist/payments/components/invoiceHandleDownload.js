@@ -1,8 +1,8 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import { getFooter } from "../../../../components/pdf/pdfFooter";
-import { getHeader } from "../../../../components/pdf/pdfHeader";
+import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
+import { getNote } from "../../../../components/pdf/note";
 
 // ── Reused helpers (same as in print version) ──
 const numberToWords = (num) => {
@@ -59,7 +59,7 @@ const categorizeItem = (item) => {
 /**
  * Download invoice as PDF — design matched to invoiceHandlePrint
  */
-export const invoiceHandleDownload = async (invoice) => {
+const invoiceHandleDownload = async (invoice) => {
 
   const receptionist = JSON.parse(localStorage.getItem("user"));
   const receptionistName = receptionist?.name;
@@ -77,7 +77,7 @@ export const invoiceHandleDownload = async (invoice) => {
       phone: invoice.patient?.user?.phone || "N/A",
       email: invoice.patient?.user?.email || "N/A",
       uhid: invoice.patient?.uhid || invoice.patient?.patientId || "",
-      address: invoice.patient?.user?.address || "N/A",
+      address: invoice.patient?.address || invoice.patient?.user?.address || "N/A",
     };
 
     const doctorName = invoice.doctor
@@ -115,19 +115,19 @@ export const invoiceHandleDownload = async (invoice) => {
       if (isConsultation && catTotal === 0) return;
 
       itemsHtml += `
-        <div style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
+        <div class="category-block-title" style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
           <span>${cat}</span>
-          <span>Total: ₹${formatCurrency(catTotal)}</span>
+
         </div>
         <table style="width:100%; border-collapse:collapse; font-size:11px; border-top:none;">
           <thead>
             <tr>
               <th style="border:1px solid #000; border-top:none; padding:6px; width:40px;">Srl</th>
-              <th style="border:1px solid #000; border-top:none; padding:6px;">Item Name</th>
+              <th style="border:1px solid #000; border-top:none; text-align:center; padding:6px;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
               ${isConsultation ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Description</th>' : ''}
-              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px;">Session</th>' : ''}
-              <th style="border:1px solid #000; border-top:none; padding:6px; width:90px;">Unit Price</th>
-              <th style="border:1px solid #000; border-top:none; padding:6px; width:90px;">Total</th>
+              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px; text-align:center;">Session</th>' : ''}
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Unit Price</th>
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -177,7 +177,7 @@ export const invoiceHandleDownload = async (invoice) => {
 
     const discountText = invoice.discountType === "percentage"
       ? `Discount (${invoice.discountRate || 0}%)`
-      : discountAmount > 0 ? "Discount (Fixed)" : "";
+      : discountAmount > 0 ? "Discount (Amount)" : "";
 
     const totalPayable = invoice.totalPayable || 0;
     const amountPaid = invoice.amountPaid || 0;
@@ -220,24 +220,23 @@ export const invoiceHandleDownload = async (invoice) => {
     };
 
     // ── Render header, footer, and body as separate canvases ──
-    const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:15px 15px 0;">${getHeader()}</div>`;
-    const footerHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px 15px;">${getFooter()}</div>`;
+    const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:10px;">${pdfPrHeader()}</div>`;
+    const footerHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px 15px;">${getNote()}</div>`;
 
     // Body = everything between header and footer
     const bodyHtml = `
       <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
         <!-- PATIENT + INVOICE INFO -->
-        <div style="display:flex; border:1px solid #000; margin:10px 0;">
+        <div style="display:flex; border:1px solid #000; margin:10px 0; height:100%">
           <div style="width:60%; background:#fafafa; padding:12px; border-right:1px solid #000;">
             <table style="width:100%; font-size:12px;">
               <tr><td style="font-weight:bold; width:100px;">NAME</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
-              ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName)}</td></tr>` : ""}
-              ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>` : ""}
               <tr><td style="font-weight:bold;">AGE/GENDER</td><td>:</td><td>${escapeHtml(patient.age)} / ${escapeHtml(patient.gender)}</td></tr>
-              ${patient.phone !== "N/A" ? `<tr><td style="font-weight:bold;">PHONE</td><td>:</td><td>${escapeHtml(patient.phone)}</td></tr>` : ""}
-              ${patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email)}</td></tr>` : ""}
-              ${patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${escapeHtml(patient.address)}</td></tr>` : ""}
-              <tr><td style="font-weight:bold; width:100px;">Generated By:</td><td>:</td><td>${escapeHtml(receptionistName)}</td></tr>
+              ${patient.address && patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${escapeHtml(patient.address)}</td></tr>` : ""}
+              ${patient.phone && patient.phone !== "N/A" ? `<tr><td style="font-weight:bold;">PHONE</td><td>:</td><td>${escapeHtml(patient.phone)}</td></tr>` : ""}
+              ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>` : ""}
+              ${patient.email && patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email)}</td></tr>` : ""}
+              ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName)}</td></tr>` : ""}
               ${invoice.referredBy ? `<tr><td style="font-weight:bold; width:100px;">Referred By</td><td>:</td><td>${escapeHtml(invoice.referredBy)}</td></tr>` : ""}
               ${invoice.consultedBy ? `<tr><td style="font-weight:bold; width:100px;">Consulted By</td><td>:</td><td>${escapeHtml(invoice.consultedBy)}</td></tr>` : ""}
             </table>
@@ -253,7 +252,7 @@ export const invoiceHandleDownload = async (invoice) => {
               </tr>
               <tr>
                 <td style="font-weight:bold; padding:6px 0;">Date /Time</td>
-                <td style="padding:6px 0;">: ${invoiceDate} /${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
+                <td style="padding:6px 0;">: ${invoiceDate} / ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
               </tr>
           
               <tr>
@@ -276,6 +275,10 @@ export const invoiceHandleDownload = async (invoice) => {
               <tr>
                 <td style="font-weight:bold; padding:6px 0;">Type</td>
                 <td style="padding:6px 0;">: ${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Generated By</td>
+                <td style="padding:6px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
               </tr>
             </table>
           </div>
@@ -332,34 +335,12 @@ export const invoiceHandleDownload = async (invoice) => {
             <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
               <span>Amount Paid:</span><span>₹${formatCurrency(amountPaid)}</span>
             </div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; color:${statusColor}; margin-top:6px;">
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-bottom:20px; color:${statusColor}; margin-top:6px;">
               <span>Balance Due:</span><span>₹${formatCurrency(balanceDue)}</span>
             </div>
           </div>
         </div>
 
-        <!-- NOTES + SIGNATURE -->
-        <div style=" margin-top:20px; padding:12px 0; font-size:11px; line-height:1.5;">
-          <div style="display:flex; justify-content:space-between;">
-            <div style="width:70%;">
-              <div style="font-weight:bold; margin-bottom:6px;">Notes:</div>
-              <div>• Ensure to verify the invoice before you leave.</div>
-              <div>• If you have any questions or concerns about this invoice, please contact or E-mail us.</div>
-              <div>• Thank you for your continued trust and support!</div>
-              <div>• We greatly appreciate your visit. You're a valued customer at UTPALA AYURDHAMA.</div>
-              <div>• To know more about our services please visit https://utpalaayurdhama.com</div>
-              <div style="margin-top:10px; font-weight:bold;">Please visit us again...!</div>
-            </div>
-            <div style="width:25%; text-align:right;">
-              <div style="margin-top:40px;">For UTPALA AYURDHAMA</div>
-              <div style="margin-top:40px;">Authorized Signature</div>
-            </div>
-          </div>
-
-          <div style="text-align:center; margin-top:5px; font-size:14px; color:#555;">
-            This is a system generated invoice. You can use invoice number to track in future.
-          </div>
-        </div>
       </div>
     `;
 
@@ -446,3 +427,6 @@ export const invoiceHandleDownload = async (invoice) => {
     toast.error("Failed to generate PDF");
   }
 };
+
+export { invoiceHandleDownload };
+export default invoiceHandleDownload;

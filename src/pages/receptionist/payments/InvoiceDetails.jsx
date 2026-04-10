@@ -594,7 +594,7 @@ function InvoiceDetails() {
                     {(invoice.discountValue > 0 || invoice.discountRate > 0) && (
                       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
                         <Typography color="#666">
-                          Discount {invoice.discountType === "percentage" ? `(${invoice.discountRate}%)` : "(Fixed)"}
+                          Discount {invoice.discountType === "percentage" ? `(${invoice.discountRate}%)` : "(Amount)"}
                         </Typography>
                         <Typography color="#4CAF50" fontWeight={500}>
                           -{formatCurrency(discountAmount)}

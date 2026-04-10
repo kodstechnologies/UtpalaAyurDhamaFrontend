@@ -1,4 +1,4 @@
-import { getFooter } from "../../../../components/pdf/pdfFooter";
+import { getNote } from "../../../../components/pdf/note";
 import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
 
 // Simple Indian rupees number to words
@@ -77,7 +77,7 @@ export const invoiceHandlePrint = async (invoice) => {
     phone: invoice.patient?.user?.phone || "N/A",
     email: invoice.patient?.user?.email || "N/A",
     uhid: invoice.patient?.uhid || invoice.patient?.patientId || "",
-    address: invoice.patient?.user?.address || "N/A",
+    address: invoice.patient?.address || invoice.patient?.user?.address || "N/A",
   };
 
   const doctorName = invoice.doctor
@@ -115,19 +115,18 @@ export const invoiceHandlePrint = async (invoice) => {
     if (isConsultation && catTotal === 0) return;
 
     itemsHtml += `
-      <div style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
+      <div class="category-block-title" style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
         <span>${cat}</span>
-        <span>Total: ₹${formatCurrency(catTotal)}</span>
       </div>
       <table class="items-table" style="margin-top:0; border-top:none;">
         <thead>
           <tr>
             <th style="width:40px; font-size:14px;">Srl</th>
-            <th style="font-size:14px;">Item Name</th>
+            ${isTherapy ? '<th style="font-size:14px; text-align:center;">Therapy Name</th>' : '<th style="font-size:14px; text-align:center;">Service Name</th>'}
             ${isConsultation ? '<th style="font-size:14px;">Doctor Name</th>' : !isBedCharges ? '<th style="font-size:14px;">Description</th>' : ''}
             ${isTherapy ? '<th style="width:60px; font-size:14px;">Session</th>' : ''}
-            <th style="width:90px; font-size:14px;">Unit Price</th>
-            <th style="width:90px; font-size:14px;">Total</th>
+            <th style="width:90px; font-size:14px; text-align:center;">Unit Price</th>
+            <th style="width:90px; font-size:14px; text-align:center;">Total</th>
           </tr>
         </thead>
         <tbody>
@@ -179,7 +178,7 @@ export const invoiceHandlePrint = async (invoice) => {
 
   const discountText = invoice.discountType === "percentage"
     ? `Discount (${invoice.discountRate || 0}%)`
-    : discountAmount > 0 ? "Discount (Fixed)" : "";
+    : discountAmount > 0 ? "Discount (Amount)" : "";
 
   const totalPayable = invoice.totalPayable || 0;
   const amountPaid = invoice.amountPaid || 0;
@@ -201,14 +200,20 @@ export const invoiceHandlePrint = async (invoice) => {
         margin: 0 auto;
         padding: 0;
         color: #000;
-        max-width: 50rem;
-
-        width: 100%;
+        width: 794px; /* A4 printable width approximation */
       }
-      .report-container { width: 100%; border-collapse: collapse; }
+      .report-container { width: 794px; border-collapse: collapse; margin: 0 auto; }
       .report-header { display: table-header-group; }
-      .report-footer { position: fixed; bottom: 0; left: 0; right: 0; max-width: 50rem; width: 100%; margin: 0 auto; background: white; }
-      .footer-spacer { height: 200px; }
+      .report-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        background: white;
+        z-index: 10;
+      }
+      .footer-spacer { height: 260px; }
       .main-content { padding: 10px; }
       .info-container { display: flex; border: 1px solid #000; margin: 0; }
       .patient-box { width: 60%; padding: 12px; border-right: 1px solid #000; }
@@ -220,6 +225,7 @@ export const invoiceHandlePrint = async (invoice) => {
       .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
       .items-table th, .items-table td { border: 1px solid #000; }
       .items-table th { padding: 6px; font-size: 11px; text-align: center; font-weight: bold; background: #f5f5f5; }
+      .category-block-title { page-break-after: avoid; break-after: avoid; }
       .summary-container { display: flex; margin-top: 15px; padding-top: 10px; }
       .summary-left { width: 55%; padding-right: 15px; }
       .summary-right { width: 45%; }
@@ -242,7 +248,18 @@ export const invoiceHandlePrint = async (invoice) => {
       @media print {
         body { border: none; margin: 0; }
         .report-header { display: table-header-group; }
-        .report-footer { position: fixed; bottom: 0; left: 0; right: 0; max-width: 100%; width: 100%; margin: 0 auto; }
+        .report-footer {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          width: 100%;
+        }
+        .main-content { page-break-inside: auto; }
+        .items-table { page-break-inside: auto; }
+        .items-table thead { display: table-header-group; }
+        .items-table tr { page-break-inside: avoid; break-inside: avoid; }
+        .summary-container, .info-container { page-break-inside: avoid; break-inside: avoid; }
       }
     </style>
   </head>
@@ -264,13 +281,13 @@ export const invoiceHandlePrint = async (invoice) => {
       <div class="patient-box">
         <table class="info-table">
           <tr><td class="label">NAME</td><td>:</td><td>${patient.name}</td></tr>
-          ${doctorName !== "N/A" ? `<tr><td class="label">DOCTOR</td><td>:</td><td>${doctorName}</td></tr>` : ""}
-          ${patient.uhid ? `<tr><td class="label">UHID</td><td>:</td><td>${patient.uhid}</td></tr>` : ""}
           <tr><td class="label">AGE/GENDER</td><td>:</td><td>${patient.age} / ${patient.gender}</td></tr>
-          ${patient.phone !== "N/A" ? `<tr><td class="label">PHONE</td><td>:</td><td>${patient.phone}</td></tr>` : ""}
-          ${patient.email !== "N/A" ? `<tr><td class="label">E-MAIL</td><td>:</td><td>${patient.email}</td></tr>` : ""}
-          ${patient.address !== "N/A" ? `<tr><td class="label">ADDRESS</td><td>:</td><td>${patient.address}</td></tr>` : ""}
-               <tr><td style="font-weight:bold; width:100px;">Generated By:</td><td>:</td><td>${receptionistName}</td></tr>
+          ${patient.address && patient.address !== "N/A" ? `<tr><td class="label">ADDRESS</td><td>:</td><td>${patient.address}</td></tr>` : ""}
+          ${patient.uhid ? `<tr><td class="label">UHID</td><td>:</td><td>${patient.uhid}</td></tr>` : ""}
+          ${patient.phone && patient.phone !== "N/A" ? `<tr><td class="label">PHONE</td><td>:</td><td>${patient.phone}</td></tr>` : ""}
+          ${patient.email && patient.email !== "N/A" ? `<tr><td class="label">E-MAIL</td><td>:</td><td>${patient.email}</td></tr>` : ""}
+          ${doctorName !== "N/A" ? `<tr><td class="label">DOCTOR</td><td>:</td><td>${doctorName}</td></tr>` : ""}
+             
                ${invoice.referredBy ? `<tr><td style="font-weight:bold; width:100px;">Referred By</td><td>:</td><td>${invoice.referredBy}</td></tr>` : ""}
                ${invoice.consultedBy ? `<tr><td style="font-weight:bold; width:100px;">Consulted By</td><td>:</td><td>${invoice.consultedBy}</td></tr>` : ""}
                
@@ -286,13 +303,17 @@ export const invoiceHandlePrint = async (invoice) => {
        
           <tr>
             <td class="label">Status:</td>
-            <td><span class="status-badge" style=" font-weight:bold; color:${statusColor};">${paymentStatus}</span></td>
+            <td><span style=" font-weight:bold; color:${statusColor};">${paymentStatus}</span></td>
           </tr>
           <tr>
             <td class="label">Type:</td>
             <td style="font-weight:bold;">${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
           </tr>
-     
+            <tr>
+            <td class="label">Generated By:</td>
+            <td style="font-weight:bold;">${receptionistName}</td>
+          </tr>
+    
         </table>
       </div>
     </div>
@@ -358,27 +379,6 @@ export const invoiceHandlePrint = async (invoice) => {
       </div>
     </div>
 
-    <!-- NOTES SECTION -->
-    <div class="notes-section">
-      <div style="display:flex; justify-content:space-between;">
-        <div style="width:70%;">
-          <div style="font-weight:bold; margin-bottom:5px;">Notes:</div>
-          <div>• Ensure to verify the invoice before you leave.</div>
-          <div>• If you have any questions or concerns about this invoice, please contact or E-mail us.</div>
-          <div>• Thank you for your continued trust and support!</div>
-          <div>• We greatly appreciate your visit. You're a valued customer at UTPALA AYURDHAMA.</div>
-          <div>• To know more about our services please visit https://utpalaayurdhama.com</div>
-          <div style="margin-top:8px; font-weight:bold;">Please visit us again...!</div>
-        </div>
-        <div style="width:25%; text-align:right;">
-          <div style="margin-bottom:40px;">For UTPALA AYURDHAMA</div>
-          <div>Authorized Signature</div>
-        </div>
-      </div>
-      <div style="text-align:center; margin-top:5px; font-size:14px; color:#555;">
-        This is a system generated invoice. You can use invoice number to track in future.
-      </div>
-    </div>
 
     </div>
           </td>
@@ -393,8 +393,8 @@ export const invoiceHandlePrint = async (invoice) => {
       </tfoot>
     </table>
 
-    <div class="report-footer">
-      ${getFooter()}
+    <div class="report-footer" style="padding: 0 10px 6px 10px;">
+      ${getNote()}
     </div>
 
     <script>

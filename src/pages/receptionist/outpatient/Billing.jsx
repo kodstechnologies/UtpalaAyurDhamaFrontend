@@ -735,15 +735,21 @@ function OutpatientBilling() {
       </Box>
 
       <div className="row">
-        <div className="col-12 mb-4">
-          <ChargesPanel
-            title="Doctor Consultation"
-            charges={(charges?.consultation || []).filter(ch => Number(ch.amount || 0) > 0)}
-            category="consultation"
-            isEditable={!isFinalized}
-            onEdit={handleEditDoctor}
-          />
-        </div>
+        {(() => {
+          const validConsultations = (charges?.consultation || []).filter(ch => !(ch.doctorName === "Doctor" && Number(ch.amount || 0) === 0));
+          if (validConsultations.length === 0) return null;
+          return (
+            <div className="col-12 mb-4">
+              <ChargesPanel
+                title="Doctor Consultation"
+                charges={validConsultations}
+                category="consultation"
+                isEditable={!isFinalized}
+                onEdit={handleEditDoctor}
+              />
+            </div>
+          );
+        })()}
         <div className="col-12 mb-4">
           <ChargesPanel
             title="Therapy Charges"

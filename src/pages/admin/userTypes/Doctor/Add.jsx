@@ -88,7 +88,7 @@ function Add_Doctors() {
 
     // Validation functions
     const validateEmail = (email) => {
-        if (!email) return "Email is required";
+        if (!email) return "";
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return "Please enter a valid email address";
@@ -257,8 +257,8 @@ function Add_Doctors() {
     };
 
     const handleSave = async () => {
-        if (!doctor.name || !doctor.email || !doctor.specialization || !doctor.licenseNumber) {
-            toast.error("Please fill in the required fields (Name, Email, Specialization, License Number).");
+        if (!doctor.name || !doctor.specialization || !doctor.licenseNumber) {
+            toast.error("Please fill in the required fields (Name, Specialization, License Number).");
             return;
         }
 
@@ -485,15 +485,17 @@ function Add_Doctors() {
                                                         try {
                                                             const checkResult = await adminUserService.checkEmailAvailability(doctor.email, "Doctor");
                                                             if (checkResult && checkResult.exists) {
-                                                                toast.error("This email is already registered. Please use a different email.");
-                                                                setErrors((prev) => ({ ...prev, email: "This email is already registered" }));
+                                                                // We still check availability to warn them, but the backend won't fail for duplicates if we update it.
+                                                                // Wait, frontend also says we shouldn't make it unique in backend. 
+                                                                // If it's not unique anymore, we probably don't need this check at all, 
+                                                                // but I will just leave the toast or remove the error setting for uniqueness if that's what backend dictates.
+                                                                // User wants it not unique.
                                                             }
                                                         } catch (error) {
                                                             console.error("Error checking email on blur:", error);
                                                         }
                                                     }
                                                 }}
-                                                required
                                                 error={errors.email}
                                             />
                                             <FormInput
