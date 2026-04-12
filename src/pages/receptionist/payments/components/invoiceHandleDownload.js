@@ -115,19 +115,19 @@ const invoiceHandleDownload = async (invoice) => {
       if (isConsultation && catTotal === 0) return;
 
       itemsHtml += `
-        <div class="category-block-title" style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
+        <div class="category-block-title" style=" background:#f5f5f5; margin-top:15px; padding: 0 0 12px 16px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
           <span>${cat}</span>
 
         </div>
         <table style="width:100%; border-collapse:collapse; font-size:11px; border-top:none;">
           <thead>
             <tr>
-              <th style="border:1px solid #000; border-top:none; padding:6px; width:40px;">Srl</th>
-              <th style="border:1px solid #000; border-top:none; text-align:center; padding:6px;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
-              ${isConsultation ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Description</th>' : ''}
-              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px; text-align:center;">Session</th>' : ''}
-              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Unit Price</th>
-              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Total</th>
+              <th style="border:1px solid #000; border-top:none; text-align:center; padding: 0 0 12px 0; width:40px;">Sno</th>
+              <th style="border:1px solid #000; border-top:none; text-align:center; padding: 0 0 12px 0;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
+              ${isConsultation ? '<th style="border:1px solid #000; border-top:none; text-align:center; padding: 0 0 12px 0;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; text-align:center; padding: 0 0 12px 0;">Description</th>' : ''}
+              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; text-align:center; padding: 0 0 12px 0; width:60px; text-align:center;">Session</th>' : ''}
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding: 0 0 12px 0; width:90px;">Unit Price</th>
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding: 0 0 12px 0; width:90px;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -141,20 +141,20 @@ const invoiceHandleDownload = async (invoice) => {
 
         itemsHtml += `
           <tr>
-            <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${counter}</td>
-            <td style="border:1px solid #000; padding:5px; font-size:11px;">
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">${counter}</td>
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
               ${escapeHtml(item.name || "Item")}
-              ${item.subTherapy ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Sub-Therapy: ${escapeHtml(item.subTherapy)}</div>` : ""}
+              ${item.subTherapy ? `<div style="font-size:10px; color:#666; text-align:center; font-style:italic; margin-top:2px;">Sub-Therapy: ${escapeHtml(item.subTherapy)}</div>` : ""}
               ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${escapeHtml(item.remarks)}</div>` : ""}
             </td>
             ${!isBedCharges ? `
-              <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">
+              <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
                 ${isConsultation ? ((item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : "") : (item.description ? escapeHtml(item.description).replace(/\\n/g, "<br>") : "—")}
               </td>
             ` : ""}
-            ${isTherapy ? `<td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>` : ''}
-            <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
-            <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(total)}</td>
+            ${isTherapy ? `<td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">${qty}</td>` : ''}
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">₹${formatCurrency(total)}</td>
           </tr>
         `;
       });
@@ -220,9 +220,8 @@ const invoiceHandleDownload = async (invoice) => {
     };
 
     // ── Render header, footer, and body as separate canvases ──
-    const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:10px;">${pdfPrHeader()}</div>`;
-    const footerHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px 15px;">${getNote()}</div>`;
-
+    const headerHtml = `<div style="width:794px; box-sizing:border-box; ">${pdfPrHeader()}</div>`;
+    const footerHtml = `<div style="width:794px; box-sizing:border-box; margin-bottom: 25px; ">${getNote()}</div>`;
     // Body = everything between header and footer
     const bodyHtml = `
       <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
@@ -242,7 +241,7 @@ const invoiceHandleDownload = async (invoice) => {
             </table>
           </div>
           <div style="width:40%; border-left:1px solid #000;">
-            <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:8px; background:#f5f0eb;">
+            <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:0 0 12px 0; background:#f5f0eb;">
               RECEIPT / INVOICE DETAILS
             </div>
             <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:5px; margin-left:5px;">
@@ -277,8 +276,8 @@ const invoiceHandleDownload = async (invoice) => {
                 <td style="padding:6px 0;">: ${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
               </tr>
               <tr>
-                <td style="font-weight:bold; padding:6px 0;">Generated By</td>
-                <td style="padding:6px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
+                <td style="font-weight:bold; padding: 0 0 12px 0;">Generated By</td>
+                <td style="padding: 0 0 12px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
               </tr>
             </table>
           </div>
@@ -366,8 +365,8 @@ const invoiceHandleDownload = async (invoice) => {
     const bodyTotalH = pxToMm(bodyCanvas);
 
     // Available body height per page (between header and footer)
-    const topPad = 5;  // mm gap after header
-    const botPad = 5;  // mm gap before footer
+    const topPad = 0;  // mm gap after header
+    const botPad = 0;  // mm gap before footer
     const bodyAreaH = pdfH - headerH - footerH - topPad - botPad;
 
     const headerImg = headerCanvas.toDataURL("image/png");

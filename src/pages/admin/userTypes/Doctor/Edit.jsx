@@ -147,7 +147,7 @@ function Edit_Doctors() {
 
     // Validation functions
     const validateEmail = (email) => {
-        if (!email) return "Email is required";
+        if (!email) return "";
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return "Please enter a valid email address";
@@ -304,8 +304,8 @@ function Edit_Doctors() {
 
     const handleSave = async () => {
         // Basic validation
-        if (!doctor.name || !doctor.email || !doctor.specialization || !doctor.licenseNumber) {
-            toast.error("Please fill in the required fields (Name, Email, Specialization, License Number).");
+        if (!doctor.name) {
+            toast.error("Please fill in the required fields (Name).");
             return;
         }
 
@@ -546,7 +546,6 @@ function Edit_Doctors() {
                                                 type="email"
                                                 value={doctor.email}
                                                 onChange={(e) => updateField("email", e.target.value)}
-                                                required
                                                 error={errors.email}
                                             />
                                             <FormInput
@@ -660,7 +659,6 @@ function Edit_Doctors() {
                                                 icon={Stethoscope}
                                                 value={doctor.specialization}
                                                 onChange={(e) => updateField("specialization", e.target.value)}
-                                                required
                                             />
                                             <FormInput
                                                 label="Department"
@@ -673,7 +671,6 @@ function Edit_Doctors() {
                                                 icon={FileBadge}
                                                 value={doctor.licenseNumber}
                                                 onChange={(e) => updateField("licenseNumber", e.target.value)}
-                                                required
                                             />
                                             <FormInput
                                                 label="Years of Experience"

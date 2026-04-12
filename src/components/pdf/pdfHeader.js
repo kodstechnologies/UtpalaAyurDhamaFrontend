@@ -15,7 +15,7 @@ export const getHeader = () => `
           box-sizing:border-box;
         ">
           <!-- Logo -->
-          <img src="${logo}" style="height:120px; margin-bottom:6px;" alt="Logo"/>
+          <img src="${logo}" style="height:120px;" alt="Logo"/>
           
 
           <!-- Address -->

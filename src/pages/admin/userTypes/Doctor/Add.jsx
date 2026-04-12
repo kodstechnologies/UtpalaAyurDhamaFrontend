@@ -257,8 +257,8 @@ function Add_Doctors() {
     };
 
     const handleSave = async () => {
-        if (!doctor.name || !doctor.specialization || !doctor.licenseNumber) {
-            toast.error("Please fill in the required fields (Name, Specialization, License Number).");
+        if (!doctor.name) {
+            toast.error("Please fill in the required fields (Name).");
             return;
         }
 
@@ -558,7 +558,6 @@ function Add_Doctors() {
                                                 value={doctor.gender}
                                                 onChange={(e) => updateField("gender", e.target.value)}
                                                 options={["Male", "Female", "Other", "Prefer not to say"]}
-                                                required
                                             />
                                         </div>
 
@@ -628,7 +627,6 @@ function Add_Doctors() {
                                                 icon={Stethoscope}
                                                 value={doctor.specialization}
                                                 onChange={(e) => updateField("specialization", e.target.value)}
-                                                required
                                             />
                                             <FormInput
                                                 label="Department"
@@ -641,7 +639,6 @@ function Add_Doctors() {
                                                 icon={FileBadge}
                                                 value={doctor.licenseNumber}
                                                 onChange={(e) => updateField("licenseNumber", e.target.value)}
-                                                required
                                             />
                                             <FormInput
                                                 label="Years of Experience"

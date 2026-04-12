@@ -12,15 +12,16 @@ export const pdfPrHeader = () => `
           background:#f4d7b5;
           border-radius:3px;
           box-sizing:border-box;
-          width:50rem;
-          margin:10px 10px 0;     
+          width:48rem;
+          margin-left: 12px;  
+          margin-top: 10px;
         ">
           <!-- Logo -->
-          <img src="${logo}" style="height:120px; margin-bottom:6px;" alt="Logo"/>
+          <img src="${logo}" style="height:120px;" alt="Logo"/>
           
 
           <!-- Address -->
-          <div style="font-size:14px; color:#000; line-height:1.6;">
+          <div style="font-size:14px; color:#000;  line-height:1.6;">
             New BEL Road, Chikkamaranahalli, Dollars Colony,
             R.M.V. 2nd Stage, Bengaluru, Karnataka 560094
           </div>

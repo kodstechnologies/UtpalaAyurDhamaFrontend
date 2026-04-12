@@ -115,18 +115,18 @@ const invoiceHandlePrint = async (invoice) => {
       if (isConsultation && catTotal === 0) return;
 
       itemsHtml += `
-        <div class="category-block-title" style="margin-top:15px; background:#f5f5f5; padding:8px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
+        <div class="category-block-title" style="margin-top:15px; background:#f5f5f5; padding:0 0 16px 16px; border:1px solid #000; font-weight:bold;  ">
           <span>${cat}</span>
         </div>
         <table style="width:100%; border-collapse:collapse; font-size:11px; border-top:none;">
           <thead>
             <tr>
-              <th style="border:1px solid #000; border-top:none; padding:6px; width:40px;">Srl</th>
-              <th style="border:1px solid #000; border-top:none; text-align:center; padding:6px;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
-              ${isConsultation ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; padding:6px;">Description</th>' : ''}
-              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:6px; width:60px; text-align:center;">Session</th>' : ''}
-              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Unit Price</th>
-              <th style="border:1px solid #000; text-align:center; border-top:none; padding:6px; width:90px;">Total</th>
+              <th style="border:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center; width:40px;">Sno</th>
+              <th style="border:1px solid #000; border-top:none; text-align:center; padding:0 0 12px 0;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
+              ${isConsultation ? '<th style="border:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Description</th>' : ''}
+              ${isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:0 0 12px 0; width:60px; text-align:center;">Session</th>' : ''}
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding:0 0 12px 0;  width:90px;">Unit Price</th>
+              <th style="border:1px solid #000; text-align:center; border-top:none; padding:0 0 12px 0;  width:90px;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -139,21 +139,21 @@ const invoiceHandlePrint = async (invoice) => {
         const total = item.total || item.amount || 0;
 
         itemsHtml += `
-          <tr>
-            <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${counter}</td>
-            <td style="border:1px solid #000; padding:5px; font-size:11px;">
+          <tr >
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">${counter}</td>
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
               ${escapeHtml(item.name || "Item")}
               ${item.subTherapy ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Sub-Therapy: ${escapeHtml(item.subTherapy)}</div>` : ""}
               ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${escapeHtml(item.remarks)}</div>` : ""}
             </td>
             ${!isBedCharges ? `
-              <td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">
+              <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
                 ${isConsultation ? ((item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : "") : (item.description ? escapeHtml(item.description).replace(/\\n/g, "<br>") : "—")}
               </td>
             ` : ""}
-            ${isTherapy ? `<td style="border:1px solid #000; padding:5px; text-align:center; font-size:11px;">${qty}</td>` : ''}
-            <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
-            <td style="border:1px solid #000; padding:5px; text-align:right; font-size:11px;">₹${formatCurrency(total)}</td>
+            ${isTherapy ? `<td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">${qty}</td>` : ''}
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
+            <td style="border:1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">₹${formatCurrency(total)}</td>
           </tr>
         `;
       });
@@ -216,11 +216,11 @@ const invoiceHandlePrint = async (invoice) => {
     };
 
     // ── Render header, footer, and body as separate canvases ──
-    const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:10px;">${pdfPrHeader()}</div>`;
-    const footerHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px 15px;">${getNote()}</div>`;
+    const headerHtml = `<div style="width:794px; box-sizing:border-box; ">${pdfPrHeader()}</div>`;
+    const footerHtml = `<div style="width:794px; box-sizing:border-box; margin-bottom: 25px; ">${getNote()}</div>`;
 
     const bodyHtml = `
-      <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
+      <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif;  color:#000; background:#fff;">
         <div style="display:flex; border:1px solid #000; margin:10px 0; height:100%">
           <div style="width:60%; background:#fafafa; padding:12px; border-right:1px solid #000;">
             <table style="width:100%; font-size:12px;">
@@ -236,7 +236,7 @@ const invoiceHandlePrint = async (invoice) => {
             </table>
           </div>
           <div style="width:40%; border-left:1px solid #000;">
-            <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:8px; background:#f5f0eb;">
+            <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding: 0 0 15px 0; background:#f5f0eb; ">
               RECEIPT / INVOICE DETAILS
             </div>
             <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:5px; margin-left:5px;">
@@ -260,9 +260,9 @@ const invoiceHandlePrint = async (invoice) => {
                 <td style="font-weight:bold; padding:6px 0;">Type</td>
                 <td style="padding:6px 0;">: ${invoice.inpatient ? "Inpatient" : invoice.examination?.isDaycare ? "Daycare" : "Outpatient"}</td>
               </tr>
-              <tr>
-                <td style="font-weight:bold; padding:6px 0;">Generated By</td>
-                <td style="padding:6px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
+              <tr ">
+                <td style="font-weight:bold; padding:0 0 12px 0;">Generated By</td>
+                <td style="padding:0 0 12px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
               </tr>
             </table>
           </div>
@@ -273,8 +273,8 @@ const invoiceHandlePrint = async (invoice) => {
         <div style="display:flex; justify-content:flex-end; margin-top:8px;">
           <table style="width:50%; border-collapse:collapse; border:1px solid #000;">
             <tr style="font-weight:bold;">
-              <td style="padding:6px; border-right:1px solid #000;">SUBTOTAL</td>
-              <td style="padding:6px; text-align:right;">₹${formatCurrency(subtotal)}</td>
+              <td style="padding:0 0 14px 10px; border-right:1px solid #000;">SUBTOTAL</td>
+              <td style="padding:0 10px 14px 0; text-align:right;">₹${formatCurrency(subtotal)}</td>
             </tr>
           </table>
         </div>
@@ -341,8 +341,8 @@ const invoiceHandlePrint = async (invoice) => {
     const footerH = pxToMm(footerCanvas);
     const bodyTotalH = pxToMm(bodyCanvas);
 
-    const topPad = 5;
-    const botPad = 5;
+    const topPad = 0;
+    const botPad = 0;
     const bodyAreaH = pdfH - headerH - footerH - topPad - botPad;
 
     const headerImg = headerCanvas.toDataURL("image/png");
