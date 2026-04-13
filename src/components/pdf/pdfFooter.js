@@ -6,9 +6,9 @@ export const getFooter = () => `
     display:flex;
     justify-content:space-between;
     padding:20px 30px;
-    font-size:16px;
+    font-size:14px;
     border-radius:4px;
-    margin-top: 25px;
+    margin-top: 5px;
   ">
     
     <div style="width:45%;">

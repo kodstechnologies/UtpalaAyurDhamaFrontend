@@ -37,7 +37,7 @@ export const getNote = () => `
     </div>
 
     <!-- Footer -->
-    <div style="text-align:center; margin-top:15px; font-size:13px; color:#666;">
+    <div style="text-align:center; margin-top:10px; font-size:13px; color:#666;">
       This is a system-generated invoice. You can use the invoice number to track it in the future.
     </div>
 
