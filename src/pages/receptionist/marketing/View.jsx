@@ -327,10 +327,6 @@ function Marketing_View() {
 
         // If Promotional Offer template is selected, call WhatsApp API for template campaign
         if (selectedTemplateId === "2") {
-            if (!discountText.trim()) {
-                toast.error("Please enter discount details (e.g. 20%).");
-                return;
-            }
             if (!offerDateText.trim()) {
                 toast.error("Please enter the therapy name.");
                 return;
@@ -735,7 +731,7 @@ function Marketing_View() {
                                 <div className="row g-3 mb-3">
                                     <div className="col-md-6">
                                         <label className="form-label">
-                                            Discount Details
+                                            Discount Details (Optional)
                                         </label>
                                         <input
                                             type="text"
