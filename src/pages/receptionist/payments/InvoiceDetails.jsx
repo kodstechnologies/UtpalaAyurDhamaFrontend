@@ -391,26 +391,34 @@ function InvoiceDetails() {
                   <strong>Type:</strong>{" "}
                   {invoice.inpatient ? (
                     <Chip
-                      label="Inpatient"
+                      label="IN-PATIENT"
                       size="small"
                       sx={{ bgcolor: "#e3f2fd", color: "#1976d2", fontWeight: 600, ml: 1 }}
                     />
                   ) : invoice.examination?.isDaycare ? (
                     <Chip
-                      label="Daycare"
+                      label="DAYCARE"
                       size="small"
                       sx={{ bgcolor: "#e0f7fa", color: "#00838f", fontWeight: 600, ml: 1 }}
                     />
                   ) : (
                     <Chip
-                      label="Outpatient"
+                      label="OUT-PATIENT"
                       size="small"
                       sx={{ bgcolor: "#e8f5e9", color: "#2e7d32", fontWeight: 600, ml: 1 }}
                     />
                   )}
                 </Typography>
                 {invoice.doctor && (
-                  <Typography><strong>Doctor:</strong> {invoice.doctor.firstName ? `${invoice.doctor.firstName} ${invoice.doctor.lastName}` : invoice.doctor.user?.name || "N/A"}</Typography>
+                  <Typography>
+                    <strong>Doctor:</strong>{" "}
+                    {invoice.doctor.firstName
+                      ? `${invoice.doctor.firstName} ${invoice.doctor.lastName === "Profile"
+                        ? ""
+                        : invoice.doctor.lastName || ""
+                      }`
+                      : invoice.doctor.user?.name || "N/A"}
+                  </Typography>
                 )}
                 {invoice.referredBy && (
                   <Typography><strong>Referred By:</strong> {invoice.referredBy}</Typography>
