@@ -36,7 +36,6 @@ function DashboardRedirect() {
     return <Navigate to="/login" replace />;
   }
 }
-console.log("hello==")
 function AppRouter() {
   return (
     <BrowserRouter>
