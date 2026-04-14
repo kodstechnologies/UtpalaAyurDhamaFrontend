@@ -473,7 +473,7 @@ function Marketing_View() {
             {/* ⭐ Page Heading */}
             <HeadingCard
                 title="Send Personalized WhatsApp Messages"
-                subtitle="Select patients and send them personalized WhatsApp messages for marketing, follow-ups, and promotional offers."
+                subtitle="Select patients and send them personalized WhatsApp messages for marketing, follow-ups, and promotional offers. =="
                 breadcrumbItems={breadcrumbItems}
             />
 
