@@ -29,7 +29,12 @@ import {
     DialogContent,
     DialogContentText,
     DialogActions,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from "@mui/material";
+
 import {
     LocalPharmacy,
     ArrowBack,
@@ -42,7 +47,12 @@ import {
     CalendarToday,
     Female,
     Male,
+    Payments,
+    AccountBalance,
+    CreditCard,
+    Smartphone,
 } from "@mui/icons-material";
+
 import { toast } from "react-toastify";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -75,6 +85,23 @@ function ListPrescriptions() {
     const [patient, setPatient] = useState(null);
     const [gst, setGst] = useState(0);
     const [examination, setExamination] = useState(null);
+    const [invoiceId, setInvoiceId] = useState(null);
+    const [padeamount, setPadeamount] = useState(0);
+    const [paymentStatus, setPaymentStatus] = useState("Unpaid");
+
+    const [paymentHistory, setPaymentHistory] = useState([]);
+
+
+    // Payment Dialog State
+    const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+    const [paymentDetails, setPaymentDetails] = useState({
+        amount: (parseFloat(billingSummary.total) - padeamount).toFixed(2),
+        method: "Cash",
+        transactionId: "",
+        cardDigits: "",
+    });
+    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
     const calculateTotalWithGST = () => {
         let subtotal = 0;
 
@@ -132,6 +159,13 @@ function ListPrescriptions() {
                         total: prescData.total || 0,
                         medicineCount: prescData.medicineCount || prescList.length,
                     });
+                    setInvoiceId(prescData.invoiceId || null);
+                    setPadeamount(prescData.padeamount || 0);
+                    setPaymentStatus(prescData.paymentStatus || "Unpaid");
+
+                    setPaymentHistory(prescData.payments || []);
+
+
 
                     if (prescList.length > 0) {
                         const firstPresc = prescList[0];
@@ -531,96 +565,49 @@ function ListPrescriptions() {
 
         setIsDispensing(true);
         try {
-            console.log("Starting dispense process...");
+            console.log("Starting bulk dispense process...");
 
-            // Update selected prescriptions with their quantities
-            const updatePromises = selectedPrescriptions.map((presc) => {
+            // Prepare bulk updates
+            const updates = selectedPrescriptions.map((presc) => {
                 const selected = selectedMedicines[presc._id];
-                const dispensedQuantity = selected.quantity;
-
-                console.log(`Updating prescription ${presc._id} with quantity: ${dispensedQuantity}`);
-
-                // Update the prescription with the dispensed quantity incrementally
-                return axios.patch(
-                    getApiUrl(`examinations/prescriptions/${presc._id}`),
-                    {
-                        dispensedQuantity: dispensedQuantity,
-                        isIncremental: true,
-                        gst: gst
-                    },
-                    { headers: getAuthHeaders() }
-                ).then((response) => {
-                    console.log(`Prescription ${presc._id} updated successfully:`, response.data);
-                    return response;
-                }).catch((error) => {
-                    console.error(`Error updating prescription ${presc._id}:`, error);
-                    throw error;
-                });
+                return {
+                    prescriptionId: presc._id,
+                    dispensedQuantity: selected.quantity,
+                    gst: gst
+                };
             });
 
-            await Promise.all(updatePromises);
+            // Call bulk dispense endpoint
+            await axios.post(
+                getApiUrl("examinations/prescriptions/bulk-dispense"),
+                { updates },
+                { headers: getAuthHeaders() }
+            );
 
-            // Update medicine quantities - deduct dispensed quantities from stock
-            const medicineUpdatePromises = [];
-            for (const presc of selectedPrescriptions) {
-                const selected = selectedMedicines[presc._id];
-                const dispensedQuantityStr = selected.quantity;
-
-                // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
-                const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
-                const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
-
-                if (dispensedQuantity <= 0) {
-                    console.warn(`Invalid dispensed quantity for ${presc.medication}: ${dispensedQuantityStr}`);
-                    continue;
-                }
-
-                // Find the medicine using improved matching
-                const medicine = findMedicineInMap(presc.medication);
-
-                if (!medicine) {
-                    console.warn(`Medicine not found in collection: ${presc.medication}`);
-                    continue;
-                }
-
-                // Calculate new quantity
-                const currentQuantity = medicine.quantity || 0;
-
-                // Warn if insufficient stock
-                if (currentQuantity < dispensedQuantity) {
-                    toast.warning(
-                        `Insufficient stock for ${presc.medication}. Available: ${currentQuantity}, Dispensing: ${dispensedQuantity}. Stock will be set to 0.`
-                    );
-                }
-
-                const newQuantity = Math.max(0, currentQuantity - dispensedQuantity); // Ensure non-negative
-
-                // Update medicine quantity
-                medicineUpdatePromises.push(
-                    medicineService.updateMedicine(medicine._id, {
-                        quantity: newQuantity,
-                    }).catch((error) => {
-                        console.error(`Failed to update quantity for ${presc.medication}:`, error);
-                        toast.warning(`Failed to update stock for ${presc.medication}. Please update manually.`);
-                    })
-                );
-            }
-
-            // Wait for all medicine updates to complete
-            await Promise.all(medicineUpdatePromises);
-
-            toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully! Stock updated.`);
+            toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully!`);
 
             // Refresh the data
-            const response = await prescriptionService.getPrescriptionsByExamination(id);
+            const response = await prescriptionService.getPrescriptionsByExaminationList(id);
             if (response && response.success && response.data) {
-                const prescList = Array.isArray(response.data) ? response.data : [];
+                const prescData = response.data;
+                const prescList = Array.isArray(prescData.prescriptions) ? prescData.prescriptions : [];
                 setPrescriptions(prescList);
+
+                // Update billing summary
+                setBillingSummary({
+                    subtotal: prescData.subtotal || 0,
+                    gst: prescData.gst || 0,
+                    gstAmount: prescData.gstAmount || 0,
+                    total: prescData.total || 0,
+                    medicineCount: prescData.medicineCount || prescList.length,
+                });
+                setInvoiceId(prescData.invoiceId || null);
+                setPadeamount(prescData.padeamount || 0);
+                setPaymentStatus(prescData.paymentStatus || "Unpaid");
 
                 // Reset selections
                 const newSelection = {};
                 prescList.forEach((presc) => {
-                    // if (presc.status !== "Dispensed") {
                     if (Number(presc.dispensedQuantity || 0) < Number(presc.quantity || 0)) {
                         newSelection[presc._id] = {
                             selected: false,
@@ -632,11 +619,6 @@ function ListPrescriptions() {
             }
         } catch (error) {
             console.error("Error dispensing prescriptions:", error);
-            console.error("Error details:", {
-                message: error?.message,
-                response: error?.response?.data,
-                status: error?.response?.status,
-            });
             toast.error(
                 error?.response?.data?.message ||
                 error?.message ||
@@ -646,6 +628,71 @@ function ListPrescriptions() {
             setIsDispensing(false);
         }
     };
+
+    const handleRecordPayment = async () => {
+
+        if (!paymentDetails.amount || parseFloat(paymentDetails.amount) <= 0) {
+            toast.error("Please enter a valid amount");
+            return;
+        }
+
+        const totalToPay = billingSummary.total || 0;
+        const balanceDue = Math.round((parseFloat(totalToPay) - padeamount) * 100) / 100;
+        if (parseFloat(paymentDetails.amount) > balanceDue) {
+
+
+
+            toast.error(`Payment amount cannot exceed balance due (Max: ₹${balanceDue})`);
+            return;
+        }
+
+        setIsSubmittingPayment(true);
+        try {
+            const response = await axios.post(
+                getApiUrl(`invoices/pharmacy-payment/${id}`),
+                {
+                    paymentAmount: parseFloat(paymentDetails.amount),
+                    paymentMethod: paymentDetails.method,
+                    transactionId: paymentDetails.transactionId,
+                    cardLastFourDigits: paymentDetails.cardDigits,
+                },
+                { headers: getAuthHeaders() }
+            );
+
+            if (response.data.success) {
+                toast.success("Payment recorded successfully");
+                setShowPaymentDialog(false);
+                setPaymentDetails({ amount: "", method: "Cash", transactionId: "", cardDigits: "" });
+
+                // Refresh data to update amountPaid and invoiceId
+                const prescriptionResponse = await prescriptionService.getPrescriptionsByExaminationList(id);
+                if (prescriptionResponse && prescriptionResponse.success) {
+                    setInvoiceId(prescriptionResponse.data.invoiceId);
+                    setPadeamount(prescriptionResponse.data.padeamount);
+                    setPaymentStatus(prescriptionResponse.data.paymentStatus);
+                    setPaymentHistory(prescriptionResponse.data.payments);
+
+
+
+                    // Also update billingSummary to reflect current state
+                    const prescData = prescriptionResponse.data;
+                    setBillingSummary({
+                        subtotal: prescData.subtotal || 0,
+                        gst: prescData.gst || 0,
+                        gstAmount: prescData.gstAmount || 0,
+                        total: prescData.total || 0,
+                        medicineCount: prescData.prescriptions?.length || 0,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Error recording payment:", error);
+            toast.error(error.response?.data?.message || "Failed to record payment");
+        } finally {
+            setIsSubmittingPayment(false);
+        }
+    };
+
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -711,7 +758,27 @@ function ListPrescriptions() {
                                     {isDispensing ? "Dispensing..." : "Mark as Dispensed"}
                                 </Button>
                             )}
+                            <Button
+                                variant="contained"
+                                startIcon={<Payments />}
+                                onClick={() => {
+                                    const totalToPay = billingSummary.total || 0;
+                                    const balance = Math.round((parseFloat(totalToPay) - padeamount) * 100) / 100;
+                                    setPaymentDetails(prev => ({ ...prev, amount: balance > 0 ? balance.toString() : "" }));
+                                    setShowPaymentDialog(true);
+                                }}
+
+                                sx={{
+                                    backgroundColor: theme.palette.primary.main,
+                                    "&:hover": {
+                                        backgroundColor: theme.palette.primary.dark,
+                                    },
+                                }}
+                            >
+                                Record Payment
+                            </Button>
                         </Stack>
+
                     }
                     sx={{
                         background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 100%)`,
@@ -1175,9 +1242,21 @@ function ListPrescriptions() {
                                     return (
                                         <Card variant="outlined" sx={{ minWidth: 300, backgroundColor: alpha(theme.palette.primary.main, 0.02), border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`, borderRadius: 2 }}>
                                             <CardContent sx={{ pb: "16px !important", p: 2 }}>
-                                                <Typography variant="subtitle2" color="text.primary" gutterBottom sx={{ fontWeight: 600, mb: 1.5 }}>
-                                                    Billing Summary
-                                                </Typography>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                                                    <Typography variant="subtitle2" color="text.primary" sx={{ fontWeight: 600 }}>
+                                                        Billing Summary
+                                                    </Typography>
+                                                    <Chip
+                                                        label={paymentStatus}
+                                                        size="small"
+                                                        color={
+                                                            paymentStatus === "Paid" ? "success" :
+                                                                paymentStatus === "Partially Paid" ? "info" : "warning"
+                                                        }
+                                                        sx={{ fontWeight: 600, fontSize: '0.75rem', height: '24px' }}
+                                                    />
+                                                </Box>
+
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                                     <Typography variant="body2" color="text.secondary">Cost (without GST):</Typography>
                                                     <Typography variant="body2" fontWeight={500}>₹{totals.subtotal}</Typography>
@@ -1191,9 +1270,57 @@ function ListPrescriptions() {
                                                     <Typography variant="subtitle1" fontWeight={600} color="text.primary">Total (with GST):</Typography>
                                                     <Typography variant="subtitle1" fontWeight={700} color="primary.main">₹{totals.total}</Typography>
                                                 </Box>
+                                                {padeamount > 0 && (
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                                                        <Typography variant="body2" color="success.main" fontWeight={500}>Total Paid:</Typography>
+                                                        <Typography variant="body2" color="success.main" fontWeight={600}>₹{padeamount}</Typography>
+                                                    </Box>
+                                                )}
+                                                {parseFloat(totals.total) - padeamount > 0 && (
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                                                        <Typography variant="body2" color="error.main" fontWeight={500}>Balance Due:</Typography>
+                                                        <Typography variant="body2" color="error.main" fontWeight={600}>₹{(parseFloat(totals.total) - padeamount).toFixed(2)}</Typography>
+                                                    </Box>
+                                                )}
+
+
+                                                {paymentHistory.length > 0 && (
+                                                    <Box sx={{ mt: 2, pt: 2, borderTop: `1px dashed ${theme.palette.divider}` }}>
+                                                        <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 1, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                            Payment History
+                                                        </Typography>
+                                                        <Stack spacing={1}>
+                                                            {paymentHistory.map((payment, index) => (
+                                                                <Box key={index} sx={{ p: 1, borderRadius: 1.5, backgroundColor: alpha(theme.palette.background.default, 0.8), border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                                                        <Typography variant="caption" sx={{ fontWeight: 600 }}>₹{payment.amount}</Typography>
+                                                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '10px' }}>
+                                                                            {new Date(payment.paidAt).toLocaleDateString()} {new Date(payment.paidAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                        </Typography>
+                                                                    </Box>
+                                                                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                                                        <Chip
+                                                                            label={payment.method}
+                                                                            size="small"
+                                                                            variant="outlined"
+                                                                            sx={{ height: '18px', fontSize: '9px', fontWeight: 500 }}
+                                                                        />
+                                                                        {(payment.transactionId || payment.cardDigits) && (
+                                                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '9px' }}>
+                                                                                {payment.method === "Card" ? `Card ending in ${payment.cardDigits || 'XXXX'}` : payment.transactionId}
+                                                                            </Typography>
+                                                                        )}
+                                                                    </Box>
+                                                                </Box>
+                                                            ))}
+                                                        </Stack>
+                                                    </Box>
+                                                )}
+
                                             </CardContent>
                                         </Card>
                                     );
+
                                 })()}
                             </Box>
 
@@ -1339,7 +1466,121 @@ function ListPrescriptions() {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Payment Dialog */}
+            <Dialog
+                open={showPaymentDialog}
+                onClose={() => setShowPaymentDialog(false)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{
+                    sx: { borderRadius: 2 }
+                }}
+            >
+                <DialogTitle sx={{ pb: 1, pt: 3 }}>
+                    <Typography variant="h5" fontWeight={700} textAlign="center">
+                        Record Payment
+                    </Typography>
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ mt: 2 }}>
+                        <TextField
+                            label="Payment Amount"
+                            type="number"
+                            fullWidth
+                            value={paymentDetails.amount}
+                            onChange={(e) => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
+                            sx={{ mb: 2.5 }}
+                            InputProps={{
+                                startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography>,
+                            }}
+                        />
+
+                        <FormControl fullWidth sx={{ mb: 2.5 }}>
+                            <InputLabel id="payment-method-label">Payment Method</InputLabel>
+                            <Select
+                                labelId="payment-method-label"
+                                value={paymentDetails.method}
+                                label="Payment Method"
+                                onChange={(e) => setPaymentDetails({ ...paymentDetails, method: e.target.value })}
+                            >
+                                <MenuItem value="Cash">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Payments fontSize="small" /> Cash
+                                    </Box>
+                                </MenuItem>
+                                <MenuItem value="Card">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <CreditCard fontSize="small" /> Card
+                                    </Box>
+                                </MenuItem>
+                                <MenuItem value="Online">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Smartphone fontSize="small" /> Online
+                                    </Box>
+                                </MenuItem>
+                                <MenuItem value="Bank Transfer">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <AccountBalance fontSize="small" /> Bank Transfer
+                                    </Box>
+                                </MenuItem>
+                            </Select>
+                        </FormControl>
+
+
+                        {(paymentDetails.method === "Online" || paymentDetails.method === "Bank Transfer" || paymentDetails.method === "Card") && (
+                            <TextField
+                                label={paymentDetails.method === "Card" ? "Reference Number" : "Transaction ID"}
+                                fullWidth
+                                variant="outlined"
+                                value={paymentDetails.transactionId}
+                                onChange={(e) => setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })}
+                                sx={{ mb: 2.5 }}
+                                placeholder="Enter reference number"
+                            />
+                        )}
+
+                        {paymentDetails.method === "Card" && (
+                            <TextField
+                                label="Card Last 4 Digits"
+                                fullWidth
+                                variant="outlined"
+                                value={paymentDetails.cardDigits}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                    setPaymentDetails({ ...paymentDetails, cardDigits: val });
+                                }}
+                                placeholder="XXXX"
+                                sx={{ mb: 2.5 }}
+                            />
+                        )}
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 3, pt: 0 }}>
+                    <Button
+                        onClick={() => setShowPaymentDialog(false)}
+                        sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'none' }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleRecordPayment}
+                        disabled={isSubmittingPayment}
+                        sx={{
+                            px: 4,
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            borderRadius: 1.5,
+                            minWidth: 120
+                        }}
+                    >
+                        {isSubmittingPayment ? <CircularProgress size={24} color="inherit" /> : "Confirm Payment"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
+
     );
 }
 

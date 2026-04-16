@@ -28,6 +28,12 @@ const mockTemplates = [
         title: "Follow-up Check",
         content: "Hello {{1}}, We hope you are feeling better after your recent treatment at Utpala Ayurdhama. Please let us know if you have any questions or require further assistance.",
     },
+    {
+        id: "4",
+        title: "Utpala Campaign Message",
+        content: "Greetings from Utpala Ayurdhama {{1}}"
+    }
+
 ];
 
 function Marketing_View() {
@@ -55,6 +61,7 @@ function Marketing_View() {
     const [imagePreview, setImagePreview] = useState(null);
     const [imageUrl, setImageUrl] = useState(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [campaignText, setCampaignText] = useState("");
 
     // Fetch patients from backend
     useEffect(() => {
@@ -238,6 +245,11 @@ function Marketing_View() {
             setImagePreview(null);
             setImageUrl(null);
         }
+
+        // Reset campaign text when switching
+        if (templateId !== "4") {
+            setCampaignText("");
+        }
     };
 
     // Handle image selection
@@ -400,6 +412,39 @@ function Marketing_View() {
             } catch (error) {
                 console.error("WhatsApp Follow-up Error:", error);
                 toast.error("An error occurred while sending follow-up messages");
+            }
+
+            return;
+        }
+
+        if (selectedTemplateId === "4") {
+            try {
+                const response = await fetch(getApiUrl("whatsapp/send-utpala-campaign"), {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        patients: validContacts.map((p) => ({
+                            name: p.name,
+                            contact: p.contact,
+                        })),
+                        campaignText: campaignText.trim(),
+                        imageUrl: imageUrl,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    toast.success(`Campaign WhatsApp sent to ${data.data?.sentTo || validContacts.length} patient(s).`);
+                    setSelectedPatientIds([]);
+                    setSelectedTemplateId("");
+                    setCampaignText("");
+                } else {
+                    toast.error(data.message || "Failed to send campaign messages");
+                }
+            } catch (error) {
+                console.error("WhatsApp Campaign Error:", error);
+                toast.error("Error sending campaign messages");
             }
 
             return;
@@ -760,115 +805,110 @@ function Marketing_View() {
                                         Promotional Image <span className="text-danger">*</span>
                                     </label>
                                     <div
-                                        className="border rounded p-4"
-                                        style={{
-                                            backgroundColor: "#fff",
-                                            border: "2px dashed #D4A574",
-                                            borderColor: imageUrl ? "#28a745" : "#D4A574",
-                                            transition: "all 0.3s ease",
-                                            minHeight: "200px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center"
-                                        }}
+                                        className="border rounded p-4 text-center"
+                                        style={{ borderStyle: "dashed !important", cursor: "pointer", backgroundColor: "#fcfcfc" }}
+                                        onClick={() => document.getElementById("imageInput").click()}
                                     >
+                                        <input
+                                            type="file"
+                                            id="imageInput"
+                                            className="d-none"
+                                            accept="image/*"
+                                            onChange={handleImageSelect}
+                                        />
                                         {imagePreview ? (
-                                            <div className="text-center w-100">
+                                            <div className="position-relative d-inline-block">
                                                 <img
                                                     src={imagePreview}
                                                     alt="Preview"
-                                                    style={{
-                                                        maxWidth: "100%",
-                                                        maxHeight: "300px",
-                                                        objectFit: "contain",
-                                                        borderRadius: "8px",
-                                                        marginBottom: "15px",
-                                                        border: "2px solid #28a745",
-                                                        padding: "5px"
-                                                    }}
+                                                    className="img-fluid rounded"
+                                                    style={{ maxHeight: "200px" }}
                                                 />
-                                                <div className="d-flex gap-2 justify-content-center">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-sm btn-outline-danger"
-                                                        onClick={() => {
-                                                            setSelectedImage(null);
-                                                            setImagePreview(null);
-                                                            setImageUrl(null);
-                                                        }}
-                                                    >
-                                                        Remove Image
-                                                    </button>
-                                                </div>
+                                                <div className="mt-2 text-muted small">Click to change image</div>
                                             </div>
                                         ) : (
-                                            <div className="text-center w-100">
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleImageSelect}
-                                                    className="d-none"
-                                                    id="promotional-image-upload"
-                                                    disabled={isUploadingImage}
-                                                />
-                                                <div className="mb-3">
-                                                    <ImageIcon
-                                                        sx={{
-                                                            fontSize: 48,
-                                                            color: "#D4A574",
-                                                            marginBottom: "10px"
-                                                        }}
-                                                    />
-                                                </div>
-                                                <label
-                                                    htmlFor="promotional-image-upload"
-                                                    className="btn d-inline-flex align-items-center"
-                                                    style={{
-                                                        cursor: isUploadingImage ? "not-allowed" : "pointer",
-                                                        userSelect: "none",
-                                                        backgroundColor: "#D4A574",
-                                                        color: "white",
-                                                        border: "none",
-                                                        padding: "12px 24px",
-                                                        fontSize: "1rem",
-                                                        fontWeight: "600",
-                                                        borderRadius: "8px",
-                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        if (!isUploadingImage) {
-                                                            e.target.style.backgroundColor = "#c49563";
-                                                            e.target.style.transform = "scale(1.05)";
-                                                        }
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        if (!isUploadingImage) {
-                                                            e.target.style.backgroundColor = "#D4A574";
-                                                            e.target.style.transform = "scale(1)";
-                                                        }
-                                                    }}
-                                                >
-                                                    {isUploadingImage ? (
-                                                        <>
-                                                            <CircularProgress size={20} className="me-2" style={{ color: "white" }} />
-                                                            Uploading...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <CloudUploadIcon className="me-2" />
-                                                            Click to Upload Promotional Image
-                                                        </>
-                                                    )}
-                                                </label>
-                                                <p className="text-muted small mt-3 mb-0">
-                                                    <strong>Supported formats:</strong> JPG, PNG, GIF, WebP | <strong>Max size:</strong> 5MB
-                                                </p>
+                                            <div className="py-2">
+                                                <CloudUploadIcon sx={{ fontSize: 48, color: "#D4A574", mb: 1 }} />
+                                                <p className="mb-0 text-muted">Click to upload promotional image</p>
+                                                <p className="small text-muted mb-0">Max size: 5MB (JPG, PNG)</p>
+                                            </div>
+                                        )}
+                                        {isUploadingImage && (
+                                            <div className="mt-2">
+                                                <CircularProgress size={20} sx={{ color: "#D4A574" }} />
+                                                <span className="ms-2 small">Uploading...</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </>
                         )}
+
+                        {/* Utpala Campaign Template Specific Inputs */}
+                        {selectedTemplateId === "4" && (
+                            <>
+                                <div className="mb-4">
+                                <label className="form-label fw-bold">
+                                    <DescriptionIcon className="me-2" style={{ verticalAlign: "middle", fontSize: "1.2rem", color: "#D4A574" }} />
+                                    Campaign Message Text <span className="text-danger">*</span>
+                                </label>
+                                <textarea
+                                    className="form-control"
+                                    rows="4"
+                                    placeholder="Enter the text that will replace $FirstName in the template..."
+                                    value={campaignText}
+                                    onChange={(e) => setCampaignText(e.target.value)}
+                                    style={{ fontSize: "0.9rem" }}
+                                ></textarea>
+                                <small className="form-text text-muted">
+                                    This text will be sent as part of the personalized WhatsApp message.
+                                </small>
+                            </div>
+                            <div className="mb-4">
+                                <label className="form-label fw-bold">
+                                    <ImageIcon className="me-2" style={{ verticalAlign: "middle", fontSize: "1.2rem", color: "#D4A574" }} />
+                                    Campaign Image <span className="text-danger">*</span>
+                                </label>
+                                <div
+                                    className="border rounded p-4 text-center"
+                                    style={{ borderStyle: "dashed !important", cursor: "pointer", backgroundColor: "#fcfcfc" }}
+                                    onClick={() => document.getElementById("campaignImageInput").click()}
+                                >
+                                    <input
+                                        type="file"
+                                        id="campaignImageInput"
+                                        className="d-none"
+                                        accept="image/*"
+                                        onChange={handleImageSelect}
+                                    />
+                                    {imagePreview ? (
+                                        <div className="position-relative d-inline-block">
+                                            <img
+                                                src={imagePreview}
+                                                alt="Preview"
+                                                className="img-fluid rounded"
+                                                style={{ maxHeight: "200px" }}
+                                            />
+                                            <div className="mt-2 text-muted small">Click to change image</div>
+                                        </div>
+                                    ) : (
+                                        <div className="py-2">
+                                            <CloudUploadIcon sx={{ fontSize: 48, color: "#D4A574", mb: 1 }} />
+                                            <p className="mb-0 text-muted">Click to upload campaign image</p>
+                                            <p className="small text-muted mb-0">Max size: 5MB (JPG, PNG)</p>
+                                        </div>
+                                    )}
+                                    {isUploadingImage && (
+                                        <div className="mt-2">
+                                            <CircularProgress size={20} sx={{ color: "#D4A574" }} />
+                                            <span className="ms-2 small">Uploading...</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                        
 
                         {/* Message Input and Send Section */}
                         <div className="row g-4">
@@ -878,20 +918,20 @@ function Marketing_View() {
                                     className="form-control"
                                     rows={8}
                                     placeholder={
-                                        selectedTemplateId === "2" || selectedTemplateId === "3"
+                                        selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4"
                                             ? "Message will be auto-generated from the WhatsApp template."
                                             : "Enter your WhatsApp message here or select a template above..."
                                     }
-                                    value={selectedTemplateId === "2" || selectedTemplateId === "3" ? "" : message}
+                                    value={selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4" ? "" : message}
                                     onChange={(e) => {
-                                        if (selectedTemplateId !== "2" && selectedTemplateId !== "3") {
+                                        if (selectedTemplateId !== "2" && selectedTemplateId !== "3" && selectedTemplateId !== "4") {
                                             setMessage(e.target.value);
                                         }
                                     }}
-                                    disabled={selectedTemplateId === "2" || selectedTemplateId === "3"}
+                                    disabled={selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4"}
                                 ></textarea>
                                 <small className="form-text text-muted">
-                                    Character count: {selectedTemplateId === "2" || selectedTemplateId === "3" ? 0 : message.length}
+                                    Character count: {selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4" ? 0 : message.length}
                                 </small>
                             </div>
                             <div className="col-lg-4">
@@ -930,8 +970,9 @@ function Marketing_View() {
                                     onClick={handleSendMessage}
                                     disabled={
                                         selectedPatientIds.length === 0 ||
-                                        (selectedTemplateId !== "2" && selectedTemplateId !== "3" && !message.trim()) ||
+                                        (selectedTemplateId !== "2" && selectedTemplateId !== "3" && selectedTemplateId !== "4" && !message.trim()) ||
                                         (selectedTemplateId === "2" && !imageUrl) ||
+                                        (selectedTemplateId === "4" && (!campaignText.trim() || !imageUrl)) ||
                                         isUploadingImage
                                     }
                                 >

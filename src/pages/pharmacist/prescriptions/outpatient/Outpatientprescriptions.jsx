@@ -487,85 +487,22 @@ const calculateTotalWithGST = () => {
 
         setIsDispensing(true);
         try {
-            console.log("Starting dispense process...");
-
-            // Update selected prescriptions with their quantities
-            const updatePromises = selectedPrescriptions.map((presc) => {
+            const updates = selectedPrescriptions.map((presc) => {
                 const selected = selectedMedicines[presc._id];
-                const dispensedQuantity = selected.quantity;
-
-                console.log(`Updating prescription ${presc._id} with quantity: ${dispensedQuantity}`);
-
-                // Update the prescription with the dispensed quantity incrementally
-                return axios.patch(
-                    getApiUrl(`examinations/prescriptions/${presc._id}`),
-                    {
-                        dispensedQuantity: dispensedQuantity,
-                        isIncremental: true,
-                        gst: gst,
-                    },
-                    { headers: getAuthHeaders() }
-                ).then((response) => {
-                    console.log(`Prescription ${presc._id} updated successfully:`, response.data);
-                    return response;
-                }).catch((error) => {
-                    console.error(`Error updating prescription ${presc._id}:`, error);
-                    throw error;
-                });
+                return {
+                    prescriptionId: presc._id,
+                    dispensedQuantity: selected.quantity,
+                    gst,
+                };
             });
 
-            await Promise.all(updatePromises);
+            await axios.post(
+                getApiUrl("examinations/prescriptions/bulk-dispense"),
+                { updates },
+                { headers: getAuthHeaders() }
+            );
 
-            // Update medicine quantities - deduct dispensed quantities from stock
-            const medicineUpdatePromises = [];
-            for (const presc of selectedPrescriptions) {
-                const selected = selectedMedicines[presc._id];
-                const dispensedQuantityStr = selected.quantity;
-
-                // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
-                const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
-                const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
-
-                if (dispensedQuantity <= 0) {
-                    console.warn(`Invalid dispensed quantity for ${presc.medication}: ${dispensedQuantityStr}`);
-                    continue;
-                }
-
-                // Find the medicine using improved matching
-                const medicine = findMedicineInMap(presc.medication);
-
-                if (!medicine) {
-                    console.warn(`Medicine not found in collection: ${presc.medication}`);
-                    continue;
-                }
-
-                // Calculate new quantity
-                const currentQuantity = medicine.quantity || 0;
-
-                // Warn if insufficient stock
-                if (currentQuantity < dispensedQuantity) {
-                    toast.warning(
-                        `Insufficient stock for ${presc.medication}. Available: ${currentQuantity}, Dispensing: ${dispensedQuantity}. Stock will be set to 0.`
-                    );
-                }
-
-                const newQuantity = Math.max(0, currentQuantity - dispensedQuantity); // Ensure non-negative
-
-                // Update medicine quantity
-                medicineUpdatePromises.push(
-                    medicineService.updateMedicine(medicine._id, {
-                        quantity: newQuantity,
-                    }).catch((error) => {
-                        console.error(`Failed to update quantity for ${presc.medication}:`, error);
-                        toast.warning(`Failed to update stock for ${presc.medication}. Please update manually.`);
-                    })
-                );
-            }
-
-            // Wait for all medicine updates to complete
-            await Promise.all(medicineUpdatePromises);
-
-            toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully! Stock updated.`);
+            toast.success(`${selectedPrescriptions.length} medicine(s) dispensed successfully!`);
 
             // Refresh the data
             const response = await prescriptionService.getPrescriptionsByExamination(id);
