@@ -99,27 +99,26 @@ export const handleDownload = async (id) => {
     }
 
     const amountInWords = `Rupees ${numberToWords(grandTotal)} Only`;
+    const diagnosis = (data.diagnosis || "").trim();
+    const paidNum = Number(data.padeamount || 0);
+    const balanceDueNum =
+      data.balanceDue != null && data.balanceDue !== ""
+        ? Number(data.balanceDue)
+        : Math.max(0, Math.round((grandTotal - paidNum) * 100) / 100);
 
-    // ────────────────────────────────────────────────
-    // Prepare medicine rows
-    // ────────────────────────────────────────────────
-    const items = data.medicines || [];
-    const medicinesRows = items.map((m, i) => {
-      const qty = Number(m.quantity || 1);
-      const rate = Number(m.price || 0);
-      const total = qty * rate;
-      return `
-        <tr>
-          <td style="text-align:center; border:1px solid #000; padding:5px; font-size:11px;">${i + 1}</td>
-          <td style="border:1px solid #000; padding:5px; font-size:11px;">${m.medicineName || ""}${m.subType ? ` (${m.subType})` : ""}</td>
-          <td style="text-align:center; border:1px solid #000; padding:5px; font-size:11px;">${qty}</td>
-          <td style="text-align:right; border:1px solid #000; padding:5px; font-size:11px;">${rate.toFixed(2)}</td>
-          <td style="text-align:right; border:1px solid #000; padding:5px; font-size:11px;">${total.toFixed(2)}</td>
-        </tr>
-      `;
-    }).join("");
+    let paymentStatusLabel = data.paymentStatus || "Unpaid";
+    if (grandTotal > 0 && balanceDueNum > 0 && paidNum > 0) paymentStatusLabel = "Partially Paid";
+    else if (grandTotal > 0 && balanceDueNum <= 0) paymentStatusLabel = "Paid";
+    else if (paidNum <= 0) paymentStatusLabel = "Unpaid";
 
-    const totalQty = items.reduce((sum, m) => sum + Number(m.quantity || 1), 0);
+    const statusBadgeBg =
+      paymentStatusLabel === "Paid"
+        ? "#2e7d32"
+        : paymentStatusLabel === "Partially Paid"
+          ? "#0277bd"
+          : "#ed6c02";
+
+    const payments = Array.isArray(data.payments) ? data.payments : [];
 
     // Escape HTML function for safety
     const escapeHtml = (text) => {
@@ -129,6 +128,42 @@ export const handleDownload = async (id) => {
       return div.innerHTML;
     };
 
+    // ────────────────────────────────────────────────
+    // Prepare medicine rows
+    // ────────────────────────────────────────────────
+    const items = data.medicines || [];
+    const medicinesRows = items.map((m, i) => {
+      const qty = Number(m.quantity || 1);
+      const rate = Number(m.price || m.rate || 0);
+      const total = qty * rate;
+      return `
+        <tr>
+          <td style="text-align:center; border:1px solid #000; padding:5px; font-size:11px;">${i + 1}</td>
+          <td style="border:1px solid #000; padding:5px; font-size:11px;">${escapeHtml(m.medicineName || m.itemName || "")}${m.subType ? ` (${escapeHtml(m.subType)})` : ""}</td>
+          <td style="text-align:center; border:1px solid #000; padding:5px; font-size:11px;">${qty}</td>
+          <td style="text-align:right; border:1px solid #000; padding:5px; font-size:11px;">${rate.toFixed(2)}</td>
+          <td style="text-align:right; border:1px solid #000; padding:5px; font-size:11px;">${total.toFixed(2)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const totalQty = items.reduce((sum, m) => sum + Number(m.quantity || 1), 0);
+    const paymentHistoryRows =
+      payments.length > 0
+        ? payments
+            .map(
+              (p, i) => `
+        <tr>
+          <td style="border:1px solid #b2dfdb; padding:6px 5px; text-align:center;">${i + 1}</td>
+          <td style="border:1px solid #b2dfdb; padding:6px 5px; text-align:right; font-weight:600;">₹${Number(p.amount || 0).toFixed(2)}</td>
+          <td style="border:1px solid #b2dfdb; padding:6px 5px;">${escapeHtml(String(p.method || "—"))}</td>
+          <td style="border:1px solid #b2dfdb; padding:6px 5px; color:#555; font-size:9px;">${escapeHtml(String(p.paidAt || "—"))}</td>
+          <td style="border:1px solid #b2dfdb; padding:6px 5px; color:#555; font-size:9px; word-break:break-all;">${escapeHtml(String(p.reference || "—"))}</td>
+        </tr>
+      `
+            )
+            .join("")
+        : `<tr><td colspan="5" style="text-align:center; padding:12px; color:#777; border:1px dashed #b2dfdb;">No payment entries recorded</td></tr>`;
     // ── Helper: render an HTML string to a canvas ──
     const renderToCanvas = async (html, width = 794) => {
       const el = document.createElement("div");
@@ -169,8 +204,9 @@ export const handleDownload = async (id) => {
               <tr><td style="font-weight:bold; width:110px;">Patient Name</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
               <tr><td style="font-weight:bold;">Age / Gender</td><td>:</td><td>${patient.age ? patient.age + ' / ' : ''}${patient.gender}</td></tr>
               <tr><td style="font-weight:bold;">Mobile</td><td>:</td><td>${escapeHtml(patient.mobile)}</td></tr>
-               <tr><td  style="font-weight:bold; "class="label">Generated By</td><td>:</td><td>${receptionistName}</td></tr>
+               <tr><td style="font-weight:bold;">Generated By</td><td>:</td><td>${escapeHtml(receptionistName || "")}</td></tr>
             </table>
+            ${diagnosis ? `<div style="margin-top:8px;padding:8px 12px;background:#fff8e1;border:1px solid #e0c080;border-radius:4px;font-size:11px;line-height:1.4;"><strong style="color:#5d4037;">Notes / diagnosis</strong><br/>${escapeHtml(diagnosis)}</div>` : ""}
           </div>
           <div style="width:35%; background:#f9f5f0; padding:12px;">
             <div style="text-align:center; font-weight:bold; font-size:17px; margin-bottom:10px; border-bottom:1px solid #000; padding-bottom:6px;">
@@ -220,6 +256,44 @@ export const handleDownload = async (id) => {
             </tr>
           </tbody>
         </table>
+
+        <div style="margin:10px 0 4px;padding:8px 10px;background:#fafafa;border:1px dashed #bbb;font-size:11px;font-style:italic;color:#333;">
+          <strong>Amount in words:</strong> ${escapeHtml(amountInWords)}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;align-items:start;">
+          <div style="border:1px solid #1a237e;border-radius:6px;overflow:hidden;background:#fff;">
+            <div style="background:linear-gradient(90deg,#00695c 0%,#00897b 100%);color:#fff;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;">Payment history</div>
+            <div style="padding:10px;">
+              <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:6px;">
+                <thead>
+                  <tr>
+                    <th style="background:#e0f2f1;border:1px solid #00897b;padding:5px 4px;">Srl</th>
+                    <th style="background:#e0f2f1;border:1px solid #00897b;padding:5px 4px;">Amount (₹)</th>
+                    <th style="background:#e0f2f1;border:1px solid #00897b;padding:5px 4px;">Method</th>
+                    <th style="background:#e0f2f1;border:1px solid #00897b;padding:5px 4px;">Date / time</th>
+                    <th style="background:#e0f2f1;border:1px solid #00897b;padding:5px 4px;">Reference</th>
+                  </tr>
+                </thead>
+                <tbody>${paymentHistoryRows}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="border:1px solid #1a237e;border-radius:6px;overflow:hidden;background:#fff;">
+            <div style="background:linear-gradient(90deg,#283593 0%,#3949ab 100%);color:#fff;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;">Billing summary</div>
+            <div style="padding:10px;">
+              <div style="text-align:right;margin-bottom:10px;">
+                <span style="display:inline-block;color:#fff;font-weight:700;font-size:10px;padding:3px 10px;border-radius:999px;letter-spacing:.03em;background:${statusBadgeBg};">${escapeHtml(paymentStatusLabel)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #eee;font-size:11px;"><span style="color:#555;">Cost (without GST)</span><span style="font-weight:600;white-space:nowrap;">₹${subtotalStr}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #eee;font-size:11px;"><span style="color:#555;">GST (${gstRateText || "—"})</span><span style="font-weight:600;white-space:nowrap;">₹${gstAmountStr}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0 5px;margin-top:4px;border-top:2px solid #283593;font-size:12px;"><span style="font-weight:700;">Total (with GST)</span><span style="font-weight:700;color:#1565c0;white-space:nowrap;">₹${grandTotalStr}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:11px;"><span style="color:#555;">Total paid</span><span style="font-weight:600;color:#2e7d32;white-space:nowrap;">₹${paidNum.toFixed(2)}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:11px;"><span style="color:#555;">Balance due</span><span style="font-weight:600;color:#c62828;white-space:nowrap;">₹${balanceDueNum.toFixed(2)}</span></div>
+            </div>
+          </div>
+        </div>
       </div>
     `;
 

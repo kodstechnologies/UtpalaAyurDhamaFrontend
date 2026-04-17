@@ -177,9 +177,11 @@ function List_View_Details() {
         }
 
         setIsSavingPayment(true);
+        const newPaidTotal = selectedRecord.paid + Number(paymentDetails.amount);
         const payload = {
             paymentAmount: Number(paymentDetails.amount),
             paymentMethod: paymentDetails.method,
+            paymentStatus: derivePaymentStatusFromAmounts(selectedRecord.total, newPaidTotal),
         };
 
         if (paymentDetails.method !== "Cash") {

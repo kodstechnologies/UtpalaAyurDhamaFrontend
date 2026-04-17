@@ -66,6 +66,18 @@ import { getApiUrl, getAuthHeaders } from "../../../../config/api";
 import { handlePrint } from "../components/PrescriptionGenerator";
 import { handleDownload } from "../components/PrescriptionDownload";
 
+/** Matches PharmaciesPrescription enum; used as pharmacy-payment body.paymentStatus. */
+function derivePaymentStatusForPayload(totalAmountWithGst, padeamountAfterPayment) {
+    const totalCents = Math.round((Number(totalAmountWithGst) || 0) * 100);
+    const paidCents = Math.round((Number(padeamountAfterPayment) || 0) * 100);
+    if (totalCents <= 0) {
+        return paidCents > 0 ? "Paid" : "Unpaid";
+    }
+    if (paidCents >= totalCents) return "Paid";
+    if (paidCents > 0) return "Partially Paid";
+    return "Unpaid";
+}
+
 function ListPrescriptions() {
     const { id } = useParams(); // examinationId
     const [searchParams] = useSearchParams();
@@ -669,6 +681,7 @@ function ListPrescriptions() {
         const payload = {
             paymentAmount,
             paymentMethod: paymentDetails.method,
+            paymentStatus: derivePaymentStatusForPayload(totalAmount, paidAmount + paymentAmount),
         };
 
         if (paymentDetails.method !== "Cash") {
@@ -1266,91 +1279,206 @@ function ListPrescriptions() {
                                 </Table>
                             </TableContainer>
 
-                            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3, mb: 1 }}>
+                            <Box sx={{ display: "flex", justifyContent: "flex-end", width: "100%", mt: 3, mb: 1 }}>
                                 {(() => {
                                     const totals = calculateTotalWithGST();
+                                    const hasHistory = paymentHistory.length > 0;
                                     return (
-                                        <Card variant="outlined" sx={{ minWidth: 300, backgroundColor: alpha(theme.palette.primary.main, 0.02), border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`, borderRadius: 2 }}>
+                                        <Card
+                                            variant="outlined"
+                                            sx={{
+                                                width: { xs: "100%", sm: hasHistory ? 640 : 380 },
+                                                maxWidth: "100%",
+                                                minWidth: 0,
+                                                backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                                                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                                                borderRadius: 2,
+                                            }}
+                                        >
                                             <CardContent sx={{ pb: "16px !important", p: 2 }}>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                                                    <Typography variant="subtitle2" color="text.primary" sx={{ fontWeight: 600 }}>
-                                                        Billing Summary
-                                                    </Typography>
-                                                    <Chip
-                                                        label={paymentStatus}
-                                                        size="small"
-                                                        color={
-                                                            paymentStatus === "Paid" ? "success" :
-                                                                paymentStatus === "Partially Paid" ? "info" : "warning"
-                                                        }
-                                                        sx={{ fontWeight: 600, fontSize: '0.75rem', height: '24px' }}
-                                                    />
-                                                </Box>
-
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                                    <Typography variant="body2" color="text.secondary">Cost (without GST):</Typography>
-                                                    <Typography variant="body2" fontWeight={500}>₹{totals.subtotal}</Typography>
-                                                </Box>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                                    <Typography variant="body2" color="text.secondary">GST ({totals.gstPercentage}%):</Typography>
-                                                    <Typography variant="body2" fontWeight={500}>₹{totals.gstAmount}</Typography>
-                                                </Box>
-                                                <Box sx={{ borderBottom: 1, borderColor: 'divider', my: 1.5 }} />
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Typography variant="subtitle1" fontWeight={600} color="text.primary">Total (with GST):</Typography>
-                                                    <Typography variant="subtitle1" fontWeight={700} color="primary.main">₹{totals.total}</Typography>
-                                                </Box>
-                                                {padeamount > 0 && (
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                                                        <Typography variant="body2" color="success.main" fontWeight={500}>Total Paid:</Typography>
-                                                        <Typography variant="body2" color="success.main" fontWeight={600}>₹{paidAmount.toFixed(2)}</Typography>
-                                                    </Box>
-                                                )}
-                                                {balanceDue > 0 && (
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                                                        <Typography variant="body2" color="error.main" fontWeight={500}>Balance Due:</Typography>
-                                                        <Typography variant="body2" color="error.main" fontWeight={600}>₹{balanceDue.toFixed(2)}</Typography>
-                                                    </Box>
-                                                )}
-
-
-                                                {paymentHistory.length > 0 && (
-                                                    <Box sx={{ mt: 2, pt: 2, borderTop: `1px dashed ${theme.palette.divider}` }}>
-                                                        <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 1, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                            Payment History
+                                                {!hasHistory && (
+                                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                                                        <Typography variant="subtitle2" color="text.primary" sx={{ fontWeight: 600 }}>
+                                                            Billing Summary
                                                         </Typography>
-                                                        <Stack spacing={1}>
-                                                            {paymentHistory.map((payment, index) => (
-                                                                <Box key={index} sx={{ p: 1, borderRadius: 1.5, backgroundColor: alpha(theme.palette.background.default, 0.8), border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                                                                        <Typography variant="caption" sx={{ fontWeight: 600 }}>₹{payment.amount}</Typography>
-                                                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '10px' }}>
-                                                                            {new Date(payment.paidAt).toLocaleDateString()} {new Date(payment.paidAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                                                        <Chip
-                                                                            label={payment.method}
-                                                                            size="small"
-                                                                            variant="outlined"
-                                                                            sx={{ height: '18px', fontSize: '9px', fontWeight: 500 }}
-                                                                        />
-                                                                        {(payment.transactionId || payment.cardDigits) && (
-                                                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '9px' }}>
-                                                                                {payment.method === "Card" ? `Card ending in ${payment.cardDigits || 'XXXX'}` : payment.transactionId}
-                                                                            </Typography>
-                                                                        )}
-                                                                    </Box>
-                                                                </Box>
-                                                            ))}
-                                                        </Stack>
+                                                        <Chip
+                                                            label={paymentStatus}
+                                                            size="small"
+                                                            color={
+                                                                paymentStatus === "Paid"
+                                                                    ? "success"
+                                                                    : paymentStatus === "Partially Paid"
+                                                                        ? "info"
+                                                                        : "warning"
+                                                            }
+                                                            sx={{ fontWeight: 600, fontSize: "0.75rem", height: "24px" }}
+                                                        />
                                                     </Box>
                                                 )}
 
+                                                <Box
+                                                    sx={{
+                                                        display: "flex",
+                                                        flexDirection: { xs: "column", sm: "row" },
+                                                        justifyContent: { sm: "space-between" },
+                                                        alignItems: { xs: "stretch", sm: "flex-start" },
+                                                        gap: { xs: 2, sm: 0 },
+                                                    }}
+                                                >
+                                                    {hasHistory && (
+                                                        <Box
+                                                            sx={{
+                                                                order: 1,
+                                                                alignSelf: { xs: "flex-start", sm: "stretch" },
+                                                                textAlign: "left",
+                                                                flex: { sm: "1 1 0" },
+                                                                minWidth: 0,
+                                                                width: { xs: "100%", sm: "auto" },
+                                                                pr: { sm: 2 },
+                                                                borderRight: { sm: `1px dashed ${theme.palette.divider}` },
+                                                                borderBottom: { xs: `1px dashed ${theme.palette.divider}`, sm: "none" },
+                                                                pb: { xs: 2, sm: 0 },
+                                                            }}
+                                                        >
+                                                            <Typography
+                                                                variant="caption"
+                                                                color="text.secondary"
+                                                                fontWeight={600}
+                                                                display="block"
+                                                                sx={{ mb: 1, textTransform: "uppercase", letterSpacing: "0.5px" }}
+                                                            >
+                                                                Payment History
+                                                            </Typography>
+                                                            <Stack spacing={1}>
+                                                                {paymentHistory.map((payment, index) => (
+                                                                    <Box
+                                                                        key={index}
+                                                                        sx={{
+                                                                            p: 1,
+                                                                            borderRadius: 1.5,
+                                                                            backgroundColor: alpha(theme.palette.background.default, 0.8),
+                                                                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                                                                        }}
+                                                                    >
+                                                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
+                                                                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                                                                ₹{payment.amount}
+                                                                            </Typography>
+                                                                            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "10px" }}>
+                                                                                {new Date(payment.paidAt).toLocaleDateString()}{" "}
+                                                                                {new Date(payment.paidAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                                                            </Typography>
+                                                                        </Box>
+                                                                        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+                                                                            <Chip
+                                                                                label={payment.method}
+                                                                                size="small"
+                                                                                variant="outlined"
+                                                                                sx={{ height: "18px", fontSize: "9px", fontWeight: 500 }}
+                                                                            />
+                                                                            {(payment.transactionId || payment.cardDigits) && (
+                                                                                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "9px" }}>
+                                                                                    {payment.method === "Card"
+                                                                                        ? `Card ending in ${payment.cardDigits || "XXXX"}`
+                                                                                        : payment.transactionId}
+                                                                                </Typography>
+                                                                            )}
+                                                                        </Box>
+                                                                    </Box>
+                                                                ))}
+                                                            </Stack>
+                                                        </Box>
+                                                    )}
+
+                                                    <Box
+                                                        sx={{
+                                                            order: 2,
+                                                            alignSelf: hasHistory ? { xs: "flex-end", sm: "stretch" } : "stretch",
+                                                            textAlign: "right",
+                                                            flex: hasHistory ? { sm: "0 0 auto" } : undefined,
+                                                            minWidth: hasHistory ? { xs: 260, sm: 260 } : 0,
+                                                            maxWidth: hasHistory ? { xs: "100%", sm: 360 } : "100%",
+                                                            width: hasHistory ? { xs: "auto", sm: "auto" } : "100%",
+                                                            pl: { sm: hasHistory ? 2 : 0 },
+                                                        }}
+                                                    >
+                                                        {hasHistory && (
+                                                            <Box
+                                                                sx={{
+                                                                    display: "flex",
+                                                                    justifyContent: "space-between",
+                                                                    alignItems: "center",
+                                                                    mb: 1.5,
+                                                                    gap: 1,
+                                                                }}
+                                                            >
+                                                                <Typography variant="subtitle2" color="text.primary" sx={{ fontWeight: 600, textAlign: "left" }}>
+                                                                    Billing Summary
+                                                                </Typography>
+                                                                <Chip
+                                                                    label={paymentStatus}
+                                                                    size="small"
+                                                                    color={
+                                                                        paymentStatus === "Paid"
+                                                                            ? "success"
+                                                                            : paymentStatus === "Partially Paid"
+                                                                                ? "info"
+                                                                                : "warning"
+                                                                    }
+                                                                    sx={{ fontWeight: 600, fontSize: "0.75rem", height: "24px", flexShrink: 0 }}
+                                                                />
+                                                            </Box>
+                                                        )}
+                                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mb: 1 }}>
+                                                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "left" }}>
+                                                                Cost (without GST):
+                                                            </Typography>
+                                                            <Typography variant="body2" fontWeight={500} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                                ₹{totals.subtotal}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mb: 1 }}>
+                                                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "left" }}>
+                                                                GST ({totals.gstPercentage}%):
+                                                            </Typography>
+                                                            <Typography variant="body2" fontWeight={500} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                                ₹{totals.gstAmount}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Box sx={{ borderBottom: 1, borderColor: "divider", my: 1.5 }} />
+                                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "center" }}>
+                                                            <Typography variant="subtitle1" fontWeight={600} color="text.primary" sx={{ textAlign: "left" }}>
+                                                                Total (with GST):
+                                                            </Typography>
+                                                            <Typography variant="subtitle1" fontWeight={700} color="primary.main" sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                                ₹{totals.total}
+                                                            </Typography>
+                                                        </Box>
+                                                        {padeamount > 0 && (
+                                                            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mt: 1 }}>
+                                                                <Typography variant="body2" color="success.main" fontWeight={500} sx={{ textAlign: "left" }}>
+                                                                    Total Paid:
+                                                                </Typography>
+                                                                <Typography variant="body2" color="success.main" fontWeight={600} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                                    ₹{paidAmount.toFixed(2)}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+                                                        {balanceDue > 0 && (
+                                                            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mt: 0.5 }}>
+                                                                <Typography variant="body2" color="error.main" fontWeight={500} sx={{ textAlign: "left" }}>
+                                                                    Balance Due:
+                                                                </Typography>
+                                                                <Typography variant="body2" color="error.main" fontWeight={600} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                                    ₹{balanceDue.toFixed(2)}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+                                                    </Box>
+                                                </Box>
                                             </CardContent>
                                         </Card>
                                     );
-
                                 })()}
                             </Box>
 
