@@ -421,6 +421,15 @@ function ListPrescriptions() {
     const totalAmount = Number(billingSummary.total) > 0 ? Number(billingSummary.total) : (Number(localTotals.total) || 0);
     const paidAmount = Number(padeamount) || 0;
     const balanceDue = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
+    const billingSnapshot = {
+        subtotal: Number(localTotals.subtotal) || 0,
+        gst: Number(localTotals.gstPercentage) || 0,
+        gstAmount: Number(localTotals.gstAmount) || 0,
+        totalWithGst: totalAmount,
+        totalPaid: paidAmount,
+        balanceDue,
+        paymentStatus,
+    };
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -762,7 +771,7 @@ function ListPrescriptions() {
                             <Button
                                 variant="outlined"
                                 startIcon={<Print />}
-                                onClick={() => handlePrint(id)}
+                                onClick={() => handlePrint(id, billingSnapshot)}
                                 sx={{ borderColor: alpha(theme.palette.divider, 0.5) }}
                             >
                                 Print
@@ -770,7 +779,7 @@ function ListPrescriptions() {
                             <Button
                                 variant="outlined"
                                 startIcon={<Download />}
-                                onClick={() => handleDownload(id)}
+                                onClick={() => handleDownload(id, billingSnapshot)}
                                 sx={{ borderColor: alpha(theme.palette.divider, 0.5) }}
                             >
                                 Download

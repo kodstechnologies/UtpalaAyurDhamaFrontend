@@ -41,7 +41,7 @@ const numberToWords = (num) => {
   return str.trim() || "Zero";
 };
 
-export const handleDownload = async (id) => {
+export const handleDownload = async (id, billingSnapshot = {}) => {
   const receptionist = JSON.parse(localStorage.getItem("user"));
   const receptionistName = receptionist?.name;
 
@@ -77,10 +77,10 @@ export const handleDownload = async (id) => {
     // ────────────────────────────────────────────────
     // Financials — using ACTUAL fields from your API
     // ────────────────────────────────────────────────
-    const subtotal = Number(data.subtotal || 0);
-    const gstRate = Number(data.gst || 0);           // e.g. 5
-    const gstAmount = Number(data.gstAmount || 0);     // e.g. 90
-    const grandTotal = Number(data.totalWithGst || 0);  // e.g. 1890
+    const subtotal = Number(billingSnapshot.subtotal ?? data.subtotal ?? 0);
+    const gstRate = Number(billingSnapshot.gst ?? data.gst ?? 0);
+    const gstAmount = Number(billingSnapshot.gstAmount ?? data.gstAmount ?? 0);
+    const grandTotal = Number(billingSnapshot.totalWithGst ?? data.totalWithGst ?? 0);
 
     const subtotalStr = subtotal.toFixed(2);
     const gstAmountStr = gstAmount.toFixed(2);
@@ -100,21 +100,41 @@ export const handleDownload = async (id) => {
 
     const amountInWords = `Rupees ${numberToWords(grandTotal)} Only`;
     const diagnosis = (data.diagnosis || "").trim();
-    const paidNum = Number(data.padeamount || 0);
+    const payments = Array.isArray(data.payments) ? data.payments : [];
+    const sumOfPayments = payments.reduce((sum, p) => sum + Number(p?.amount || 0), 0);
+    const pickAmount = (...values) => {
+      for (const value of values) {
+        if (value === null || value === undefined || value === "") continue;
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return 0;
+    };
+    const paidNum = pickAmount(
+      billingSnapshot.totalPaid,
+      billingSnapshot.paidAmount,
+      billingSnapshot.amountPaid,
+      billingSnapshot.padeamount,
+      data.totalPaid,
+      data.paidAmount,
+      data.amountPaid,
+      data.padeamount,
+      sumOfPayments
+    );
     const balanceDueNum =
-      data.balanceDue != null && data.balanceDue !== ""
-        ? Number(data.balanceDue)
+      billingSnapshot.balanceDue != null && billingSnapshot.balanceDue !== ""
+        ? pickAmount(billingSnapshot.balanceDue)
+        : data.balanceDue != null && data.balanceDue !== ""
+        ? pickAmount(data.balanceDue)
         : Math.max(0, Math.round((grandTotal - paidNum) * 100) / 100);
 
-    let paymentStatusLabel = data.paymentStatus || "Unpaid";
+    let paymentStatusLabel = billingSnapshot.paymentStatus || data.paymentStatus || "Unpaid";
     if (grandTotal > 0 && balanceDueNum > 0 && paidNum > 0) paymentStatusLabel = "Partially Paid";
     else if (grandTotal > 0 && balanceDueNum <= 0) paymentStatusLabel = "Paid";
     else if (paidNum <= 0) paymentStatusLabel = "Unpaid";
 
     const statusColor = paymentStatusLabel === "Paid" ? "#2e7d32" : paymentStatusLabel === "Partially Paid" ? "#000000" : "#000000";
     const bgColor = paymentStatusLabel === "Paid" ? "#ffffff" : paymentStatusLabel === "Partially Paid" ? "#8686868a" : "#8686868a";
-
-    const payments = Array.isArray(data.payments) ? data.payments : [];
 
     // Escape HTML function for safety
     const escapeHtml = (text) => {
@@ -196,7 +216,7 @@ export const handleDownload = async (id) => {
         <!-- Patient + Invoice Info -->
         <div style="display:flex; border:1px solid #000; margin:10px 0; font-size:13px;">
           <div style="width:65%; background:#f9f5f0; padding:12px; border-right:1px solid #000;">
-            <table style="width:100%;">
+            <table style="width:100%; margin-top:30px;">
               <tr><td style="font-weight:bold; width:110px;">Patient Name</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
               <tr><td style="font-weight:bold;">Age / Gender</td><td>:</td><td>${patient.age ? patient.age + ' / ' : ''}${patient.gender}</td></tr>
               <tr><td style="font-weight:bold;">Mobile</td><td>:</td><td>${escapeHtml(patient.mobile)}</td></tr>
@@ -208,11 +228,16 @@ export const handleDownload = async (id) => {
               PRESCRIPTION
             </div>
             <table style="width:100%;">
-              <tr><td style="font-weight:bold; width:70px;">No:</td><td>${escapeHtml(invoice.no)}</td></tr>
-              <tr><td style="font-weight:bold;">Date /Time:</td><td>${invoice.date} @ ${invoice.time}</td></tr>
-             
-              <tr><td style="font-weight:bold;">Doctor:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
+              <tr><td style="font-weight:bold; width:70px;">No</td><td style="width:10px;">:</td><td>${escapeHtml(invoice.no)}</td></tr>
+              <tr><td style="font-weight:bold;">Date / Time</td><td>:</td><td style="white-space:nowrap;">${invoice.date} @ ${invoice.time}</td></tr>
+              <tr><td style="font-weight:bold;">Doctor</td><td>:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
             </table>
+            <div style="margin-top:8px; margin-bottom:10px; font-size:11px;">
+              <span style="font-weight:bold;">Payment Status:</span>
+              <span style="margin-left:6px color:${statusColor};  font-size:14px; font-weight:900; border-radius:4px; display:inline-block; padding:2px 8px;">
+                ${escapeHtml(paymentStatusLabel)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -235,7 +260,7 @@ export const handleDownload = async (id) => {
           </tbody>
         </table>
 
-        <div style="display:flex; margin-top:15px; padding-top:10px;">
+        <div style="display:flex; margin-top:15px; padding-top:10px; margin-bottom:10px;">
           <div style="width:55%; padding-right:15px;">
             <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
             <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
@@ -266,17 +291,17 @@ export const handleDownload = async (id) => {
             <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">
               <span>TOTAL PAYABLE:</span><span>₹${grandTotalStr}</span>
             </div>
-            <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
-              <span>Amount Paid:</span><span>₹${paidNum.toFixed(2)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; color:${statusColor}; margin-top:6px;">
-              <span>Balance Due:</span><span>₹${balanceDueNum.toFixed(2)}</span>
-            </div>
-            <div style="margin-top:8px;">
-              <span style="background-color:${bgColor}; color:${statusColor}; font-weight:600; font-size:11px; border-radius:4px; display:inline-block; padding:2px 8px;">
-                ${escapeHtml(paymentStatusLabel.toUpperCase())}
-              </span>
-            </div>
+            ${paidNum > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
+                <span>Total Paid:</span><span>₹${paidNum.toFixed(2)}</span>
+              </div>
+            ` : ""}
+            ${balanceDueNum > 0 ? `
+              <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; color:${statusColor}; margin-top:6px;">
+                <span>Balance Due:</span><span>₹${balanceDueNum.toFixed(2)}</span>
+              </div>
+            ` : ""}
+          
           </div>
         </div>
       </div>

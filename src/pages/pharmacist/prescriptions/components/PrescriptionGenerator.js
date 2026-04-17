@@ -18,7 +18,7 @@ const numberToWords = (num) => {
   return num.toString();
 };
 
-export const handlePrint = async (id) => {
+export const handlePrint = async (id, billingSnapshot = {}) => {
   const receptionist = JSON.parse(localStorage.getItem("user"));
   const receptionistName = receptionist?.name;
 
@@ -60,12 +60,17 @@ export const handlePrint = async (id) => {
 
     const diagnosis = (data.diagnosis || "").trim();
 
-    // Financials
-    const subtotalNum = Number(data.subtotal || 0);
-    const gstRateNum = Number(data.gst || 0);
+    // Financials (match Listprescriptions.jsx calculation style)
+    const subtotalNum = Number(billingSnapshot.subtotal ?? data.subtotal ?? 0);
+    const gstRateNum = Number(billingSnapshot.gst ?? data.gst ?? 0);
+    const gstAmountNum = Number(billingSnapshot.gstAmount ?? data.gstAmount ?? 0);
+    const estimatedTotalNum = subtotalNum + gstAmountNum;
+    const totalWithGstNum =
+      Number(billingSnapshot.totalWithGst ?? data.totalWithGst ?? 0) > 0
+        ? Number(billingSnapshot.totalWithGst ?? data.totalWithGst)
+        : estimatedTotalNum;
     const subtotal = subtotalNum.toFixed(2);
-    const gstAmount = Number(data.gstAmount || 0).toFixed(2);
-    const totalWithGstNum = Number(data.totalWithGst || 0);
+    const gstAmount = gstAmountNum.toFixed(2);
     const totalWithGst = totalWithGstNum.toFixed(2);
 
     let gstRateText = "";
@@ -76,14 +81,35 @@ export const handlePrint = async (id) => {
     }
 
     const amountInWords = `Rupees ${numberToWords(Math.round(totalWithGstNum))} Only`;
-
-    const paidNum = Number(data.padeamount || 0);
+    const payments = Array.isArray(data.payments) ? data.payments : [];
+    const sumOfPayments = payments.reduce((sum, p) => sum + Number(p?.amount || 0), 0);
+    const pickAmount = (...values) => {
+      for (const value of values) {
+        if (value === null || value === undefined || value === "") continue;
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return 0;
+    };
+    const paidNum = pickAmount(
+      billingSnapshot.totalPaid,
+      billingSnapshot.paidAmount,
+      billingSnapshot.amountPaid,
+      billingSnapshot.padeamount,
+      data.totalPaid,
+      data.paidAmount,
+      data.amountPaid,
+      data.padeamount,
+      sumOfPayments
+    );
     const balanceDueNum =
-      data.balanceDue != null && data.balanceDue !== ""
-        ? Number(data.balanceDue)
+      billingSnapshot.balanceDue != null && billingSnapshot.balanceDue !== ""
+        ? pickAmount(billingSnapshot.balanceDue)
+        : data.balanceDue != null && data.balanceDue !== ""
+        ? pickAmount(data.balanceDue)
         : Math.max(0, Math.round((totalWithGstNum - paidNum) * 100) / 100);
 
-    let paymentStatusLabel = data.paymentStatus || "Unpaid";
+    let paymentStatusLabel = billingSnapshot.paymentStatus || data.paymentStatus || "Unpaid";
     if (totalWithGstNum > 0 && balanceDueNum > 0 && paidNum > 0) paymentStatusLabel = "Partially Paid";
     else if (totalWithGstNum > 0 && balanceDueNum <= 0) paymentStatusLabel = "Paid";
     else if (paidNum <= 0) paymentStatusLabel = "Unpaid";
@@ -91,7 +117,6 @@ export const handlePrint = async (id) => {
     const statusColor = paymentStatusLabel === "Paid" ? "#2e7d32" : paymentStatusLabel === "Partially Paid" ? "#000000" : "#000000";
     const bgColor = paymentStatusLabel === "Paid" ? "#ffffff" : paymentStatusLabel === "Partially Paid" ? "#8686868a" : "#8686868a";
 
-    const payments = Array.isArray(data.payments) ? data.payments : [];
     const paymentHistoryRows =
       payments.length > 0
         ? payments
@@ -337,10 +362,15 @@ export const handlePrint = async (id) => {
                     <div class="receipt-title">PRESCRIPTION</div>
                     <table class="info-table" style="margin-top:8px;">
                       <tr><td class="label">Invoice No.</td><td>:</td><td>${escapeHtml(String(invoice.no))}</td></tr>
-                      <tr><td class="label">Date/ Time:</td><td>${invoice.date} @ ${invoice.time}</td></tr>
-                      <tr><td class="label">:</td><td></td></tr>
-                      <tr><td class="label">Doctor:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
+                      <tr><td class="label">Date / Time</td><td>:</td><td style="white-space:nowrap;">${invoice.date} @ ${invoice.time}</td></tr>
+                      <tr><td class="label">Doctor</td><td>:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
                     </table>
+                    <div style="margin:8px 8px 0; font-size:11px;">
+                      <span style="font-weight:bold;">Payment Status:</span>
+                      <span style="margin-left:6px; background-color:${bgColor}; color:${statusColor}; font-weight:700; border-radius:4px; display:inline-block; padding:2px 8px;">
+                        ${escapeHtml(paymentStatusLabel)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -369,7 +399,7 @@ export const handlePrint = async (id) => {
                   </tbody>
                 </table>
 
-                <div style="display:flex; margin-top:15px; padding-top:10px;">
+                <div style="display:flex; margin-top:15px; padding-top:10px; margin-bottom:10px;">
                   <div style="width:55%; padding-right:15px;">
                     <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
                     <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
@@ -400,17 +430,17 @@ export const handlePrint = async (id) => {
                     <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">
                       <span>TOTAL PAYABLE:</span><span>₹${totalWithGst}</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
-                      <span>Amount Paid:</span><span>₹${paidNum.toFixed(2)}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; color:${statusColor}; margin-top:6px;">
-                      <span>Balance Due:</span><span>₹${balanceDueNum.toFixed(2)}</span>
-                    </div>
-                    <div style="margin-top:8px;">
-                      <span style="background-color:${bgColor}; color:${statusColor}; font-weight:600; font-size:11px; border-radius:4px; display:inline-block; padding:2px 8px;">
-                        ${escapeHtml(paymentStatusLabel.toUpperCase())}
-                      </span>
-                    </div>
+                    ${paidNum > 0 ? `
+                      <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
+                        <span>Total Paid:</span><span>₹${paidNum.toFixed(2)}</span>
+                      </div>
+                    ` : ""}
+                    ${balanceDueNum > 0 ? `
+                      <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; color:${statusColor}; margin-top:6px;">
+                        <span>Balance Due:</span><span>₹${balanceDueNum.toFixed(2)}</span>
+                      </div>
+                    ` : ""}
+                   
                   </div>
                 </div>
               </div>
