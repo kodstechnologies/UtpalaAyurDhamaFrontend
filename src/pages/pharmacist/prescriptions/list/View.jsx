@@ -216,29 +216,7 @@ function List_View_Details() {
         { field: "name", header: "Patient Name" },
         { field: "uhid", header: "UHID" },
         { field: "patientId", header: "Patient ID" },
-        {
-            field: "total",
-            header: "Total (₹)",
-            render: (row) => <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{row.total.toFixed(2)}</Typography>
-        },
-        {
-            field: "paid",
-            header: "Paid (₹)",
-            render: (row) => <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>₹{row.paid.toFixed(2)}</Typography>
-        },
-        {
-            field: "balance",
-            header: "Balance (₹)",
-            render: (row) => (
-                <Typography
-                    variant="body2"
-                    color={row.balance > 0 ? "error.main" : "success.main"}
-                    sx={{ fontWeight: 700 }}
-                >
-                    ₹{row.balance.toFixed(2)}
-                </Typography>
-            )
-        },
+      
         {
             field: "paymentStatus",
             header: "Payment Status",
@@ -284,13 +262,13 @@ function List_View_Details() {
                 navigate(`/pharmacist/prescriptions/list/${row._id}?patientId=${row.patientId}`);
             },
         },
-        {
-            label: "Record Payment",
-            icon: <PaymentIcon fontSize="small" />,
-            color: theme.palette.success.main,
-            disabled: (row) => row.balance <= 0,
-            onClick: (row) => handleOpenPayment(row),
-        },
+        // {
+        //     label: "Record Payment",
+        //     icon: <PaymentIcon fontSize="small" />,
+        //     color: theme.palette.success.main,
+        //     disabled: (row) => row.balance <= 0,
+        //     onClick: (row) => handleOpenPayment(row),
+        // },
     ];
 
     if (isLoading) {
@@ -450,6 +428,7 @@ function List_View_Details() {
                     >
                         {isSavingPayment ? "Saving..." : "Record Payment"}
                     </Button>
+                    0000
                 </DialogActions>
             </Dialog>
         </Box>
