@@ -102,7 +102,7 @@ function ListPrescriptions() {
     });
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
-    const calculateTotalWithGST = () => {
+    function calculateTotalWithGST() {
         let subtotal = 0;
 
         prescriptions.forEach((presc) => {
@@ -126,7 +126,7 @@ function ListPrescriptions() {
             totalWithoutGst: subtotal.toFixed(2),
             total: totalWithGst.toFixed(2),
         };
-    };
+    }
     // State for selected medicines and quantities
     const [selectedMedicines, setSelectedMedicines] = useState({}); // { prescriptionId: { selected: boolean, quantity: number } }
     // State for available medicines
@@ -243,11 +243,11 @@ function ListPrescriptions() {
     };
 
     // Normalize medicine name for comparison (handles case, spaces, special chars)
-    const normalizeMedicineName = (name) => {
+    function normalizeMedicineName(name) {
         if (!name) return "";
         // Convert to lowercase, trim, and remove extra spaces
         return name.toLowerCase().trim().replace(/\s+/g, " ");
-    };
+    }
 
     // Check if a medicine is available (handles case mismatch and spaces)
     const isMedicineAvailable = (medicineName) => {
@@ -282,7 +282,7 @@ function ListPrescriptions() {
     };
 
     // Find medicine in map (handles case mismatch and spaces)
-    const findMedicineInMap = (medicineName) => {
+    function findMedicineInMap(medicineName) {
         if (!medicineName) return null;
         const normalizedPrescribed = normalizeMedicineName(medicineName);
 
@@ -316,10 +316,10 @@ function ListPrescriptions() {
         }
 
         return null;
-    };
+    }
 
     // Calculate amount for a medicine based on dispense quantity and sell price
-    const calculateAmount = (medicineName, dispenseQty) => {
+    function calculateAmount(medicineName, dispenseQty) {
         if (!medicineName || !dispenseQty) return 0;
         const medicine = findMedicineInMap(medicineName);
         if (!medicine || !medicine.sellPrice) return 0;
@@ -335,7 +335,7 @@ function ListPrescriptions() {
         }
 
         return (medicine.sellPrice * qty).toFixed(2);
-    };
+    }
     const calculateRemainingDosage = (dosage, dispenseQty) => {
         if (!dosage || !dispenseQty) return dosage;
 
@@ -402,6 +402,13 @@ function ListPrescriptions() {
         (p) => Number(p.dispensedQuantity || 0) >= Number(p.quantity || 0)
     );
     const status = allDispensed ? "Dispensed" : "Pending";
+
+    // FALLBACK: If backend hasn't provided a total (e.g. before dispensing), 
+    // use the locally calculated estimated total.
+    const localTotals = calculateTotalWithGST();
+    const totalAmount = Number(billingSummary.total) > 0 ? Number(billingSummary.total) : (Number(localTotals.total) || 0);
+    const paidAmount = Number(padeamount) || 0;
+    const balanceDue = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -630,32 +637,53 @@ function ListPrescriptions() {
     };
 
     const handleRecordPayment = async () => {
-
-        if (!paymentDetails.amount || parseFloat(paymentDetails.amount) <= 0) {
+        const paymentAmount = Number(paymentDetails.amount);
+        if (!paymentDetails.amount || Number.isNaN(paymentAmount) || paymentAmount <= 0) {
             toast.error("Please enter a valid amount");
             return;
         }
-
-        const totalToPay = billingSummary.total || 0;
-        const balanceDue = Math.round((parseFloat(totalToPay) - padeamount) * 100) / 100;
-        if (parseFloat(paymentDetails.amount) > balanceDue) {
-
-
-
+        if (balanceDue <= 0) {
+            toast.info("This bill is already fully paid");
+            return;
+        }
+        if (paymentAmount > balanceDue) {
             toast.error(`Payment amount cannot exceed balance due (Max: ₹${balanceDue})`);
             return;
         }
 
+        if (paymentDetails.method === "Card") {
+            if (!paymentDetails.cardDigits || paymentDetails.cardDigits.length !== 4) {
+                toast.error("Please enter exactly 4 digits for the card number");
+                return;
+            }
+            if (!paymentDetails.transactionId) {
+                toast.error("Please enter a reference number or transaction ID");
+                return;
+            }
+        } else if (paymentDetails.method !== "Cash" && !paymentDetails.transactionId) {
+            toast.error("Please enter a transaction ID");
+            return;
+        }
+
         setIsSubmittingPayment(true);
+        const payload = {
+            paymentAmount,
+            paymentMethod: paymentDetails.method,
+        };
+
+        if (paymentDetails.method !== "Cash") {
+            if (paymentDetails.transactionId) {
+                payload.transactionId = paymentDetails.transactionId;
+            }
+            if (paymentDetails.method === "Card" && paymentDetails.cardDigits) {
+                payload.cardLastFourDigits = paymentDetails.cardDigits;
+            }
+        }
+
         try {
             const response = await axios.post(
                 getApiUrl(`invoices/pharmacy-payment/${id}`),
-                {
-                    paymentAmount: parseFloat(paymentDetails.amount),
-                    paymentMethod: paymentDetails.method,
-                    transactionId: paymentDetails.transactionId,
-                    cardLastFourDigits: paymentDetails.cardDigits,
-                },
+                payload,
                 { headers: getAuthHeaders() }
             );
 
@@ -762,11 +790,13 @@ function ListPrescriptions() {
                                 variant="contained"
                                 startIcon={<Payments />}
                                 onClick={() => {
-                                    const totalToPay = billingSummary.total || 0;
-                                    const balance = Math.round((parseFloat(totalToPay) - padeamount) * 100) / 100;
-                                    setPaymentDetails(prev => ({ ...prev, amount: balance > 0 ? balance.toString() : "" }));
+                                    setPaymentDetails(prev => ({
+                                        ...prev,
+                                        amount: balanceDue > 0 ? balanceDue.toFixed(2) : "",
+                                    }));
                                     setShowPaymentDialog(true);
                                 }}
+                                disabled={balanceDue <= 0}
 
                                 sx={{
                                     backgroundColor: theme.palette.primary.main,
@@ -1273,13 +1303,13 @@ function ListPrescriptions() {
                                                 {padeamount > 0 && (
                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                                                         <Typography variant="body2" color="success.main" fontWeight={500}>Total Paid:</Typography>
-                                                        <Typography variant="body2" color="success.main" fontWeight={600}>₹{padeamount}</Typography>
+                                                        <Typography variant="body2" color="success.main" fontWeight={600}>₹{paidAmount.toFixed(2)}</Typography>
                                                     </Box>
                                                 )}
-                                                {parseFloat(totals.total) - padeamount > 0 && (
+                                                {balanceDue > 0 && (
                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
                                                         <Typography variant="body2" color="error.main" fontWeight={500}>Balance Due:</Typography>
-                                                        <Typography variant="body2" color="error.main" fontWeight={600}>₹{(parseFloat(totals.total) - padeamount).toFixed(2)}</Typography>
+                                                        <Typography variant="body2" color="error.main" fontWeight={600}>₹{balanceDue.toFixed(2)}</Typography>
                                                     </Box>
                                                 )}
 
