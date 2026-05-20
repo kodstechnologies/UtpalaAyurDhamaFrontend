@@ -106,7 +106,7 @@ function View() {
     const handleDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this assignment?")) {
             try {
-                const response = await therapyService.deleteAssignment(id);
+                const response = await therapyService.deleteTherapyAssignment(id);
                 if (response.success) {
                     toast.success("Assignment deleted successfully");
                     fetchAssignments(); // Refresh the list

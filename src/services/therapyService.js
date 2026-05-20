@@ -194,6 +194,18 @@ const therapyService = {
         }
     },
 
+    // Alias for deleteTherapyAssignment (for backward compatibility)
+    deleteAssignment: async (id) => {
+        try {
+            const response = await axios.delete(getApiUrl(`therapies/assignments/${id}`), {
+                headers: getAuthHeaders(),
+            });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
+
     // Get treatment list for receptionist
     getTreatmentList: async (params = {}) => {
         try {
