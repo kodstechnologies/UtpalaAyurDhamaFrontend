@@ -75,15 +75,15 @@ export const sidebarMenus = {
                 { key: "therapy_assign", label: "Assignments", to: "/admin/treatment-assignments" },
             ],
         },
-        {
-            key: "consult",
-            label: "Consultation",
-            icon: <ReceiptLongIcon style={{ color: "var(--color-icons)" }} />,
-            children: [
-                { key: "slot", label: "Slot", to: "/admin/consultation/slot/view" },
-                { key: "fees", label: "Consultation", to: "/admin/consultation/view" },
-            ],
-        },
+        // {
+        //     key: "consult",
+        //     label: "Consultation",
+        //     icon: <ReceiptLongIcon style={{ color: "var(--color-icons)" }} />,
+        //     children: [
+        //         { key: "slot", label: "Slot", to: "/admin/consultation/slot/view" },
+        //         { key: "fees", label: "Consultation", to: "/admin/consultation/view" },
+        //     ],
+        // },
         {
             key: "inventory",
             label: "Inventory",
