@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
@@ -17,7 +17,6 @@ import {
   Divider,
   ToggleButton,
   ToggleButtonGroup,
-  Autocomplete,
   Paper,
   Checkbox,
   ListItemText,
@@ -25,7 +24,9 @@ import {
   Chip,
   IconButton,
   InputAdornment,
+  Grid,
 } from "@mui/material";
+import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import {
   User,
   Activity,
@@ -73,6 +74,38 @@ function WalkInHub() {
     };
   };
 
+  const isTherapyRowFilled = (therapy) => {
+    const name = therapy?.treatmentName;
+    if (!name) return false;
+    if (typeof name === "string") return name.trim().length > 0;
+    return Array.isArray(name) && name.length > 0;
+  };
+
+  const isTherapyRowTouched = (therapy) => {
+    if (!therapy) return false;
+    if (isTherapyRowFilled(therapy)) return true;
+    if (therapy.subTherapy?.trim()) return true;
+    if (therapy.daysOfTreatment !== "" && therapy.daysOfTreatment != null) return true;
+    if (therapy.duration?.toString().trim()) return true;
+    if (therapy.treatmentDescription?.trim()) return true;
+    if (therapy.specialInstructions?.trim()) return true;
+    if (Array.isArray(therapy.therapistId) && therapy.therapistId.length > 0) return true;
+    if (therapy.timeline && therapy.timeline !== "Daily") return true;
+    return false;
+  };
+
+  const validateTherapyRows = (therapies) => {
+    const errors = {};
+    therapies.forEach((therapy, index) => {
+      if (isTherapyRowTouched(therapy) && !isTherapyRowFilled(therapy)) {
+        errors[index] = {
+          treatmentName: "Select Therapy is required when other therapy fields are filled",
+        };
+      }
+    });
+    return errors;
+  };
+
   const [mode, setMode] = useState("OPD");
   const [formData, setFormData] = useState(getEmptyFormState());
 
@@ -87,11 +120,100 @@ function WalkInHub() {
   const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletedTherapyIds, setDeletedTherapyIds] = useState([]);
-
+  const [displayPatientName, setDisplayPatientName] = useState(patientName || "");
+  const [therapyErrors, setTherapyErrors] = useState({});
+  const [patientOptions, setPatientOptions] = useState([]);
+  const [isLoadingPatientOptions, setIsLoadingPatientOptions] = useState(false);
   const formatDateForInput = (date) => {
     if (!date) return new Date().toLocaleDateString("en-CA");
     const d = new Date(date);
     return d.toLocaleDateString("en-CA");
+  };
+
+  const mapReceptionPatientToOption = (p) => {
+    const profileId = p.patientProfile?._id || p.patientProfile;
+    if (!profileId) return null;
+    return {
+      patientProfileId: String(profileId),
+      patientName: p.patientName || "",
+      contactNumber: p.contactNumber || "",
+      doctorId: String(
+        p.patientProfile?.primaryDoctor?._id ||
+          p.patientProfile?.primaryDoctor ||
+          "",
+      ),
+      receptionPatientId: p._id,
+    };
+  };
+
+  const fetchPatientOptions = useCallback(async () => {
+    setIsLoadingPatientOptions(true);
+    try {
+      const res = await axios.get(getApiUrl("reception-patients"), {
+        headers: getAuthHeaders(),
+        params: { page: 1, limit: 10000 },
+      });
+      if (res.data.success) {
+        const seen = new Set();
+        const options = (res.data.data || [])
+          .map(mapReceptionPatientToOption)
+          .filter((opt) => {
+            if (!opt) return false;
+            if (seen.has(opt.patientProfileId)) return false;
+            seen.add(opt.patientProfileId);
+            return true;
+          })
+          .sort((a, b) =>
+            (a.patientName || "").localeCompare(b.patientName || "", undefined, {
+              sensitivity: "base",
+            }),
+          );
+        setPatientOptions(options);
+      }
+    } catch (error) {
+      console.error("Error fetching patients for selection:", error);
+      toast.error("Failed to load patient list");
+    } finally {
+      setIsLoadingPatientOptions(false);
+    }
+  }, []);
+
+  const filterPatientOptions = useMemo(
+    () =>
+      createFilterOptions({
+        stringify: (option) =>
+          `${option.patientName || ""} ${option.contactNumber || ""}`.toLowerCase(),
+        limit: 80,
+        matchFrom: "any",
+      }),
+    [],
+  );
+
+  const handlePatientSwitch = (option) => {
+    if (!option?.patientProfileId) return;
+    if (option.patientProfileId === patientProfileId) return;
+
+    const params = new URLSearchParams({
+      patientProfileId: option.patientProfileId,
+      patientName: option.patientName || "",
+      doctorId: option.doctorId || existingDoctorId || formData.doctorProfileId || "",
+    });
+    navigate(`/receptionist/walk-in-hub?${params.toString()}`, { replace: true });
+  };
+
+  const getCurrentPatientOption = () => {
+    const fromList = patientOptions.find(
+      (o) => o.patientProfileId === patientProfileId,
+    );
+    if (fromList) return fromList;
+    if (!patientProfileId) return null;
+    return {
+      patientProfileId,
+      patientName: displayPatientName || patientName || "",
+      contactNumber: "",
+      doctorId: existingDoctorId || formData.doctorProfileId || "",
+      receptionPatientId: "",
+    };
   };
 
   const fetchData = useCallback(async () => {
@@ -219,6 +341,11 @@ function WalkInHub() {
                 ? mappedTherapies
                 : [getEmptyTherapy(prev.appointmentDate)],
           }));
+        } else {
+          setFormData((prev) => ({
+            ...prev,
+            therapies: [getEmptyTherapy(prev.appointmentDate)],
+          }));
         }
       } catch (e) {
         console.error("[WalkInHub] Error loading therapies for mode:", e);
@@ -251,6 +378,8 @@ function WalkInHub() {
 
       if (patientRes.data.success && patientRes.data.data) {
         const patient = patientRes.data.data;
+
+        setDisplayPatientName(patient.user?.name || patientName || "");
 
         // Check active admission status first
         let hasActiveAdmission = false;
@@ -611,6 +740,17 @@ function WalkInHub() {
     }
   }, [patientProfileId, isLoadingData, loadExistingAssignments]);
 
+  useEffect(() => {
+    setDeletedTherapyIds([]);
+    setFormData(getEmptyFormState());
+    setDisplayPatientName(patientName || "");
+    setTherapyErrors({});
+  }, [patientProfileId, patientName]);
+
+  useEffect(() => {
+    fetchPatientOptions();
+  }, [fetchPatientOptions]);
+
   const handleModeChange = (event, newMode) => {
     if (newMode !== null) {
       setMode(newMode);
@@ -647,6 +787,16 @@ function WalkInHub() {
         ...updatedTherapies[index],
         [field]: value,
       };
+      const updatedRow = updatedTherapies[index];
+      setTherapyErrors((prevErrors) => {
+        if (!prevErrors[index]) return prevErrors;
+        if (isTherapyRowFilled(updatedRow) || !isTherapyRowTouched(updatedRow)) {
+          const next = { ...prevErrors };
+          delete next[index];
+          return next;
+        }
+        return prevErrors;
+      });
       return { ...prev, therapies: updatedTherapies };
     });
   };
@@ -666,6 +816,15 @@ function WalkInHub() {
           ids.includes(toRemove._id) ? ids : [...ids, toRemove._id],
         );
       }
+      setTherapyErrors((prevErrors) => {
+        const next = {};
+        Object.entries(prevErrors).forEach(([key, val]) => {
+          const i = Number(key);
+          if (i < index) next[i] = val;
+          if (i > index) next[i - 1] = val;
+        });
+        return next;
+      });
       return {
         ...prev,
         therapies: prev.therapies.filter((_, i) => i !== index),
@@ -681,6 +840,14 @@ function WalkInHub() {
       return;
     }
 
+    const therapyValidationErrors = validateTherapyRows(formData.therapies);
+    if (Object.keys(therapyValidationErrors).length > 0) {
+      setTherapyErrors(therapyValidationErrors);
+      toast.error("Please select Therapy for any row where you filled other fields");
+      return;
+    }
+    setTherapyErrors({});
+
     const payload = {
       mode,
       patientProfileId,
@@ -692,19 +859,9 @@ function WalkInHub() {
       isDaycare: mode === "OPD" ? formData.isDaycare : undefined,
       appointmentTime: formData.appointmentTime || undefined,
       appointmentDate: formData.appointmentDate,
-      // Filter out existing therapies (have _id) and empty ones to prevent duplication
-      therapies: formData.therapies.filter((t) => {
-        const hasId = !!t._id;
-        const hasName =
-          t.treatmentName &&
-          (typeof t.treatmentName === "string"
-            ? t.treatmentName.trim().length > 0
-            : Array.isArray(t.treatmentName) && t.treatmentName.length > 0);
-        return !hasId && hasName;
-      }),
-      // Persist changes for existing therapy rows (those with _id)
+      therapies: formData.therapies.filter((t) => !t._id && isTherapyRowFilled(t)),
       therapyUpdates: formData.therapies
-        .filter((t) => t._id)
+        .filter((t) => t._id && isTherapyRowFilled(t))
         .map((t) => ({
           planId: t._id,
           treatmentName: t.treatmentName,
@@ -737,7 +894,7 @@ function WalkInHub() {
     } catch (error) {
       console.error("Error submitting walk-in hub:", error);
       toast.error(
-        error.response?.data?.message || "Failed to submit walk-in record",
+        error.response?.data?.message || error.message || "Failed to submit walk-in record",
       );
     } finally {
       setIsSubmitting(false);
@@ -750,7 +907,7 @@ function WalkInHub() {
         title="Walk-in Patient Hub"
         subtitle={
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            {`Current Patient: ${patientName || "Loading..."}`}
+            {`Current Patient: ${displayPatientName || patientName || "Loading..."}`}
             {formData.isDaycare && (
               <Chip
                 label="Daycare"
@@ -797,7 +954,7 @@ function WalkInHub() {
               </Typography>
             </Box>
           )}
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             {/* Section 1: Admission Mode */}
             <Box sx={{ mb: 4, textAlign: "center" }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -853,7 +1010,7 @@ function WalkInHub() {
 
             <Divider sx={{ mb: 4 }} />
 
-            {/* Section 2: Patient Info (Read Only) */}
+            {/* Section 2: Patient Details (Editable) */}
             <Box sx={{ mb: 4 }}>
               <Box
                 sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
@@ -885,13 +1042,74 @@ function WalkInHub() {
                   </Box>
                 )}
               </Box>
-              <TextField
-                fullWidth
-                label="Patient Name"
-                value={patientName || "N/A"}
-                disabled
-                variant="outlined"
-              />
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    fullWidth
+                    openOnFocus
+                    selectOnFocus
+                    handleHomeEndKeys
+                    clearOnBlur={false}
+                    options={patientOptions}
+                    loading={isLoadingPatientOptions}
+                    value={getCurrentPatientOption()}
+                    getOptionLabel={(option) => option?.patientName || ""}
+                    isOptionEqualToValue={(option, value) =>
+                      option.patientProfileId === value?.patientProfileId
+                    }
+                    filterOptions={filterPatientOptions}
+                    noOptionsText={
+                      isLoadingPatientOptions
+                        ? "Loading patients..."
+                        : "No patient found"
+                    }
+                    onOpen={() => {
+                      if (patientOptions.length === 0) {
+                        fetchPatientOptions();
+                      }
+                    }}
+                    onChange={(_, newValue) => {
+                      if (newValue?.patientProfileId) {
+                        handlePatientSwitch(newValue);
+                      }
+                    }}
+                    renderOption={(props, option) => (
+                      <li {...props} key={option.patientProfileId}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {option.patientName}
+                          </Typography>
+                          {option.contactNumber ? (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {option.contactNumber}
+                            </Typography>
+                          ) : null}
+                        </Box>
+                      </li>
+                    )}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Patient Name"
+                        required
+                        placeholder="Type to search, then select patient..."
+                        variant="outlined"
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {isLoadingPatientOptions ? (
+                                <CircularProgress color="inherit" size={20} />
+                              ) : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+              </Grid>
             </Box>
 
             <Divider sx={{ mb: 4 }} />
@@ -1054,7 +1272,6 @@ function WalkInHub() {
                     position: "relative",
                   }}
                 >
-                  {/* Remove Button for index > 0 or if you want to allow removing the first one too */}
                   {formData.therapies.length > 1 && (
                     <Box
                       sx={{
@@ -1082,10 +1299,16 @@ function WalkInHub() {
                   >
                     {/* Row 1: Select Therapy and Sub Therapy */}
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                      <FormControl sx={{ flex: 2, minWidth: "300px" }}>
-                        <InputLabel>Select Therapy</InputLabel>
+                      <FormControl
+                        sx={{ flex: 2, minWidth: "300px" }}
+                        variant="outlined"
+                        required={isTherapyRowTouched(therapy)}
+                        error={!!therapyErrors[index]?.treatmentName}
+                      >
+                        <InputLabel shrink>Select Therapy</InputLabel>
                         <Select
-                          value={therapy.treatmentName}
+                          displayEmpty
+                          value={therapy.treatmentName || ""}
                           onChange={(e) =>
                             handleTherapyChange(
                               index,
@@ -1094,19 +1317,29 @@ function WalkInHub() {
                             )
                           }
                           label="Select Therapy"
+                          notched
                         >
+                          <MenuItem value="">
+                            <em style={{ color: "#999" }}>Optional</em>
+                          </MenuItem>
                           {therapiesList.map((t) => (
                             <MenuItem key={t._id} value={t.therapyName}>
                               <ListItemText primary={t.therapyName} />
                             </MenuItem>
                           ))}
                         </Select>
+                        {therapyErrors[index]?.treatmentName && (
+                          <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
+                            {therapyErrors[index].treatmentName}
+                          </Typography>
+                        )}
                       </FormControl>
 
-                      <FormControl sx={{ flex: 1, minWidth: "250px" }}>
-                        <InputLabel>Sub Therapy</InputLabel>
+                      <FormControl sx={{ flex: 1, minWidth: "250px" }} variant="outlined">
+                        <InputLabel shrink>Sub Therapy</InputLabel>
                         <Select
-                          value={therapy.subTherapy}
+                          displayEmpty
+                          value={therapy.subTherapy || ""}
                           onChange={(e) =>
                             handleTherapyChange(
                               index,
@@ -1115,8 +1348,11 @@ function WalkInHub() {
                             )
                           }
                           label="Sub Therapy"
+                          notched
                         >
-                          <MenuItem value="">— None —</MenuItem>
+                          <MenuItem value="">
+                            <em style={{ color: "#999" }}>Optional</em>
+                          </MenuItem>
                           {subTherapiesList.map((st) => (
                             <MenuItem key={st._id} value={st.name}>
                               {st.name}
@@ -1143,10 +1379,10 @@ function WalkInHub() {
                         inputProps={{ min: 0 }}
                       />
 
-                      <FormControl sx={{ flex: 1, minWidth: "150px" }}>
-                        <InputLabel>Timeline</InputLabel>
+                      <FormControl sx={{ flex: 1, minWidth: "150px" }} variant="outlined">
+                        <InputLabel shrink>Timeline</InputLabel>
                         <Select
-                          value={therapy.timeline}
+                          value={therapy.timeline || "Daily"}
                           onChange={(e) =>
                             handleTherapyChange(
                               index,
@@ -1155,6 +1391,7 @@ function WalkInHub() {
                             )
                           }
                           label="Timeline"
+                          notched
                         >
                           <MenuItem value="Daily">Daily</MenuItem>
                           <MenuItem value="AlternateDay">
@@ -1204,11 +1441,11 @@ function WalkInHub() {
 
                     {/* Row 4: Assign Therapist, Special Instructions, Start Date */}
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                      <FormControl sx={{ flex: 1, minWidth: "250px" }}>
-                        <InputLabel>Assign Therapist</InputLabel>
+                      <FormControl sx={{ flex: 1, minWidth: "250px" }} variant="outlined">
+                        <InputLabel shrink>Assign Therapist</InputLabel>
                         <Select
                           multiple
-                          value={therapy.therapistId}
+                          value={therapy.therapistId || []}
                           onChange={(e) =>
                             handleTherapyChange(
                               index,
@@ -1218,8 +1455,15 @@ function WalkInHub() {
                                 : e.target.value,
                             )
                           }
-                          input={<OutlinedInput label="Assign Therapist" />}
+                          label="Assign Therapist"
+                          notched
+                          input={<OutlinedInput label="Assign Therapist" notched />}
                           renderValue={(selected) => (
+                            selected.length === 0 ? (
+                              <Typography variant="body2" color="text.secondary">
+                                Optional
+                              </Typography>
+                            ) : (
                             <Box
                               sx={{
                                 display: "flex",
@@ -1242,16 +1486,16 @@ function WalkInHub() {
                                 );
                               })}
                             </Box>
+                            )
                           )}
                         >
                           {therapists.map((th) => {
                             const thId = th.user?._id || th._id;
+                            const selectedTherapists = therapy.therapistId || [];
                             return (
                               <MenuItem key={thId} value={thId}>
                                 <Checkbox
-                                  checked={
-                                    therapy.therapistId.indexOf(thId) > -1
-                                  }
+                                  checked={selectedTherapists.indexOf(thId) > -1}
                                 />
                                 <ListItemText
                                   primary={th.user?.name || "Therapist"}
