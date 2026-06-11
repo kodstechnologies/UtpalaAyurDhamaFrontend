@@ -5,7 +5,7 @@ import {
     Mail, Phone, Calendar, User, Stethoscope, FileBadge,
     BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
     ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
-    X, Save, AlertCircle, CheckCircle, Upload
+    X, Save, AlertCircle, Upload
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
 import InputDialogModal from "../../../../components/modal/InputDialogModal";
@@ -15,7 +15,6 @@ function Add_Pharmacists() {
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false);
     const [activeSection, setActiveSection] = useState("personal");
     const [languageModal, setLanguageModal] = useState(false);
     const [certificationModal, setCertificationModal] = useState(false);
@@ -132,34 +131,77 @@ function Add_Pharmacists() {
         }));
     };
 
+    const validatePhone = (phone) => {
+        if (!phone) return "Phone number is required";
+        const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+        const cleanPhone = phone.replace(/[\s-]/g, "");
+        if (!phoneRegex.test(cleanPhone)) {
+            return "Please enter a valid 10-digit mobile number";
+        }
+        return "";
+    };
+
+    const validateEmail = (email) => {
+        if (!email) return "";
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return "Please enter a valid email address";
+        }
+        return "";
+    };
+
     const handleSave = async () => {
-        // Basic validation
-        if (!pharmacist.name || !pharmacist.email || !pharmacist.specialization || !pharmacist.licenseNumber || !pharmacist.phone) {
-            toast.error("Please fill in the required fields (Name, Email, Phone, Specialization, License Number).");
+        if (!pharmacist.name?.trim()) {
+            toast.error("Please enter the pharmacist name.");
+            return;
+        }
+
+        const phoneError = validatePhone(pharmacist.phone);
+        const emailError = validateEmail(pharmacist.email);
+        if (phoneError || emailError) {
+            toast.error(phoneError || emailError);
             return;
         }
 
         setIsSaving(true);
 
         try {
-            // Prepare data - convert strings to numbers and dates where needed
             const pharmacistData = {
-                ...pharmacist,
+                name: pharmacist.name.trim(),
+                email: pharmacist.email?.trim() || undefined,
+                phone: pharmacist.phone,
+                specialization: pharmacist.specialization || undefined,
+                department: pharmacist.department || undefined,
+                licenseNumber: pharmacist.licenseNumber || undefined,
                 experience: pharmacist.experience ? Number(pharmacist.experience) : undefined,
+                qualifications: pharmacist.qualifications || undefined,
                 salary: pharmacist.salary ? Number(pharmacist.salary) : undefined,
+                workingHours: pharmacist.workingHours || undefined,
+                gender: pharmacist.gender || undefined,
+                address: pharmacist.address || undefined,
+                emergencyContact: pharmacist.emergencyContact || undefined,
+                languages: pharmacist.languages?.length > 0 ? pharmacist.languages : undefined,
+                certifications: pharmacist.certifications?.length > 0 ? pharmacist.certifications : undefined,
+                bio: pharmacist.bio || undefined,
+                profilePicture: pharmacist.profilePicture || undefined,
+                status: pharmacist.status || "Active",
                 dateOfBirth: pharmacist.dob ? new Date(pharmacist.dob).toISOString() : undefined,
-                joiningDate: pharmacist.joiningDate ? new Date(pharmacist.joiningDate).toISOString() : undefined
+                joiningDate: pharmacist.joiningDate ? new Date(pharmacist.joiningDate).toISOString() : undefined,
             };
+
+            Object.keys(pharmacistData).forEach((key) => {
+                if (pharmacistData[key] === undefined || pharmacistData[key] === null || pharmacistData[key] === "") {
+                    delete pharmacistData[key];
+                }
+            });
 
             const response = await adminUserService.createUser("Pharmacist", pharmacistData);
 
             if (response.success) {
-                setShowSuccess(true);
                 toast.success("Pharmacist created successfully!");
                 setTimeout(() => {
-                    setShowSuccess(false);
                     navigate("/admin/pharmacists");
-                }, 2000);
+                }, 1500);
             } else {
                 toast.error(response.message || "Failed to create pharmacist");
                 setIsSaving(false);
@@ -185,29 +227,6 @@ function Add_Pharmacists() {
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: "var(--color-bg-a)" }}>
-            {/* Success Notification */}
-            {showSuccess && (
-                <div className="fixed top-4 right-4 z-50 animate-slide-in">
-                    <div
-                        className="flex items-center gap-3 p-4 rounded-xl shadow-lg"
-                        style={{
-                            backgroundColor: "var(--color-bg-card)",
-                            border: "2px solid var(--color-btn-b)"
-                        }}
-                    >
-                        <CheckCircle size={24} style={{ color: "var(--color-btn-b)" }} />
-                        <div>
-                            <p className="font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                                Pharmacist Created Successfully
-                            </p>
-                            <p className="text-sm" style={{ color: "var(--color-text)" }}>
-                                Redirecting to pharmacists list...
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Header */}
             <HeadingCard
                 breadcrumbItems={breadcrumbItems}
@@ -301,7 +320,7 @@ function Add_Pharmacists() {
                                     </h2>
                                 </div>
                                 <p className="text-sm mt-1" style={{ color: "var(--color-text)" }}>
-                                    Fill in the information below to create the new pharmacist profile
+                                    Only name and phone number are required. All other fields are optional.
                                 </p>
                             </div>
 
@@ -327,7 +346,6 @@ function Add_Pharmacists() {
                                                 type="email"
                                                 value={pharmacist.email}
                                                 onChange={(e) => updateField("email", e.target.value)}
-                                                required
                                             />
                                             <FormInput
                                                 label="Phone Number"
@@ -368,7 +386,6 @@ function Add_Pharmacists() {
                                                 value={pharmacist.gender}
                                                 onChange={(e) => updateField("gender", e.target.value)}
                                                 options={["Male", "Female", "Other", "Prefer not to say"]}
-                                                required
                                             />
                                         </div>
 
@@ -438,7 +455,6 @@ function Add_Pharmacists() {
                                                 icon={Stethoscope}
                                                 value={pharmacist.specialization}
                                                 onChange={(e) => updateField("specialization", e.target.value)}
-                                                required
                                                 placeholder="e.g., Clinical, Community, Hospital"
                                             />
                                             <FormInput
@@ -453,7 +469,6 @@ function Add_Pharmacists() {
                                                 icon={FileBadge}
                                                 value={pharmacist.licenseNumber}
                                                 onChange={(e) => updateField("licenseNumber", e.target.value)}
-                                                required
                                             />
                                             <FormInput
                                                 label="Years of Experience"
@@ -677,7 +692,7 @@ function Add_Pharmacists() {
                                 </div>
                                 <p className="text-xs mt-4 flex items-center gap-2" style={{ color: "var(--color-text)" }}>
                                     <AlertCircle size={12} style={{ color: "var(--color-icon-1-light)" }} />
-                                    Required fields are marked with an asterisk (*). All changes will be saved upon creation.
+                                    Required fields: Name and Phone Number (*). All other fields are optional.
                                 </p>
                             </div>
                         </div>
@@ -778,7 +793,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, required = fa
                     style={{ color: "var(--color-text-dark)" }}
                     required={required}
                 >
-                    <option value="" disabled>Select {label.toLowerCase()}</option>
+                    <option value="">Select {label.toLowerCase()} (optional)</option>
                     {options.map((opt, i) => (
                         <option key={i} value={opt} style={{ backgroundColor: "var(--color-bg-card)", color: "var(--color-text-dark)" }}>
                             {opt}

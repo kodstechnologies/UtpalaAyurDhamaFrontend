@@ -85,7 +85,7 @@ function Add_Receptionists() {
 
   // Validation functions
   const validateEmail = (email) => {
-    if (!email) return "Email is required";
+    if (!email) return "";
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return "Please enter a valid email address";
@@ -95,7 +95,7 @@ function Add_Receptionists() {
 
   // Check email availability (debounced)
   const checkEmailAvailability = async (email) => {
-    if (!email || !validateEmail(email)) return;
+    if (!email || validateEmail(email)) return;
 
     if (emailCheckTimeoutRef.current) {
       clearTimeout(emailCheckTimeoutRef.current);
@@ -171,7 +171,9 @@ function Add_Receptionists() {
         checkPhoneAvailability(value);
       }
     } else if (field === "emergencyContact" && value) {
-      const error = validatePhone(value);
+      const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+      const cleanPhone = value.replace(/[\s-]/g, "");
+      const error = phoneRegex.test(cleanPhone) ? "" : "Please enter a valid 10-digit mobile number";
       setErrors((prev) => ({ ...prev, emergencyContact: error }));
     }
   };
@@ -228,16 +230,20 @@ function Add_Receptionists() {
   };
 
   const handleSave = async () => {
-    // Basic validation
-    if (!receptionist.name || !receptionist.email || !receptionist.position || !receptionist.employeeId) {
-      toast.error("Please fill in the required fields (Name, Email, Position, Employee ID).");
+    if (!receptionist.name?.trim()) {
+      toast.error("Please enter the receptionist name.");
       return;
     }
 
-    // Validate email and phone
     const emailError = validateEmail(receptionist.email);
     const phoneError = validatePhone(receptionist.phone);
-    const emergencyContactError = receptionist.emergencyContact ? validatePhone(receptionist.emergencyContact) : "";
+    const emergencyContactError = receptionist.emergencyContact
+      ? (() => {
+          const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+          const cleanPhone = receptionist.emergencyContact.replace(/[\s-]/g, "");
+          return phoneRegex.test(cleanPhone) ? "" : "Please enter a valid 10-digit mobile number";
+        })()
+      : "";
 
     // Check email availability before saving
     if (!emailError && receptionist.email) {
@@ -282,12 +288,33 @@ function Add_Receptionists() {
     try {
       // Prepare data - convert strings to numbers and dates where needed
       const receptionistData = {
-        ...receptionist,
+        name: receptionist.name.trim(),
+        email: receptionist.email?.trim() || undefined,
+        phone: receptionist.phone,
+        position: receptionist.position || undefined,
+        department: receptionist.department || undefined,
+        employeeId: receptionist.employeeId || undefined,
         experience: receptionist.experience ? Number(receptionist.experience) : undefined,
+        education: receptionist.education || undefined,
         salary: receptionist.salary ? Number(receptionist.salary) : undefined,
+        workingHours: receptionist.workingHours || undefined,
+        gender: receptionist.gender || undefined,
+        address: receptionist.address || undefined,
+        emergencyContact: receptionist.emergencyContact || undefined,
+        languages: receptionist.languages?.length > 0 ? receptionist.languages : undefined,
+        skills: receptionist.skills?.length > 0 ? receptionist.skills : undefined,
+        bio: receptionist.bio || undefined,
+        profilePicture: receptionist.profilePicture || undefined,
+        status: receptionist.status || "Active",
         dateOfBirth: receptionist.dob ? new Date(receptionist.dob).toISOString() : undefined,
-        joiningDate: receptionist.joiningDate ? new Date(receptionist.joiningDate).toISOString() : undefined
+        joiningDate: receptionist.joiningDate ? new Date(receptionist.joiningDate).toISOString() : undefined,
       };
+
+      Object.keys(receptionistData).forEach((key) => {
+        if (receptionistData[key] === undefined || receptionistData[key] === null || receptionistData[key] === "") {
+          delete receptionistData[key];
+        }
+      });
 
       const response = await adminUserService.createUser("Receptionist", receptionistData);
 
@@ -439,7 +466,7 @@ function Add_Receptionists() {
                   </h2>
                 </div>
                 <p className="text-sm mt-1" style={{ color: "var(--color-text)" }}>
-                  Fill in the information below to create the new receptionist profile
+                  Only name and phone number are required. All other fields are optional.
                 </p>
               </div>
 
@@ -465,7 +492,6 @@ function Add_Receptionists() {
                         type="email"
                         value={receptionist.email}
                         onChange={(e) => updateField("email", e.target.value)}
-                        required
                         error={errors.email}
                       />
                       <FormInput
@@ -509,7 +535,6 @@ function Add_Receptionists() {
                         value={receptionist.gender}
                         onChange={(e) => updateField("gender", e.target.value)}
                         options={["Male", "Female", "Other", "Prefer not to say"]}
-                        required
                       />
                     </div>
 
@@ -579,7 +604,6 @@ function Add_Receptionists() {
                         icon={Stethoscope}
                         value={receptionist.position}
                         onChange={(e) => updateField("position", e.target.value)}
-                        required
                         placeholder="e.g., Front Desk, Billing Clerk"
                       />
                       <FormInput
@@ -594,7 +618,6 @@ function Add_Receptionists() {
                         icon={FileBadge}
                         value={receptionist.employeeId}
                         onChange={(e) => updateField("employeeId", e.target.value)}
-                        required
                       />
                       <FormInput
                         label="Years of Experience"
@@ -818,7 +841,7 @@ function Add_Receptionists() {
                 </div>
                 <p className="text-xs mt-4 flex items-center gap-2" style={{ color: "var(--color-text)" }}>
                   <AlertCircle size={12} style={{ color: "var(--color-icon-1-light)" }} />
-                  Required fields are marked with an asterisk (*). All changes will be saved upon creation.
+                  Required fields: Name and Phone Number (*). All other fields are optional.
                 </p>
               </div>
             </div>
@@ -926,7 +949,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, required = fa
           style={{ color: "var(--color-text-dark)" }}
           required={required}
         >
-          <option value="" disabled>Select {label.toLowerCase()}</option>
+          <option value="">Select {label.toLowerCase()} (optional)</option>
           {options.map((opt, i) => (
             <option key={i} value={opt} style={{ backgroundColor: "var(--color-bg-card)", color: "var(--color-text-dark)" }}>
               {opt}

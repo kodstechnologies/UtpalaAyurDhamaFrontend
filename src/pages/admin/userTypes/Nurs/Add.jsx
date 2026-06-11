@@ -88,7 +88,7 @@ function Add_Nurs() {
 
   // Validation functions
   const validateEmail = (email) => {
-    if (!email) return "Email is required";
+    if (!email) return "";
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return "Please enter a valid email address";
@@ -98,7 +98,7 @@ function Add_Nurs() {
 
   // Check email availability (debounced)
   const checkEmailAvailability = async (email) => {
-    if (!email || !validateEmail(email)) return;
+    if (!email || validateEmail(email)) return;
     
     if (emailCheckTimeoutRef.current) {
       clearTimeout(emailCheckTimeoutRef.current);
@@ -174,7 +174,9 @@ function Add_Nurs() {
         checkPhoneAvailability(value);
       }
     } else if (field === "emergencyContact" && value) {
-      const error = validatePhone(value);
+      const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+      const cleanPhone = value.replace(/[\s-]/g, "");
+      const error = phoneRegex.test(cleanPhone) ? "" : "Please enter a valid 10-digit mobile number";
       setErrors((prev) => ({ ...prev, emergencyContact: error }));
     }
   };
@@ -226,27 +228,20 @@ function Add_Nurs() {
   };
 
   const handleSave = async () => {
-    // Basic validation
-    if (!nurse.name || !nurse.email || !nurse.specialty || !nurse.licenseNumber) {
-      toast.error("Please fill in the required fields (Name, Email, Specialty, License Number).");
+    if (!nurse.name?.trim()) {
+      toast.error("Please enter the nurse name.");
       return;
     }
 
-    // Validate gender - must be one of the enum values
-    if (!nurse.gender || nurse.gender.trim() === "") {
-      toast.error("Please select a gender.");
-      return;
-    }
-
-    if (!["Male", "Female", "Other", "Prefer not to say"].includes(nurse.gender)) {
-      toast.error("Please select a valid gender option.");
-      return;
-    }
-
-    // Validate email and phone
     const emailError = validateEmail(nurse.email);
     const phoneError = validatePhone(nurse.phone);
-    const emergencyContactError = nurse.emergencyContact ? validatePhone(nurse.emergencyContact) : "";
+    const emergencyContactError = nurse.emergencyContact
+      ? (() => {
+          const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+          const cleanPhone = nurse.emergencyContact.replace(/[\s-]/g, "");
+          return phoneRegex.test(cleanPhone) ? "" : "Please enter a valid 10-digit mobile number";
+        })()
+      : "";
 
     // Check email availability before saving
     if (!emailError && nurse.email) {
@@ -292,12 +287,12 @@ function Add_Nurs() {
       // Prepare data - convert strings to numbers and dates where needed
       // Filter out empty strings and undefined values
       const nurseData = {
-        name: nurse.name,
-        email: nurse.email,
-        phone: nurse.phone || undefined,
-        specialty: nurse.specialty,
-        licenseNumber: nurse.licenseNumber,
-        gender: nurse.gender, // Required, already validated
+        name: nurse.name.trim(),
+        email: nurse.email?.trim() || undefined,
+        phone: nurse.phone,
+        specialty: nurse.specialty || undefined,
+        licenseNumber: nurse.licenseNumber || undefined,
+        gender: nurse.gender || undefined,
         dateOfBirth: nurse.dob ? new Date(nurse.dob).toISOString() : undefined,
         joiningDate: nurse.joiningDate ? new Date(nurse.joiningDate).toISOString() : undefined,
         experience: nurse.experience ? Number(nurse.experience) : undefined,
@@ -469,7 +464,7 @@ function Add_Nurs() {
                   </h2>
                 </div>
                 <p className="text-sm mt-1" style={{ color: "var(--color-text)" }}>
-                  Fill in the information below to create the new nurse profile
+                  Only name and phone number are required. All other fields are optional.
                 </p>
               </div>
 
@@ -495,7 +490,6 @@ function Add_Nurs() {
                         type="email"
                         value={nurse.email}
                         onChange={(e) => updateField("email", e.target.value)}
-                        required
                         error={errors.email}
                       />
                       <FormInput
@@ -539,7 +533,6 @@ function Add_Nurs() {
                         value={nurse.gender}
                         onChange={(e) => updateField("gender", e.target.value)}
                         options={["Male", "Female", "Other", "Prefer not to say"]}
-                        required
                       />
                     </div>
 
@@ -609,7 +602,6 @@ function Add_Nurs() {
                         icon={Stethoscope}
                         value={nurse.specialty}
                         onChange={(e) => updateField("specialty", e.target.value)}
-                        required
                         placeholder="e.g., Emergency, ICU, Pediatrics"
                       />
                       <FormInput
@@ -617,7 +609,6 @@ function Add_Nurs() {
                         icon={FileBadge}
                         value={nurse.licenseNumber}
                         onChange={(e) => updateField("licenseNumber", e.target.value)}
-                        required
                       />
                       <FormInput
                         label="Years of Experience"
@@ -834,7 +825,7 @@ function Add_Nurs() {
                 </div>
                 <p className="text-xs mt-4 flex items-center gap-2" style={{ color: "var(--color-text)" }}>
                   <AlertCircle size={12} style={{ color: "var(--color-icon-1-light)" }} />
-                  Required fields are marked with an asterisk (*). All changes will be saved upon creation.
+                  Required fields: Name and Phone Number (*). All other fields are optional.
                 </p>
               </div>
             </div>
@@ -942,7 +933,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, required = fa
           style={{ color: "var(--color-text-dark)" }}
           required={required}
         >
-          <option value="" disabled>Select {label.toLowerCase()}</option>
+          <option value="">Select {label.toLowerCase()} (optional)</option>
           {options.map((opt, i) => (
             <option key={i} value={opt} style={{ backgroundColor: "var(--color-bg-card)", color: "var(--color-text-dark)" }}>
               {opt}

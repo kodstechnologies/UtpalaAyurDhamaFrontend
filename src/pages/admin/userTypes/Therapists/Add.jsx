@@ -5,7 +5,7 @@ import {
   Mail, Phone, Calendar, User, Stethoscope, FileBadge,
   BriefcaseMedical, Award, GraduationCap, MapPin, Clock,
   ShieldCheck, BookOpen, Building, FileText, ArrowLeft,
-  X, Save, AlertCircle, CheckCircle, Upload, IndianRupee
+  X, Save, AlertCircle, Upload, IndianRupee
 } from "lucide-react";
 import HeadingCard from "../../../../components/card/HeadingCard";
 import InputDialogModal from "../../../../components/modal/InputDialogModal";
@@ -15,7 +15,6 @@ function Add_Therapists() {
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [activeSection, setActiveSection] = useState("personal");
   const [languageModal, setLanguageModal] = useState(false);
   const [certificationModal, setCertificationModal] = useState(false);
@@ -85,7 +84,7 @@ function Add_Therapists() {
 
   // Validation functions
   const validateEmail = (email) => {
-    if (!email) return "Email is required";
+    if (!email) return "";
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return "Please enter a valid email address";
@@ -129,7 +128,7 @@ function Add_Therapists() {
 
   // Check email availability (debounced)
   const checkEmailAvailability = async (email) => {
-    if (!email || !validateEmail(email)) return;
+    if (!email || validateEmail(email)) return;
 
     if (emailCheckTimeoutRef.current) {
       clearTimeout(emailCheckTimeoutRef.current);
@@ -171,7 +170,9 @@ function Add_Therapists() {
         checkPhoneAvailability(value);
       }
     } else if (field === "emergencyContact" && value) {
-      const error = validatePhone(value);
+      const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+      const cleanPhone = value.replace(/[\s-]/g, "");
+      const error = phoneRegex.test(cleanPhone) ? "" : "Please enter a valid 10-digit mobile number";
       setErrors((prev) => ({ ...prev, emergencyContact: error }));
     }
   };
@@ -228,16 +229,20 @@ function Add_Therapists() {
   };
 
   const handleSave = async () => {
-    // Basic validation
-    if (!therapist.name || !therapist.email || !therapist.specialization || !therapist.licenseNumber) {
-      toast.error("Please fill in the required fields (Name, Email, Specialization, License Number).");
+    if (!therapist.name?.trim()) {
+      toast.error("Please enter the therapist name.");
       return;
     }
 
-    // Validate email and phone
     const emailError = validateEmail(therapist.email);
     const phoneError = validatePhone(therapist.phone);
-    const emergencyContactError = therapist.emergencyContact ? validatePhone(therapist.emergencyContact) : "";
+    const emergencyContactError = therapist.emergencyContact
+      ? (() => {
+          const phoneRegex = /^(\+91|0)?[6-9]\d{9}$/;
+          const cleanPhone = therapist.emergencyContact.replace(/[\s-]/g, "");
+          return phoneRegex.test(cleanPhone) ? "" : "Please enter a valid 10-digit mobile number";
+        })()
+      : "";
 
     // Check email availability before saving
     if (!emailError && therapist.email) {
@@ -282,22 +287,41 @@ function Add_Therapists() {
     try {
       // Prepare data - convert strings to numbers and dates where needed
       const therapistData = {
-        ...therapist,
+        name: therapist.name.trim(),
+        email: therapist.email?.trim() || undefined,
+        phone: therapist.phone,
+        specialization: therapist.specialization || undefined,
+        department: therapist.department || undefined,
+        licenseNumber: therapist.licenseNumber || undefined,
         experience: therapist.experience ? Number(therapist.experience) : undefined,
+        qualifications: therapist.qualifications || undefined,
         salary: therapist.salary ? Number(therapist.salary) : undefined,
+        workingHours: therapist.workingHours || undefined,
+        gender: therapist.gender || undefined,
+        address: therapist.address || undefined,
+        emergencyContact: therapist.emergencyContact || undefined,
+        languages: therapist.languages?.length > 0 ? therapist.languages : undefined,
+        certifications: therapist.certifications?.length > 0 ? therapist.certifications : undefined,
+        bio: therapist.bio || undefined,
+        profilePicture: therapist.profilePicture || undefined,
+        status: therapist.status || "Active",
         dateOfBirth: therapist.dob ? new Date(therapist.dob).toISOString() : undefined,
-        joiningDate: therapist.joiningDate ? new Date(therapist.joiningDate).toISOString() : undefined
+        joiningDate: therapist.joiningDate ? new Date(therapist.joiningDate).toISOString() : undefined,
       };
+
+      Object.keys(therapistData).forEach((key) => {
+        if (therapistData[key] === undefined || therapistData[key] === null || therapistData[key] === "") {
+          delete therapistData[key];
+        }
+      });
 
       const response = await adminUserService.createUser("Therapist", therapistData);
 
       if (response.success) {
-        setShowSuccess(true);
         toast.success("Therapist created successfully!");
         setTimeout(() => {
-          setShowSuccess(false);
           navigate("/admin/therapists");
-        }, 2000);
+        }, 1500);
       } else {
         toast.error(response.message || "Failed to create therapist");
         setIsSaving(false);
@@ -323,29 +347,6 @@ function Add_Therapists() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--color-bg-a)" }}>
-      {/* Success Notification */}
-      {showSuccess && (
-        <div className="fixed top-4 right-4 z-50 animate-slide-in">
-          <div
-            className="flex items-center gap-3 p-4 rounded-xl shadow-lg"
-            style={{
-              backgroundColor: "var(--color-bg-card)",
-              border: "2px solid var(--color-btn-b)"
-            }}
-          >
-            <CheckCircle size={24} style={{ color: "var(--color-btn-b)" }} />
-            <div>
-              <p className="font-semibold" style={{ color: "var(--color-text-dark)" }}>
-                Therapist Created Successfully
-              </p>
-              <p className="text-sm" style={{ color: "var(--color-text)" }}>
-                Redirecting to therapists list...
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <HeadingCard
         breadcrumbItems={breadcrumbItems}
@@ -439,7 +440,7 @@ function Add_Therapists() {
                   </h2>
                 </div>
                 <p className="text-sm mt-1" style={{ color: "var(--color-text)" }}>
-                  Fill in the information below to create the new therapist profile
+                  Only name and phone number are required. All other fields are optional.
                 </p>
               </div>
 
@@ -465,7 +466,6 @@ function Add_Therapists() {
                         type="email"
                         value={therapist.email}
                         onChange={(e) => updateField("email", e.target.value)}
-                        required
                         error={errors.email}
                       />
                       <FormInput
@@ -509,7 +509,6 @@ function Add_Therapists() {
                         value={therapist.gender}
                         onChange={(e) => updateField("gender", e.target.value)}
                         options={["Male", "Female", "Other", "Prefer not to say"]}
-                        required
                       />
                     </div>
 
@@ -579,7 +578,6 @@ function Add_Therapists() {
                         icon={Stethoscope}
                         value={therapist.specialization}
                         onChange={(e) => updateField("specialization", e.target.value)}
-                        required
                         placeholder="e.g., Physical, Occupational, Speech"
                       />
                       <FormInput
@@ -594,7 +592,6 @@ function Add_Therapists() {
                         icon={FileBadge}
                         value={therapist.licenseNumber}
                         onChange={(e) => updateField("licenseNumber", e.target.value)}
-                        required
                       />
                       <FormInput
                         label="Years of Experience"
@@ -818,7 +815,7 @@ function Add_Therapists() {
                 </div>
                 <p className="text-xs mt-4 flex items-center gap-2" style={{ color: "var(--color-text)" }}>
                   <AlertCircle size={12} style={{ color: "var(--color-icon-1-light)" }} />
-                  Required fields are marked with an asterisk (*). All changes will be saved upon creation.
+                  Required fields: Name and Phone Number (*). All other fields are optional.
                 </p>
               </div>
             </div>
@@ -926,7 +923,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, required = fa
           style={{ color: "var(--color-text-dark)" }}
           required={required}
         >
-          <option value="" disabled>Select {label.toLowerCase()}</option>
+          <option value="">Select {label.toLowerCase()} (optional)</option>
           {options.map((opt, i) => (
             <option key={i} value={opt} style={{ backgroundColor: "var(--color-bg-card)", color: "var(--color-text-dark)" }}>
               {opt}
