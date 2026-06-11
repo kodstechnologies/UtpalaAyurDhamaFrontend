@@ -24,6 +24,8 @@ import MessageIcon from "@mui/icons-material/Message";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import GroupAddIcon from "@mui/icons-material/GroupAdd";
+import DeleteIcon from "@mui/icons-material/Delete";
+import familyMemberService from "../../../services/familyMemberService";
 
 
 
@@ -158,6 +160,8 @@ function Appointments_View() {
         rowsPerPage: 25,
         total: 0,
     });
+    const [deletingPatientId, setDeletingPatientId] = useState(null);
+    const [deletingAppointmentId, setDeletingAppointmentId] = useState(null);
 
     const handleAddFamilyMemberClick = (patient) => {
         navigate("/receptionist/appointments/add-family-member", {
@@ -689,6 +693,83 @@ function Appointments_View() {
         navigate(`/receptionist/appointments/edit-patient?${params.toString()}`);
     };
 
+    const handleDeletePatientClick = async (patient) => {
+        const patientName = patient.name || "this patient";
+        const confirmMessage = patient.isFamilyMember
+            ? `Are you sure you want to remove ${patientName} from family members?`
+            : `Are you sure you want to delete ${patientName}? This will remove their reception registration record.`;
+
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
+        const deleteId = patient.familyMemberId || patient.id;
+        if (!deleteId) {
+            toast.error("Patient ID not found");
+            return;
+        }
+
+        try {
+            setDeletingPatientId(deleteId);
+            if (patient.isFamilyMember) {
+                const res = await familyMemberService.deleteFamilyMemberByReceptionist(deleteId);
+                if (!res.success) {
+                    throw new Error(res.message || "Failed to delete family member");
+                }
+            } else {
+                const response = await axios.delete(getApiUrl(`reception-patients/${deleteId}`), {
+                    headers: getAuthHeaders(),
+                });
+                if (!response.data?.success) {
+                    throw new Error(response.data?.message || "Failed to delete patient");
+                }
+            }
+            toast.success(`${patientName} deleted successfully`);
+            await fetchReceptionPatients();
+        } catch (error) {
+            console.error("Error deleting patient:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to delete patient");
+        } finally {
+            setDeletingPatientId(null);
+        }
+    };
+
+    const handleDeleteAppointmentClick = async (appointment) => {
+        if (!appointment?.id) {
+            toast.error("Appointment ID not found");
+            return;
+        }
+
+        if (appointment.status === "Cancelled") {
+            toast.info("This appointment is already cancelled");
+            return;
+        }
+
+        const confirmMessage = `Are you sure you want to delete the appointment for ${appointment.name || "this patient"} on ${formatDisplayDateTime(appointment.appointmentDateTime)}?`;
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            setDeletingAppointmentId(appointment.id);
+            const response = await axios.patch(
+                getApiUrl(`appointments/${appointment.id}/status`),
+                { status: "Cancelled" },
+                { headers: getAuthHeaders() }
+            );
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || "Failed to delete appointment");
+            }
+            toast.success("Appointment deleted successfully");
+            await fetchAppointments();
+        } catch (error) {
+            console.error("Error deleting appointment:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to delete appointment");
+        } finally {
+            setDeletingAppointmentId(null);
+        }
+    };
+
     const handleSendMessageClick = (data) => {
         let date = "";
         let time = "";
@@ -1121,6 +1202,46 @@ function Appointments_View() {
                                                                 >
                                                                     <MessageIcon fontSize="small" />
                                                                 </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm"
+                                                                    onClick={() => handleDeletePatientClick(patient)}
+                                                                    disabled={deletingPatientId === (patient.familyMemberId || patient.id)}
+                                                                    title={patient.isFamilyMember ? "Remove Family Member" : "Delete Patient Registration"}
+                                                                    style={{
+                                                                        backgroundColor: "#f44336",
+                                                                        borderColor: "#f44336",
+                                                                        color: "#fff",
+                                                                        borderRadius: "8px",
+                                                                        padding: "8px 12px",
+                                                                        fontWeight: 500,
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                        transition: "all 0.3s ease",
+                                                                        minWidth: "45px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        opacity: deletingPatientId === (patient.familyMemberId || patient.id) ? 0.6 : 1,
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        if (deletingPatientId !== (patient.familyMemberId || patient.id)) {
+                                                                            e.currentTarget.style.backgroundColor = "#d32f2f";
+                                                                            e.currentTarget.style.transform = "translateY(-2px)";
+                                                                            e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+                                                                        }
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.backgroundColor = "#f44336";
+                                                                        e.currentTarget.style.transform = "translateY(0)";
+                                                                        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                                                                    }}
+                                                                >
+                                                                    {deletingPatientId === (patient.familyMemberId || patient.id) ? (
+                                                                        <CircularProgress size={18} sx={{ color: "#fff" }} />
+                                                                    ) : (
+                                                                        <DeleteIcon fontSize="small" />
+                                                                    )}
+                                                                </button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1273,6 +1394,34 @@ function Appointments_View() {
                                                                 >
                                                                     <MessageIcon fontSize="small" />
                                                                 </button>
+                                                                {appointment.status !== "Cancelled" && appointment.status !== "Completed" && (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm"
+                                                                        onClick={() => handleDeleteAppointmentClick(appointment)}
+                                                                        disabled={deletingAppointmentId === appointment.id}
+                                                                        title="Delete Appointment"
+                                                                        style={{
+                                                                            backgroundColor: "#f44336",
+                                                                            borderColor: "#f44336",
+                                                                            color: "#fff",
+                                                                            borderRadius: "8px",
+                                                                            padding: "8px 12px",
+                                                                            minWidth: "45px",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            transition: "all 0.3s ease",
+                                                                            opacity: deletingAppointmentId === appointment.id ? 0.6 : 1,
+                                                                        }}
+                                                                    >
+                                                                        {deletingAppointmentId === appointment.id ? (
+                                                                            <CircularProgress size={18} sx={{ color: "#fff" }} />
+                                                                        ) : (
+                                                                            <DeleteIcon fontSize="small" />
+                                                                        )}
+                                                                    </button>
+                                                                )}
 
                                                             </div>
                                                         </td>

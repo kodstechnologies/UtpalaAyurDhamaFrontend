@@ -376,6 +376,9 @@ function InvoiceDetails() {
                 {invoice.patient?.uhid && <Typography><strong>UHID:</strong> {invoice.patient.uhid}</Typography>}
                 <Typography><strong>Age/Gender:</strong> {invoice.patient?.age || ""} / {invoice.patient?.user?.gender || invoice.patient?.gender || ""}</Typography>
                 <Typography><strong>Phone:</strong> {invoice.patient?.user?.phone || ""}</Typography>
+                {invoice.patient?.alternativeNumber && (
+                  <Typography><strong>Alternative Number:</strong> {invoice.patient.alternativeNumber}</Typography>
+                )}
                 <Typography><strong>Email:</strong> {invoice.patient?.user?.email || ""}</Typography>
               </Box>
             </Box>

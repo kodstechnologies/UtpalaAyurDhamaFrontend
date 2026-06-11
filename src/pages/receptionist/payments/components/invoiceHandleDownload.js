@@ -75,6 +75,7 @@ const invoiceHandleDownload = async (invoice) => {
       gender: invoice.patient?.user?.gender || invoice.patient?.gender || "N/A",
       age: invoice.patient?.age || "N/A",
       phone: invoice.patient?.user?.phone || "N/A",
+      alternativeNumber: invoice.patient?.alternativeNumber || "",
       email: invoice.patient?.user?.email || "N/A",
       uhid: invoice.patient?.uhid || invoice.patient?.patientId || "",
       address: invoice.patient?.address || invoice.patient?.user?.address || "N/A",
@@ -239,6 +240,7 @@ const invoiceHandleDownload = async (invoice) => {
               <tr><td style="font-weight:bold;">AGE/GENDER</td><td>:</td><td>${escapeHtml(patient.age)} / ${escapeHtml(patient.gender)}</td></tr>
               ${patient.address && patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${escapeHtml(patient.address)}</td></tr>` : ""}
               ${patient.phone && patient.phone !== "N/A" ? `<tr><td style="font-weight:bold;">PHONE</td><td>:</td><td>${escapeHtml(patient.phone)}</td></tr>` : ""}
+              ${patient.alternativeNumber ? `<tr><td style="font-weight:bold;">ALT. NO</td><td>:</td><td>${escapeHtml(patient.alternativeNumber)}</td></tr>` : ""}
               ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>` : ""}
               ${patient.email && patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email)}</td></tr>` : ""}
               ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName)}</td></tr>` : ""}
