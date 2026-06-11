@@ -622,7 +622,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 // import { Box, Stack, Button, CircularProgress, Chip, Checkbox } from "@mui/material";
-import { Box, Stack, CircularProgress, Chip, Checkbox, TextField, MenuItem } from "@mui/material";
+import { Box, Stack, CircularProgress, Chip, Checkbox, TextField, MenuItem, IconButton, Tooltip } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import ReplayIcon from "@mui/icons-material/Replay";
@@ -646,6 +647,7 @@ function FollowUps_View() {
     const [searchText, setSearchText] = useState("");
     const [filter, setFilter] = useState("All");
     const [pagination, setPagination] = useState({ page: 0, rowsPerPage: 25, total: 0 });
+    const [deletingId, setDeletingId] = useState(null);
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
 
@@ -826,6 +828,36 @@ function FollowUps_View() {
         { field: "reason", header: "Reason" },
     ];
 
+    const handleDeleteFollowUp = async (row, event) => {
+        event.stopPropagation();
+
+        if (!row.examinationId || !row.followUpId) {
+            toast.error("Unable to delete follow-up. Missing required information.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Delete follow-up for ${row.patientName} on ${row.followUpDate}? This cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        setDeletingId(row._id);
+        try {
+            await doctorService.deleteFollowUp(row.examinationId, row.followUpId);
+            toast.success("Follow-up deleted successfully");
+            fetchFollowUps();
+        } catch (error) {
+            console.error("Error deleting follow-up:", error);
+            toast.error(
+                error.response?.data?.message ||
+                error.message ||
+                "Failed to delete follow-up"
+            );
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     // Handle follow-up completion toggle
     const handleFollowUpToggle = async (row, event) => {
         event.stopPropagation(); // Prevent row click
@@ -885,6 +917,27 @@ function FollowUps_View() {
                 />
             ),
             tooltip: (row) => (row.completed ? "Mark as incomplete" : "Mark as completed"),
+        },
+        {
+            render: (row) => (
+                <Tooltip title="Delete follow-up">
+                    <span>
+                        <IconButton
+                            size="small"
+                            color="error"
+                            disabled={deletingId === row._id}
+                            onClick={(e) => handleDeleteFollowUp(row, e)}
+                            sx={{ color: "#f44336" }}
+                        >
+                            {deletingId === row._id ? (
+                                <CircularProgress size={18} color="inherit" />
+                            ) : (
+                                <DeleteIcon fontSize="small" />
+                            )}
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            ),
         },
     ];
 

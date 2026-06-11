@@ -53,6 +53,19 @@ const doctorService = {
             throw error.response?.data || error.message;
         }
     },
+
+    // Delete a follow-up
+    deleteFollowUp: async (examinationId, followUpId) => {
+        try {
+            const response = await axios.delete(
+                getApiUrl(`examinations/${examinationId}/followups/${followUpId}`),
+                { headers: getAuthHeaders() }
+            );
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default doctorService;

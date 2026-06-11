@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Box, CircularProgress, TextField, MenuItem, TablePagination } from "@mui/material";
 import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
 import receptionistService from "../../../services/receptionistService";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import * as XLSX from "xlsx";
 
 // Icons
 import PeopleIcon from "@mui/icons-material/People";
@@ -16,6 +17,11 @@ import SendIcon from "@mui/icons-material/Send";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ImageIcon from "@mui/icons-material/Image";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import ContactPhoneIcon from "@mui/icons-material/ContactPhone";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 
 const mockTemplates = [
     {
@@ -36,11 +42,54 @@ const mockTemplates = [
 
 ];
 
+const parseContactRows = (rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+
+    return rows
+        .map((row) => {
+            if (!row || typeof row !== "object") return null;
+
+            const entries = Object.entries(row);
+            let name = "";
+            let phone = "";
+
+            entries.forEach(([key, value]) => {
+                const normalizedKey = String(key).toLowerCase().trim();
+                const strValue = value != null ? String(value).trim() : "";
+                if (!strValue) return;
+
+                if (!name && (normalizedKey.includes("name") || normalizedKey === "patient")) {
+                    name = strValue;
+                }
+                if (!phone && (normalizedKey.includes("phone") || normalizedKey.includes("contact") || normalizedKey.includes("mobile"))) {
+                    phone = strValue;
+                }
+            });
+
+            if (!name && entries[0]?.[1]) name = String(entries[0][1]).trim();
+            if (!phone && entries[1]?.[1]) phone = String(entries[1][1]).trim();
+
+            const phoneDigits = phone.replace(/\D/g, "");
+            if (!name || phoneDigits.length !== 10) return null;
+            return { name, contactNumber: phoneDigits };
+        })
+        .filter(Boolean);
+};
+
 function Marketing_View() {
     const [allPatients, setAllPatients] = useState([]);
+    const [manualContacts, setManualContacts] = useState([]);
     const [diseases, setDiseases] = useState([]);
     const [treatments, setTreatments] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [newContactName, setNewContactName] = useState("");
+    const [newContactPhone, setNewContactPhone] = useState("");
+    const [isAddingContact, setIsAddingContact] = useState(false);
+    const [isUploadingContacts, setIsUploadingContacts] = useState(false);
+    const [editingContactId, setEditingContactId] = useState(null);
+    const [editContactName, setEditContactName] = useState("");
+    const [editContactPhone, setEditContactPhone] = useState("");
+    const [isUpdatingContact, setIsUpdatingContact] = useState(false);
     const [filters, setFilters] = useState({
         gender: "",
         disease: "",
@@ -63,7 +112,17 @@ function Marketing_View() {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [campaignText, setCampaignText] = useState("");
 
-    // Fetch patients from backend
+    const fetchManualContacts = useCallback(async (signal) => {
+        const search = searchQuery?.trim() || null;
+        const response = await receptionistService.getMarketingContacts({ search }, signal);
+        if (response?.success) {
+            setManualContacts(response.data || []);
+        } else {
+            setManualContacts([]);
+        }
+    }, [searchQuery]);
+
+    // Fetch patients and manual contacts from backend
     useEffect(() => {
         const abortController = new AbortController();
         let isMounted = true;
@@ -72,55 +131,51 @@ function Marketing_View() {
             setLoading(true);
             try {
                 const params = {
-                    page: pagination.page + 1, // Backend uses 1-based pagination
+                    page: pagination.page + 1,
                     limit: pagination.rowsPerPage
                 };
 
-                // Add search parameter if search is active
                 if (searchQuery && searchQuery.trim()) {
                     params.search = searchQuery.trim();
                 }
 
-                const response = await receptionistService.getMarketingPatients(params, abortController.signal);
+                const [patientsResponse] = await Promise.all([
+                    receptionistService.getMarketingPatients(params, abortController.signal),
+                    fetchManualContacts(abortController.signal),
+                ]);
 
-                // Check if component is still mounted before updating state
                 if (!isMounted) return;
 
-                console.log("Marketing API Response:", response);
-                if (response && response.success) {
-                    setAllPatients(response.data || []);
-                    setDiseases(response.meta?.diseases || []);
-                    setTreatments(response.meta?.treatments || []);
+                if (patientsResponse && patientsResponse.success) {
+                    setAllPatients(patientsResponse.data || []);
+                    setDiseases(patientsResponse.meta?.diseases || []);
+                    setTreatments(patientsResponse.meta?.treatments || []);
 
-                    // Update pagination metadata
-                    if (response.meta?.total !== undefined) {
+                    if (patientsResponse.meta?.total !== undefined) {
                         setPagination(prev => ({
                             ...prev,
-                            total: response.meta.total || 0,
+                            total: patientsResponse.meta.total || 0,
                         }));
                     }
                 } else {
-                    console.error("Failed to fetch marketing data:", response);
                     if (isMounted) {
                         toast.error("Failed to fetch marketing data");
                         setAllPatients([]);
                     }
                 }
             } catch (error) {
-                // Don't show error if request was cancelled
                 if (error.name === 'AbortError' || error.name === 'CanceledError' || error.message === 'canceled') {
                     return;
                 }
 
-                console.error("Marketing Error:", error);
                 if (isMounted) {
                     toast.error(error?.message || "An error occurred while fetching marketing data");
                     setAllPatients([]);
+                    setManualContacts([]);
                     setDiseases([]);
                     setTreatments([]);
                 }
             } finally {
-                // Always set loading to false, even if request was cancelled
                 if (isMounted) {
                     setLoading(false);
                 }
@@ -129,12 +184,16 @@ function Marketing_View() {
 
         fetchData();
 
-        // Cleanup function to cancel request if component unmounts or dependencies change
         return () => {
             isMounted = false;
             abortController.abort();
         };
-    }, [pagination.page, pagination.rowsPerPage, searchQuery]);
+    }, [pagination.page, pagination.rowsPerPage, searchQuery, fetchManualContacts]);
+
+    const allRecipients = useMemo(
+        () => [...manualContacts, ...allPatients],
+        [manualContacts, allPatients]
+    );
 
     // Reset to first page when filters or search change
     useEffect(() => {
@@ -145,14 +204,15 @@ function Marketing_View() {
         });
     }, [filters.gender, filters.disease, filters.treatment, searchQuery]);
 
-    // Filter patients (client-side filtering for gender/disease/treatment only, search is server-side)
+    // Filter recipients (manual contacts skip disease/treatment/gender filters)
     const filteredPatients = useMemo(() => {
-        // Ensure allPatients is an array
-        if (!Array.isArray(allPatients)) {
+        if (!Array.isArray(allRecipients)) {
             return [];
         }
-        const result = allPatients.filter((patient) => {
-            // Server-side search is already applied, only apply client-side filters
+        const result = allRecipients.filter((patient) => {
+            if (patient.source === "manual") {
+                return true;
+            }
             const matchesFilters =
                 (filters.gender === "" || patient.gender === filters.gender) &&
                 (filters.disease === "" || patient.disease === filters.disease) &&
@@ -177,7 +237,7 @@ function Marketing_View() {
         });
 
         return sorted;
-    }, [filters, allPatients, searchQuery]);
+    }, [filters, allRecipients, searchQuery]);
 
     // Note: Since filters are applied client-side, we display filteredPatients directly
     // Server-side pagination fetches the base data, then we filter and display
@@ -187,14 +247,16 @@ function Marketing_View() {
     // Calculate stats: total from server (all pages), filtered/selected/validContact from current data
     const stats = useMemo(() => {
         return {
-            total: pagination.total,
+            total: pagination.total + manualContacts.length,
+            registered: pagination.total,
+            manual: manualContacts.length,
             filtered: filteredPatients.length,
             selected: selectedPatientIds.length,
             withValidContact: filteredPatients.filter(
                 (p) => p.contact && p.contact !== "N/A" && p.contact.replace(/\D/g, "").length >= 10
             ).length,
         };
-    }, [allPatients, filteredPatients, selectedPatientIds, pagination.total]);
+    }, [filteredPatients, selectedPatientIds, pagination.total, manualContacts.length]);
 
     // Handle filter change
     const handleFilterChange = (e) => {
@@ -203,18 +265,225 @@ function Marketing_View() {
     };
 
     // Handle select all
+    const getRecipientId = (patient) => String(patient.id);
+
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            setSelectedPatientIds(filteredPatients.map((p) => p.id));
+            setSelectedPatientIds(filteredPatients.map((p) => getRecipientId(p)));
         } else {
             setSelectedPatientIds([]);
         }
     };
 
+    const handleSelectAllManual = (e) => {
+        const manualIds = manualContacts.map((p) => getRecipientId(p));
+        if (e.target.checked) {
+            setSelectedPatientIds((prev) => [...new Set([...prev, ...manualIds])]);
+        } else {
+            setSelectedPatientIds((prev) => prev.filter((id) => !manualIds.includes(id)));
+        }
+    };
+
     // Handle select one
     const handleSelectOne = (patientId) => {
+        const id = String(patientId);
         setSelectedPatientIds((prev) =>
-            prev.includes(patientId) ? prev.filter((id) => id !== patientId) : [...prev, patientId]
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleAddManualContact = async () => {
+        const name = newContactName.trim();
+        const phone = newContactPhone.trim();
+
+        if (!name) {
+            toast.error("Please enter a name.");
+            return;
+        }
+        const phoneDigits = phone.replace(/\D/g, "");
+        if (phoneDigits.length !== 10) {
+            toast.error("Phone number must be exactly 10 digits.");
+            return;
+        }
+
+        setIsAddingContact(true);
+        try {
+            const response = await receptionistService.addMarketingContact({
+                name,
+                contactNumber: phoneDigits,
+            });
+            if (response?.success) {
+                toast.success("Contact added successfully.");
+                setNewContactName("");
+                setNewContactPhone("");
+                await fetchManualContacts();
+            } else {
+                toast.error(response?.message || "Failed to add contact.");
+            }
+        } catch (error) {
+            toast.error(error?.message || "Failed to add contact.");
+        } finally {
+            setIsAddingContact(false);
+        }
+    };
+
+    const handleContactsFileUpload = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+
+        const validTypes = [
+            "text/csv",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ];
+        const isValidExt = /\.(csv|xlsx|xls)$/i.test(file.name);
+        if (!validTypes.includes(file.type) && !isValidExt) {
+            toast.error("Please upload a CSV or Excel file (.csv, .xlsx, .xls).");
+            return;
+        }
+
+        setIsUploadingContacts(true);
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+            const contacts = parseContactRows(rows);
+
+            if (contacts.length === 0) {
+                toast.error("No valid contacts found. Use Name and Phone (exactly 10 digits).");
+                return;
+            }
+
+            const response = await receptionistService.bulkAddMarketingContacts(contacts);
+            if (response?.success) {
+                const { successful = 0, failed = 0 } = response.data || {};
+                toast.success(`Uploaded ${successful} contact(s).${failed > 0 ? ` ${failed} row(s) skipped.` : ""}`);
+                await fetchManualContacts();
+            } else {
+                toast.error(response?.message || "Failed to upload contacts.");
+            }
+        } catch (error) {
+            toast.error(error?.message || "Failed to parse upload file.");
+        } finally {
+            setIsUploadingContacts(false);
+        }
+    };
+
+    const handleStartEditContact = (contact) => {
+        setEditingContactId(getRecipientId(contact));
+        setEditContactName(contact.name || "");
+        setEditContactPhone(contact.contact || "");
+    };
+
+    const handleCancelEditContact = () => {
+        setEditingContactId(null);
+        setEditContactName("");
+        setEditContactPhone("");
+    };
+
+    const handleSaveEditContact = async () => {
+        const name = editContactName.trim();
+        const phoneDigits = editContactPhone.replace(/\D/g, "");
+
+        if (!name) {
+            toast.error("Please enter a name.");
+            return;
+        }
+        if (phoneDigits.length !== 10) {
+            toast.error("Phone number must be exactly 10 digits.");
+            return;
+        }
+
+        setIsUpdatingContact(true);
+        try {
+            const response = await receptionistService.updateMarketingContact(editingContactId, {
+                name,
+                contactNumber: phoneDigits,
+            });
+            if (response?.success) {
+                toast.success("Contact updated successfully.");
+                handleCancelEditContact();
+                await fetchManualContacts();
+            } else {
+                toast.error(response?.message || "Failed to update contact.");
+            }
+        } catch (error) {
+            toast.error(error?.message || "Failed to update contact.");
+        } finally {
+            setIsUpdatingContact(false);
+        }
+    };
+
+    const handleDeleteManualContact = async (contactId) => {
+        try {
+            const response = await receptionistService.deleteMarketingContact(contactId);
+            if (response?.success) {
+                toast.success("Contact removed.");
+                if (editingContactId === contactId) {
+                    handleCancelEditContact();
+                }
+                setSelectedPatientIds((prev) => prev.filter((id) => id !== contactId));
+                await fetchManualContacts();
+            } else {
+                toast.error(response?.message || "Failed to remove contact.");
+            }
+        } catch (error) {
+            toast.error(error?.message || "Failed to remove contact.");
+        }
+    };
+
+    const renderManualContactActions = (contact) => {
+        const contactId = getRecipientId(contact);
+        const isEditing = editingContactId === contactId;
+
+        if (isEditing) {
+            return (
+                <div className="d-flex gap-1">
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-link text-success p-0"
+                        title="Save"
+                        onClick={handleSaveEditContact}
+                        disabled={isUpdatingContact}
+                    >
+                        <CheckIcon fontSize="small" />
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-link text-secondary p-0"
+                        title="Cancel"
+                        onClick={handleCancelEditContact}
+                        disabled={isUpdatingContact}
+                    >
+                        <CloseIcon fontSize="small" />
+                    </button>
+                </div>
+            );
+        }
+
+        return (
+            <div className="d-flex gap-1">
+                <button
+                    type="button"
+                    className="btn btn-sm btn-link p-0"
+                    style={{ color: "#D4A574" }}
+                    title="Edit contact"
+                    onClick={() => handleStartEditContact(contact)}
+                >
+                    <EditOutlinedIcon fontSize="small" />
+                </button>
+                <button
+                    type="button"
+                    className="btn btn-sm btn-link text-danger p-0"
+                    title="Remove contact"
+                    onClick={() => handleDeleteManualContact(contactId)}
+                >
+                    <DeleteOutlineIcon fontSize="small" />
+                </button>
+            </div>
         );
     };
 
@@ -327,7 +596,7 @@ function Marketing_View() {
             return;
         }
 
-        const selectedPatients = allPatients.filter((p) => selectedPatientIds.includes(p.id));
+        const selectedPatients = allRecipients.filter((p) => selectedPatientIds.includes(getRecipientId(p)));
         const validContacts = selectedPatients.filter(
             (p) => p.contact && p.contact !== "N/A" && p.contact.replace(/\D/g, "").length >= 10
         );
@@ -490,9 +759,6 @@ function Marketing_View() {
         { label: "Marketing" },
     ];
 
-    // Debug: Log component render
-    console.log("Marketing_View rendering, loading:", loading, "patients:", allPatients.length);
-
     return (
         <Box sx={{ padding: "20px", position: "relative", minHeight: "100vh" }}>
             {loading && (
@@ -518,7 +784,7 @@ function Marketing_View() {
             {/* ⭐ Page Heading */}
             <HeadingCard
                 title="Send Personalized WhatsApp Messages"
-                subtitle="Select patients and send them personalized WhatsApp messages for marketing, follow-ups, and promotional offers."
+                subtitle="Select registered patients and manually added contacts to send WhatsApp marketing messages, follow-ups, and promotional offers."
                 breadcrumbItems={breadcrumbItems}
             />
 
@@ -535,10 +801,194 @@ function Marketing_View() {
                     marginTop: 3,
                 }}
             >
-                <DashboardCard title="Total Patients" count={stats.total} icon={PeopleIcon} />
+                <DashboardCard title="Total Recipients" count={stats.total} icon={PeopleIcon} />
                 <DashboardCard title="Filtered Results" count={stats.filtered} icon={FilterAltIcon} />
                 <DashboardCard title="Selected" count={stats.selected} icon={PersonAddAlt1Icon} />
                 <DashboardCard title="Valid Contacts" count={stats.withValidContact} icon={CheckCircleIcon} />
+            </Box>
+
+            {/* ⭐ Manual Contacts Section */}
+            <Box sx={{ marginTop: 4 }}>
+                <div className="card shadow-sm">
+                    <div className="card-body">
+                        <div className="d-flex align-items-center gap-2 mb-4">
+                            <ContactPhoneIcon sx={{ color: "#D4A574" }} />
+                            <h5 className="card-title mb-0">Add Contacts Manually</h5>
+                        </div>
+                        <p className="text-muted small mb-3">
+                            Add name and phone one by one, or upload a CSV/Excel file. Manual contacts appear in the list below and receive the same advertisements as registered patients.
+                        </p>
+
+                        <div className="row g-3 align-items-end mb-3">
+                            <div className="col-md-4">
+                                <label className="form-label">Name</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="Contact name"
+                                    value={newContactName}
+                                    onChange={(e) => setNewContactName(e.target.value)}
+                                />
+                            </div>
+                            <div className="col-md-4">
+                                <label className="form-label">Phone Number (10 digits)</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="e.g. 9876543210"
+                                    value={newContactPhone}
+                                    maxLength={10}
+                                    inputMode="numeric"
+                                    onChange={(e) => setNewContactPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                                />
+                            </div>
+                            <div className="col-md-4">
+                                <button
+                                    type="button"
+                                    className="btn w-100"
+                                    style={{ backgroundColor: "var(--color-btn-bg)", color: "white" }}
+                                    onClick={handleAddManualContact}
+                                    disabled={isAddingContact}
+                                >
+                                    {isAddingContact ? "Adding..." : "Add Contact"}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            className="border rounded p-4 text-center"
+                            style={{ borderStyle: "dashed", cursor: "pointer", backgroundColor: "#fcfcfc" }}
+                            onClick={() => !isUploadingContacts && document.getElementById("contactsFileInput").click()}
+                        >
+                            <input
+                                type="file"
+                                id="contactsFileInput"
+                                className="d-none"
+                                accept=".csv,.xlsx,.xls"
+                                onChange={handleContactsFileUpload}
+                            />
+                            {isUploadingContacts ? (
+                                <div>
+                                    <CircularProgress size={24} sx={{ color: "#D4A574" }} />
+                                    <p className="mb-0 mt-2 text-muted">Uploading contacts...</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    <CloudUploadIcon sx={{ fontSize: 40, color: "#D4A574", mb: 1 }} />
+                                    <p className="mb-0">Upload CSV or Excel file</p>
+                                    <p className="small text-muted mb-0">Columns: Name, Phone (exactly 10 digits)</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-4">
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                <h6 className="mb-0">Manual Contacts ({manualContacts.length})</h6>
+                                {manualContacts.length > 0 && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={() => {
+                                            const manualIds = manualContacts.map((p) => getRecipientId(p));
+                                            setSelectedPatientIds((prev) => [...new Set([...prev, ...manualIds])]);
+                                        }}
+                                    >
+                                        Select All Manual
+                                    </button>
+                                )}
+                            </div>
+
+                            {manualContacts.length > 0 ? (
+                                <div className="table-responsive">
+                                    <table className="table table-sm table-bordered table-hover mb-0">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th style={{ fontSize: "0.875rem", width: "50px" }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="form-check-input"
+                                                        onChange={handleSelectAllManual}
+                                                        checked={
+                                                            manualContacts.length > 0 &&
+                                                            manualContacts.every((p) =>
+                                                                selectedPatientIds.includes(getRecipientId(p))
+                                                            )
+                                                        }
+                                                        ref={(input) => {
+                                                            if (input) {
+                                                                const selectedCount = manualContacts.filter((p) =>
+                                                                    selectedPatientIds.includes(getRecipientId(p))
+                                                                ).length;
+                                                                input.indeterminate =
+                                                                    selectedCount > 0 && selectedCount < manualContacts.length;
+                                                            }
+                                                        }}
+                                                    />
+                                                </th>
+                                                <th style={{ fontSize: "0.875rem" }}>#</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Name</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Phone</th>
+                                                <th style={{ fontSize: "0.875rem", width: "80px" }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {manualContacts.map((contact, index) => {
+                                                const contactId = getRecipientId(contact);
+                                                const isEditing = editingContactId === contactId;
+
+                                                return (
+                                                <tr key={contactId}>
+                                                    <td>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="form-check-input"
+                                                            checked={selectedPatientIds.includes(contactId)}
+                                                            onChange={() => handleSelectOne(contactId)}
+                                                            disabled={isEditing}
+                                                        />
+                                                    </td>
+                                                    <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
+                                                    <td style={{ fontSize: "0.875rem" }}>
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="text"
+                                                                className="form-control form-control-sm"
+                                                                value={editContactName}
+                                                                onChange={(e) => setEditContactName(e.target.value)}
+                                                            />
+                                                        ) : (
+                                                            <span style={{ fontWeight: 600 }}>{contact.name}</span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ fontSize: "0.875rem" }}>
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="text"
+                                                                className="form-control form-control-sm"
+                                                                value={editContactPhone}
+                                                                maxLength={10}
+                                                                inputMode="numeric"
+                                                                onChange={(e) => setEditContactPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                                                            />
+                                                        ) : (
+                                                            contact.contact
+                                                        )}
+                                                    </td>
+                                                    <td>{renderManualContactActions(contact)}</td>
+                                                </tr>
+                                            );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-muted small mb-0">
+                                    No manual contacts yet. Add name and phone above or upload a file.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </Box>
 
             {/* ⭐ Filters and Search Section */}
@@ -640,7 +1090,7 @@ function Marketing_View() {
                 <div className="card shadow-sm">
                     <div className="card-body">
                         <div className="d-flex justify-content-between align-items-center mb-4">
-                            <h5 className="card-title mb-0">Patient List</h5>
+                            <h5 className="card-title mb-0">Recipients List</h5>
                             {selectedPatientIds.length > 0 && (
                                 <button
                                     type="button"
@@ -674,37 +1124,77 @@ function Marketing_View() {
                                                     }}
                                                 />
                                             </th>
+                                            <th style={{ fontSize: "0.875rem" }}>Source</th>
                                             <th style={{ fontSize: "0.875rem" }}>UHID</th>
                                             <th style={{ fontSize: "0.875rem" }}>Name</th>
                                             <th style={{ fontSize: "0.875rem" }}>Contact Number</th>
                                             <th style={{ fontSize: "0.875rem" }}>Gender</th>
                                             <th style={{ fontSize: "0.875rem" }}>Last Appointment</th>
+                                            <th style={{ fontSize: "0.875rem", width: "60px" }}></th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {paginatedPatients.map((patient) => (
-                                            <tr key={patient.id}>
+                                        {paginatedPatients.map((patient) => {
+                                            const patientId = getRecipientId(patient);
+                                            const isEditing = patient.source === "manual" && editingContactId === patientId;
+
+                                            return (
+                                            <tr key={patientId}>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <input
                                                         type="checkbox"
                                                         className="form-check-input"
-                                                        checked={selectedPatientIds.includes(patient.id)}
-                                                        onChange={() => handleSelectOne(patient.id)}
+                                                        checked={selectedPatientIds.includes(patientId)}
+                                                        onChange={() => handleSelectOne(patientId)}
+                                                        disabled={isEditing}
                                                     />
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.source === "manual" ? (
+                                                        <span className="badge bg-info text-dark">Manual</span>
+                                                    ) : (
+                                                        <span className="badge bg-secondary">Registered</span>
+                                                    )}
                                                 </td>
                                                 <td style={{ fontSize: "0.875rem", color: "#666" }}>
                                                     {patient.uhid}
                                                 </td>
-                                                <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                                                    {patient.name}
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="text"
+                                                            className="form-control form-control-sm"
+                                                            value={editContactName}
+                                                            onChange={(e) => setEditContactName(e.target.value)}
+                                                        />
+                                                    ) : (
+                                                        <span style={{ fontWeight: 600 }}>{patient.name}</span>
+                                                    )}
                                                 </td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.contact}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="text"
+                                                            className="form-control form-control-sm"
+                                                            value={editContactPhone}
+                                                            maxLength={10}
+                                                            inputMode="numeric"
+                                                            onChange={(e) => setEditContactPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                                                        />
+                                                    ) : (
+                                                        patient.contact
+                                                    )}
+                                                </td>
                                                 <td style={{ fontSize: "0.875rem" }}>{patient.gender}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     {patient.appointmentDate !== "N/A" ? patient.appointmentDate : <span className="text-muted">No appointments</span>}
                                                 </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.source === "manual" && renderManualContactActions(patient)}
+                                                </td>
                                             </tr>
-                                        ))}
+                                        );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -713,7 +1203,7 @@ function Marketing_View() {
                                 <div className="mb-3">
                                     <PeopleIcon sx={{ fontSize: 64, color: "#6c757d" }} />
                                 </div>
-                                <h5 className="mb-2">No Patients Found</h5>
+                                <h5 className="mb-2">No Recipients Found</h5>
                                 <p className="text-muted mb-3">Try adjusting your filters or search query.</p>
                             </div>
                         )}
@@ -947,8 +1437,12 @@ function Marketing_View() {
                                     <div className="card-body">
                                         <div className="small text-muted mb-2">Quick Stats</div>
                                         <div className="d-flex justify-content-between mb-2">
-                                            <span>Total Patients:</span>
-                                            <strong>{stats.total}</strong>
+                                            <span>Registered:</span>
+                                            <strong>{stats.registered}</strong>
+                                        </div>
+                                        <div className="d-flex justify-content-between mb-2">
+                                            <span>Manual:</span>
+                                            <strong>{stats.manual}</strong>
                                         </div>
                                         <div className="d-flex justify-content-between mb-2">
                                             <span>Filtered:</span>
