@@ -28,6 +28,10 @@ const InpatientPrescriptions = lazy(() => import("../../pages/pharmacist/prescri
 // Prescriptions – Inpatient
 const List_View_Details = lazy(() => import("../../pages/pharmacist/prescriptions/list/View"));
 const ListPrescriptions = lazy(() => import("../../pages/pharmacist/prescriptions/list/Listprescriptions"));
+const OutsideDispense_View = lazy(() => import("../../pages/pharmacist/prescriptions/outside/View"));
+const OutsideDispense_Add = lazy(() => import("../../pages/pharmacist/prescriptions/outside/Add"));
+const OutsideDispense_Edit = lazy(() => import("../../pages/pharmacist/prescriptions/outside/Edit"));
+const OutsideDispense_Details = lazy(() => import("../../pages/pharmacist/prescriptions/outside/Details"));
 
 // Medicines
 const MedicinesView = lazy(() => import("../../pages/pharmacist/medicines/View"));
@@ -189,6 +193,54 @@ export const pharmacistRoutes = [
                     <meta name="description" content="View detailed inpatient prescription and dispensing information." />
                 </Helmet>
                 <ListPrescriptions />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/prescriptions/outside",
+        element: (
+            <>
+                <Helmet>
+                    <title>Outside Dispense | UTPALA</title>
+                    <meta name="description" content="Dispense medicines to outside walk-in customers." />
+                </Helmet>
+                <OutsideDispense_View />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/prescriptions/outside/add",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Outside Dispense | UTPALA</title>
+                    <meta name="description" content="Add outside walk-in medicine dispense record." />
+                </Helmet>
+                <OutsideDispense_Add />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/prescriptions/outside/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Outside Dispense | UTPALA</title>
+                    <meta name="description" content="Edit outside walk-in medicine dispense record." />
+                </Helmet>
+                <OutsideDispense_Edit />
+            </>
+        ),
+    },
+    {
+        path: "/pharmacist/prescriptions/outside/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Outside Dispense Details | UTPALA</title>
+                    <meta name="description" content="View outside walk-in medicine dispense details." />
+                </Helmet>
+                <OutsideDispense_Details />
             </>
         ),
     },

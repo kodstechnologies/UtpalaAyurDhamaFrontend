@@ -348,6 +348,11 @@ export const sidebarMenus = {
                     label: "Bill",
                     to: "/pharmacist/prescriptions/list",
                 },
+                {
+                    key: "outside",
+                    label: "Outside",
+                    to: "/pharmacist/prescriptions/outside",
+                },
             ],
         },
         {
