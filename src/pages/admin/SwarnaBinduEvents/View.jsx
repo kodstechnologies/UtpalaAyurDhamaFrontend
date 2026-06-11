@@ -4,6 +4,7 @@ import {
     Edit as EditIcon,
     Delete as DeleteIcon,
     PowerSettingsNew as ToggleIcon,
+    CalendarMonth as CalendarMonthIcon,
 } from '@mui/icons-material';
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -183,6 +184,13 @@ function SwarnaBinduEvents_View() {
                     { label: "Admin", url: "/admin/dashboard" },
                     { label: "Swarna Bindu Events" }
                 ]}
+                action={
+                    <RedirectButton
+                        text="View Calendar"
+                        link="/admin/swarna-bindu-events/calendar"
+                        icon={<CalendarMonthIcon />}
+                    />
+                }
             />
 
             {/* SEARCH + FILTERS + EXPORT */}

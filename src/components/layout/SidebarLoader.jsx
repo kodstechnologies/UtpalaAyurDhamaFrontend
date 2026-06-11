@@ -128,7 +128,7 @@ export const sidebarMenus = {
         },
         {
             key: "swarna_bindu_events",
-            label: "Swarna Bindu Events",
+            label: "Utpala Events",
             icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
             to: "/admin/swarna-bindu-events/view",
         },
@@ -286,7 +286,7 @@ export const sidebarMenus = {
         },
         {
             key: "swarna_bindu_events",
-            label: "Swarna Bindu Events",
+            label: "Utpala Events",
             icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
             to: "/receptionist/swarna-bindu-events",
         },

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Box, TextField, Typography, CircularProgress } from "@mui/material";
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -14,6 +14,13 @@ import swarnaBinduEventService from "../../../services/swarnaBinduEventService";
 
 function SwarnaBinduEvents_Add() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const isReceptionist = location.pathname.includes("/receptionist/");
+    const listPath = isReceptionist
+        ? "/receptionist/swarna-bindu-events"
+        : "/admin/swarna-bindu-events/view";
+    const dashboardPath = isReceptionist ? "/receptionist/dashboard" : "/admin/dashboard";
+    const dashboardLabel = isReceptionist ? "Receptionist" : "Admin";
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [eventDate, setEventDate] = useState("");
@@ -67,7 +74,7 @@ function SwarnaBinduEvents_Add() {
             
             if (response.success) {
                 toast.success("Swarna Bindu event created successfully");
-                navigate("/admin/swarna-bindu-events/view");
+                navigate(listPath);
             } else {
                 toast.error(response.message || "Failed to create event");
             }
@@ -86,8 +93,8 @@ function SwarnaBinduEvents_Add() {
                 title="Add Swarna Bindu Event"
                 subtitle="Create a new Swarna Bindu event."
                 breadcrumbItems={[
-                    { label: "Admin", url: "/admin/dashboard" },
-                    { label: "Swarna Bindu Events", url: "/admin/swarna-bindu-events/view" },
+                    { label: dashboardLabel, url: dashboardPath },
+                    { label: "Swarna Bindu Events", url: listPath },
                     { label: "Add" },
                 ]}
             />
@@ -226,7 +233,7 @@ function SwarnaBinduEvents_Add() {
                     {/* Submit and Cancel Buttons */}
                     <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end", mt: 4 }}>
                         <CancelButton
-                            onClick={() => navigate("/admin/swarna-bindu-events/view")}
+                            onClick={() => navigate(listPath)}
                             disabled={isSubmitting}
                         />
                         <SubmitButton

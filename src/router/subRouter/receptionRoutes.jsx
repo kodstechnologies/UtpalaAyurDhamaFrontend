@@ -18,7 +18,10 @@ const TherapyReportsView = lazy(() => import("../../pages/receptionist/therapy/V
 const Treatments_View = lazy(() => import("../../pages/receptionist/treatments/View"));
 const PatientTherapyDetails = lazy(() => import("../../pages/receptionist/treatments/PatientTherapyDetails"));
 const ReceptionistProfile = lazy(() => import("../../pages/receptionist/Profile"));
-const SwarnaBinduEvents_Calendar = lazy(() => import("../../pages/receptionist/swarnaBinduEvents/View"));
+const SwarnaBinduEvents_View = lazy(() => import("../../pages/receptionist/swarnaBinduEvents/View"));
+const SwarnaBinduEvents_Calendar = lazy(() => import("../../pages/receptionist/swarnaBinduEvents/Calendar"));
+const SwarnaBinduEvents_Add = lazy(() => import("../../pages/admin/SwarnaBinduEvents/Add"));
+const SwarnaBinduEvents_Edit = lazy(() => import("../../pages/admin/SwarnaBinduEvents/Edit"));
 const PatientHistory = lazy(() => import("../../pages/receptionist/patient/PatientHistory"));
 const WalkInHub = lazy(() => import("../../pages/receptionist/WalkInPatient/WalkInHub"));
 
@@ -394,7 +397,40 @@ export const receptionRoutes = [
                 <Helmet>
                     <title>Swarna Bindu Events | UTPALA</title>
                 </Helmet>
+                <SwarnaBinduEvents_View />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/swarna-bindu-events/calendar",
+        element: (
+            <>
+                <Helmet>
+                    <title>Swarna Bindu Events Calendar | UTPALA</title>
+                </Helmet>
                 <SwarnaBinduEvents_Calendar />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/swarna-bindu-events/add",
+        element: (
+            <>
+                <Helmet>
+                    <title>Add Swarna Bindu Event | UTPALA</title>
+                </Helmet>
+                <SwarnaBinduEvents_Add />
+            </>
+        ),
+    },
+    {
+        path: "/receptionist/swarna-bindu-events/edit/:id",
+        element: (
+            <>
+                <Helmet>
+                    <title>Edit Swarna Bindu Event | UTPALA</title>
+                </Helmet>
+                <SwarnaBinduEvents_Edit />
             </>
         ),
     },

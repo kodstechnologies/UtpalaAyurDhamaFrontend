@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Box, TextField, Typography, CircularProgress } from "@mui/material";
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -14,7 +14,14 @@ import swarnaBinduEventService from "../../../services/swarnaBinduEventService";
 
 function SwarnaBinduEvents_Edit() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams();
+    const isReceptionist = location.pathname.includes("/receptionist/");
+    const listPath = isReceptionist
+        ? "/receptionist/swarna-bindu-events"
+        : "/admin/swarna-bindu-events/view";
+    const dashboardPath = isReceptionist ? "/receptionist/dashboard" : "/admin/dashboard";
+    const dashboardLabel = isReceptionist ? "Receptionist" : "Admin";
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [eventDate, setEventDate] = useState("");
@@ -49,12 +56,12 @@ function SwarnaBinduEvents_Edit() {
                 setIsActive(event.isActive !== undefined ? event.isActive : true);
             } else {
                 toast.error(response.message || "Failed to fetch event");
-                navigate("/admin/swarna-bindu-events/view");
+                navigate(listPath);
             }
         } catch (error) {
             console.error("Error fetching event:", error);
             toast.error(error.message || "Failed to fetch event");
-            navigate("/admin/swarna-bindu-events/view");
+            navigate(listPath);
         } finally {
             setIsLoading(false);
         }
@@ -103,7 +110,7 @@ function SwarnaBinduEvents_Edit() {
             
             if (response.success) {
                 toast.success("Swarna Bindu event updated successfully");
-                navigate("/admin/swarna-bindu-events/view");
+                navigate(listPath);
             } else {
                 toast.error(response.message || "Failed to update event");
             }
@@ -130,8 +137,8 @@ function SwarnaBinduEvents_Edit() {
                 title="Edit Swarna Bindu Event"
                 subtitle="Update Swarna Bindu event details."
                 breadcrumbItems={[
-                    { label: "Admin", url: "/admin/dashboard" },
-                    { label: "Swarna Bindu Events", url: "/admin/swarna-bindu-events/view" },
+                    { label: dashboardLabel, url: dashboardPath },
+                    { label: "Swarna Bindu Events", url: listPath },
                     { label: "Edit" },
                 ]}
             />
@@ -270,7 +277,7 @@ function SwarnaBinduEvents_Edit() {
                     {/* Submit and Cancel Buttons */}
                     <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end", mt: 4 }}>
                         <CancelButton
-                            onClick={() => navigate("/admin/swarna-bindu-events/view")}
+                            onClick={() => navigate(listPath)}
                             disabled={isSubmitting}
                         />
                         <SubmitButton

@@ -161,6 +161,9 @@ const SwarnaBinduEvents_Add = lazy(() =>
 const SwarnaBinduEvents_Edit = lazy(() =>
     import("../../pages/admin/SwarnaBinduEvents/Edit")
 );
+const SwarnaBinduEvents_Calendar = lazy(() =>
+    import("../../pages/receptionist/swarnaBinduEvents/Calendar")
+);
 
 // Stock List======================================
 
@@ -884,6 +887,14 @@ export const adminRoutes = [
                 <meta name="description" content="Edit Swarna Bindu event details." />
             </Helmet>
                 <SwarnaBinduEvents_Edit /></>
+    },
+    {
+        path: "/admin/swarna-bindu-events/calendar", element:
+            <><Helmet>
+                <title>Swarna Bindu Events Calendar | UTPALA</title>
+                <meta name="description" content="View Swarna Bindu events on the calendar." />
+            </Helmet>
+                <SwarnaBinduEvents_Calendar /></>
     },
 
 ];
