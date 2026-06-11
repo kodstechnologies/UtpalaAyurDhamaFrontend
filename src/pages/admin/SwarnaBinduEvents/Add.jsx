@@ -14,8 +14,8 @@ import swarnaBinduEventService from "../../../services/swarnaBinduEventService";
 
 function SwarnaBinduEvents_Add() {
     const navigate = useNavigate();
-    const location = useLocation();
-    const isReceptionist = location.pathname.includes("/receptionist/");
+    const routeLocation = useLocation();
+    const isReceptionist = routeLocation.pathname.includes("/receptionist/");
     const listPath = isReceptionist
         ? "/receptionist/swarna-bindu-events"
         : "/admin/swarna-bindu-events/view";

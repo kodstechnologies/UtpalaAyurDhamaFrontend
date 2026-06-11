@@ -196,6 +196,12 @@ export const sidebarMenus = {
             icon: <ReplayIcon style={{ color: "var(--color-icons)" }} />,
             to: "/doctor/follow-ups",
         },
+        {
+            key: "utpala_events",
+            label: "Utpala Event",
+            icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/admin/swarna-bindu-events/calendar",
+        },
     ],
 
     nurse: [
@@ -216,7 +222,13 @@ export const sidebarMenus = {
             label: "Discharge Preparation",
             icon: <AssignmentTurnedInIcon style={{ color: "var(--color-icons)" }} />,
             to: "/nurse/discharge-preparation",
-        }
+        },
+        {
+            key: "utpala_events",
+            label: "Utpala Event",
+            icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/admin/swarna-bindu-events/calendar",
+        },
     ],
     receptionist: [
         {
@@ -350,6 +362,12 @@ export const sidebarMenus = {
             icon: <AssignmentTurnedInIcon style={{ color: "var(--color-icons)" }} />,
             to: "/pharmacist/inventory",
         },
+        {
+            key: "utpala_events",
+            label: "Utpala Event",
+            icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/admin/swarna-bindu-events/calendar",
+        },
     ],
     therapist: [
         {
@@ -419,6 +437,12 @@ export const sidebarMenus = {
             label: "Reports",
             icon: <AssessmentIcon style={{ color: "var(--color-icons)" }} />,
             to: "/patient/reports",
+        },
+        {
+            key: "utpala_events",
+            label: "Utpala Event",
+            icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/admin/swarna-bindu-events/calendar",
         },
     ]
 };

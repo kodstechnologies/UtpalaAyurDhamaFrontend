@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
     Box,
     Typography,
@@ -22,12 +22,60 @@ import RedirectButton from "../../../components/buttons/RedirectButton";
 import swarnaBinduEventService from "../../../services/swarnaBinduEventService";
 import { toast } from "react-toastify";
 
+const CALENDAR_ROLE_CONFIG = {
+    admin: {
+        listPath: "/admin/swarna-bindu-events/view",
+        breadcrumbItems: [
+            { label: "Admin", url: "/admin/dashboard" },
+            { label: "Swarna Bindu Events", url: "/admin/swarna-bindu-events/view" },
+            { label: "Calendar" },
+        ],
+        canManage: true,
+    },
+    receptionist: {
+        listPath: "/receptionist/swarna-bindu-events",
+        breadcrumbItems: [
+            { label: "Receptionist", url: "/receptionist/dashboard" },
+            { label: "Swarna Bindu Events", url: "/receptionist/swarna-bindu-events" },
+            { label: "Calendar" },
+        ],
+        canManage: true,
+    },
+    doctor: {
+        breadcrumbItems: [
+            { label: "Doctor", url: "/doctor/dashboard" },
+            { label: "Utpala Event" },
+        ],
+        canManage: false,
+    },
+    nurse: {
+        breadcrumbItems: [
+            { label: "Nurse", url: "/nurse/dashboard" },
+            { label: "Utpala Event" },
+        ],
+        canManage: false,
+    },
+    pharmacist: {
+        breadcrumbItems: [
+            { label: "Pharmacist", url: "/pharmacist/dashboard" },
+            { label: "Utpala Event" },
+        ],
+        canManage: false,
+    },
+    patient: {
+        breadcrumbItems: [
+            { label: "Patient", url: "/patient/dashboard" },
+            { label: "Utpala Event" },
+        ],
+        canManage: false,
+    },
+};
+
 function SwarnaBinduEvents_Calendar() {
-    const location = useLocation();
-    const isAdminView = location.pathname.includes("/admin/");
-    const listPath = isAdminView
-        ? "/admin/swarna-bindu-events/view"
-        : "/receptionist/swarna-bindu-events";
+    const role = useSelector((state) => state.auth.role) || localStorage.getItem("role");
+    const roleKey = role?.toLowerCase() || "patient";
+    const roleConfig = CALENDAR_ROLE_CONFIG[roleKey] || CALENDAR_ROLE_CONFIG.patient;
+    const { breadcrumbItems, listPath, canManage } = roleConfig;
 
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -183,25 +231,17 @@ function SwarnaBinduEvents_Calendar() {
         }
     };
 
-    const breadcrumbItems = isAdminView
-        ? [
-            { label: "Admin", url: "/admin/dashboard" },
-            { label: "Swarna Bindu Events", url: listPath },
-            { label: "Calendar" },
-        ]
-        : [
-            { label: "Receptionist", url: "/receptionist/dashboard" },
-            { label: "Swarna Bindu Events", url: listPath },
-            { label: "Calendar" },
-        ];
-
     return (
         <Box sx={{ p: 3 }}>
             <HeadingCard
-                title="Swarna Bindu Events"
-                subtitle="View and manage Swarna Bindu events on the calendar"
+                title="Utpala Events"
+                subtitle="View Utpala events on the calendar"
                 breadcrumbItems={breadcrumbItems}
-                action={<RedirectButton text="Manage Events" link={listPath} />}
+                action={
+                    canManage && listPath ? (
+                        <RedirectButton text="Manage Events" link={listPath} />
+                    ) : null
+                }
             />
 
             <Paper
