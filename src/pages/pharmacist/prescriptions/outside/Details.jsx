@@ -280,6 +280,7 @@ function OutsideDispense_Details() {
                                             <TableCell>Frequency</TableCell>
                                             <TableCell>Duration</TableCell>
                                             <TableCell>Food Timing</TableCell>
+                                            <TableCell>Food Time</TableCell>
                                             <TableCell>Dosage Schedule</TableCell>
                                             <TableCell>Subtype</TableCell>
                                             <TableCell align="center">Dispense Qty</TableCell>
@@ -299,6 +300,7 @@ function OutsideDispense_Details() {
                                                 <TableCell>{med.frequency || "-"}</TableCell>
                                                 <TableCell>{med.duration || "-"}</TableCell>
                                                 <TableCell>{med.foodTiming || "-"}</TableCell>
+                                                <TableCell>{med.foodTime || "-"}</TableCell>
                                                 <TableCell>{med.dosageSchedule || "-"}</TableCell>
                                                 <TableCell>{med.subType || "-"}</TableCell>
                                                 <TableCell align="center">{med.dispensedQuantity}</TableCell>

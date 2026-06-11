@@ -82,6 +82,7 @@ function IPDPrescriptionsAddPage() {
             frequency: "",
             duration: "",
             foodTiming: "",
+            foodTime: "",
             remarks: "",
             instructions: "",
             medicineType: "",
@@ -161,7 +162,11 @@ function IPDPrescriptionsAddPage() {
                         : [];
                     console.log("Medicines List:", medicinesList);
                     // Filter only active medicines (remove stockStatus filter to show all active medicines)
-                    const activeMedicines = medicinesList.filter(m => m.status === "Active");
+                    const activeMedicines = medicinesList
+                        .filter(m => m.status === "Active")
+                        .sort((a, b) =>
+                            (a.medicineName || "").localeCompare(b.medicineName || "", undefined, { sensitivity: "base" })
+                        );
                     console.log("Active Medicines:", activeMedicines);
                     setMedicines(activeMedicines);
                 } else {
@@ -242,6 +247,7 @@ function IPDPrescriptionsAddPage() {
                                 frequency: p.frequency || "",
                                 duration: p.duration || "",
                                 foodTiming: p.foodTiming || "",
+                                foodTime: p.foodTime || "",
                                 remarks: p.remarks || "",
                                 instructions: p.notes || "",
                                 medicineType: p.medicineType || "",
@@ -282,6 +288,7 @@ function IPDPrescriptionsAddPage() {
                                 frequency: data.frequency || "",
                                 duration: data.duration || "",
                                 foodTiming: data.foodTiming || "",
+                                foodTime: data.foodTime || "",
                                 remarks: data.remarks || "",
                                 instructions: data.notes || "",
                                 medicineType: data.medicineType || "",
@@ -356,6 +363,7 @@ function IPDPrescriptionsAddPage() {
                 frequency: "",
                 duration: "",
                 foodTiming: "",
+                foodTime: "",
                 remarks: "",
                 instructions: "",
                 dosageSchedule: "",
@@ -405,6 +413,7 @@ function IPDPrescriptionsAddPage() {
                 frequency: medicineToEdit.frequency || "",
                 duration: medicineToEdit.duration || "",
                 foodTiming: medicineToEdit.foodTiming || "",
+                foodTime: medicineToEdit.foodTime || "",
                 remarks: medicineToEdit.remarks || "",
                 instructions: medicineToEdit.instructions || "",
                 medicineType: medicineToEdit.medicineType || "",
@@ -466,6 +475,7 @@ function IPDPrescriptionsAddPage() {
                         frequency: medicine.frequency || "As needed",
                         duration: medicine.duration || undefined,
                         foodTiming: medicine.foodTiming || undefined,
+                        foodTime: medicine.foodTime || undefined,
                         dosageSchedule: medicine.dosageSchedule || undefined,
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
@@ -494,6 +504,7 @@ function IPDPrescriptionsAddPage() {
                             frequency: medicine.frequency || "As needed",
                             duration: medicine.duration || undefined,
                             foodTiming: medicine.foodTiming || undefined,
+                            foodTime: medicine.foodTime || undefined,
                             dosageSchedule: medicine.dosageSchedule || undefined,
                             remarks: medicine.remarks || undefined,
                             notes: medicine.instructions || formData.notes || undefined,
@@ -585,6 +596,7 @@ function IPDPrescriptionsAddPage() {
                         frequency: medicine.frequency || "As needed",
                         duration: medicine.duration || undefined,
                         foodTiming: medicine.foodTiming || undefined,
+                        foodTime: medicine.foodTime || undefined,
                         dosageSchedule: medicine.dosageSchedule || undefined,
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
@@ -816,6 +828,16 @@ function IPDPrescriptionsAddPage() {
                                         </FormControl>
                                     </Grid>
                                     <Grid item xs={12} md={2}>
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            label="Food Time"
+                                            value={formData.currentMedicine.foodTime}
+                                            onChange={(e) => handleMedicineFieldChange("foodTime", e.target.value)}
+                                            placeholder="Food time"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} md={2}>
                                         <FormControl fullWidth size="small">
                                             <InputLabel>Dosage Schedule</InputLabel>
                                             <Select
@@ -917,6 +939,7 @@ function IPDPrescriptionsAddPage() {
                                                     <Typography variant="body2" color="text.secondary">
                                                         {medicine.dosage} - {medicine.frequency} - {medicine.duration}
                                                         {medicine.foodTiming && ` - ${medicine.foodTiming}`}
+                                                        {medicine.foodTime && ` - Food Time: ${medicine.foodTime}`}
                                                         {medicine.dosageSchedule && ` - Schedule: ${medicine.dosageSchedule}`}
                                                         {medicine.subType && ` - Subtype: ${medicine.subType}`}
                                                     </Typography>

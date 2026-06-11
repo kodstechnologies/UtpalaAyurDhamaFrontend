@@ -45,6 +45,7 @@ const emptyMedicineLine = () => ({
     frequency: "",
     duration: "",
     foodTiming: "",
+    foodTime: "",
     dosageSchedule: "",
     subType: "",
     dispensedQuantity: "",
@@ -117,6 +118,7 @@ function OutsideDispense_Edit() {
                               frequency: m.frequency || "",
                               duration: m.duration || "",
                               foodTiming: m.foodTiming || "",
+                              foodTime: m.foodTime || "",
                               dosageSchedule: m.dosageSchedule || "",
                               subType: m.subType || "",
                               dispensedQuantity: m.dispensedQuantity ?? "",
@@ -261,6 +263,7 @@ function OutsideDispense_Edit() {
                     frequency: m.frequency,
                     duration: m.duration,
                     foodTiming: m.foodTiming,
+                    foodTime: m.foodTime,
                     dosageSchedule: m.dosageSchedule,
                     subType: m.subType,
                     dispensedQuantity: Number(m.dispensedQuantity),
@@ -449,6 +452,16 @@ function OutsideDispense_Edit() {
                                             <MenuItem value="Before Bed">Before Bed</MenuItem>
                                         </Select>
                                     </FormControl>
+                                </Grid>
+                                <Grid item xs={12} sm={4} md={2}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Food Time"
+                                        value={line.foodTime}
+                                        onChange={(e) => handleMedicineChange(index, "foodTime", e.target.value)}
+                                        placeholder="Food time"
+                                    />
                                 </Grid>
                                 <Grid item xs={12} sm={4} md={2}>
                                     <FormControl fullWidth size="small">

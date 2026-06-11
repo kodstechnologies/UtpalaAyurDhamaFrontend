@@ -69,6 +69,7 @@ export const buildOutsideDispensePdfData = (record) => {
             frequency: m.frequency || "",
             duration: m.duration || "",
             foodTiming: m.foodTiming || "",
+            foodTime: m.foodTime || "",
             dosageSchedule: m.dosageSchedule || "",
             notes: m.notes || "",
             qty,
