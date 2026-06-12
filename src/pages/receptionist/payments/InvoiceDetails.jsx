@@ -40,7 +40,12 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import { invoiceHandlePrint } from "./components/invoiceHandlePrint";
 import { invoiceHandleDownload } from "./components/invoiceHandleDownload";
 
-function InvoiceDetails() {
+function InvoiceDetails({
+  homeUrl = "/",
+  backUrl = "/receptionist/payments",
+  paymentsListUrl = "/receptionist/payments",
+  paymentsListLabel = "Payments",
+}) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -55,8 +60,8 @@ function InvoiceDetails() {
   const [printingReport, setPrintingReport] = useState(false);
 
   const breadcrumbItems = [
-    { label: "Home", url: "/" },
-    { label: "Payments", url: "/receptionist/payments" },
+    { label: "Home", url: homeUrl },
+    { label: paymentsListLabel, url: paymentsListUrl },
     { label: "Invoice Details" },
   ];
 
@@ -71,12 +76,12 @@ function InvoiceDetails() {
         setInvoice(response.data);
       } else {
         toast.error("Failed to load invoice details");
-        navigate("/receptionist/payments");
+        navigate(backUrl);
       }
     } catch (error) {
       console.error("Error fetching invoice details:", error);
       toast.error(error.response?.data?.message || "Failed to load invoice details");
-      navigate("/receptionist/payments");
+      navigate(backUrl);
     } finally {
       setLoading(false);
     }
@@ -296,7 +301,7 @@ function InvoiceDetails() {
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate("/receptionist/payments")}
+          onClick={() => navigate(backUrl)}
           sx={{ borderColor: "#D4A574", color: "#D4A574" }}
         >
           Back to Payments

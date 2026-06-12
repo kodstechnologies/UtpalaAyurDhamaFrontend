@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Box, Typography, TablePagination } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
@@ -19,9 +20,14 @@ import PrintIcon from "@mui/icons-material/Print";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import { handlePrint } from "./ReportsGenerator";
 
-function Reports_View() {
+function Reports_View({
+    homeUrl = "/receptionist/dashboard",
+    invoiceBasePath = "/receptionist/payments/invoice",
+}) {
+    const navigate = useNavigate();
     const [reportData, setReportData] = useState([]);
     const [summaryData, setSummaryData] = useState(null);
     const [startDate, setStartDate] = useState("");
@@ -142,15 +148,24 @@ function Reports_View() {
                 console.log("Report data:", { summary, transactionsCount: transactions?.length });
 
                 // Map backend data to frontend format
-                const formattedTransactions = (transactions || []).map((payment, index) => ({
-                    id: payment._id || `payment-${index}`,
-                    date: payment.date || payment.createdAt,
-                    description: payment.description || "N/A",
-                    type: payment.type === "Income" ? "Credit" : payment.type === "Expense" ? "Debit" : payment.type,
-                    amount: payment.amount || 0,
-                    paymentMethod: payment.paymentMethod || "N/A",
-                    originalType: payment.type, // Keep original for reference
-                }));
+                const formattedTransactions = (transactions || []).map((payment, index) => {
+                    const invoiceId =
+                        payment.invoiceId ||
+                        (payment.isInvoice && payment._id?.includes("_payment_")
+                            ? String(payment._id).split("_payment_")[0]
+                            : null);
+
+                    return {
+                        id: payment._id || `payment-${index}`,
+                        date: payment.date || payment.createdAt,
+                        description: payment.description || "N/A",
+                        type: payment.type === "Income" ? "Credit" : payment.type === "Expense" ? "Debit" : payment.type,
+                        amount: payment.amount || 0,
+                        paymentMethod: payment.paymentMethod || "N/A",
+                        originalType: payment.type,
+                        invoiceId: invoiceId ? String(invoiceId) : null,
+                    };
+                });
 
                 setReportData(formattedTransactions);
                 setSummaryData(summary || null);
@@ -277,7 +292,7 @@ function Reports_View() {
 
     // Breadcrumb items
     const breadcrumbItems = [
-        { label: "Home", url: "/receptionist/dashboard" },
+        { label: "Home", url: homeUrl },
         { label: "Reports" },
     ];
 
@@ -567,6 +582,7 @@ function Reports_View() {
                                                 <th style={{ fontSize: "0.875rem" }}>Payment Method</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Type</th>
                                                 <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Amount (INR)</th>
+                                                <th style={{ fontSize: "0.875rem", textAlign: "center" }} className="no-print">View</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -600,6 +616,20 @@ function Reports_View() {
                                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
                                                         {formatCurrency(transaction.amount)}
                                                     </td>
+                                                    <td style={{ fontSize: "0.875rem", textAlign: "center" }} className="no-print">
+                                                        {transaction.invoiceId ? (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-outline-primary"
+                                                                onClick={() => navigate(`${invoiceBasePath}/${transaction.invoiceId}`)}
+                                                                title="View invoice"
+                                                            >
+                                                                <VisibilityIcon fontSize="small" />
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-muted">—</span>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -611,6 +641,7 @@ function Reports_View() {
                                                 <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#198754", paddingTop: "12px" }}>
                                                     {formatCurrency(totals.credit)}
                                                 </td>
+                                                <td className="no-print"></td>
                                             </tr>
                                             <tr>
                                                 <td colSpan="4" style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right" }}>
@@ -619,6 +650,7 @@ function Reports_View() {
                                                 <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#dc3545" }}>
                                                     {formatCurrency(totals.debit)}
                                                 </td>
+                                                <td className="no-print"></td>
                                             </tr>
                                             {/* <tr>
                                                 <td colSpan="4" style={{ fontSize: "0.875rem", fontWeight: 700, textAlign: "right" }}>

@@ -124,6 +124,7 @@ export const sidebarMenus = {
                 { key: "admissions", label: "Admission List", to: "/admin/analytics/admissions" },
                 { key: "discharge", label: "Discharge Report", to: "/admin/analytics/discharges" },
                 { key: "records", label: "Patient Records", to: "/admin/analytics/patient-records" },
+                { key: "payment_reports", label: "Payment Reports", to: "/admin/analytics/payment-reports" },
             ],
         },
         {

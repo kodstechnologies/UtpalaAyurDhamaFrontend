@@ -151,6 +151,14 @@ const PatientRecords = lazy(() =>
     import("../../pages/admin/analytics/PatientRecords")
 );
 
+const PaymentReports_View = lazy(() =>
+    import("../../pages/admin/reports/View")
+);
+
+const AdminInvoiceDetails = lazy(() =>
+    import("../../pages/admin/payments/InvoiceDetails")
+);
+
 // ================= SWARNA BINDU EVENTS =================
 const SwarnaBinduEvents_View = lazy(() =>
     import("../../pages/admin/SwarnaBinduEvents/View")
@@ -861,6 +869,22 @@ export const adminRoutes = [
                 <meta name="description" content="Patient records overview." />
             </Helmet>
                 <PatientRecords /></>
+    },
+    {
+        path: "/admin/analytics/payment-reports", element:
+            <><Helmet>
+                <title>Payment Reports | UTPALA</title>
+                <meta name="description" content="Generate and analyze payment transactions with debit-credit reports." />
+            </Helmet>
+                <PaymentReports_View /></>
+    },
+    {
+        path: "/admin/payments/invoice/:id", element:
+            <><Helmet>
+                <title>Invoice Details | UTPALA</title>
+                <meta name="description" content="View invoice payment details." />
+            </Helmet>
+                <AdminInvoiceDetails /></>
     },
 
     // ================= SWARNA BINDU EVENTS =================

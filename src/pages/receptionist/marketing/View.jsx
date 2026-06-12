@@ -112,11 +112,17 @@ function Marketing_View() {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [campaignText, setCampaignText] = useState("");
 
+    const normalizeManualContact = (contact) => ({
+        ...contact,
+        id: String(contact.id || contact._id),
+        source: "manual",
+    });
+
     const fetchManualContacts = useCallback(async (signal) => {
         const search = searchQuery?.trim() || null;
         const response = await receptionistService.getMarketingContacts({ search }, signal);
         if (response?.success) {
-            setManualContacts(response.data || []);
+            setManualContacts((response.data || []).map(normalizeManualContact));
         } else {
             setManualContacts([]);
         }
@@ -190,9 +196,19 @@ function Marketing_View() {
         };
     }, [pagination.page, pagination.rowsPerPage, searchQuery, fetchManualContacts]);
 
+    const normalizedPatients = useMemo(
+        () =>
+            allPatients.map((patient) => ({
+                ...patient,
+                id: String(patient.id || patient._id),
+                source: patient.source || "registered",
+            })),
+        [allPatients]
+    );
+
     const allRecipients = useMemo(
-        () => [...manualContacts, ...allPatients],
-        [manualContacts, allPatients]
+        () => [...manualContacts, ...normalizedPatients],
+        [manualContacts, normalizedPatients]
     );
 
     // Reset to first page when filters or search change
@@ -204,15 +220,9 @@ function Marketing_View() {
         });
     }, [filters.gender, filters.disease, filters.treatment, searchQuery]);
 
-    // Filter recipients (manual contacts skip disease/treatment/gender filters)
+    // Manual contacts always shown at top; filters apply only to registered patients
     const filteredPatients = useMemo(() => {
-        if (!Array.isArray(allRecipients)) {
-            return [];
-        }
-        const result = allRecipients.filter((patient) => {
-            if (patient.source === "manual") {
-                return true;
-            }
+        const filteredRegistered = normalizedPatients.filter((patient) => {
             const matchesFilters =
                 (filters.gender === "" || patient.gender === filters.gender) &&
                 (filters.disease === "" || patient.disease === filters.disease) &&
@@ -220,24 +230,20 @@ function Marketing_View() {
             return matchesFilters;
         });
 
-        // Sort by last appointment date (most recent first)
-        const sorted = result.sort((a, b) => {
+        const sortedRegistered = [...filteredRegistered].sort((a, b) => {
             const dateA = a.appointmentDate && a.appointmentDate !== "N/A" ? new Date(a.appointmentDate) : null;
             const dateB = b.appointmentDate && b.appointmentDate !== "N/A" ? new Date(b.appointmentDate) : null;
 
-            // If both have dates, sort descending (most recent first)
             if (dateA && dateB) {
                 return dateB.getTime() - dateA.getTime();
             }
-            // If only one has a date, prioritize it
             if (dateA && !dateB) return -1;
             if (!dateA && dateB) return 1;
-            // If neither has a date, maintain original order
             return 0;
         });
 
-        return sorted;
-    }, [filters, allRecipients, searchQuery]);
+        return [...manualContacts, ...sortedRegistered];
+    }, [filters, manualContacts, normalizedPatients]);
 
     // Note: Since filters are applied client-side, we display filteredPatients directly
     // Server-side pagination fetches the base data, then we filter and display
@@ -1090,7 +1096,14 @@ function Marketing_View() {
                 <div className="card shadow-sm">
                     <div className="card-body">
                         <div className="d-flex justify-content-between align-items-center mb-4">
-                            <h5 className="card-title mb-0">Recipients List</h5>
+                            <h5 className="card-title mb-0">
+                                Recipients List
+                                {manualContacts.length > 0 && (
+                                    <span className="badge bg-info text-dark ms-2" style={{ fontSize: "0.75rem" }}>
+                                        {manualContacts.length} manual
+                                    </span>
+                                )}
+                            </h5>
                             {selectedPatientIds.length > 0 && (
                                 <button
                                     type="button"
@@ -1212,7 +1225,7 @@ function Marketing_View() {
                         {!loading && paginatedPatients.length > 0 && (
                             <TablePagination
                                 component="div"
-                                count={pagination.total}
+                                count={pagination.total + manualContacts.length}
                                 page={pagination.page}
                                 rowsPerPage={pagination.rowsPerPage}
                                 onPageChange={(_, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
