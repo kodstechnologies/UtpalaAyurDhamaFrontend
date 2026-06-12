@@ -5,6 +5,7 @@ function AdminReports_View() {
         <Reports_View
             homeUrl="/admin/dashboard"
             invoiceBasePath="/admin/payments/invoice"
+            adminView
         />
     );
 }

@@ -7,6 +7,7 @@ function AdminInvoiceDetails() {
             backUrl="/admin/analytics/payment-reports"
             paymentsListUrl="/admin/analytics/payment-reports"
             paymentsListLabel="Payment Reports"
+            adminViewMode
         />
     );
 }

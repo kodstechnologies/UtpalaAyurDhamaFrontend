@@ -38,6 +38,27 @@ const getPatientReports = async () => {
     return response.data;
 };
 
+const getAdminInvoiceView = async (id) => {
+    const response = await axios.get(getApiUrl(`invoices/${id}/admin-view`), {
+        headers: getAuthHeaders(),
+    });
+    return response.data;
+};
+
+const saveAdminInvoiceDisplay = async (id, payload) => {
+    const response = await axios.put(getApiUrl(`invoices/${id}/admin-display`), payload, {
+        headers: getAuthHeaders(),
+    });
+    return response.data;
+};
+
+const resetAdminInvoiceDisplay = async (id) => {
+    const response = await axios.delete(getApiUrl(`invoices/${id}/admin-display`), {
+        headers: getAuthHeaders(),
+    });
+    return response.data;
+};
+
 const recordPayment = async (invoiceId, paymentAmount, paymentMethod, transactionId, cardLastFourDigits) => {
     const response = await axios.patch(getApiUrl(`invoices/${invoiceId}/record-payment`), {
         paymentAmount,
@@ -53,6 +74,9 @@ const recordPayment = async (invoiceId, paymentAmount, paymentMethod, transactio
 export default {
     getAllInvoices,
     getInvoiceById,
+    getAdminInvoiceView,
+    saveAdminInvoiceDisplay,
+    resetAdminInvoiceDisplay,
     getInvoicesByUser,
     downloadInvoicePdf,
     getPatientReports,

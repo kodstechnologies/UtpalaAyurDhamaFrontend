@@ -35,6 +35,7 @@ const resolveInvoiceId = (payment) => {
 function Reports_View({
     homeUrl = "/receptionist/dashboard",
     invoiceBasePath = "/receptionist/payments/invoice",
+    adminView = false,
 }) {
     const navigate = useNavigate();
     const [reportData, setReportData] = useState([]);
@@ -141,13 +142,16 @@ function Reports_View({
             const currentPage = pageOverride !== null ? pageOverride : pagination.page;
             const currentRowsPerPage = rowsPerPageOverride !== null ? rowsPerPageOverride : pagination.rowsPerPage;
 
-            const response = await paymentService.getPaymentReport({
-                startDate: startDateStr,
-                endDate: endDateStr,
-                format: "json",
-                page: currentPage + 1, // Backend uses 1-based pagination
-                limit: currentRowsPerPage,
-            });
+            const response = await paymentService.getPaymentReport(
+                {
+                    startDate: startDateStr,
+                    endDate: endDateStr,
+                    format: "json",
+                    page: currentPage + 1,
+                    limit: currentRowsPerPage,
+                },
+                { adminView }
+            );
 
             console.log("Report API response:", response);
 

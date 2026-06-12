@@ -64,11 +64,11 @@ const paymentService = {
     },
 
     // Get payment report (summary + transactions or excel)
-    getPaymentReport: async (params = {}) => {
+    getPaymentReport: async (params = {}, options = {}) => {
         try {
             const config = {
                 headers: getAuthHeaders(),
-                params,
+                params: { ...params, ...(options.adminView ? { adminView: true } : {}) },
             };
             // If requesting excel, we need responseType blob
             if (params.format === 'excel') {

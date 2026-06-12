@@ -21,6 +21,8 @@ import {
   TextField,
   CircularProgress,
   MenuItem,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
@@ -37,6 +39,8 @@ import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import PaymentIcon from "@mui/icons-material/Payment";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import RestoreIcon from "@mui/icons-material/Restore";
 import { invoiceHandlePrint } from "./components/invoiceHandlePrint";
 import { invoiceHandleDownload } from "./components/invoiceHandleDownload";
 
@@ -45,11 +49,21 @@ function InvoiceDetails({
   backUrl = "/receptionist/payments",
   paymentsListUrl = "/receptionist/payments",
   paymentsListLabel = "Payments",
+  adminViewMode = false,
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState(null);
+  const [hasAdminDisplay, setHasAdminDisplay] = useState(false);
+  const [adminTab, setAdminTab] = useState(0);
+  const [adminEditForm, setAdminEditForm] = useState({
+    subtotal: "",
+    totalPayable: "",
+    amountPaid: "",
+    payments: [],
+  });
+  const [isSavingAdminDisplay, setIsSavingAdminDisplay] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
@@ -70,10 +84,21 @@ function InvoiceDetails({
 
     try {
       setLoading(true);
-      const response = await invoiceService.getInvoiceById(id);
+      const response = adminViewMode
+        ? await invoiceService.getAdminInvoiceView(id)
+        : await invoiceService.getInvoiceById(id);
 
-      if (response && response.success && response.data) {
-        setInvoice(response.data);
+      if (response && response.success) {
+        if (adminViewMode && response.data?.invoice) {
+          setInvoice(response.data.invoice);
+          setHasAdminDisplay(Boolean(response.data.hasAdminDisplay));
+        } else if (response.data) {
+          setInvoice(response.data);
+          setHasAdminDisplay(false);
+        } else {
+          toast.error("Failed to load invoice details");
+          navigate(backUrl);
+        }
       } else {
         toast.error("Failed to load invoice details");
         navigate(backUrl);
@@ -84,6 +109,76 @@ function InvoiceDetails({
       navigate(backUrl);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const populateAdminEditForm = (invoiceData) => {
+    if (!invoiceData) return;
+    setAdminEditForm({
+      subtotal: invoiceData.subtotal ?? "",
+      totalPayable: invoiceData.totalPayable ?? "",
+      amountPaid: invoiceData.amountPaid ?? "",
+      payments: (invoiceData.payments || []).map((payment, index) => ({
+        index,
+        amount: payment.amount ?? "",
+        paymentMethod: payment.paymentMethod ?? "Cash",
+      })),
+    });
+  };
+
+  const handleAdminTabChange = (_, newTab) => {
+    setAdminTab(newTab);
+    if (newTab === 1 && invoice) {
+      populateAdminEditForm(invoice);
+    }
+  };
+
+  const handleSaveAdminDisplay = async () => {
+    try {
+      setIsSavingAdminDisplay(true);
+      const payload = {
+        subtotal: parseFloat(adminEditForm.subtotal) || 0,
+        totalPayable: parseFloat(adminEditForm.totalPayable) || 0,
+        amountPaid: parseFloat(adminEditForm.amountPaid) || 0,
+        payments: adminEditForm.payments.map((payment, index) => ({
+          index: payment.index != null ? payment.index : index,
+          amount: parseFloat(payment.amount) || 0,
+        })),
+      };
+
+      const response = await invoiceService.saveAdminInvoiceDisplay(id, payload);
+      if (response?.success) {
+        toast.success("Admin display values saved. Only visible in admin panel.");
+        const updatedInvoice = response.data?.invoice || invoice;
+        setInvoice(updatedInvoice);
+        populateAdminEditForm(updatedInvoice);
+        setHasAdminDisplay(true);
+        setAdminTab(0);
+      } else {
+        toast.error(response?.message || "Failed to save admin display values");
+      }
+    } catch (error) {
+      toast.error(error?.message || "Failed to save admin display values");
+    } finally {
+      setIsSavingAdminDisplay(false);
+    }
+  };
+
+  const handleResetAdminDisplay = async () => {
+    try {
+      setIsSavingAdminDisplay(true);
+      const response = await invoiceService.resetAdminInvoiceDisplay(id);
+      if (response?.success) {
+        toast.success("Reset to original invoice values.");
+        setAdminTab(0);
+        await fetchInvoiceDetails();
+      } else {
+        toast.error(response?.message || "Failed to reset admin display values");
+      }
+    } catch (error) {
+      toast.error(error?.message || "Failed to reset admin display values");
+    } finally {
+      setIsSavingAdminDisplay(false);
     }
   };
 
@@ -296,6 +391,35 @@ function InvoiceDetails({
         subtitle="View complete invoice information"
       />
 
+      {adminViewMode && (
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ p: 2, bgcolor: "#fff8e1", borderRadius: 1, border: "1px solid #ffe082", mb: 2 }}>
+            <Typography variant="body2" sx={{ color: "#795548", fontWeight: 500 }}>
+              Admin display mode: edited values appear only in the admin panel. Reception keeps the original invoice.
+            </Typography>
+            {hasAdminDisplay && (
+              <Chip label="Custom admin values applied" size="small" color="warning" sx={{ mt: 1 }} />
+            )}
+          </Box>
+          <Tabs
+            value={adminTab}
+            onChange={handleAdminTabChange}
+            sx={{
+              borderBottom: 1,
+              borderColor: "divider",
+              mb: 2,
+              "& .MuiTab-root": { fontWeight: 600, textTransform: "none", fontSize: "0.95rem" },
+            }}
+          >
+            <Tab label="Invoice View" />
+            <Tab
+              label="Edit Values"
+              disabled={!(invoice.amountPaid > 0 || (invoice.payments && invoice.payments.length > 0))}
+            />
+          </Tabs>
+        </Box>
+      )}
+
       {/* Action Buttons */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <Button
@@ -307,7 +431,7 @@ function InvoiceDetails({
           Back to {paymentsListLabel}
         </Button>
 
-        {(invoice.totalPayable - (invoice.amountPaid || 0)) > 0 && (
+        {!adminViewMode && (invoice.totalPayable - (invoice.amountPaid || 0)) > 0 && (
           <Button
             variant="contained"
             startIcon={<PaymentIcon />}
@@ -318,7 +442,7 @@ function InvoiceDetails({
           </Button>
         )}
 
-        {invoice.prescription && (
+        {(!adminViewMode || adminTab === 0) && invoice.prescription && (
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
@@ -330,7 +454,7 @@ function InvoiceDetails({
           </Button>
         )}
 
-        {(invoice.inpatient || invoice.patient) && (
+        {(!adminViewMode || adminTab === 0) && (invoice.inpatient || invoice.patient) && (
           <>
             <Button
               variant="contained"
@@ -354,7 +478,113 @@ function InvoiceDetails({
         )}
       </Box>
 
-      {/* Invoice Card */}
+      {adminViewMode && adminTab === 1 && (
+        <Card sx={{ boxShadow: 3, borderRadius: 2, mb: 4 }}>
+          <CardContent sx={{ p: 4 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+              <EditOutlinedIcon sx={{ color: "#1976d2" }} />
+              Edit Admin Display Values
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Change amounts only. Payment method cannot be changed here.
+            </Typography>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 2, mb: 4 }}>
+              <TextField
+                label="Subtotal"
+                type="number"
+                fullWidth
+                value={adminEditForm.subtotal}
+                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, subtotal: e.target.value }))}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+              <TextField
+                label="Total Payable"
+                type="number"
+                fullWidth
+                value={adminEditForm.totalPayable}
+                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, totalPayable: e.target.value }))}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+              <TextField
+                label="Amount Paid"
+                type="number"
+                fullWidth
+                value={adminEditForm.amountPaid}
+                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, amountPaid: e.target.value }))}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+            </Box>
+
+            {adminEditForm.payments.length > 0 && (
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+                  Payment Amounts
+                </Typography>
+                {adminEditForm.payments.map((payment, idx) => (
+                  <Paper key={idx} sx={{ p: 2, mb: 2, bgcolor: "#fafafa", border: "1px solid #eee" }}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2 }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ minWidth: "90px" }}>
+                        Payment {idx + 1}
+                      </Typography>
+                      <Chip
+                        label={payment.paymentMethod}
+                        size="small"
+                        variant="outlined"
+                        sx={{ borderColor: "#D4A574", color: "#D4A574", fontWeight: 500 }}
+                      />
+                      <TextField
+                        label="Amount"
+                        type="number"
+                        size="small"
+                        value={payment.amount}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setAdminEditForm((prev) => ({
+                            ...prev,
+                            payments: prev.payments.map((item, i) =>
+                              i === idx ? { ...item, amount: value } : item
+                            ),
+                          }));
+                        }}
+                        inputProps={{ min: 0, step: 0.01 }}
+                        sx={{ minWidth: "160px" }}
+                      />
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            )}
+
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+              <Button
+                variant="contained"
+                onClick={handleSaveAdminDisplay}
+                disabled={isSavingAdminDisplay}
+                sx={{ bgcolor: "#1976d2" }}
+              >
+                {isSavingAdminDisplay ? "Saving..." : "Save Admin Values"}
+              </Button>
+              {hasAdminDisplay && (
+                <Button
+                  variant="outlined"
+                  startIcon={<RestoreIcon />}
+                  onClick={handleResetAdminDisplay}
+                  disabled={isSavingAdminDisplay}
+                  color="warning"
+                >
+                  Reset to Original
+                </Button>
+              )}
+              <Button variant="text" onClick={() => setAdminTab(0)} disabled={isSavingAdminDisplay}>
+                Cancel
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {(!adminViewMode || adminTab === 0) && (
       <Card sx={{ boxShadow: 3, borderRadius: 2, mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           {/* Header */}
@@ -665,6 +895,7 @@ function InvoiceDetails({
           </Box>
         </CardContent>
       </Card>
+      )}
 
       {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onClose={handleClosePaymentDialog} maxWidth="sm" fullWidth>
