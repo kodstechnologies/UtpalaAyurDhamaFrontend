@@ -23,6 +23,15 @@ import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { handlePrint } from "./ReportsGenerator";
 
+const resolveInvoiceId = (payment) => {
+    if (payment?.invoiceId) return String(payment.invoiceId);
+    const rawId = String(payment?._id ?? "");
+    if (rawId.includes("_payment_")) {
+        return rawId.split("_payment_")[0];
+    }
+    return null;
+};
+
 function Reports_View({
     homeUrl = "/receptionist/dashboard",
     invoiceBasePath = "/receptionist/payments/invoice",
@@ -148,24 +157,16 @@ function Reports_View({
                 console.log("Report data:", { summary, transactionsCount: transactions?.length });
 
                 // Map backend data to frontend format
-                const formattedTransactions = (transactions || []).map((payment, index) => {
-                    const invoiceId =
-                        payment.invoiceId ||
-                        (payment.isInvoice && payment._id?.includes("_payment_")
-                            ? String(payment._id).split("_payment_")[0]
-                            : null);
-
-                    return {
-                        id: payment._id || `payment-${index}`,
-                        date: payment.date || payment.createdAt,
-                        description: payment.description || "N/A",
-                        type: payment.type === "Income" ? "Credit" : payment.type === "Expense" ? "Debit" : payment.type,
-                        amount: payment.amount || 0,
-                        paymentMethod: payment.paymentMethod || "N/A",
-                        originalType: payment.type,
-                        invoiceId: invoiceId ? String(invoiceId) : null,
-                    };
-                });
+                const formattedTransactions = (transactions || []).map((payment, index) => ({
+                    id: payment._id || `payment-${index}`,
+                    date: payment.date || payment.createdAt,
+                    description: payment.description || "N/A",
+                    type: payment.type === "Income" ? "Credit" : payment.type === "Expense" ? "Debit" : payment.type,
+                    amount: payment.amount || 0,
+                    paymentMethod: payment.paymentMethod || "N/A",
+                    originalType: payment.type,
+                    invoiceId: resolveInvoiceId(payment),
+                }));
 
                 setReportData(formattedTransactions);
                 setSummaryData(summary || null);
@@ -582,7 +583,7 @@ function Reports_View({
                                                 <th style={{ fontSize: "0.875rem" }}>Payment Method</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Type</th>
                                                 <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Amount (INR)</th>
-                                                <th style={{ fontSize: "0.875rem", textAlign: "center" }} className="no-print">View</th>
+                                                <th style={{ fontSize: "0.875rem", textAlign: "center", minWidth: "90px" }} className="no-print">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -620,11 +621,26 @@ function Reports_View({
                                                         {transaction.invoiceId ? (
                                                             <button
                                                                 type="button"
-                                                                className="btn btn-sm btn-outline-primary"
+                                                                className="btn btn-sm"
                                                                 onClick={() => navigate(`${invoiceBasePath}/${transaction.invoiceId}`)}
-                                                                title="View invoice"
+                                                                title="View invoice details"
+                                                                style={{
+                                                                    backgroundColor: "#1976d2",
+                                                                    color: "#FFFFFF",
+                                                                    border: "none",
+                                                                    borderRadius: "6px",
+                                                                    padding: "6px 12px",
+                                                                    cursor: "pointer",
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    gap: "4px",
+                                                                    minHeight: "32px",
+                                                                    whiteSpace: "nowrap",
+                                                                }}
                                                             >
-                                                                <VisibilityIcon fontSize="small" />
+                                                                <VisibilityIcon style={{ fontSize: "16px" }} />
+                                                                View
                                                             </button>
                                                         ) : (
                                                             <span className="text-muted">—</span>

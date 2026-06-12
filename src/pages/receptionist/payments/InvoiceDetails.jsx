@@ -304,7 +304,7 @@ function InvoiceDetails({
           onClick={() => navigate(backUrl)}
           sx={{ borderColor: "#D4A574", color: "#D4A574" }}
         >
-          Back to Payments
+          Back to {paymentsListLabel}
         </Button>
 
         {(invoice.totalPayable - (invoice.amountPaid || 0)) > 0 && (
