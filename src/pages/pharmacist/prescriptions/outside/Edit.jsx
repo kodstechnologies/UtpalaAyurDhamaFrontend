@@ -68,6 +68,17 @@ const parseMedicinesResponse = (response) => {
     return sortMedicinesAsc(medicines);
 };
 
+const derivePaymentStatus = (record) => {
+    const normalizedStatus = (record?.paymentStatus || "").toLowerCase();
+    if (normalizedStatus === "paid") return "Paid";
+    if (normalizedStatus === "partially paid") return "Unpaid";
+    if (normalizedStatus === "unpaid") return "Unpaid";
+
+    const totalAmount = Number(record?.totalAmount || 0);
+    const paidAmount = Number(record?.paidAmount || 0);
+    return paidAmount >= totalAmount && totalAmount > 0 ? "Paid" : "Unpaid";
+};
+
 function OutsideDispense_Edit() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -80,6 +91,8 @@ function OutsideDispense_Edit() {
         name: "",
         email: "",
         phone: "",
+        alternativePhone: "",
+        address: "",
         age: "",
         disease: "",
         medicines: [emptyMedicineLine()],
@@ -102,12 +115,20 @@ function OutsideDispense_Edit() {
             }
 
             const record = recordRes.data;
+            if (derivePaymentStatus(record) === "Paid") {
+                toast.info("Paid records cannot be edited");
+                navigate(LIST_PATH);
+                return;
+            }
+
             const recordMedicines = record.medicines || [];
             setOriginalMedicines(recordMedicines);
             setForm({
                 name: record.name || "",
                 email: record.email || "",
                 phone: record.phone || "",
+                alternativePhone: record.alternativePhone || "",
+                address: record.address || "",
                 age: record.age ?? "",
                 disease: record.disease || "",
                 medicines:
@@ -255,6 +276,8 @@ function OutsideDispense_Edit() {
                 name: form.name.trim(),
                 email: form.email.trim(),
                 phone: form.phone.trim(),
+                alternativePhone: form.alternativePhone.trim(),
+                address: form.address.trim(),
                 age: form.age ? Number(form.age) : undefined,
                 disease: form.disease.trim(),
                 medicines: validMedicines.map((m) => ({
@@ -329,10 +352,28 @@ function OutsideDispense_Edit() {
                         <TextField fullWidth label="Phone" value={form.phone} onChange={(e) => handleFormChange("phone", e.target.value)} />
                     </Grid>
                     <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            label="Alternative No."
+                            value={form.alternativePhone}
+                            onChange={(e) => handleFormChange("alternativePhone", e.target.value)}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
                         <TextField fullWidth label="Email" type="email" value={form.email} onChange={(e) => handleFormChange("email", e.target.value)} />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <TextField fullWidth label="Age" type="number" value={form.age} onChange={(e) => handleFormChange("age", e.target.value)} />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <TextField
+                            fullWidth
+                            label="Address"
+                            value={form.address}
+                            onChange={(e) => handleFormChange("address", e.target.value)}
+                            multiline
+                            minRows={2}
+                        />
                     </Grid>
                     <Grid item xs={12}>
                         <TextField fullWidth label="Disease" value={form.disease} onChange={(e) => handleFormChange("disease", e.target.value)} />

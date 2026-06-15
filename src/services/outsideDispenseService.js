@@ -61,6 +61,19 @@ const outsideDispenseService = {
             throw error.response?.data || error.message;
         }
     },
+
+    recordPayment: async (id, payload) => {
+        try {
+            const response = await axios.post(
+                getApiUrl(`pharmacists/outside-dispense/${id}/payment`),
+                payload,
+                { headers: getAuthHeaders() }
+            );
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default outsideDispenseService;

@@ -827,7 +827,7 @@ function ListPrescriptions() {
                                     },
                                 }}
                             >
-                                Record Payment
+                                Pay via UPI
                             </Button>
                         </Stack>
 
@@ -1646,7 +1646,7 @@ function ListPrescriptions() {
             >
                 <DialogTitle sx={{ pb: 1, pt: 3 }}>
                     <Typography variant="h5" fontWeight={700} textAlign="center">
-                        Record Payment
+                        UPI Payment
                     </Typography>
                 </DialogTitle>
                 <DialogContent>
@@ -1683,7 +1683,7 @@ function ListPrescriptions() {
                                 </MenuItem>
                                 <MenuItem value="Online">
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                        <Smartphone fontSize="small" /> Online
+                                        <Smartphone fontSize="small" /> UPI
                                     </Box>
                                 </MenuItem>
                                 <MenuItem value="Bank Transfer">

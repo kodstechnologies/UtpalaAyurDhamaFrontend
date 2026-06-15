@@ -18,6 +18,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from "@mui/icons-material/Edit";
 import DescriptionIcon from "@mui/icons-material/Description";
 import DeleteIcon from "@mui/icons-material/Delete";
+import MedicationIcon from "@mui/icons-material/Medication";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
@@ -221,6 +222,11 @@ function Patient_Management_View() {
     const handleViewRecords = (row) => {
         navigate(`/doctor/in-patients/add-daily-checkup?inpatientId=${row._id}&patientName=${encodeURIComponent(row.patientName)}`);
     };
+    const handleOpenPrescription = (row) => {
+        navigate(
+            `/doctor/ipd-prescriptions/new?inpatientId=${row._id}&patientName=${encodeURIComponent(row.patientName)}`
+        );
+    };
     // Handler: Edit patient examination - fetch examination by inpatient and navigate
     const handleEditExamination = async (row) => {
         try {
@@ -270,6 +276,12 @@ function Patient_Management_View() {
             color: "var(--color-warning)",
             onClick: handleViewRecords,
             tooltip: "View Records",
+        },
+        {
+            icon: <MedicationIcon fontSize="small" />,
+            color: "var(--color-success)",
+            onClick: handleOpenPrescription,
+            tooltip: "Add Prescription",
         },
         {
             icon: <EditIcon fontSize="small" />,

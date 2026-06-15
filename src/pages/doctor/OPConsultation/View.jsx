@@ -10,6 +10,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import EventIcon from "@mui/icons-material/Event";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
+import MedicationIcon from "@mui/icons-material/Medication";
 
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
@@ -17,6 +18,7 @@ import DashboardCard from "../../../components/card/DashboardCard";
 import CardBorder from "../../../components/card/CardBorder";
 import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
+import prescriptionService from "../../../services/prescriptionService";
 
 function OPConsultation_View() {
     const [consultations, setConsultations] = useState([]);
@@ -235,8 +237,38 @@ function OPConsultation_View() {
         { field: "appointmentDate", header: "Date" },
         { field: "appointmentTime", header: "Time" },
         { field: "phoneNumber", header: "Phone Number" },
-        { field: "status", header: "Status" },
     ];
+
+    const handleOpenPrescription = async (row) => {
+        if (!row.hasExamination || !row.examinationId) {
+            toast.error("Please add an examination before opening prescription.");
+            return;
+        }
+
+        try {
+            const response = await prescriptionService.getPrescriptionsByExamination(row.examinationId);
+            const prescriptions = response?.data || [];
+
+            if (response?.success && prescriptions.length > 0) {
+                navigate(`/doctor/prescriptions/edit/${prescriptions[0]._id}`);
+                return;
+            }
+
+            const patientProfileId = row.fullAppointment?.patient?._id;
+            const name = row.patientName || "";
+            if (!patientProfileId) {
+                toast.error("Patient profile not found.");
+                return;
+            }
+
+            navigate(
+                `/doctor/prescriptions/new?patientId=${patientProfileId}&patientName=${encodeURIComponent(name)}`
+            );
+        } catch (error) {
+            console.error("Error opening prescription:", error);
+            toast.error(error?.message || error.response?.data?.message || "Failed to open prescription");
+        }
+    };
 
     // Dynamic actions - always show View Details button (like IPD patients)
     const getActions = (row) => {
@@ -342,17 +374,15 @@ function OPConsultation_View() {
             });
         }
 
-        return actionsList;
-    };
+        actionsList.push({
+            icon: <MedicationIcon fontSize="small" />,
+            color: "var(--color-success)",
+            label: "Prescription",
+            title: "Open Prescription",
+            onClick: handleOpenPrescription,
+        });
 
-    const getStatusBadge = (status) => {
-        const colors = {
-            Scheduled: "info",
-            Completed: "success",
-            Cancelled: "error",
-            Ongoing: "warning",
-        };
-        return <Chip label={status} color={colors[status] || "default"} size="small" />;
+        return actionsList;
     };
 
     return (
@@ -437,10 +467,7 @@ function OPConsultation_View() {
                 <TableComponent
                     title="OP Consultations"
                     columns={columns}
-                    rows={displayedConsultations.map((row) => ({
-                        ...row,
-                        status: getStatusBadge(row.status),
-                    }))}
+                    rows={displayedConsultations}
                     actions={getActions}
                     showView={false}
                     showEdit={false}

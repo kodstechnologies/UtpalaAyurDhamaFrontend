@@ -55,6 +55,8 @@ export const buildOutsideDispensePdfData = (record) => {
         name: record?.name || "Walk-in Customer",
         age: record?.age ?? "",
         phone: record?.phone || "",
+        alternativePhone: record?.alternativePhone || "",
+        address: record?.address || "",
         email: record?.email || "",
         disease: record?.disease || "",
     };

@@ -428,7 +428,7 @@ function List_View_Details() {
                         startIcon={isSavingPayment ? <CircularProgress size={20} color="inherit" /> : <PaymentIcon />}
                         sx={{ px: 4, py: 1, borderRadius: 2, fontWeight: 700 }}
                     >
-                        {isSavingPayment ? "Saving..." : "Record Payment"}
+                        {isSavingPayment ? "Saving..." : "Confirm UPI Payment"}
                     </Button>
                     0000
                 </DialogActions>

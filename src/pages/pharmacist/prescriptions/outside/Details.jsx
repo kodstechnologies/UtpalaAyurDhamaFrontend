@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
     Box,
@@ -17,6 +17,15 @@ import {
     Stack,
     CircularProgress,
     Container,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import {
@@ -30,6 +39,10 @@ import {
     Phone,
     Print,
     Download,
+    Payments,
+    CreditCard,
+    Smartphone,
+    AccountBalance,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 
@@ -48,6 +61,23 @@ const formatDate = (date) => {
         month: "short",
         year: "numeric",
     });
+};
+
+const formatPaymentMethod = (method) => {
+    if (!method) return "N/A";
+    if (String(method).toLowerCase() === "online") return "UPI";
+    return method;
+};
+
+const derivePaymentStatus = (record) => {
+    const normalizedStatus = (record?.paymentStatus || "").toLowerCase();
+    if (normalizedStatus === "paid") return "Paid";
+    if (normalizedStatus === "partially paid") return "Unpaid";
+    if (normalizedStatus === "unpaid") return "Unpaid";
+
+    const totalAmount = Number(record?.totalAmount || 0);
+    const paidAmount = Number(record?.paidAmount || 0);
+    return paidAmount >= totalAmount && totalAmount > 0 ? "Paid" : "Unpaid";
 };
 
 function DetailCard({ label, value, icon }) {
@@ -83,28 +113,109 @@ function OutsideDispense_Details() {
     const theme = useTheme();
     const [record, setRecord] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+    const [paymentDetails, setPaymentDetails] = useState({
+        amount: "",
+        method: "Online",
+        transactionId: "",
+        cardDigits: "",
+    });
+
+    const fetchRecord = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await outsideDispenseService.getById(id);
+            if (response?.success) {
+                setRecord(response.data);
+            } else {
+                toast.error(response?.message || "Failed to load record");
+                navigate(LIST_PATH);
+            }
+        } catch (error) {
+            toast.error(error?.message || "Failed to load record");
+            navigate(LIST_PATH);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [id, navigate]);
 
     useEffect(() => {
-        const fetchRecord = async () => {
-            setIsLoading(true);
-            try {
-                const response = await outsideDispenseService.getById(id);
-                if (response?.success) {
-                    setRecord(response.data);
-                } else {
-                    toast.error(response?.message || "Failed to load record");
-                    navigate(LIST_PATH);
-                }
-            } catch (error) {
-                toast.error(error?.message || "Failed to load record");
-                navigate(LIST_PATH);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         if (id) fetchRecord();
-    }, [id, navigate]);
+    }, [id, fetchRecord]);
+
+    const totalAmount = Number(record?.totalAmount || 0);
+    const paidAmount = Number(record?.paidAmount || 0);
+    const balanceAmount = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
+
+    const handleOpenPaymentDialog = () => {
+        setPaymentDetails({
+            amount: balanceAmount > 0 ? balanceAmount.toFixed(2) : "",
+            method: "Online",
+            transactionId: "",
+            cardDigits: "",
+        });
+        setShowPaymentDialog(true);
+    };
+
+    const handleRecordPayment = async () => {
+        const paymentAmount = Number(paymentDetails.amount);
+        if (!paymentDetails.amount || Number.isNaN(paymentAmount) || paymentAmount <= 0) {
+            toast.error("Please enter a valid amount");
+            return;
+        }
+        if (balanceAmount <= 0) {
+            toast.info("This bill is already fully paid");
+            return;
+        }
+        if (paymentAmount > balanceAmount) {
+            toast.error(`Payment amount cannot exceed balance due (Max: ₹${balanceAmount})`);
+            return;
+        }
+
+        if (paymentDetails.method === "Card") {
+            if (!paymentDetails.cardDigits || paymentDetails.cardDigits.length !== 4) {
+                toast.error("Please enter exactly 4 digits for the card number");
+                return;
+            }
+            if (!paymentDetails.transactionId) {
+                toast.error("Please enter a reference number or transaction ID");
+                return;
+            }
+        } else if (paymentDetails.method !== "Cash" && !paymentDetails.transactionId) {
+            toast.error("Please enter a transaction ID");
+            return;
+        }
+
+        setIsSubmittingPayment(true);
+        try {
+            const payload = {
+                paymentAmount,
+                paymentMethod: paymentDetails.method,
+            };
+
+            if (paymentDetails.method !== "Cash") {
+                payload.transactionId = paymentDetails.transactionId;
+                if (paymentDetails.method === "Card") {
+                    payload.cardLastFourDigits = paymentDetails.cardDigits;
+                }
+            }
+
+            const response = await outsideDispenseService.recordPayment(id, payload);
+            if (response?.success) {
+                toast.success("Payment recorded successfully");
+                setShowPaymentDialog(false);
+                setPaymentDetails({ amount: "", method: "Online", transactionId: "", cardDigits: "" });
+                setRecord(response.data);
+            } else {
+                toast.error(response?.message || "Failed to record payment");
+            }
+        } catch (error) {
+            toast.error(error?.message || "Failed to record payment");
+        } finally {
+            setIsSubmittingPayment(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -118,7 +229,10 @@ function OutsideDispense_Details() {
 
     const customerName = record.name || "Walk-in Customer";
     const medicines = record.medicines || [];
-    const totalAmount = Number(record.totalAmount || 0);
+    const paymentStatus = derivePaymentStatus(record);
+    const paymentMethod = formatPaymentMethod(record.paymentMethod || record.paymentDetails?.method);
+    const paymentSystem = paymentMethod !== "N/A" ? paymentMethod : "N/A";
+    const transactionId = record.transactionId || record.paymentDetails?.transactionId || "N/A";
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -150,6 +264,20 @@ function OutsideDispense_Details() {
                     subtitle="View outside walk-in customer dispense details."
                     action={
                         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Button
+                                variant="contained"
+                                startIcon={<Payments />}
+                                onClick={handleOpenPaymentDialog}
+                                disabled={balanceAmount <= 0}
+                                sx={{
+                                    backgroundColor: theme.palette.primary.main,
+                                    "&:hover": {
+                                        backgroundColor: theme.palette.primary.dark,
+                                    },
+                                }}
+                            >
+                                Pay via UPI
+                            </Button>
                             <Button
                                 variant="outlined"
                                 startIcon={<Print />}
@@ -202,10 +330,16 @@ function OutsideDispense_Details() {
                                     <DetailCard label="Phone" value={record.phone} icon={<Phone fontSize="small" />} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
+                                    <DetailCard label="Alternative No." value={record.alternativePhone} icon={<Phone fontSize="small" />} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
                                     <DetailCard label="Email" value={record.email} icon={<Email fontSize="small" />} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
                                     <DetailCard label="Age" value={record.age ?? "N/A"} />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <DetailCard label="Address" value={record.address} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
                                     <DetailCard
@@ -219,6 +353,24 @@ function OutsideDispense_Details() {
                                         label="Dispensed By"
                                         value={record.dispensedBy?.name || "N/A"}
                                     />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <DetailCard label="Payment Status" value={paymentStatus} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <DetailCard label="Payment Method" value={paymentMethod} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <DetailCard label="Payment System" value={paymentSystem} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <DetailCard label="Transaction ID" value={transactionId} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <DetailCard label="Paid Amount" value={`₹${paidAmount.toFixed(2)}`} />
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={4}>
+                                    <DetailCard label="Balance Amount" value={`₹${balanceAmount.toFixed(2)}`} />
                                 </Grid>
                                 <Grid item xs={12}>
                                     <Box
@@ -332,6 +484,20 @@ function OutsideDispense_Details() {
                                                     ₹{totalAmount.toFixed(2)}
                                                 </Typography>
                                             </Box>
+                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                <Typography color="text.secondary">Paid Amount</Typography>
+                                                <Typography fontWeight={600} color="success.main">
+                                                    ₹{paidAmount.toFixed(2)}
+                                                </Typography>
+                                            </Box>
+                                            {balanceAmount > 0 && (
+                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Typography color="text.secondary">Balance Due</Typography>
+                                                    <Typography fontWeight={700} color="error.main">
+                                                        ₹{balanceAmount.toFixed(2)}
+                                                    </Typography>
+                                                </Box>
+                                            )}
                                         </Stack>
                                     </CardContent>
                                 </Card>
@@ -340,6 +506,122 @@ function OutsideDispense_Details() {
                     </Card>
                 </Grid>
             </Grid>
+
+            <Dialog
+                open={showPaymentDialog}
+                onClose={() => !isSubmittingPayment && setShowPaymentDialog(false)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{
+                    sx: { borderRadius: 2 },
+                }}
+            >
+                <DialogTitle sx={{ pb: 1, pt: 3 }}>
+                    <Typography variant="h5" fontWeight={700} textAlign="center">
+                        UPI Payment
+                    </Typography>
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ mt: 2 }}>
+                        <TextField
+                            label="Payment Amount"
+                            type="number"
+                            fullWidth
+                            value={paymentDetails.amount}
+                            onChange={(e) => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
+                            sx={{ mb: 2.5 }}
+                            InputProps={{
+                                startAdornment: <Typography sx={{ mr: 1, color: "text.secondary" }}>₹</Typography>,
+                            }}
+                        />
+
+                        <FormControl fullWidth sx={{ mb: 2.5 }}>
+                            <InputLabel id="outside-payment-method-label">Payment Method</InputLabel>
+                            <Select
+                                labelId="outside-payment-method-label"
+                                value={paymentDetails.method}
+                                label="Payment Method"
+                                onChange={(e) => setPaymentDetails({ ...paymentDetails, method: e.target.value })}
+                            >
+                                <MenuItem value="Cash">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Payments fontSize="small" /> Cash
+                                    </Box>
+                                </MenuItem>
+                                <MenuItem value="Card">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <CreditCard fontSize="small" /> Card
+                                    </Box>
+                                </MenuItem>
+                                <MenuItem value="Online">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Smartphone fontSize="small" /> UPI
+                                    </Box>
+                                </MenuItem>
+                                <MenuItem value="Bank Transfer">
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <AccountBalance fontSize="small" /> Bank Transfer
+                                    </Box>
+                                </MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        {(paymentDetails.method === "Online" ||
+                            paymentDetails.method === "Bank Transfer" ||
+                            paymentDetails.method === "Card") && (
+                            <TextField
+                                label={paymentDetails.method === "Card" ? "Reference Number" : "Transaction ID"}
+                                fullWidth
+                                variant="outlined"
+                                value={paymentDetails.transactionId}
+                                onChange={(e) =>
+                                    setPaymentDetails({ ...paymentDetails, transactionId: e.target.value })
+                                }
+                                sx={{ mb: 2.5 }}
+                                placeholder="Enter reference number"
+                            />
+                        )}
+
+                        {paymentDetails.method === "Card" && (
+                            <TextField
+                                label="Card Last 4 Digits"
+                                fullWidth
+                                variant="outlined"
+                                value={paymentDetails.cardDigits}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                    setPaymentDetails({ ...paymentDetails, cardDigits: val });
+                                }}
+                                placeholder="XXXX"
+                                sx={{ mb: 2.5 }}
+                            />
+                        )}
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 3, pt: 0 }}>
+                    <Button
+                        onClick={() => setShowPaymentDialog(false)}
+                        disabled={isSubmittingPayment}
+                        sx={{ fontWeight: 600, color: "text.secondary", textTransform: "none" }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleRecordPayment}
+                        disabled={isSubmittingPayment}
+                        sx={{
+                            px: 4,
+                            fontWeight: 700,
+                            textTransform: "none",
+                            borderRadius: 1.5,
+                            minWidth: 120,
+                        }}
+                    >
+                        {isSubmittingPayment ? <CircularProgress size={24} color="inherit" /> : "Confirm Payment"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }

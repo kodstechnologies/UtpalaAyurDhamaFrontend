@@ -622,7 +622,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 // import { Box, Stack, Button, CircularProgress, Chip, Checkbox } from "@mui/material";
-import { Box, Stack, CircularProgress, Chip, Checkbox, TextField, MenuItem, IconButton, Tooltip } from "@mui/material";
+import { Box, Stack, CircularProgress, Chip, TextField, MenuItem, IconButton, Tooltip } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -858,66 +858,7 @@ function FollowUps_View() {
         }
     };
 
-    // Handle follow-up completion toggle
-    const handleFollowUpToggle = async (row, event) => {
-        event.stopPropagation(); // Prevent row click
-        
-        if (!row.examinationId || !row.followUpId) {
-            toast.error("Unable to update follow-up. Missing required information.");
-            return;
-        }
-
-        const newCompletedStatus = !row.completed;
-
-        try {
-            await doctorService.markFollowUpCompleted(
-                row.examinationId,
-                row.followUpId,
-                newCompletedStatus
-            );
-
-            // Update local state
-            setFollowUps((prevFollowUps) =>
-                prevFollowUps.map((fup) =>
-                    fup._id === row._id
-                        ? { ...fup, completed: newCompletedStatus }
-                        : fup
-                )
-            );
-
-            toast.success(
-                newCompletedStatus
-                    ? "Follow-up marked as completed"
-                    : "Follow-up marked as incomplete"
-            );
-        } catch (error) {
-            console.error("Error updating follow-up:", error);
-            toast.error(
-                error.response?.data?.message ||
-                error.message ||
-                "Failed to update follow-up status"
-            );
-        }
-    };
-
     const actions = [
-        {
-            render: (row) => (
-                <Checkbox
-                    checked={row.completed || false}
-                    onChange={(e) => handleFollowUpToggle(row, e)}
-                    color="primary"
-                    size="small"
-                    sx={{
-                        padding: "4px",
-                        "& .MuiSvgIcon-root": {
-                            fontSize: "1.2rem",
-                        },
-                    }}
-                />
-            ),
-            tooltip: (row) => (row.completed ? "Mark as incomplete" : "Mark as completed"),
-        },
         {
             render: (row) => (
                 <Tooltip title="Delete follow-up">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Box,
@@ -7,7 +7,6 @@ import {
     Autocomplete,
     Grid,
     IconButton,
-    Divider,
     Stack,
     Button,
     CircularProgress,
@@ -15,10 +14,22 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    Card,
+    CardContent,
+    Chip,
+    Container,
+    Tooltip,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import { toast } from "react-toastify";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import MedicationOutlinedIcon from "@mui/icons-material/MedicationOutlined";
+import LocalPharmacyOutlinedIcon from "@mui/icons-material/LocalPharmacyOutlined";
+import PhoneOutlinedIcon from "@mui/icons-material/PhoneOutlined";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 
 import HeadingCard from "../../../../components/card/HeadingCard";
 import SubmitButton from "../../../../components/buttons/SubmitButton";
@@ -68,8 +79,53 @@ const parseMedicinesResponse = (response) => {
     return sortMedicinesAsc(medicines);
 };
 
+function SectionHeader({ icon, title, subtitle, action }) {
+    const theme = useTheme();
+    return (
+        <Box
+            sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: { xs: "flex-start", sm: "center" },
+                flexDirection: { xs: "column", sm: "row" },
+                gap: 2,
+                mb: 3,
+            }}
+        >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box
+                    sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 2,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        color: theme.palette.primary.main,
+                    }}
+                >
+                    {icon}
+                </Box>
+                <Box>
+                    <Typography variant="h6" fontWeight={700}>
+                        {title}
+                    </Typography>
+                    {subtitle && (
+                        <Typography variant="body2" color="text.secondary">
+                            {subtitle}
+                        </Typography>
+                    )}
+                </Box>
+            </Box>
+            {action}
+        </Box>
+    );
+}
+
 function OutsideDispense_Add() {
     const navigate = useNavigate();
+    const theme = useTheme();
     const [medicines, setMedicines] = useState([]);
     const [isLoadingMedicines, setIsLoadingMedicines] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +134,8 @@ function OutsideDispense_Add() {
         name: "",
         email: "",
         phone: "",
+        alternativePhone: "",
+        address: "",
         age: "",
         disease: "",
         medicines: [emptyMedicineLine()],
@@ -180,6 +238,17 @@ function OutsideDispense_Add() {
 
     const hasOverStock = form.medicines.some((line) => getStockInfo(line)?.isOverStock);
 
+    const totalAmount = useMemo(
+        () =>
+            form.medicines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0),
+        [form.medicines]
+    );
+
+    const validMedicineCount = useMemo(
+        () => form.medicines.filter((m) => m.medicine && Number(m.dispensedQuantity) > 0).length,
+        [form.medicines]
+    );
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -207,6 +276,8 @@ function OutsideDispense_Add() {
                 name: form.name.trim(),
                 email: form.email.trim(),
                 phone: form.phone.trim(),
+                alternativePhone: form.alternativePhone.trim(),
+                address: form.address.trim(),
                 age: form.age ? Number(form.age) : undefined,
                 disease: form.disease.trim(),
                 medicines: validMedicines.map((m) => ({
@@ -238,6 +309,13 @@ function OutsideDispense_Add() {
         }
     };
 
+    const cardSx = {
+        borderRadius: 3,
+        border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+        boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+        mb: 3,
+    };
+
     if (isLoadingMedicines) {
         return (
             <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 400 }}>
@@ -247,10 +325,15 @@ function OutsideDispense_Add() {
     }
 
     return (
-        <Box sx={{ p: 3 }}>
+        <Container maxWidth="lg" sx={{ py: 3 }}>
             <HeadingCard
-                title="Add Outside Dispense"
-                subtitle="Dispense medicines to an outside walk-in customer."
+                title={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <LocalPharmacyOutlinedIcon sx={{ color: theme.palette.primary.main }} />
+                        <span>Add Outside Dispense</span>
+                    </Box>
+                }
+                subtitle="Register walk-in customer details and dispense medicines from pharmacy stock."
                 breadcrumbItems={[
                     { label: "Pharmacist", url: "/pharmacist/dashboard" },
                     { label: "Outside", url: LIST_PATH },
@@ -258,267 +341,463 @@ function OutsideDispense_Add() {
                 ]}
             />
 
-            <Box
-                component="form"
-                onSubmit={handleSubmit}
-                sx={{
-                    mt: 2,
-                    p: 4,
-                    borderRadius: 4,
-                    bgcolor: "var(--color-bg-card)",
-                    border: "1px solid var(--color-border)",
-                }}
-            >
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                    Customer Details
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    All fields are optional
-                </Typography>
+            <Box component="form" onSubmit={handleSubmit}>
+                <Card sx={cardSx}>
+                    <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                        <SectionHeader
+                            icon={<PersonOutlineIcon />}
+                            title="Customer Details"
+                            subtitle="All fields are optional"
+                        />
 
-                <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                        <TextField fullWidth label="Name" value={form.name} onChange={(e) => handleFormChange("name", e.target.value)} />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                        <TextField fullWidth label="Phone" value={form.phone} onChange={(e) => handleFormChange("phone", e.target.value)} />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                        <TextField fullWidth label="Email" type="email" value={form.email} onChange={(e) => handleFormChange("email", e.target.value)} />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                        <TextField fullWidth label="Age" type="number" value={form.age} onChange={(e) => handleFormChange("age", e.target.value)} />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <TextField fullWidth label="Disease" value={form.disease} onChange={(e) => handleFormChange("disease", e.target.value)} />
-                    </Grid>
-                </Grid>
-
-                <Divider sx={{ my: 4 }} />
-
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={600}>Medicines</Typography>
-                    <Button startIcon={<AddIcon />} onClick={addMedicineLine} type="button">
-                        Add Medicine
-                    </Button>
-                </Stack>
-
-                {form.medicines.map((line, index) => {
-                    const stockInfo = getStockInfo(line);
-                    const stockLabel = stockInfo
-                        ? `Available stock: ${stockInfo.available} ${stockInfo.unit} (${stockInfo.stockStatus})`
-                        : "";
-
-                    return (
-                        <Box
-                            key={index}
-                            sx={{
-                                p: 2,
-                                mb: 2,
-                                border: "1px solid var(--color-border)",
-                                borderRadius: 2,
-                                bgcolor: "var(--color-bg-hover)",
-                            }}
-                        >
-                            <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6}>
-                                    <Autocomplete
-                                        options={medicines}
-                                        getOptionLabel={(option) => option.medicineName || ""}
-                                        value={getMedicineById(line.medicine) || null}
-                                        onChange={(_, newValue) =>
-                                            handleMedicineChange(index, "medicine", newValue?._id || "")
-                                        }
-                                        isOptionEqualToValue={(option, value) =>
-                                            String(option._id) === String(value?._id)
-                                        }
-                                        noOptionsText="No medicine found"
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                label="Medicine"
-                                                placeholder="Search medicine..."
-                                                required
-                                                helperText={stockLabel}
-                                                FormHelperTextProps={{
-                                                    sx: {
-                                                        color: getStockColor(stockInfo),
-                                                        fontWeight: 600,
-                                                        mt: 0.5,
-                                                    },
+                        <Grid container spacing={2.5}>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Full Name"
+                                    value={form.name}
+                                    onChange={(e) => handleFormChange("name", e.target.value)}
+                                    placeholder="Enter customer name"
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={3}>
+                                <TextField
+                                    fullWidth
+                                    label="Age"
+                                    type="number"
+                                    value={form.age}
+                                    onChange={(e) => handleFormChange("age", e.target.value)}
+                                    inputProps={{ min: 0 }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={3}>
+                                <TextField
+                                    fullWidth
+                                    label="Disease"
+                                    value={form.disease}
+                                    onChange={(e) => handleFormChange("disease", e.target.value)}
+                                    placeholder="e.g. Fever, Cold"
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <TextField
+                                    fullWidth
+                                    label="Phone"
+                                    value={form.phone}
+                                    onChange={(e) => handleFormChange("phone", e.target.value)}
+                                    placeholder="Primary contact"
+                                    InputProps={{
+                                        startAdornment: (
+                                            <PhoneOutlinedIcon sx={{ mr: 1, color: "text.secondary", fontSize: 20 }} />
+                                        ),
+                                    }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <TextField
+                                    fullWidth
+                                    label="Alternative No."
+                                    value={form.alternativePhone}
+                                    onChange={(e) => handleFormChange("alternativePhone", e.target.value)}
+                                    placeholder="Secondary contact"
+                                    InputProps={{
+                                        startAdornment: (
+                                            <PhoneOutlinedIcon sx={{ mr: 1, color: "text.secondary", fontSize: 20 }} />
+                                        ),
+                                    }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <TextField
+                                    fullWidth
+                                    label="Email"
+                                    type="email"
+                                    value={form.email}
+                                    onChange={(e) => handleFormChange("email", e.target.value)}
+                                    placeholder="customer@email.com"
+                                    InputProps={{
+                                        startAdornment: (
+                                            <EmailOutlinedIcon sx={{ mr: 1, color: "text.secondary", fontSize: 20 }} />
+                                        ),
+                                    }}
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    label="Address"
+                                    value={form.address}
+                                    onChange={(e) => handleFormChange("address", e.target.value)}
+                                    multiline
+                                    minRows={2}
+                                    placeholder="House no, street, city, pincode"
+                                    InputProps={{
+                                        startAdornment: (
+                                            <HomeOutlinedIcon
+                                                sx={{
+                                                    mr: 1,
+                                                    color: "text.secondary",
+                                                    fontSize: 20,
+                                                    alignSelf: "flex-start",
+                                                    mt: 1.2,
                                                 }}
                                             />
-                                        )}
-                                        renderOption={(props, option) => (
-                                            <li {...props} key={option._id}>
-                                                <Box>
-                                                    <Typography variant="body2">
-                                                        {option.medicineName}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        Stock: {option.quantity || 0} {option.unit || "pcs"} — {option.stockStatus || "In Stock"}
-                                                    </Typography>
-                                                </Box>
-                                            </li>
-                                        )}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Dispense Qty"
-                                        type="number"
-                                        value={line.dispensedQuantity}
-                                        onChange={(e) => handleMedicineChange(index, "dispensedQuantity", e.target.value)}
-                                        required
-                                        inputProps={{ min: 1 }}
-                                        error={Boolean(stockInfo?.isOverStock)}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Frequency</InputLabel>
-                                        <Select
-                                            value={line.frequency}
-                                            onChange={(e) => handleMedicineChange(index, "frequency", e.target.value)}
-                                            label="Frequency"
-                                        >
-                                            <MenuItem value="">Select</MenuItem>
-                                            {frequencyOptions.map((freq) => (
-                                                <MenuItem key={freq} value={freq}>
-                                                    {freq}
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Duration"
-                                        value={line.duration}
-                                        onChange={(e) => handleMedicineChange(index, "duration", e.target.value)}
-                                        placeholder="e.g., 5 days"
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Food Timing</InputLabel>
-                                        <Select
-                                            value={line.foodTiming}
-                                            onChange={(e) => handleMedicineChange(index, "foodTiming", e.target.value)}
-                                            label="Food Timing"
-                                        >
-                                            <MenuItem value="">Select</MenuItem>
-                                            <MenuItem value="Early Morning">Early Morning</MenuItem>
-                                            <MenuItem value="After Breakfast">After Breakfast</MenuItem>
-                                            <MenuItem value="Afternoon">Afternoon</MenuItem>
-                                            <MenuItem value="After Dinner">After Dinner</MenuItem>
-                                            <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
-                                            <MenuItem value="Before Bed">Before Bed</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Food Time"
-                                        value={line.foodTime}
-                                        onChange={(e) => handleMedicineChange(index, "foodTime", e.target.value)}
-                                        placeholder="Food time"
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Dosage Schedule</InputLabel>
-                                        <Select
-                                            value={line.dosageSchedule}
-                                            onChange={(e) => handleMedicineChange(index, "dosageSchedule", e.target.value)}
-                                            label="Dosage Schedule"
-                                        >
-                                            <MenuItem value="">Select</MenuItem>
-                                            {dosageOptions.map((option) => (
-                                                <MenuItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <Autocomplete
-                                        freeSolo
-                                        options={subtypeOptions}
-                                        value={line.subType || ""}
-                                        onInputChange={(_, newValue) =>
-                                            handleMedicineChange(index, "subType", newValue)
-                                        }
-                                        onChange={(_, newValue) =>
-                                            handleMedicineChange(index, "subType", newValue || "")
-                                        }
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                label="Subtypes"
-                                                placeholder="Select or enter subtype"
-                                                size="small"
-                                            />
-                                        )}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={4} md={2}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Amount (₹)"
-                                        type="number"
-                                        value={line.amount}
-                                        onChange={(e) => handleMedicineChange(index, "amount", e.target.value)}
-                                        helperText="Auto-filled from store price"
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField fullWidth label="Notes" value={line.notes} onChange={(e) => handleMedicineChange(index, "notes", e.target.value)} />
-                                </Grid>
+                                        ),
+                                    }}
+                                />
                             </Grid>
+                        </Grid>
+                    </CardContent>
+                </Card>
 
-                            {stockInfo?.isOverStock && (
-                                <Typography
-                                    variant="caption"
+                <Card sx={cardSx}>
+                    <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                        <SectionHeader
+                            icon={<MedicationOutlinedIcon />}
+                            title="Medicines to Dispense"
+                            subtitle="Add one or more medicines with quantity and dosage details"
+                            action={
+                                <Button
+                                    variant="contained"
+                                    startIcon={<AddIcon />}
+                                    onClick={addMedicineLine}
+                                    type="button"
                                     sx={{
-                                        display: "block",
-                                        mt: 1,
-                                        color: "error.main",
+                                        borderRadius: 2,
+                                        textTransform: "none",
                                         fontWeight: 600,
+                                        boxShadow: "none",
                                     }}
                                 >
-                                    Out of stock — only {stockInfo.available} {stockInfo.unit} available.
+                                    Add Medicine
+                                </Button>
+                            }
+                        />
+
+                        <Stack spacing={2.5}>
+                            {form.medicines.map((line, index) => {
+                                const stockInfo = getStockInfo(line);
+                                const stockLabel = stockInfo
+                                    ? `Available: ${stockInfo.available} ${stockInfo.unit} • ${stockInfo.stockStatus}`
+                                    : "";
+
+                                return (
+                                    <Box
+                                        key={index}
+                                        sx={{
+                                            p: { xs: 2, md: 2.5 },
+                                            borderRadius: 2.5,
+                                            border: `1px solid ${
+                                                stockInfo?.isOverStock
+                                                    ? alpha(theme.palette.error.main, 0.4)
+                                                    : alpha(theme.palette.divider, 0.15)
+                                            }`,
+                                            bgcolor: alpha(theme.palette.primary.main, 0.02),
+                                        }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                alignItems: "center",
+                                                mb: 2,
+                                            }}
+                                        >
+                                            <Chip
+                                                label={`Medicine ${index + 1}`}
+                                                size="small"
+                                                sx={{
+                                                    fontWeight: 700,
+                                                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                                    color: theme.palette.primary.main,
+                                                }}
+                                            />
+                                            {form.medicines.length > 1 && (
+                                                <Tooltip title="Remove medicine">
+                                                    <IconButton
+                                                        color="error"
+                                                        size="small"
+                                                        onClick={() => removeMedicineLine(index)}
+                                                        type="button"
+                                                        sx={{
+                                                            bgcolor: alpha(theme.palette.error.main, 0.08),
+                                                            "&:hover": {
+                                                                bgcolor: alpha(theme.palette.error.main, 0.15),
+                                                            },
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                        </Box>
+
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={12} md={7}>
+                                                <Autocomplete
+                                                    options={medicines}
+                                                    getOptionLabel={(option) => option.medicineName || ""}
+                                                    value={getMedicineById(line.medicine) || null}
+                                                    onChange={(_, newValue) =>
+                                                        handleMedicineChange(index, "medicine", newValue?._id || "")
+                                                    }
+                                                    isOptionEqualToValue={(option, value) =>
+                                                        String(option._id) === String(value?._id)
+                                                    }
+                                                    noOptionsText="No medicine found"
+                                                    renderInput={(params) => (
+                                                        <TextField
+                                                            {...params}
+                                                            label="Medicine"
+                                                            placeholder="Search medicine..."
+                                                            required
+                                                            helperText={stockLabel}
+                                                            FormHelperTextProps={{
+                                                                sx: {
+                                                                    color: getStockColor(stockInfo),
+                                                                    fontWeight: 600,
+                                                                },
+                                                            }}
+                                                        />
+                                                    )}
+                                                    renderOption={(props, option) => (
+                                                        <li {...props} key={option._id}>
+                                                            <Box>
+                                                                <Typography variant="body2" fontWeight={600}>
+                                                                    {option.medicineName}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    Stock: {option.quantity || 0}{" "}
+                                                                    {option.unit || "pcs"} —{" "}
+                                                                    {option.stockStatus || "In Stock"}
+                                                                </Typography>
+                                                            </Box>
+                                                        </li>
+                                                    )}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6} md={3}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Dispense Qty"
+                                                    type="number"
+                                                    value={line.dispensedQuantity}
+                                                    onChange={(e) =>
+                                                        handleMedicineChange(index, "dispensedQuantity", e.target.value)
+                                                    }
+                                                    required
+                                                    inputProps={{ min: 1 }}
+                                                    error={Boolean(stockInfo?.isOverStock)}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6} md={2}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Amount (₹)"
+                                                    type="number"
+                                                    value={line.amount}
+                                                    onChange={(e) =>
+                                                        handleMedicineChange(index, "amount", e.target.value)
+                                                    }
+                                                    helperText="Auto price"
+                                                />
+                                            </Grid>
+
+                                            <Grid item xs={12}>
+                                                <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
+                                                    fontWeight={600}
+                                                    sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+                                                >
+                                                    Dosage Details
+                                                </Typography>
+                                            </Grid>
+
+                                            <Grid item xs={12} sm={6} md={3}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel>Frequency</InputLabel>
+                                                    <Select
+                                                        value={line.frequency}
+                                                        onChange={(e) =>
+                                                            handleMedicineChange(index, "frequency", e.target.value)
+                                                        }
+                                                        label="Frequency"
+                                                    >
+                                                        <MenuItem value="">Select</MenuItem>
+                                                        {frequencyOptions.map((freq) => (
+                                                            <MenuItem key={freq} value={freq}>
+                                                                {freq}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                            <Grid item xs={12} sm={6} md={3}>
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Duration"
+                                                    value={line.duration}
+                                                    onChange={(e) =>
+                                                        handleMedicineChange(index, "duration", e.target.value)
+                                                    }
+                                                    placeholder="e.g. 5 days"
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6} md={3}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel>Food Timing</InputLabel>
+                                                    <Select
+                                                        value={line.foodTiming}
+                                                        onChange={(e) =>
+                                                            handleMedicineChange(index, "foodTiming", e.target.value)
+                                                        }
+                                                        label="Food Timing"
+                                                    >
+                                                        <MenuItem value="">Select</MenuItem>
+                                                        <MenuItem value="Early Morning">Early Morning</MenuItem>
+                                                        <MenuItem value="After Breakfast">After Breakfast</MenuItem>
+                                                        <MenuItem value="Afternoon">Afternoon</MenuItem>
+                                                        <MenuItem value="After Dinner">After Dinner</MenuItem>
+                                                        <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
+                                                        <MenuItem value="Before Bed">Before Bed</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                            <Grid item xs={12} sm={6} md={3}>
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Food Time"
+                                                    value={line.foodTime}
+                                                    onChange={(e) =>
+                                                        handleMedicineChange(index, "foodTime", e.target.value)
+                                                    }
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={6} md={3}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel>Dosage Schedule</InputLabel>
+                                                    <Select
+                                                        value={line.dosageSchedule}
+                                                        onChange={(e) =>
+                                                            handleMedicineChange(index, "dosageSchedule", e.target.value)
+                                                        }
+                                                        label="Dosage Schedule"
+                                                    >
+                                                        <MenuItem value="">Select</MenuItem>
+                                                        {dosageOptions.map((option) => (
+                                                            <MenuItem key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Grid>
+                                            <Grid item xs={12} sm={6} md={3}>
+                                                <Autocomplete
+                                                    freeSolo
+                                                    size="small"
+                                                    options={subtypeOptions}
+                                                    value={line.subType || ""}
+                                                    onInputChange={(_, newValue) =>
+                                                        handleMedicineChange(index, "subType", newValue)
+                                                    }
+                                                    onChange={(_, newValue) =>
+                                                        handleMedicineChange(index, "subType", newValue || "")
+                                                    }
+                                                    renderInput={(params) => (
+                                                        <TextField
+                                                            {...params}
+                                                            label="Subtype"
+                                                            placeholder="Oil, Ghee..."
+                                                        />
+                                                    )}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <TextField
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Notes"
+                                                    value={line.notes}
+                                                    onChange={(e) =>
+                                                        handleMedicineChange(index, "notes", e.target.value)
+                                                    }
+                                                    placeholder="Additional instructions"
+                                                />
+                                            </Grid>
+                                        </Grid>
+
+                                        {stockInfo?.isOverStock && (
+                                            <Typography
+                                                variant="caption"
+                                                sx={{
+                                                    display: "block",
+                                                    mt: 1.5,
+                                                    color: "error.main",
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                Out of stock — only {stockInfo.available} {stockInfo.unit} available.
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                );
+                            })}
+                        </Stack>
+                    </CardContent>
+                </Card>
+
+                <Card
+                    sx={{
+                        ...cardSx,
+                        mb: 0,
+                        position: { md: "sticky" },
+                        bottom: { md: 16 },
+                        zIndex: 2,
+                    }}
+                >
+                    <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                flexDirection: { xs: "column", md: "row" },
+                                justifyContent: "space-between",
+                                alignItems: { xs: "stretch", md: "center" },
+                                gap: 2,
+                            }}
+                        >
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">
+                                    Summary
                                 </Typography>
-                            )}
+                                <Stack direction="row" spacing={2} alignItems="baseline" flexWrap="wrap" useFlexGap>
+                                    <Typography variant="h5" fontWeight={800} color="primary.main">
+                                        ₹{totalAmount.toFixed(2)}
+                                    </Typography>
+                                    <Chip
+                                        label={`${validMedicineCount} medicine${validMedicineCount !== 1 ? "s" : ""}`}
+                                        size="small"
+                                        variant="outlined"
+                                    />
+                                </Stack>
+                            </Box>
 
-                            {form.medicines.length > 1 && (
-                                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-                                    <IconButton color="error" onClick={() => removeMedicineLine(index)} type="button">
-                                        <DeleteIcon />
-                                    </IconButton>
-                                </Box>
-                            )}
+                            <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+                                <CancelButton onClick={() => navigate(LIST_PATH)}>Cancel</CancelButton>
+                                <SubmitButton
+                                    type="submit"
+                                    text={isSubmitting ? "Submitting..." : "Submit & Dispense"}
+                                    disabled={isSubmitting || hasOverStock || validMedicineCount === 0}
+                                />
+                            </Stack>
                         </Box>
-                    );
-                })}
-
-                <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end", mt: 3 }}>
-                    <CancelButton onClick={() => navigate(LIST_PATH)}>Cancel</CancelButton>
-                    <SubmitButton
-                        type="submit"
-                        text={isSubmitting ? "Submitting..." : "Submit & Dispense"}
-                        disabled={isSubmitting || hasOverStock}
-                    />
-                </Box>
+                    </CardContent>
+                </Card>
             </Box>
-        </Box>
+        </Container>
     );
 }
 
