@@ -23,6 +23,15 @@ import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import medicineService from "../../../services/medicineService";
 
+const foodTimingOptions = [
+    "Early Morning",
+    "After Breakfast",
+    "Before Food",
+    "After Dinner",
+    "Empty Stomach",
+    "Before Bed",
+];
+
 const dosageOptions = [
     {
         value: "0-1-0",
@@ -818,12 +827,11 @@ function IPDPrescriptionsAddPage() {
                                                 label="Food Timing"
                                             >
                                                 <MenuItem value="">Select</MenuItem>
-                                                <MenuItem value="Early Morning">Early Morning </MenuItem>
-                                                <MenuItem value="After Breakfast">After Breakfast</MenuItem>
-                                                <MenuItem value="Afternoon">Afternoon</MenuItem>
-                                                <MenuItem value="After Dinner">After Dinner</MenuItem>
-                                                <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
-                                                <MenuItem value="Before Bed">Before Bed</MenuItem>
+                                                {foodTimingOptions.map((option) => (
+                                                    <MenuItem key={option} value={option}>
+                                                        {option}
+                                                    </MenuItem>
+                                                ))}
                                             </Select>
                                         </FormControl>
                                     </Grid>

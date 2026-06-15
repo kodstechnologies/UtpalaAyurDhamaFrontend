@@ -3,6 +3,68 @@ import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import { pdfPrHeader } from "../../../components/pdf/pdfPrHeader";
 import { getFooter } from "../../../components/pdf/pdfFooter";
 
+const IST_TIMEZONE = "Asia/Kolkata";
+
+const toIstDateKey = (dateInput) => {
+    if (!dateInput) return null;
+
+    if (typeof dateInput === "string" && /^\d{2}-\d{2}-\d{4}/.test(dateInput)) {
+        const [day, month, year] = dateInput.split("-");
+        return `${year}-${month}-${day}`;
+    }
+
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return null;
+
+    return date.toLocaleDateString("en-CA", { timeZone: IST_TIMEZONE });
+};
+
+const isWithinSelectedRange = (dateInput, startDate, endDate) => {
+    const dateKey = toIstDateKey(dateInput);
+    if (!dateKey || !startDate || !endDate) return false;
+    return dateKey >= startDate && dateKey <= endDate;
+};
+
+const formatIstDate = (dateInput) => {
+    if (!dateInput) return "-";
+
+    if (typeof dateInput === "string" && /^\d{2}-\d{2}-\d{4}/.test(dateInput)) {
+        const [day, month, year] = dateInput.split("-");
+        const date = new Date(`${year}-${month}-${day}T12:00:00+05:30`);
+        return date.toLocaleDateString("en-IN", {
+            timeZone: IST_TIMEZONE,
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        });
+    }
+
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return "-";
+
+    return date.toLocaleDateString("en-IN", {
+        timeZone: IST_TIMEZONE,
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    });
+};
+
+const formatPeriodDate = (dateInput) => {
+    if (!dateInput) return "-";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        const [year, month, day] = dateInput.split("-");
+        const date = new Date(`${year}-${month}-${day}T12:00:00+05:30`);
+        return date.toLocaleDateString("en-IN", {
+            timeZone: IST_TIMEZONE,
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        });
+    }
+    return formatIstDate(dateInput);
+};
+
 // Indian rupees number to words
 const numberToWords = (num) => {
     if (num === 0) return "Zero";
@@ -59,7 +121,8 @@ const filterValidTransactions = (transactions) => {
     });
 };
 
-export const handlePrint = async (startDate, endDate) => {
+export const handlePrint = async (startDate, endDate, options = {}) => {
+    const { adminView = false } = options;
     const receptionist = JSON.parse(localStorage.getItem("user"));
     const receptionistName = receptionist?.name;
     try {
@@ -67,6 +130,9 @@ export const handlePrint = async (startDate, endDate) => {
             alert("Please select a date range");
             return;
         }
+
+        const startDateStr = startDate;
+        const endDateStr = endDate;
 
         // Show loading
         const loadingDiv = document.createElement('div');
@@ -94,19 +160,14 @@ export const handlePrint = async (startDate, endDate) => {
         `;
         document.body.appendChild(loadingDiv);
 
-        // API Call
-        const startDateISO = new Date(startDate);
-        startDateISO.setHours(0, 0, 0, 0);
-        const endDateISO = new Date(endDate);
-        endDateISO.setHours(23, 59, 59, 999);
-
         const response = await axios.get(getApiUrl("payments/report"), {
             headers: getAuthHeaders(),
             params: {
-                startDate: startDateISO.toISOString(),
-                endDate: endDateISO.toISOString(),
+                startDate: startDateStr,
+                endDate: endDateStr,
                 format: "json",
-                limit: 1000
+                limit: 10000,
+                ...(adminView ? { adminView: true } : {}),
             }
         });
 
@@ -114,9 +175,12 @@ export const handlePrint = async (startDate, endDate) => {
 
         const { summary, transactions } = response.data.data;
 
-        // Clean and deduplicate transactions
+        // Clean, deduplicate, and keep only selected IST date range
         let cleanedTransactions = removeDuplicates(transactions);
         cleanedTransactions = filterValidTransactions(cleanedTransactions);
+        cleanedTransactions = cleanedTransactions.filter((transaction) =>
+            isWithinSelectedRange(transaction.date || transaction.createdAt, startDateStr, endDateStr)
+        );
 
         // Sort transactions by date (oldest first)
         cleanedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -139,25 +203,12 @@ export const handlePrint = async (startDate, endDate) => {
             return div.innerHTML;
         };
 
-        // Format Date Helper for table
-        const formatDate = (dateStr) => {
-            if (!dateStr) return "-";
-            let date;
-            if (typeof dateStr === 'string' && /^\d{2}-\d{2}-\d{4}/.test(dateStr)) {
-                const [d, m, y] = dateStr.split('-');
-                date = new Date(`${y}-${m}-${d}`);
-            } else {
-                date = new Date(dateStr);
-            }
-            return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        };
-
         const rows = cleanedTransactions.map((t, i) => {
             const amount = parseFloat(t.amount || 0);
             return `
                 <tr>
                     <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${i + 1}</td>
-                    <td style="padding: 8px; border:1px solid #ddd;">${formatDate(t.date)}</td>
+                    <td style="padding: 8px; border:1px solid #ddd;">${formatIstDate(t.date || t.createdAt)}</td>
                     <td style="padding: 8px; border:1px solid #ddd;">${escapeHtml(t.description)}</td>
                     <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${escapeHtml(t.paymentMethod || "Cash")}</td>
                     <td style="text-align:center; padding: 8px; border:1px solid #ddd; color: ${t.type === 'Income' ? '#198754' : '#dc3545'}; font-weight:bold;">${t.type}</td>
@@ -274,7 +325,7 @@ export const handlePrint = async (startDate, endDate) => {
                                     <strong>Generated By :</strong> ${receptionistName}
                                 </div>
                                 <div class="period-info">
-                                    <strong>Period:</strong> ${formatDate(startDate)} to ${formatDate(endDate)}
+                                    <strong>Period:</strong> ${formatPeriodDate(startDateStr)} to ${formatPeriodDate(endDateStr)} (IST)
                                 </div>
 
                                 <div class="summary-box">

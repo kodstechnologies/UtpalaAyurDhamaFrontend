@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography, TablePagination } from "@mui/material";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
@@ -6,6 +6,8 @@ import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
 import paymentService from "../../../services/paymentService";
+import doctorService from "../../../services/doctorService";
+import therapyService from "../../../services/therapyService";
 import logo from "../../../assets/logo/logo2.png";
 
 // Icons
@@ -42,6 +44,10 @@ function Reports_View({
     const [summaryData, setSummaryData] = useState(null);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [doctorId, setDoctorId] = useState("");
+    const [therapyName, setTherapyName] = useState("");
+    const [doctors, setDoctors] = useState([]);
+    const [therapies, setTherapies] = useState([]);
     const [loading, setLoading] = useState(false);
     const [hasGenerated, setHasGenerated] = useState(false);
     const [pagination, setPagination] = useState({
@@ -68,6 +74,39 @@ function Reports_View({
         const transactionCount = reportData.length;
         return { credit, debit, balance, transactionCount };
     }, [reportData, summaryData]);
+
+    useEffect(() => {
+        const fetchFilterOptions = async () => {
+            try {
+                const [doctorRes, therapyRes] = await Promise.all([
+                    doctorService.getAllDoctorProfiles(),
+                    therapyService.getAllTherapies({ limit: 1000 }),
+                ]);
+
+                if (doctorRes.success) setDoctors(doctorRes.data || []);
+                if (therapyRes.success) setTherapies(therapyRes.data || []);
+            } catch (error) {
+                console.error("Error fetching filter options:", error);
+            }
+        };
+
+        fetchFilterOptions();
+    }, []);
+
+    const buildReportParams = (page, rowsPerPage, format = "json") => {
+        const params = {
+            startDate,
+            endDate,
+            format,
+            page,
+            limit: rowsPerPage,
+        };
+
+        if (doctorId) params.doctorId = doctorId;
+        if (therapyName) params.therapyName = therapyName;
+
+        return params;
+    };
 
     // Format currency
     const formatCurrency = (amount) => {
@@ -103,6 +142,7 @@ function Reports_View({
         if (!date) return "N/A";
 
         return date.toLocaleDateString("en-IN", {
+            timeZone: "Asia/Kolkata",
             year: "numeric",
             month: "short",
             day: "numeric",
@@ -115,6 +155,7 @@ function Reports_View({
         if (!date) return "N/A";
 
         return date.toLocaleDateString("en-IN", {
+            timeZone: "Asia/Kolkata",
             year: "numeric",
             month: "long",
             day: "numeric",
@@ -143,13 +184,7 @@ function Reports_View({
             const currentRowsPerPage = rowsPerPageOverride !== null ? rowsPerPageOverride : pagination.rowsPerPage;
 
             const response = await paymentService.getPaymentReport(
-                {
-                    startDate: startDateStr,
-                    endDate: endDateStr,
-                    format: "json",
-                    page: currentPage + 1,
-                    limit: currentRowsPerPage,
-                },
+                buildReportParams(currentPage + 1, currentRowsPerPage),
                 { adminView }
             );
 
@@ -170,6 +205,8 @@ function Reports_View({
                     paymentMethod: payment.paymentMethod || "N/A",
                     originalType: payment.type,
                     invoiceId: resolveInvoiceId(payment),
+                    doctorName: payment.doctorName || null,
+                    therapyNames: payment.therapyNames || [],
                 }));
 
                 setReportData(formattedTransactions);
@@ -222,6 +259,13 @@ function Reports_View({
         setPagination(prev => ({ ...prev, page: 0 }));
     };
 
+    const handleFilterChange = () => {
+        setPagination(prev => ({ ...prev, page: 0 }));
+        setHasGenerated(false);
+        setReportData([]);
+        setSummaryData(null);
+    };
+
     // Handle download Excel
     const handleDownloadExcel = async () => {
         if (!startDate || !endDate) {
@@ -232,11 +276,10 @@ function Reports_View({
             const startDateStr = startDate; // Format: YYYY-MM-DD
             const endDateStr = endDate;     // Format: YYYY-MM-DD
 
-            const response = await paymentService.getPaymentReport({
-                startDate: startDateStr,
-                endDate: endDateStr,
-                format: "excel",
-            });
+            const response = await paymentService.getPaymentReport(
+                buildReportParams(1, pagination.rowsPerPage, "excel"),
+                { adminView }
+            );
 
             // Create blob link to download
             const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -405,10 +448,10 @@ function Reports_View({
                         <div className="card-body">
                             <div className="d-flex align-items-center gap-2 mb-4">
                                 <CalendarTodayIcon sx={{ color: "#D4A574" }} />
-                                <h5 className="card-title mb-0">Select Date Range</h5>
+                                <h5 className="card-title mb-0">Select Date Range & Filters</h5>
                             </div>
                             <div className="row g-3 align-items-end">
-                                <div className="col-md-4">
+                                <div className="col-md-3">
                                     <label className="form-label">Start Date</label>
                                     <input
                                         type="date"
@@ -421,7 +464,7 @@ function Reports_View({
                                         max={endDate || undefined}
                                     />
                                 </div>
-                                <div className="col-md-4">
+                                <div className="col-md-3">
                                     <label className="form-label">End Date</label>
                                     <input
                                         type="date"
@@ -434,10 +477,46 @@ function Reports_View({
                                         min={startDate || undefined}
                                     />
                                 </div>
-                                <div className="col-md-4">
+                                <div className="col-md-3">
+                                    <label className="form-label">Doctor</label>
+                                    <select
+                                        className="form-select"
+                                        value={doctorId}
+                                        onChange={(e) => {
+                                            setDoctorId(e.target.value);
+                                            handleFilterChange();
+                                        }}
+                                    >
+                                        <option value="">All Doctors</option>
+                                        {doctors.map((doc) => (
+                                            <option key={doc._id} value={doc._id}>
+                                                {`Dr. ${doc.user?.name || "N/A"}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-md-3">
+                                    <label className="form-label">Therapy</label>
+                                    <select
+                                        className="form-select"
+                                        value={therapyName}
+                                        onChange={(e) => {
+                                            setTherapyName(e.target.value);
+                                            handleFilterChange();
+                                        }}
+                                    >
+                                        <option value="">All Therapies</option>
+                                        {therapies.map((therapy) => (
+                                            <option key={therapy._id} value={therapy.therapyName}>
+                                                {therapy.therapyName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-12">
                                     <button
                                         type="button"
-                                        className="btn w-100"
+                                        className="btn w-auto px-4"
                                         style={{
                                             backgroundColor: "var(--color-btn-bg)",
                                             color: "white"
@@ -570,7 +649,7 @@ function Reports_View({
                                         <button
                                             type="button"
                                             className="btn btn-outline-secondary"
-                                            onClick={() => handlePrint(startDate, endDate)}
+                                            onClick={() => handlePrint(startDate, endDate, { adminView })}
                                         >
                                             <PrintIcon className="me-2" />
                                             Print / PDF
@@ -584,6 +663,8 @@ function Reports_View({
                                             <tr>
                                                 <th style={{ fontSize: "0.875rem" }}>Date</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Description</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Doctor</th>
+                                                <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Payment Method</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Type</th>
                                                 <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Amount (INR)</th>
@@ -601,6 +682,14 @@ function Reports_View({
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <strong>{transaction.description}</strong>
+                                                    </td>
+                                                    <td style={{ fontSize: "0.875rem" }}>
+                                                        {transaction.doctorName || "—"}
+                                                    </td>
+                                                    <td style={{ fontSize: "0.875rem" }}>
+                                                        {transaction.therapyNames?.length
+                                                            ? transaction.therapyNames.join(", ")
+                                                            : "—"}
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem" }}>
                                                         <div className="d-flex align-items-center" style={{ color: getPaymentMethodColor() }}>
@@ -655,7 +744,7 @@ function Reports_View({
                                         </tbody>
                                         <tfoot style={{ borderTop: "2px solid #e0e0e0" }}>
                                             <tr>
-                                                <td colSpan="4" style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", paddingTop: "12px" }}>
+                                                <td colSpan={6} style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", paddingTop: "12px" }}>
                                                     Total Credit:
                                                 </td>
                                                 <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#198754", paddingTop: "12px" }}>
@@ -664,7 +753,7 @@ function Reports_View({
                                                 <td className="no-print"></td>
                                             </tr>
                                             <tr>
-                                                <td colSpan="4" style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right" }}>
+                                                <td colSpan={6} style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right" }}>
                                                     Total Debit:
                                                 </td>
                                                 <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#dc3545" }}>
@@ -748,6 +837,8 @@ function Reports_View({
                                     onClick={() => {
                                         setStartDate("");
                                         setEndDate("");
+                                        setDoctorId("");
+                                        setTherapyName("");
                                         setHasGenerated(false);
                                         setReportData([]);
                                         setSummaryData(null);

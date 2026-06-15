@@ -745,7 +745,7 @@ function WalkInHub() {
     setFormData(getEmptyFormState());
     setDisplayPatientName(patientName || "");
     setTherapyErrors({});
-  }, [patientProfileId, patientName]);
+  }, [patientProfileId]);
 
   useEffect(() => {
     fetchPatientOptions();

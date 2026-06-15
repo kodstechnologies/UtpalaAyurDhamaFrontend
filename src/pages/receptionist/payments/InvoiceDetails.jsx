@@ -21,8 +21,6 @@ import {
   TextField,
   CircularProgress,
   MenuItem,
-  Tabs,
-  Tab,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
@@ -44,6 +42,53 @@ import RestoreIcon from "@mui/icons-material/Restore";
 import { invoiceHandlePrint } from "./components/invoiceHandlePrint";
 import { invoiceHandleDownload } from "./components/invoiceHandleDownload";
 
+const categorizeInvoiceItem = (item) => {
+  if (item.category) {
+    const categoryMap = {
+      consultation: "Doctor Consultation",
+      therapy: "Therapy",
+      food: "Food Charges",
+      ward: "Bed Charges",
+    };
+    const mapped = categoryMap[item.category.toLowerCase()];
+    if (mapped) return mapped;
+    return item.category.charAt(0).toUpperCase() + item.category.slice(1).toLowerCase();
+  }
+
+  const name = (item.name || "").toLowerCase().trim();
+
+  if (name.includes("food") || name.includes("meal") || name.includes("breakfast") || name.includes("lunch") || name.includes("dinner")) {
+    return "Food Charges";
+  }
+
+  if (
+    name.includes("ward") ||
+    name.includes("bed") ||
+    name.includes("room") ||
+    name.includes("accommodation") ||
+    name.includes("bed charge")
+  ) {
+    return "Bed Charges";
+  }
+
+  if (name.includes("therapy") || name.includes("session") || name.includes("treatment")) {
+    return "Therapy";
+  }
+
+  if (name.includes("consultation") || name.includes("doctor") || name.includes("opd") || name.includes("ipd")) {
+    return "Doctor Consultation";
+  }
+
+  return "Other";
+};
+
+const formatPaymentMethod = (method) => (method === "Online" ? "UPI" : method);
+
+const isAdminEditableInvoiceItem = (item) => {
+  const category = categorizeInvoiceItem(item);
+  return category === "Doctor Consultation" || category === "Therapy";
+};
+
 function InvoiceDetails({
   homeUrl = "/",
   backUrl = "/receptionist/payments",
@@ -56,12 +101,13 @@ function InvoiceDetails({
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState(null);
   const [hasAdminDisplay, setHasAdminDisplay] = useState(false);
-  const [adminTab, setAdminTab] = useState(0);
+  const [isAdminEditing, setIsAdminEditing] = useState(false);
   const [adminEditForm, setAdminEditForm] = useState({
     subtotal: "",
     totalPayable: "",
     amountPaid: "",
     payments: [],
+    items: [],
   });
   const [isSavingAdminDisplay, setIsSavingAdminDisplay] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -123,14 +169,58 @@ function InvoiceDetails({
         amount: payment.amount ?? "",
         paymentMethod: payment.paymentMethod ?? "Cash",
       })),
+      items: (invoiceData.items || [])
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => isAdminEditableInvoiceItem(item))
+        .map(({ item, index }) => ({
+          index,
+          total: item.total ?? item.amount ?? "",
+          unitPrice: item.unitPrice ?? item.amount ?? "",
+        })),
     });
   };
 
-  const handleAdminTabChange = (_, newTab) => {
-    setAdminTab(newTab);
-    if (newTab === 1 && invoice) {
-      populateAdminEditForm(invoice);
+  const updateAdminItemField = (itemIndex, field, value) => {
+    setAdminEditForm((prev) => ({
+      ...prev,
+      items: prev.items.map((entry) =>
+        entry.index === itemIndex ? { ...entry, [field]: value } : entry
+      ),
+    }));
+  };
+
+  const getAdminItemField = (itemIndex, field, fallback) => {
+    const entry = adminEditForm.items.find((item) => item.index === itemIndex);
+    if (!entry || entry[field] === "" || entry[field] == null) return fallback;
+    return entry[field];
+  };
+
+  const getDisplayItemAmount = (item, field) => {
+    const fallback = item[field] ?? item.amount ?? 0;
+    if (adminViewMode && isAdminEditing) {
+      return getAdminItemField(item.originalIndex, field, fallback);
     }
+    return fallback;
+  };
+
+  const getCategoryDisplayTotal = (items) =>
+    items.reduce((sum, item) => {
+      const total = adminViewMode && isAdminEditing
+        ? parseFloat(getAdminItemField(item.originalIndex, "total", item.total || item.amount || 0)) || 0
+        : (item.total || item.amount || 0);
+      return sum + total;
+    }, 0);
+
+  const handleStartAdminEdit = () => {
+    if (invoice) {
+      populateAdminEditForm(invoice);
+      setIsAdminEditing(true);
+    }
+  };
+
+  const handleCancelAdminEdit = () => {
+    if (invoice) populateAdminEditForm(invoice);
+    setIsAdminEditing(false);
   };
 
   const handleSaveAdminDisplay = async () => {
@@ -144,6 +234,11 @@ function InvoiceDetails({
           index: payment.index != null ? payment.index : index,
           amount: parseFloat(payment.amount) || 0,
         })),
+        items: adminEditForm.items.map((item, index) => ({
+          index: item.index != null ? item.index : index,
+          total: parseFloat(item.total) || 0,
+          unitPrice: parseFloat(item.unitPrice) || 0,
+        })),
       };
 
       const response = await invoiceService.saveAdminInvoiceDisplay(id, payload);
@@ -153,7 +248,7 @@ function InvoiceDetails({
         setInvoice(updatedInvoice);
         populateAdminEditForm(updatedInvoice);
         setHasAdminDisplay(true);
-        setAdminTab(0);
+        setIsAdminEditing(false);
       } else {
         toast.error(response?.message || "Failed to save admin display values");
       }
@@ -170,7 +265,7 @@ function InvoiceDetails({
       const response = await invoiceService.resetAdminInvoiceDisplay(id);
       if (response?.success) {
         toast.success("Reset to original invoice values.");
-        setAdminTab(0);
+        setIsAdminEditing(false);
         await fetchInvoiceDetails();
       } else {
         toast.error(response?.message || "Failed to reset admin display values");
@@ -207,7 +302,7 @@ function InvoiceDetails({
     }
 
     if (
-      (paymentMethod === "Online" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") &&
+      (paymentMethod === "UPI" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") &&
       !transactionId
     ) {
       toast.error("Transaction ID is required for this payment method");
@@ -273,58 +368,17 @@ function InvoiceDetails({
     });
   };
 
-  // Categorize items — excluding pharmacy/prescription/medicines
-  const categorizeItem = (item) => {
-    if (item.category) {
-      const categoryMap = {
-        consultation: "Doctor Consultation",
-        therapy: "Therapy",
-        food: "Food Charges",
-        ward: "Bed Charges",
-      };
-      const mapped = categoryMap[item.category.toLowerCase()];
-      if (mapped) return mapped;
-      return item.category.charAt(0).toUpperCase() + item.category.slice(1).toLowerCase();
-    }
-
-    const name = (item.name || "").toLowerCase().trim();
-
-    if (name.includes("food") || name.includes("meal") || name.includes("breakfast") || name.includes("lunch") || name.includes("dinner")) {
-      return "Food Charges";
-    }
-
-    if (
-      name.includes("ward") ||
-      name.includes("bed") ||
-      name.includes("room") ||
-      name.includes("accommodation") ||
-      name.includes("bed charge")
-    ) {
-      return "Bed Charges";
-    }
-
-    if (name.includes("therapy") || name.includes("session") || name.includes("treatment")) {
-      return "Therapy";
-    }
-
-    if (name.includes("consultation") || name.includes("doctor") || name.includes("opd") || name.includes("ipd")) {
-      return "Doctor Consultation";
-    }
-
-    return "Other";
-  };
-
   const groupItemsByCategory = (items) => {
     if (!items || !Array.isArray(items)) return {};
 
     const grouped = {};
     items.forEach((item, index) => {
       // Skip pharmacy/medicines completely
-      if (item.category?.toLowerCase() === "pharmacy" || categorizeItem(item) === "Medicines") {
+      if (item.category?.toLowerCase() === "pharmacy" || categorizeInvoiceItem(item) === "Medicines") {
         return;
       }
 
-      const category = categorizeItem(item);
+      const category = categorizeInvoiceItem(item);
       if (!grouped[category]) grouped[category] = [];
       grouped[category].push({ ...item, originalIndex: index });
     });
@@ -380,6 +434,11 @@ function InvoiceDetails({
 
   const groupedItems = groupItemsByCategory(invoice.items || []);
   const categoryOrder = getCategoryOrder();
+  const canEditAdminDisplay =
+    invoice.amountPaid > 0 || (invoice.payments && invoice.payments.length > 0);
+  const editTotalPayable = parseFloat(adminEditForm.totalPayable) || 0;
+  const editAmountPaid = parseFloat(adminEditForm.amountPaid) || 0;
+  const editBalanceDue = editTotalPayable - editAmountPaid;
 
   return (
     <Box sx={{ padding: "20px" }} className="invoice-details-page">
@@ -393,30 +452,17 @@ function InvoiceDetails({
 
       {adminViewMode && (
         <Box sx={{ mb: 3 }}>
-          <Box sx={{ p: 2, bgcolor: "#fff8e1", borderRadius: 1, border: "1px solid #ffe082", mb: 2 }}>
+          <Box sx={{ p: 2, bgcolor: "#fff8e1", borderRadius: 1, border: "1px solid #ffe082" }}>
             <Typography variant="body2" sx={{ color: "#795548", fontWeight: 500 }}>
               Admin display mode: edited values appear only in the admin panel. Reception keeps the original invoice.
             </Typography>
             {hasAdminDisplay && (
               <Chip label="Custom admin values applied" size="small" color="warning" sx={{ mt: 1 }} />
             )}
+            {isAdminEditing && (
+              <Chip label="Editing on this page" size="small" color="info" sx={{ mt: 1, ml: hasAdminDisplay ? 1 : 0 }} />
+            )}
           </Box>
-          <Tabs
-            value={adminTab}
-            onChange={handleAdminTabChange}
-            sx={{
-              borderBottom: 1,
-              borderColor: "divider",
-              mb: 2,
-              "& .MuiTab-root": { fontWeight: 600, textTransform: "none", fontSize: "0.95rem" },
-            }}
-          >
-            <Tab label="Invoice View" />
-            <Tab
-              label="Edit Values"
-              disabled={!(invoice.amountPaid > 0 || (invoice.payments && invoice.payments.length > 0))}
-            />
-          </Tabs>
         </Box>
       )}
 
@@ -442,7 +488,49 @@ function InvoiceDetails({
           </Button>
         )}
 
-        {(!adminViewMode || adminTab === 0) && invoice.prescription && (
+        {adminViewMode && canEditAdminDisplay && !isAdminEditing && (
+          <Button
+            variant="contained"
+            startIcon={<EditOutlinedIcon />}
+            onClick={handleStartAdminEdit}
+            sx={{ backgroundColor: "#1976d2" }}
+          >
+            Edit Values
+          </Button>
+        )}
+
+        {adminViewMode && isAdminEditing && (
+          <>
+            <Button
+              variant="contained"
+              onClick={handleSaveAdminDisplay}
+              disabled={isSavingAdminDisplay}
+              sx={{ bgcolor: "#1976d2" }}
+            >
+              {isSavingAdminDisplay ? "Saving..." : "Save Changes"}
+            </Button>
+            {hasAdminDisplay && (
+              <Button
+                variant="outlined"
+                startIcon={<RestoreIcon />}
+                onClick={handleResetAdminDisplay}
+                disabled={isSavingAdminDisplay}
+                color="warning"
+              >
+                Reset to Original
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              onClick={handleCancelAdminEdit}
+              disabled={isSavingAdminDisplay}
+            >
+              Cancel
+            </Button>
+          </>
+        )}
+
+        {(!adminViewMode || !isAdminEditing) && invoice.prescription && (
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
@@ -454,7 +542,7 @@ function InvoiceDetails({
           </Button>
         )}
 
-        {(!adminViewMode || adminTab === 0) && (invoice.inpatient || invoice.patient) && (
+        {(!adminViewMode || !isAdminEditing) && (invoice.inpatient || invoice.patient) && (
           <>
             <Button
               variant="contained"
@@ -478,114 +566,7 @@ function InvoiceDetails({
         )}
       </Box>
 
-      {adminViewMode && adminTab === 1 && (
-        <Card sx={{ boxShadow: 3, borderRadius: 2, mb: 4 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
-              <EditOutlinedIcon sx={{ color: "#1976d2" }} />
-              Edit Admin Display Values
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Change amounts only. Payment method cannot be changed here.
-            </Typography>
-
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" }, gap: 2, mb: 4 }}>
-              <TextField
-                label="Subtotal"
-                type="number"
-                fullWidth
-                value={adminEditForm.subtotal}
-                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, subtotal: e.target.value }))}
-                inputProps={{ min: 0, step: 0.01 }}
-              />
-              <TextField
-                label="Total Payable"
-                type="number"
-                fullWidth
-                value={adminEditForm.totalPayable}
-                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, totalPayable: e.target.value }))}
-                inputProps={{ min: 0, step: 0.01 }}
-              />
-              <TextField
-                label="Amount Paid"
-                type="number"
-                fullWidth
-                value={adminEditForm.amountPaid}
-                onChange={(e) => setAdminEditForm((prev) => ({ ...prev, amountPaid: e.target.value }))}
-                inputProps={{ min: 0, step: 0.01 }}
-              />
-            </Box>
-
-            {adminEditForm.payments.length > 0 && (
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                  Payment Amounts
-                </Typography>
-                {adminEditForm.payments.map((payment, idx) => (
-                  <Paper key={idx} sx={{ p: 2, mb: 2, bgcolor: "#fafafa", border: "1px solid #eee" }}>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2 }}>
-                      <Typography variant="body2" fontWeight={600} sx={{ minWidth: "90px" }}>
-                        Payment {idx + 1}
-                      </Typography>
-                      <Chip
-                        label={payment.paymentMethod}
-                        size="small"
-                        variant="outlined"
-                        sx={{ borderColor: "#D4A574", color: "#D4A574", fontWeight: 500 }}
-                      />
-                      <TextField
-                        label="Amount"
-                        type="number"
-                        size="small"
-                        value={payment.amount}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setAdminEditForm((prev) => ({
-                            ...prev,
-                            payments: prev.payments.map((item, i) =>
-                              i === idx ? { ...item, amount: value } : item
-                            ),
-                          }));
-                        }}
-                        inputProps={{ min: 0, step: 0.01 }}
-                        sx={{ minWidth: "160px" }}
-                      />
-                    </Box>
-                  </Paper>
-                ))}
-              </Box>
-            )}
-
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-              <Button
-                variant="contained"
-                onClick={handleSaveAdminDisplay}
-                disabled={isSavingAdminDisplay}
-                sx={{ bgcolor: "#1976d2" }}
-              >
-                {isSavingAdminDisplay ? "Saving..." : "Save Admin Values"}
-              </Button>
-              {hasAdminDisplay && (
-                <Button
-                  variant="outlined"
-                  startIcon={<RestoreIcon />}
-                  onClick={handleResetAdminDisplay}
-                  disabled={isSavingAdminDisplay}
-                  color="warning"
-                >
-                  Reset to Original
-                </Button>
-              )}
-              <Button variant="text" onClick={() => setAdminTab(0)} disabled={isSavingAdminDisplay}>
-                Cancel
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      )}
-
-      {(!adminViewMode || adminTab === 0) && (
-      <Card sx={{ boxShadow: 3, borderRadius: 2, mb: 4 }}>
+      <Card sx={{ boxShadow: 3, borderRadius: 2, mb: 4, ...(isAdminEditing ? { border: "2px solid #1976d2" } : {}) }}>
         <CardContent sx={{ p: 4 }}>
           {/* Header */}
           <Box mb={4}>
@@ -680,10 +661,11 @@ function InvoiceDetails({
               const items = groupedItems[category];
               if (!items?.length) return null;
 
-              const catTotal = items.reduce((sum, i) => sum + (i.total || 0), 0);
+              const catTotal = getCategoryDisplayTotal(items);
               const isTherapy = category === "Therapy";
               const isConsultation = category === "Doctor Consultation";
               const isBedCharges = category === "Bed Charges";
+              const isEditableCategory = isConsultation || isTherapy;
 
               // Skip rendering "Doctor Consultation" if its total is 0
               if (isConsultation && catTotal === 0) return null;
@@ -741,9 +723,33 @@ function InvoiceDetails({
                               </TableCell>
                             )}
                             {isTherapy && <TableCell align="center">{item.quantity || 1}</TableCell>}
-                            <TableCell align="right">{formatCurrency(item.unitPrice || item.amount)}</TableCell>
+                            <TableCell align="right">
+                              {adminViewMode && isAdminEditing && isEditableCategory ? (
+                                <TextField
+                                  type="number"
+                                  size="small"
+                                  value={getDisplayItemAmount(item, "unitPrice")}
+                                  onChange={(e) => updateAdminItemField(item.originalIndex, "unitPrice", e.target.value)}
+                                  inputProps={{ min: 0, step: 0.01 }}
+                                  sx={{ width: 120 }}
+                                />
+                              ) : (
+                                formatCurrency(item.unitPrice || item.amount)
+                              )}
+                            </TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>
-                              {formatCurrency(item.total || item.amount)}
+                              {adminViewMode && isAdminEditing && isEditableCategory ? (
+                                <TextField
+                                  type="number"
+                                  size="small"
+                                  value={getDisplayItemAmount(item, "total")}
+                                  onChange={(e) => updateAdminItemField(item.originalIndex, "total", e.target.value)}
+                                  inputProps={{ min: 0, step: 0.01 }}
+                                  sx={{ width: 120 }}
+                                />
+                              ) : (
+                                formatCurrency(item.total || item.amount)
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -789,7 +795,7 @@ function InvoiceDetails({
                         <TableCell>{formatDate(payment.date)}</TableCell>
                         <TableCell>
                           <Chip
-                            label={payment.paymentMethod}
+                            label={formatPaymentMethod(payment.paymentMethod)}
                             size="small"
                             variant="outlined"
                             sx={{ fontWeight: 500, borderColor: "#D4A574", color: "#D4A574" }}
@@ -813,7 +819,26 @@ function InvoiceDetails({
                           </Box>
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600, color: "#4CAF50" }}>
-                          {formatCurrency(payment.amount)}
+                          {adminViewMode && isAdminEditing ? (
+                            <TextField
+                              type="number"
+                              size="small"
+                              value={adminEditForm.payments[idx]?.amount ?? payment.amount}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setAdminEditForm((prev) => ({
+                                  ...prev,
+                                  payments: prev.payments.map((item, i) =>
+                                    i === idx ? { ...item, amount: value } : item
+                                  ),
+                                }));
+                              }}
+                              inputProps={{ min: 0, step: 0.01 }}
+                              sx={{ width: 130 }}
+                            />
+                          ) : (
+                            formatCurrency(payment.amount)
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -826,9 +851,20 @@ function InvoiceDetails({
           {/* Summary */}
           <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 4 }}>
             <Box sx={{ width: { xs: "100%", sm: 350 } }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                 <Typography color="#666">Subtotal:</Typography>
-                <Typography fontWeight={500}>{formatCurrency(invoice.subtotal || 0)}</Typography>
+                {adminViewMode && isAdminEditing ? (
+                  <TextField
+                    type="number"
+                    size="small"
+                    value={adminEditForm.subtotal}
+                    onChange={(e) => setAdminEditForm((prev) => ({ ...prev, subtotal: e.target.value }))}
+                    inputProps={{ min: 0, step: 0.01 }}
+                    sx={{ width: 140 }}
+                  />
+                ) : (
+                  <Typography fontWeight={500}>{formatCurrency(invoice.subtotal || 0)}</Typography>
+                )}
               </Box>
 
               {(() => {
@@ -866,22 +902,55 @@ function InvoiceDetails({
 
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
                 <Typography variant="h6" fontWeight={700}>Total Payable:</Typography>
-                <Typography variant="h5" fontWeight={700} color="#4CAF50" sx={{ bgcolor: "#f1f8f4", p: 1, borderRadius: 1 }}>
-                  {formatCurrency(invoice.totalPayable || 0)}
-                </Typography>
+                {adminViewMode && isAdminEditing ? (
+                  <TextField
+                    type="number"
+                    size="small"
+                    value={adminEditForm.totalPayable}
+                    onChange={(e) => setAdminEditForm((prev) => ({ ...prev, totalPayable: e.target.value }))}
+                    inputProps={{ min: 0, step: 0.01 }}
+                    sx={{ width: 160 }}
+                  />
+                ) : (
+                  <Typography variant="h5" fontWeight={700} color="#4CAF50" sx={{ bgcolor: "#f1f8f4", p: 1, borderRadius: 1 }}>
+                    {formatCurrency(invoice.totalPayable || 0)}
+                  </Typography>
+                )}
               </Box>
 
-              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                 <Typography color="#666">Amount Paid:</Typography>
-                <Typography fontWeight={500} color={invoice.amountPaid > 0 ? "#4CAF50" : "#999"}>
-                  {formatCurrency(invoice.amountPaid || 0)}
-                </Typography>
+                {adminViewMode && isAdminEditing ? (
+                  <TextField
+                    type="number"
+                    size="small"
+                    value={adminEditForm.amountPaid}
+                    onChange={(e) => setAdminEditForm((prev) => ({ ...prev, amountPaid: e.target.value }))}
+                    inputProps={{ min: 0, step: 0.01 }}
+                    sx={{ width: 140 }}
+                  />
+                ) : (
+                  <Typography fontWeight={500} color={invoice.amountPaid > 0 ? "#4CAF50" : "#999"}>
+                    {formatCurrency(invoice.amountPaid || 0)}
+                  </Typography>
+                )}
               </Box>
 
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography fontWeight={600} color="#666">Balance Due:</Typography>
-                <Typography fontWeight={700} color={(invoice.totalPayable - (invoice.amountPaid || 0)) > 0 ? "#f57c00" : "#4CAF50"}>
-                  {formatCurrency((invoice.totalPayable || 0) - (invoice.amountPaid || 0))}
+                <Typography
+                  fontWeight={700}
+                  color={
+                    (adminViewMode && isAdminEditing ? editBalanceDue : (invoice.totalPayable || 0) - (invoice.amountPaid || 0)) > 0
+                      ? "#f57c00"
+                      : "#4CAF50"
+                  }
+                >
+                  {formatCurrency(
+                    adminViewMode && isAdminEditing
+                      ? editBalanceDue
+                      : (invoice.totalPayable || 0) - (invoice.amountPaid || 0)
+                  )}
                 </Typography>
               </Box>
             </Box>
@@ -895,7 +964,6 @@ function InvoiceDetails({
           </Box>
         </CardContent>
       </Card>
-      )}
 
       {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onClose={handleClosePaymentDialog} maxWidth="sm" fullWidth>
@@ -934,11 +1002,11 @@ function InvoiceDetails({
           >
             <MenuItem value="Cash">Cash</MenuItem>
             <MenuItem value="Card">Card</MenuItem>
-            <MenuItem value="Online">Online</MenuItem>
+            <MenuItem value="UPI">UPI</MenuItem>
             <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
           </TextField>
 
-          {(paymentMethod === "Online" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") && (
+          {(paymentMethod === "UPI" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") && (
             <TextField
               fullWidth
               label="Transaction/Reference ID *"

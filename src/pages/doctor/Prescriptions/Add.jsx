@@ -22,6 +22,15 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import medicineService from "../../../services/medicineService";
+const foodTimingOptions = [
+    "Early Morning",
+    "After Breakfast",
+    "Before Food",
+    "After Dinner",
+    "Empty Stomach",
+    "Before Bed",
+];
+
 const dosageOptions = [
     {
         value: "0-1-0",
@@ -82,6 +91,7 @@ function PrescriptionsAddPage() {
             frequency: "",
             duration: "",
             foodTiming: "",
+            foodTime: "",
             remarks: "",
             instructions: "",
             dosageSchedule: "",
@@ -217,7 +227,11 @@ function PrescriptionsAddPage() {
                         : [];
                     console.log("Medicines List:", medicinesList);
                     // Filter only active medicines (remove stockStatus filter to show all active medicines)
-                    const activeMedicines = medicinesList.filter(m => m.status === "Active");
+                    const activeMedicines = medicinesList
+                        .filter(m => m.status === "Active")
+                        .sort((a, b) =>
+                            (a.medicineName || "").localeCompare(b.medicineName || "", undefined, { sensitivity: "base" })
+                        );
                     console.log("Active Medicines:", activeMedicines);
                     setMedicines(activeMedicines);
                 } else {
@@ -294,6 +308,7 @@ function PrescriptionsAddPage() {
                                     frequency: prescription.frequency || "",
                                     duration: prescription.duration || "",
                                     foodTiming: prescription.foodTiming || "",
+                                    foodTime: prescription.foodTime || "",
                                     remarks: prescription.remarks || "",
                                     instructions: prescription.notes || "",
                                     dosageSchedule: prescription.dosageSchedule || "",
@@ -314,6 +329,7 @@ function PrescriptionsAddPage() {
                                         frequency: "",
                                         duration: "",
                                         foodTiming: "",
+                                        foodTime: "",
                                         remarks: "",
                                         instructions: "",
                                         dosageSchedule: "",
@@ -331,6 +347,7 @@ function PrescriptionsAddPage() {
                                 frequency: data.frequency || "",
                                 duration: data.duration || "",
                                 foodTiming: data.foodTiming || "",
+                                foodTime: data.foodTime || "",
                                 remarks: data.remarks || "",
                                 instructions: data.notes || "",
                                 dosageSchedule: data.dosageSchedule || "",
@@ -357,6 +374,7 @@ function PrescriptionsAddPage() {
                             frequency: data.frequency || "",
                             duration: data.duration || "",
                             foodTiming: data.foodTiming || "",
+                            foodTime: data.foodTime || "",
                             remarks: data.remarks || "",
                             instructions: data.notes || "",
                             dosageSchedule: data.dosageSchedule || "",
@@ -436,6 +454,7 @@ function PrescriptionsAddPage() {
                 frequency: "",
                 duration: "",
                 foodTiming: "",
+                foodTime: "",
                 remarks: "",
                 instructions: "",
                 dosageSchedule: "",
@@ -581,6 +600,7 @@ function PrescriptionsAddPage() {
                         frequency: medicine.frequency || "As needed",
                         duration: medicine.duration || undefined,
                         foodTiming: medicine.foodTiming || undefined,
+                        foodTime: medicine.foodTime || undefined,
                         dosageSchedule: medicine.dosageSchedule || undefined,
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
@@ -615,6 +635,7 @@ function PrescriptionsAddPage() {
                         frequency: medicine.frequency || "As needed",
                         duration: medicine.duration || undefined,
                         foodTiming: medicine.foodTiming || undefined,
+                        foodTime: medicine.foodTime || undefined,
                         dosageSchedule: medicine.dosageSchedule || undefined,
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
@@ -684,6 +705,7 @@ function PrescriptionsAddPage() {
                         frequency: medicine.frequency || "As needed",
                         duration: medicine.duration || undefined,
                         foodTiming: medicine.foodTiming || undefined,
+                        foodTime: medicine.foodTime || undefined,
                         dosageSchedule: medicine.dosageSchedule || undefined,
                         remarks: medicine.remarks || undefined,
                         notes: medicine.instructions || formData.notes || undefined,
@@ -955,14 +977,23 @@ function PrescriptionsAddPage() {
                                             label="Food Timing"
                                         >
                                             <MenuItem value="">Select</MenuItem>
-                                            <MenuItem value="Early Morning">Early Morning </MenuItem>
-                                            <MenuItem value="After Breakfast">After Breakfast</MenuItem>
-                                            <MenuItem value="Afternoon">Afternoon</MenuItem>
-                                            <MenuItem value="After Dinner">After Dinner</MenuItem>
-                                            <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
-                                            <MenuItem value="Before Bed">Before Bed</MenuItem>
+                                            {foodTimingOptions.map((option) => (
+                                                <MenuItem key={option} value={option}>
+                                                    {option}
+                                                </MenuItem>
+                                            ))}
                                         </Select>
                                     </FormControl>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={2}>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Food Time"
+                                        value={formData.currentMedicine.foodTime}
+                                        onChange={(e) => handleMedicineFieldChange("foodTime", e.target.value)}
+                                        placeholder="Food time"
+                                    />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={2}>
                                     <FormControl fullWidth size="small">
@@ -1072,6 +1103,7 @@ function PrescriptionsAddPage() {
                                             <Typography variant="caption" color="text.secondary">
                                                 {medicine.frequency} • {medicine.duration}
                                                 {medicine.foodTiming && ` • ${medicine.foodTiming}`}
+                                                {medicine.foodTime && ` • Food Time: ${medicine.foodTime}`}
                                                 {medicine.dosageSchedule && ` • Schedule: ${medicine.dosageSchedule}`}
                                                 {medicine.subType && ` • Subtype: ${medicine.subType}`}
                                                 {medicine.remarks && ` • Remarks: ${medicine.remarks}`}

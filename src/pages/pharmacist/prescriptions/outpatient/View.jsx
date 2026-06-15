@@ -70,6 +70,7 @@ function Outpatient_View_Details() {
                 frequency: prescription.frequency,
                 duration: prescription.duration,
                 quantity: prescription.quantity,
+                dispensedQuantity: prescription.dispensedQuantity || 0,
                 medicineType: prescription.medicineType,
                 notes: prescription.notes,
             });
@@ -91,19 +92,31 @@ function Outpatient_View_Details() {
 
     const formatMedicines = (medicines) => {
         if (!medicines || medicines.length === 0) return "No medicines";
-        return medicines.map((med, idx) => (
+        return medicines.map((med, idx) => {
+            const prescribed = Number(med.quantity || 0);
+            const dispensed = Number(med.dispensedQuantity || 0);
+            const remaining = Math.max(0, prescribed - dispensed);
+            const qtyLabel = remaining > 0 && dispensed > 0
+                ? ` (${remaining} remaining)`
+                : prescribed > 0
+                    ? ` (qty: ${prescribed})`
+                    : "";
+
+            return (
             <Chip
                 key={idx}
-                label={`${med.medication}${med.dosage ? ` - ${med.dosage}` : ""}${med.frequency ? ` (${med.frequency})` : ""}`}
+                label={`${med.medication}${med.dosage ? ` - ${med.dosage}` : ""}${med.frequency ? ` (${med.frequency})` : ""}${qtyLabel}`}
                 size="small"
                 icon={<MedicationIcon fontSize="small" />}
+                color={remaining > 0 && dispensed > 0 ? "warning" : "default"}
                 sx={{
                     m: 0.25,
                     fontSize: "0.75rem",
                     height: "24px",
                 }}
             />
-        ));
+            );
+        });
     };
 
     const columns = [

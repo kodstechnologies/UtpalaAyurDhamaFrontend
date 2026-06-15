@@ -73,6 +73,7 @@ function OutpatientPrescriptions() {
     // State for confirmation dialog
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [pendingSelectedPrescriptions, setPendingSelectedPrescriptions] = useState([]);
+    const [pendingDispenseSelection, setPendingDispenseSelection] = useState({});
     const [gst, setGst] = useState(0);
 
     useEffect(() => {
@@ -203,6 +204,28 @@ function OutpatientPrescriptions() {
         });
     };
 
+    const parseQuantity = (value) => {
+        if (value === null || value === undefined || value === "") return 0;
+        if (typeof value === "string") {
+            const match = value.match(/(\d+(?:\.\d+)?)/);
+            return match ? parseFloat(match[1]) : 0;
+        }
+        return parseFloat(value) || 0;
+    };
+
+    const getRemainingQuantity = (presc) => {
+        const prescribed = Number(presc?.quantity || 0);
+        const dispensed = Number(presc?.dispensedQuantity || 0);
+        return Math.max(0, prescribed - dispensed);
+    };
+
+    const getMaxDispenseQty = (presc) => {
+        const remaining = getRemainingQuantity(presc);
+        const medicine = findMedicineInMap(presc.medication);
+        const stock = Number(medicine?.quantity) || 0;
+        return Math.min(remaining, stock);
+    };
+
     // Find medicine in map (handles case mismatch and spaces)
     const findMedicineInMap = (medicineName) => {
         if (!medicineName) return null;
@@ -243,7 +266,7 @@ const calculateTotalWithGST = () => {
     let subtotal = 0;
 
     pendingSelectedPrescriptions.forEach((presc) => {
-        const selected = selectedMedicines[presc._id];
+        const selected = pendingDispenseSelection[presc._id] || selectedMedicines[presc._id];
         const qty = selected?.quantity;
 
         const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
@@ -343,18 +366,28 @@ const calculateTotalWithGST = () => {
     };
 
   const handleQuantityChange = (prescriptionId, quantity) => {
+        const presc = prescriptions.find((p) => p._id === prescriptionId);
+        const remaining = getRemainingQuantity(presc);
+        const requestedQty = parseQuantity(quantity);
 
-        const presc = prescriptions.find(p => p._id === prescriptionId);
-
-        if (presc?.dosage) {
-            const total = presc.dosage.split("-").map(Number).reduce((a, b) => a + b, 0);
-
-            if (parseInt(quantity) > total) {
-                toast.error("Dispense quantity cannot be greater than dosage");
-                return;
-            }
+        if (requestedQty > remaining) {
+            toast.error(`Dispense quantity cannot exceed remaining quantity (${remaining})`);
+            return;
         }
-        // Store as string to allow text input (e.g., "10 tablets", "500ml")
+
+        const maxQty = getMaxDispenseQty(presc);
+        if (requestedQty > 0 && maxQty > 0 && requestedQty > maxQty) {
+            toast.warning(`Only ${maxQty} available in stock. Quantity adjusted.`);
+            setSelectedMedicines((prev) => ({
+                ...prev,
+                [prescriptionId]: {
+                    selected: prev[prescriptionId]?.selected || false,
+                    quantity: String(maxQty),
+                },
+            }));
+            return;
+        }
+
         setSelectedMedicines((prev) => ({
             ...prev,
             [prescriptionId]: {
@@ -413,13 +446,13 @@ const calculateTotalWithGST = () => {
 
         selectedPrescriptions.forEach((p) => {
             const selected = newSelection[p._id];
-            if (!selected.quantity || selected.quantity.trim() === "") {
-                // Use prescription's quantity or dosage as fallback
-                const fallbackQuantity = p.quantity || p.dosage || "";
-                if (fallbackQuantity) {
+            if (!selected.quantity || String(selected.quantity).trim() === "") {
+                const fallbackQuantity = getRemainingQuantity(p);
+                if (fallbackQuantity > 0) {
+                    const cappedQty = Math.min(fallbackQuantity, getMaxDispenseQty(p));
                     newSelection[p._id] = {
                         ...selected,
-                        quantity: fallbackQuantity,
+                        quantity: String(cappedQty),
                     };
                 } else {
                     hasEmptyQuantity = true;
@@ -432,45 +465,43 @@ const calculateTotalWithGST = () => {
             return;
         }
 
-        // Check stock availability before dispensing
-        const outOfStockMedicines = [];
+        // Cap dispense quantities to remaining stock and prescribed amount
+        const cappedMedicines = [];
         for (const presc of selectedPrescriptions) {
             const selected = newSelection[presc._id];
-            const dispensedQuantityStr = selected.quantity;
+            const requestedQty = parseQuantity(selected.quantity);
+            const maxQty = getMaxDispenseQty(presc);
 
-            // Extract numeric value from string (e.g., "10 tablets" -> 10, "500ml" -> 500)
-            const numericMatch = dispensedQuantityStr.match(/(\d+(?:\.\d+)?)/);
-            const dispensedQuantity = numericMatch ? parseFloat(numericMatch[1]) : 0;
-
-            if (dispensedQuantity <= 0) {
-                continue; // Skip invalid quantities, will be caught by empty quantity check
+            if (maxQty <= 0) {
+                cappedMedicines.push(presc.medication);
+                continue;
             }
 
-            // Find the medicine
-            const medicine = findMedicineInMap(presc.medication);
-            if (!medicine) {
-                continue; // Skip if medicine not found, will be caught by unavailable check
+            const actualQty = Math.min(requestedQty, maxQty);
+            if (actualQty <= 0) {
+                cappedMedicines.push(presc.medication);
+                continue;
             }
 
-            // Check stock quantity
-            const currentStock = medicine.quantity || 0;
-            if (currentStock <= 0) {
-                outOfStockMedicines.push(presc.medication);
-            } else if (currentStock < dispensedQuantity) {
-                outOfStockMedicines.push(presc.medication);
+            if (actualQty < requestedQty) {
+                toast.info(`${presc.medication}: dispensing ${actualQty} (limited by stock/remaining)`);
             }
+
+            newSelection[presc._id] = {
+                ...selected,
+                quantity: String(actualQty),
+            };
         }
 
-        // If any medicine is out of stock, show error and prevent dispensing
-        if (outOfStockMedicines.length > 0) {
-            outOfStockMedicines.forEach((medicineName) => {
-                toast.error(`${medicineName} is out of stock`);
+        if (cappedMedicines.length > 0) {
+            cappedMedicines.forEach((medicineName) => {
+                toast.error(`${medicineName} has no remaining stock to dispense`);
             });
             return;
         }
 
-        // Update selection state if we modified any quantities
         setSelectedMedicines(newSelection);
+        setPendingDispenseSelection(newSelection);
 
         // Store selected prescriptions and open confirmation dialog
         setPendingSelectedPrescriptions(selectedPrescriptions);
@@ -488,7 +519,7 @@ const calculateTotalWithGST = () => {
         setIsDispensing(true);
         try {
             const updates = selectedPrescriptions.map((presc) => {
-                const selected = selectedMedicines[presc._id];
+                const selected = pendingDispenseSelection[presc._id] || selectedMedicines[presc._id];
                 return {
                     prescriptionId: presc._id,
                     dispensedQuantity: selected.quantity,
@@ -513,11 +544,10 @@ const calculateTotalWithGST = () => {
                 // Reset selections
                 const newSelection = {};
                 prescList.forEach((presc) => {
-                    // if (presc.status !== "Dispensed") {
-                    if (Number(presc.dispensedQuantity || 0) < Number(presc.quantity || 0)) {
+                    if (getRemainingQuantity(presc) > 0) {
                         newSelection[presc._id] = {
                             selected: false,
-                            quantity: presc.quantity || 1,
+                            quantity: "",
                         };
                     }
                 });
@@ -749,6 +779,9 @@ const calculateTotalWithGST = () => {
                                             <TableCell sx={{ minWidth: 100 }}>Dosage</TableCell>
                                             <TableCell sx={{ minWidth: 120 }}>Frequency</TableCell>
                                             <TableCell sx={{ minWidth: 100 }}>Duration</TableCell>
+                                            <TableCell sx={{ minWidth: 90 }} align="center">Prescribed</TableCell>
+                                            <TableCell sx={{ minWidth: 90 }} align="center">Dispensed</TableCell>
+                                            <TableCell sx={{ minWidth: 90 }} align="center">Remaining</TableCell>
                                             <TableCell sx={{ minWidth: 120 }} align="center">Dispense Qty</TableCell>
                                             <TableCell sx={{ minWidth: 100 }} align="center">Amount</TableCell>
                                             <TableCell sx={{ minWidth: 150 }}>Notes</TableCell>
@@ -761,11 +794,12 @@ const calculateTotalWithGST = () => {
                                             // const isFullyDispensed = presc.status === "Dispensed";
 
 
-                                            const dispensedQty = presc.dispensedQuantity || 0;
-                                            const prescribedQuantity = presc.quantity || 1;
-                                            const isFullyDispensed = dispensedQty >= prescribedQuantity;
+                                            const dispensedQty = Number(presc.dispensedQuantity || 0);
+                                            const prescribedQuantity = Number(presc.quantity || 1);
+                                            const remainingQuantity = getRemainingQuantity(presc);
+                                            const isFullyDispensed = remainingQuantity <= 0;
                                             const isPartiallyDispensed =
-                                                dispensedQty > 0 && dispensedQty < prescribedQuantity;
+                                                dispensedQty > 0 && remainingQuantity > 0;
                                             const isSelected = selectedMedicines[presc._id]?.selected || false;
                                             const dispenseQuantity = selectedMedicines[presc._id]?.quantity || "";
 
@@ -890,6 +924,22 @@ const calculateTotalWithGST = () => {
                                                         </Tooltip>
                                                     </TableCell>
                                                     <TableCell align="center">
+                                                        <Typography fontWeight={600}>{prescribedQuantity}</Typography>
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        <Typography fontWeight={600} color={dispensedQty > 0 ? "success.main" : "text.secondary"}>
+                                                            {dispensedQty}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                        <Typography
+                                                            fontWeight={600}
+                                                            color={remainingQuantity > 0 ? "warning.main" : "text.secondary"}
+                                                        >
+                                                            {remainingQuantity}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="center">
                                                                  <TextField
                                                                                                                    type="number"
                                                                                                                    size="small"
@@ -903,6 +953,7 @@ const calculateTotalWithGST = () => {
                                                                                                                    }}
                                                                                                                    inputProps={{
                                                                                                                        min: 0,
+                                                                                                                       max: getMaxDispenseQty(presc) || undefined,
                                                                                                                        style: { textAlign: "center" },
                                                                                                                    }}
                                                                                                                    sx={{
@@ -910,7 +961,7 @@ const calculateTotalWithGST = () => {
                                                                                                                            width: "120px",
                                                                                                                        },
                                                                                                                    }}
-                                                                                                                   placeholder="Enter qty"
+                                                                                                                   placeholder={`Max ${getMaxDispenseQty(presc)}`}
                                                                                                                />
                                                     </TableCell>
                                                     <TableCell align="center">
@@ -977,9 +1028,26 @@ const calculateTotalWithGST = () => {
                                                                 );
                                                             }
 
+                                                            const maxDispense = getMaxDispenseQty(presc);
+                                                            if (maxDispense < remainingQuantity) {
+                                                                return (
+                                                                    <Chip
+                                                                        label={`${stockQuantity} in stock`}
+                                                                        size="small"
+                                                                        color="warning"
+                                                                        variant="filled"
+                                                                        sx={{
+                                                                            backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                                                                            color: theme.palette.warning.dark,
+                                                                            fontWeight: 500,
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            }
+
                                                             return (
                                                                 <Chip
-                                                                    label="Available"
+                                                                    label={`${stockQuantity} in stock`}
                                                                     size="small"
                                                                     color="success"
                                                                     variant="filled"
@@ -1038,7 +1106,7 @@ const calculateTotalWithGST = () => {
                                     }}
                                 >
                                     <Typography variant="body2" color="text.secondary" mb={1}>
-                                        Select medicines to dispense and specify quantities. You can dispense partial quantities if needed.
+                                        Select medicines and enter how much to dispense now. Bill is generated only for the dispensed quantity. Remaining quantity stays on the prescription for later.
                                     </Typography>
                                     <Button
                                         type="button"

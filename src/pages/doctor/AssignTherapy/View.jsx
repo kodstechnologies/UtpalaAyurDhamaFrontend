@@ -181,7 +181,6 @@ function AssignTherapy_View() {
                 return totalSessions;
             }
         },
-        { field: "status", header: "Status" },
     ];
 
     const getActions = (row) => {
@@ -321,13 +320,6 @@ function AssignTherapy_View() {
                 rows={displayedAssignments.map((row) => ({
                     ...row,
                     sessionsProgress: `${row.sessionsCompleted}/${row.totalSessions}`,
-                    status: (
-                        <Chip
-                            label={row.status}
-                            color={row.status === "Active" ? "primary" : row.status === "Completed" ? "success" : "default"}
-                            size="small"
-                        />
-                    )
                 }))}
                 actions={getActions}
                 showView={false}

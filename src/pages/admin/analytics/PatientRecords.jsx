@@ -14,6 +14,14 @@ const formatDate = (date) => {
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
+const isPaidOrPartialPayment = (invoice) => {
+    const amountPaid = invoice.amountPaid || 0;
+    const totalPayable = invoice.totalPayable || 0;
+    const isPaid = amountPaid >= totalPayable && totalPayable > 0;
+    const isPartiallyPaid = amountPaid > 0 && amountPaid < totalPayable;
+    return isPaid || isPartiallyPaid;
+};
+
 function PatientRecords() {
     const [rows, setRows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -34,20 +42,22 @@ function PatientRecords() {
 
             const data = await response.json();
             if (data.success && data.data) {
-                // Transform the data to match table structure
-                const transformedRecords = data.data.map((invoice) => ({
-                    _id: invoice._id,
-                    invoice: invoice.invoiceNumber || "N/A",
-                    patientName: invoice.patient?.user?.name || invoice.patient?.name || "N/A",
-                    doctor: invoice.doctor?.user?.name 
-                        ? `Dr. ${invoice.doctor.user.name}` 
-                        : invoice.doctor?.name 
-                        ? `Dr. ${invoice.doctor.name}` 
-                        : "N/A",
-                    amount: invoice.totalPayable || 0,
-                    date: formatDate(invoice.createdAt || invoice.date),
-                    dateRaw: invoice.createdAt || invoice.date, // For sorting
-                }));
+                // Only show invoices with paid or partial payment
+                const transformedRecords = data.data
+                    .filter(isPaidOrPartialPayment)
+                    .map((invoice) => ({
+                        _id: invoice._id,
+                        invoice: invoice.invoiceNumber || "N/A",
+                        patientName: invoice.patient?.user?.name || invoice.patient?.name || "N/A",
+                        doctor: invoice.doctor?.user?.name 
+                            ? `Dr. ${invoice.doctor.user.name}` 
+                            : invoice.doctor?.name 
+                            ? `Dr. ${invoice.doctor.name}` 
+                            : "N/A",
+                        amount: invoice.totalPayable || 0,
+                        date: formatDate(invoice.createdAt || invoice.date),
+                        dateRaw: invoice.createdAt || invoice.date, // For sorting
+                    }));
 
                 // Sort by date (newest first)
                 transformedRecords.sort((a, b) => {

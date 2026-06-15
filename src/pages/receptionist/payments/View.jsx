@@ -6,6 +6,7 @@ import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { toast } from "react-toastify";
 import invoiceService from "../../../services/invoiceService";
+import doctorService from "../../../services/doctorService";
 
 // Icons
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
@@ -21,6 +22,9 @@ function Payments_View() {
     // Invoices Data
     const [invoices, setInvoices] = useState([]);
     const [invoiceSearch, setInvoiceSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All");
+    const [doctorId, setDoctorId] = useState("");
+    const [doctors, setDoctors] = useState([]);
     const [pagination, setPagination] = useState({
         page: 0,
         rowsPerPage: 25,
@@ -40,6 +44,21 @@ function Payments_View() {
         { label: "Payments" },
     ];
 
+    useEffect(() => {
+        const fetchDoctors = async () => {
+            try {
+                const response = await doctorService.getAllDoctorProfiles();
+                if (response.success) {
+                    setDoctors(response.data || []);
+                }
+            } catch (error) {
+                console.error("Error fetching doctors:", error);
+            }
+        };
+
+        fetchDoctors();
+    }, []);
+
     const fetchInvoices = async () => {
         try {
             const params = {
@@ -47,6 +66,8 @@ function Payments_View() {
                 limit: pagination.rowsPerPage,
             };
             if (invoiceSearch) params.search = invoiceSearch;
+            if (statusFilter !== "All") params.status = statusFilter;
+            if (doctorId) params.doctorId = doctorId;
 
             const response = await invoiceService.getAllInvoices(params);
             console.log("Invoice API Response:", response);
@@ -97,12 +118,12 @@ function Payments_View() {
 
     useEffect(() => {
         loadAllData();
-    }, [pagination.page, pagination.rowsPerPage, invoiceSearch]);
+    }, [pagination.page, pagination.rowsPerPage, invoiceSearch, statusFilter, doctorId]);
 
-    // Reset to first page when search changes
+    // Reset to first page when search or filters change
     useEffect(() => {
         setPagination(prev => ({ ...prev, page: 0 }));
-    }, [invoiceSearch]);
+    }, [invoiceSearch, statusFilter, doctorId]);
 
     const handleViewInvoice = (invoice) => {
         navigate(`/receptionist/payments/invoice/${invoice._id}`);
@@ -195,7 +216,7 @@ function Payments_View() {
                     <div className="card shadow-sm mb-4">
                         <div className="card-body">
                             <div className="row g-3">
-                                <div className="col-md-12">
+                                <div className="col-md-4">
                                     <label className="form-label">Search Invoice #</label>
                                     <div className="input-group">
                                         <span className="input-group-text"><SearchIcon /></span>
@@ -207,6 +228,34 @@ function Payments_View() {
                                             onChange={(e) => setInvoiceSearch(e.target.value)}
                                         />
                                     </div>
+                                </div>
+                                <div className="col-md-4">
+                                    <label className="form-label">Doctor</label>
+                                    <select
+                                        className="form-select"
+                                        value={doctorId}
+                                        onChange={(e) => setDoctorId(e.target.value)}
+                                    >
+                                        <option value="">All Doctors</option>
+                                        {doctors.map((doc) => (
+                                            <option key={doc._id} value={doc._id}>
+                                                {`Dr. ${doc.user?.name || "N/A"}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-md-4">
+                                    <label className="form-label">Payment Status</label>
+                                    <select
+                                        className="form-select"
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                    >
+                                        <option value="All">All</option>
+                                        <option value="Paid">Paid</option>
+                                        <option value="Unpaid">Unpaid</option>
+                                        <option value="Partial">Partial</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>

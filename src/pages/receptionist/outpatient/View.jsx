@@ -4,6 +4,7 @@ import { Box, CircularProgress, Typography, TablePagination } from "@mui/materia
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
@@ -20,9 +21,138 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
 
+const EXPORT_COLUMNS = [
+    { field: "slNo", header: "Sl. No." },
+    { field: "name", header: "Patient Name" },
+    { field: "uhid", header: "UHID" },
+    { field: "doctorName", header: "Doctor" },
+    { field: "lastVisitDate", header: "Last Visit" },
+    { field: "allocatedNurse", header: "Allocated Nurse" },
+    { field: "phone", header: "Phone" },
+    { field: "status", header: "Status" },
+];
+
+const extractPatientsData = (responseData) => {
+    if (Array.isArray(responseData)) return responseData;
+    if (responseData?.profiles) return responseData.profiles;
+    if (responseData?.data) return responseData.data;
+    return [];
+};
+
+const extractExaminationsData = (responseData) => {
+    if (Array.isArray(responseData)) return responseData;
+    if (responseData?.data) return responseData.data;
+    return [];
+};
+
+const extractInvoicesData = (responseData) => {
+    if (!responseData?.success) return [];
+    if (Array.isArray(responseData.data)) return responseData.data;
+    if (responseData.data?.data) return responseData.data.data;
+    return [];
+};
+
+const buildPatientByIdMap = (patientsData) => {
+    const patientByIdMap = new Map();
+    patientsData.forEach((patient) => {
+        const id = patient._id?.toString();
+        if (id) patientByIdMap.set(id, patient);
+    });
+    return patientByIdMap;
+};
+
+const buildInvoicesMap = (invoicesData, examinationIds) => {
+    const invoicesMap = {};
+    invoicesData.forEach((invoice) => {
+        if (!invoice.examination) return;
+        const examId = invoice.examination._id?.toString() || invoice.examination.toString();
+        if (!examinationIds.includes(examId)) return;
+        if (
+            !invoicesMap[examId] ||
+            new Date(invoice.createdAt) > new Date(invoicesMap[examId].createdAt)
+        ) {
+            invoicesMap[examId] = invoice;
+        }
+    });
+    return invoicesMap;
+};
+
+const transformExaminationsToOutpatients = (examinationsData, patientByIdMap, invoicesMap) =>
+    examinationsData
+        .map((exam) => {
+            const patientId = exam.patient?._id?.toString() || exam.patient?.toString();
+            if (!patientId) return null;
+
+            const patient =
+                patientByIdMap.get(patientId) ||
+                (exam.patient && typeof exam.patient === "object" ? exam.patient : null);
+            const patientUser = patient?.user || {};
+
+            const invoice = invoicesMap[exam._id?.toString()];
+            const isFullyPaid = invoice
+                ? (invoice.amountPaid || 0) >= (invoice.totalPayable || 0)
+                : false;
+
+            let isDischarged = false;
+            if (exam.isBilled) {
+                if (isFullyPaid && invoice && invoice.totalPayable > 0) {
+                    isDischarged = true;
+                }
+            }
+
+            return {
+                id: exam._id,
+                _id: exam._id,
+                examinationId: exam._id,
+                patientId,
+                name: patientUser.name || patient?.name || "Unknown",
+                age: patientUser.age || patient?.age || "N/A",
+                gender: patientUser.gender || patient?.gender || "N/A",
+                uhid: patientUser.uhid || patient?.uhid || "N/A",
+                phone: patientUser.phone || patient?.phone || "N/A",
+                email: patientUser.email || patient?.email || "N/A",
+                registeredDate: exam.createdAt
+                    ? new Date(exam.createdAt).toISOString().split("T")[0]
+                    : "N/A",
+                complain: exam.complaints || "OPD Patient",
+                doctorName: exam.doctor?.user?.name || exam.doctor?.name || "N/A",
+                lastVisitDate: exam.createdAt
+                    ? new Date(exam.createdAt).toISOString().split("T")[0]
+                    : "N/A",
+                allocatedNurse: (() => {
+                    const nurseSource = exam.allocatedNurse || patient?.allocatedNurse;
+                    if (nurseSource && typeof nurseSource === "object") {
+                        return nurseSource.user?.name;
+                    }
+                    return undefined;
+                })(),
+                allocatedNurseId: (() => {
+                    const nurseSource = exam.allocatedNurse || patient?.allocatedNurse;
+                    if (nurseSource && typeof nurseSource === "object" && nurseSource._id) {
+                        return nurseSource._id;
+                    }
+                    return nurseSource || undefined;
+                })(),
+                hasFinalizedBill: !!exam.isBilled,
+                hasUnbilledVisit: !exam.isBilled,
+                isDischarged,
+                hasPendingPayment: invoice && !isFullyPaid,
+                hasBill: !!invoice,
+                type: "OPD",
+            };
+        })
+        .filter(Boolean);
+
+const getOutpatientStatus = (patient) => {
+    if (patient.isDischarged) return "Discharged";
+    if (patient.hasFinalizedBill) return "Billed";
+    return "Unbilled";
+};
+
 function Outpatient_View() {
     const [outpatients, setOutpatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
     const [search, setSearch] = useState("");
     const [pagination, setPagination] = useState({
         page: 0,
@@ -96,125 +226,19 @@ function Outpatient_View() {
             console.log("All Exams Response:", allExamsResponse.data);
 
             if (patientsResponse.data.success && allExamsResponse.data.success) {
-                // Handle different patient response structures
-                let patientsData = [];
-                if (Array.isArray(patientsResponse.data.data)) {
-                    patientsData = patientsResponse.data.data;
-                } else if (patientsResponse.data.data?.profiles) {
-                    patientsData = patientsResponse.data.data.profiles;
-                } else if (patientsResponse.data.data?.data) {
-                    patientsData = patientsResponse.data.data.data;
-                }
-
-                // Get all OPD examinations (including billed ones to show discharged patients)
-                const examinationsData = Array.isArray(allExamsResponse.data.data)
-                    ? allExamsResponse.data.data
-                    : (allExamsResponse.data.data?.data || []);
-
-                // Fetch invoices for current page examinations to check payment status (same pattern as inpatients)
+                const patientsData = extractPatientsData(patientsResponse.data.data);
+                const examinationsData = extractExaminationsData(allExamsResponse.data.data);
                 const examinationIds = examinationsData
-                    .filter(exam => exam._id)
-                    .map(exam => exam._id.toString());
-
-                let invoicesMap = {};
-                if (examinationIds.length > 0) {
-                    try {
-                        // Fetch invoices and map by examination ID (same as inpatient logic)
-                        const invoicesData = invoicesResponse.data.success
-                            ? (Array.isArray(invoicesResponse.data.data)
-                                ? invoicesResponse.data.data
-                                : (invoicesResponse.data.data?.data || []))
-                            : [];
-
-                        // Create a map of examinationId -> invoice (get most recent if multiple)
-                        invoicesData.forEach((invoice) => {
-                            if (invoice.examination) {
-                                const examId = invoice.examination._id?.toString() || invoice.examination.toString();
-                                if (examinationIds.includes(examId)) {
-                                    if (!invoicesMap[examId] ||
-                                        new Date(invoice.createdAt) > new Date(invoicesMap[examId].createdAt)) {
-                                        invoicesMap[examId] = invoice;
-                                    }
-                                }
-                            }
-                        });
-                    } catch (error) {
-                        console.error("Error fetching invoices for payment status:", error);
-                    }
-                }
-
-                // Map patient ID -> patient for lookups (so we show OPD visits even if patient is/was IPD)
-                const patientByIdMap = new Map();
-                patientsData.forEach(p => {
-                    const id = p._id?.toString();
-                    if (id) patientByIdMap.set(id, p);
-                });
-
-                // Transform examinations to match frontend table structure (same pattern as inpatients)
-                const transformedOutpatients = examinationsData.map((exam) => {
-                    const patientId = exam.patient?._id?.toString() || exam.patient?.toString();
-                    if (!patientId) return null;
-
-                    const patient = patientByIdMap.get(patientId) || (exam.patient && typeof exam.patient === "object" ? exam.patient : null);
-                    const patientUser = patient?.user || {};
-
-                    // Check payment status (same logic as inpatients)
-                    const invoice = invoicesMap[exam._id?.toString()];
-                    const isFullyPaid = invoice ? ((invoice.amountPaid || 0) >= (invoice.totalPayable || 0)) : false;
-
-                    // Determine discharge status based on bill and payment (same pattern as inpatients)
-                    // If examination is billed (isBilled = true), check payment status
-                    let isDischarged = false;
-                    if (exam.isBilled) {
-                        if (isFullyPaid && invoice && invoice.totalPayable > 0) {
-                            // Payment is complete - show as Discharged
-                            isDischarged = true;
-                        }
-                        // If billed but not fully paid, remains billed (not discharged)
-                    }
-                    // If not billed, remains unbilled (not discharged)
-
-                    return {
-                        id: exam._id,
-                        _id: exam._id,
-                        examinationId: exam._id,
-                        patientId,
-                        name: patientUser.name || patient?.name || "Unknown",
-                        age: patientUser.age || patient?.age || "N/A",
-                        gender: patientUser.gender || patient?.gender || "N/A",
-                        uhid: patientUser.uhid || patient?.uhid || "N/A",
-                        phone: patientUser.phone || patient?.phone || "N/A",
-                        email: patientUser.email || patient?.email || "N/A",
-                        registeredDate: exam.createdAt
-                            ? new Date(exam.createdAt).toISOString().split("T")[0]
-                            : "N/A",
-                        complain: exam.complaints || "OPD Patient",
-                        doctorName: exam.doctor?.user?.name || exam.doctor?.name || "N/A",
-                        lastVisitDate: exam.createdAt
-                            ? new Date(exam.createdAt).toISOString().split("T")[0]
-                            : "N/A",
-                        allocatedNurse: (() => {
-                            const nurseSource = exam.allocatedNurse || patient?.allocatedNurse;
-                            if (nurseSource && typeof nurseSource === "object") {
-                                return nurseSource.user?.name;
-                            }
-                            return undefined;
-                        })(),
-                        allocatedNurseId: (() => {
-                            const nurseSource = exam.allocatedNurse || patient?.allocatedNurse;
-                            if (nurseSource && typeof nurseSource === "object" && nurseSource._id) {
-                                return nurseSource._id;
-                            }
-                            return nurseSource || undefined;
-                        })(),
-                        hasFinalizedBill: !!exam.isBilled,
-                        hasUnbilledVisit: !exam.isBilled,
-                        isDischarged: isDischarged,
-                        hasPendingPayment: invoice && !isFullyPaid, // Flag for UI indication (same as inpatients)
-                        hasBill: !!invoice, // Flag for Billed badge (same as inpatients)
-                        type: "OPD",
-                    };
-                }).filter(Boolean); // Remove null entries
+                    .filter((exam) => exam._id)
+                    .map((exam) => exam._id.toString());
+                const patientByIdMap = buildPatientByIdMap(patientsData);
+                const invoicesData = extractInvoicesData(invoicesResponse.data);
+                const invoicesMap = buildInvoicesMap(invoicesData, examinationIds);
+                const transformedOutpatients = transformExaminationsToOutpatients(
+                    examinationsData,
+                    patientByIdMap,
+                    invoicesMap
+                );
 
                 console.log("Total outpatient examination rows:", transformedOutpatients.length);
                 setOutpatients(transformedOutpatients);
@@ -302,6 +326,112 @@ function Outpatient_View() {
         navigate(`/receptionist/outpatient/allocate?${params.toString()}`);
     };
 
+    const handleExportExcel = async () => {
+        setIsExporting(true);
+        try {
+            const examParams = {
+                hasInpatient: "false",
+                limit: 100,
+            };
+            if (search && search.trim()) {
+                examParams.search = search.trim();
+            }
+
+            const allExaminations = [];
+            let page = 1;
+            let totalPages = 1;
+
+            do {
+                const examsResponse = await axios.get(getApiUrl("examinations"), {
+                    headers: getAuthHeaders(),
+                    params: { ...examParams, page },
+                });
+
+                if (!examsResponse.data.success) {
+                    throw new Error(examsResponse.data.message || "Failed to fetch outpatient visits");
+                }
+
+                const pageExams = extractExaminationsData(examsResponse.data.data);
+                allExaminations.push(...pageExams);
+                totalPages = examsResponse.data.meta?.totalPages || 1;
+                page += 1;
+            } while (page <= totalPages);
+
+            if (allExaminations.length === 0) {
+                toast.warning("No outpatients to export.");
+                return;
+            }
+
+            const examinationIds = allExaminations
+                .filter((exam) => exam._id)
+                .map((exam) => exam._id.toString());
+
+            const [patientsResponse, invoicesResponse] = await Promise.all([
+                axios.get(getApiUrl("patients"), {
+                    headers: getAuthHeaders(),
+                    params: { page: 1, limit: 10000 },
+                }),
+                axios
+                    .get(getApiUrl("invoices"), {
+                        headers: getAuthHeaders(),
+                        params: { page: 1, limit: 10000 },
+                    })
+                    .catch(() => ({ data: { success: false, data: [] } })),
+            ]);
+
+            const patientsData = patientsResponse.data.success
+                ? extractPatientsData(patientsResponse.data.data)
+                : [];
+            const patientByIdMap = buildPatientByIdMap(patientsData);
+            const invoicesData = extractInvoicesData(invoicesResponse.data);
+            const invoicesMap = buildInvoicesMap(invoicesData, examinationIds);
+
+            const exportRows = transformExaminationsToOutpatients(
+                allExaminations,
+                patientByIdMap,
+                invoicesMap
+            )
+                .sort((a, b) => {
+                    const dateA =
+                        a.lastVisitDate && a.lastVisitDate !== "N/A"
+                            ? new Date(a.lastVisitDate)
+                            : new Date(0);
+                    const dateB =
+                        b.lastVisitDate && b.lastVisitDate !== "N/A"
+                            ? new Date(b.lastVisitDate)
+                            : new Date(0);
+                    return dateB - dateA;
+                })
+                .map((patient, index) => ({
+                    slNo: index + 1,
+                    name: patient.name,
+                    uhid: patient.uhid,
+                    doctorName: patient.doctorName,
+                    lastVisitDate: patient.lastVisitDate,
+                    allocatedNurse: patient.allocatedNurse || "N/A",
+                    phone: patient.phone,
+                    status: getOutpatientStatus(patient),
+                }));
+
+            const sheetData = [
+                EXPORT_COLUMNS.map((col) => col.header),
+                ...exportRows.map((row) => EXPORT_COLUMNS.map((col) => row[col.field] ?? "")),
+            ];
+
+            const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Outpatients");
+            XLSX.writeFile(workbook, "outpatients.xlsx");
+
+            toast.success(`Exported ${exportRows.length} outpatient records to Excel.`);
+        } catch (error) {
+            console.error("Error exporting outpatients:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to export Excel file.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <Box sx={{ padding: "20px" }}>
             {/* Breadcrumb */}
@@ -359,7 +489,7 @@ function Outpatient_View() {
                         </div>
 
                         {/* Search */}
-                        <div className="row g-3 mb-4">
+                        <div className="row g-3 mb-4 align-items-center">
                             <div className="col-md-6">
                                 <div className="input-group">
                                     <span className="input-group-text">
@@ -373,6 +503,25 @@ function Outpatient_View() {
                                         onChange={(e) => setSearch(e.target.value)}
                                     />
                                 </div>
+                            </div>
+                            <div className="col-md-6 d-flex justify-content-md-end">
+                                <button
+                                    type="button"
+                                    onClick={handleExportExcel}
+                                    disabled={isExporting || isLoading}
+                                    style={{
+                                        padding: "10px 18px",
+                                        background: "var(--color-primary)",
+                                        color: "#fff",
+                                        borderRadius: "8px",
+                                        border: "none",
+                                        cursor: isExporting || isLoading ? "not-allowed" : "pointer",
+                                        fontSize: "14px",
+                                        opacity: isExporting || isLoading ? 0.7 : 1,
+                                    }}
+                                >
+                                    {isExporting ? "Exporting..." : "Export Excel"}
+                                </button>
                             </div>
                         </div>
 
