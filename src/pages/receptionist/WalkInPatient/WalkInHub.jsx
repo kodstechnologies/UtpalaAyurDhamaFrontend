@@ -243,8 +243,14 @@ function WalkInHub() {
       }
       if (therapistsRes.data.success)
         setTherapists(therapistsRes.data.data || []);
-      if (therapiesRes.data.success)
-        setTherapiesList(therapiesRes.data.data || []);
+      if (therapiesRes.data.success) {
+        const sortedTherapies = [...(therapiesRes.data.data || [])].sort((a, b) =>
+          (a?.therapyName || "").localeCompare(b?.therapyName || "", undefined, {
+            sensitivity: "base",
+          }),
+        );
+        setTherapiesList(sortedTherapies);
+      }
       if (subTherapiesRes.data.success)
         setSubTherapiesList(subTherapiesRes.data.data || []);
     } catch (error) {
