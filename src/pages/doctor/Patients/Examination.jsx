@@ -38,6 +38,8 @@ import {
     CloudUpload,
     Image as ImageIcon,
     Delete,
+    Groups,
+    People,
 } from "@mui/icons-material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
@@ -157,6 +159,18 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
         duration: "",
         severity: "",
         chiefComplaint: "",
+        associatedComplaint: "",
+        // Family, Personal & Social History
+        familyHistory: "",
+        personalHistory: "",
+        personalBowel: "",
+        personalAppetite: "",
+        personalMicturition: "",
+        personalSleep: "",
+        dietAndHydration: "",
+        physicalActivity: "",
+        habits: "",
+        socialHistory: "",
         // General Medical History
         pastIllness: "",
         surgeries: "",
@@ -300,6 +314,14 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                     // Parse diagnoses
                     const diagnosis = examinationData.diagnoses?.[0] || "";
 
+                    const physicalExam = examinationData.physicalExamination
+                        || (examinationData.personalHistory && typeof examinationData.personalHistory === "object"
+                            ? examinationData.personalHistory
+                            : {});
+                    const personalHistoryText = typeof examinationData.personalHistory === "string"
+                        ? examinationData.personalHistory
+                        : "";
+
                     // Parse previous investigations
                     const prevInvest = examinationData.previousInvestigations || "";
                     const investDateMatch = prevInvest.match(/\(Date:\s*([^)]*)\)/);
@@ -322,6 +344,17 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                         urine: customFieldsMap["Urine (Mutra)"] || "",
                         sleep: customFieldsMap["Sleep (Nidra)"] || "",
                         chiefComplaint: examinationData.complaints || "",
+                        associatedComplaint: examinationData.associatedComplaint || "",
+                        familyHistory: examinationData.familyHistory || "",
+                        personalHistory: personalHistoryText,
+                        personalBowel: physicalExam.bowel || "",
+                        personalAppetite: physicalExam.appetite || "",
+                        personalMicturition: physicalExam.micturition || "",
+                        personalSleep: physicalExam.sleep || "",
+                        dietAndHydration: physicalExam.dietAndHydration || "",
+                        physicalActivity: physicalExam.physicalActivity || "",
+                        habits: physicalExam.habits || "",
+                        socialHistory: examinationData.socialHistory || "",
                         diseased: examinationData.complaints || "",
                         duration: (durationMatch?.[1] || "").trim(),
                         severity: (severityMatch?.[1] || "").trim(),
@@ -585,6 +618,19 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 ...(appointmentId ? { appointment: appointmentId } : { patient: patient._id }),
                 // Chief Complaint (diseased from Chief Complaints section)
                 complaints: formData.diseased || formData.chiefComplaint || "",
+                associatedComplaint: formData.associatedComplaint || "",
+                familyHistory: formData.familyHistory || "",
+                personalHistory: formData.personalHistory || "",
+                physicalExamination: {
+                    bowel: formData.personalBowel || "",
+                    appetite: formData.personalAppetite || "",
+                    micturition: formData.personalMicturition || "",
+                    sleep: formData.personalSleep || "",
+                    dietAndHydration: formData.dietAndHydration || "",
+                    physicalActivity: formData.physicalActivity || "",
+                    habits: formData.habits || "",
+                },
+                socialHistory: formData.socialHistory || "",
                 // Build comprehensive history with all fields
                 historyOfPatientIllness: [
                     formData.onset && `Onset: ${formData.onset}`,
@@ -818,83 +864,9 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                 <Grid container spacing={3}>
                     {/* Left Column */}
                     <Grid item xs={12} md={6}>
-                        {/* Prakriti Assessment */}
+                        {/* Chief Complaint */}
                         <FormSection
-                            title="Prakriti Assessment"
-                            subtitle="Ayurvedic constitutional evaluation"
-                            icon={Assessment}
-                        >
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Vata Dosha"
-                                        variant="outlined"
-                                        value={formData.vata}
-                                        onChange={handleChange("vata")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                        InputProps={{
-                                            startAdornment: (
-                                                <Assessment sx={{ color: "var(--color-primary-light)", mr: 1, fontSize: 18 }} />
-                                            ),
-                                        }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Pitta Dosha"
-                                        variant="outlined"
-                                        value={formData.pitta}
-                                        onChange={handleChange("pitta")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                        InputProps={{
-                                            startAdornment: (
-                                                <Assessment sx={{ color: "var(--color-primary-light)", mr: 1, fontSize: 18 }} />
-                                            ),
-                                        }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Kapha Dosha"
-                                        variant="outlined"
-                                        value={formData.kapha}
-                                        onChange={handleChange("kapha")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                        InputProps={{
-                                            startAdornment: (
-                                                <Assessment sx={{ color: "var(--color-primary-light)", mr: 1, fontSize: 18 }} />
-                                            ),
-                                        }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Final Prakriti"
-                                        variant="outlined"
-                                        value={formData.finalPrakriti}
-                                        onChange={handleChange("finalPrakriti")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                        InputProps={{
-                                            startAdornment: (
-                                                <Assessment sx={{ color: "var(--color-primary-light)", mr: 1, fontSize: 18 }} />
-                                            ),
-                                        }}
-                                    />
-                                </Grid>
-                            </Grid>
-                        </FormSection>
-
-                        {/* Complaints */}
-                        <FormSection
-                            title="Chief Complaints"
+                            title="Chief Complaint"
                             subtitle="Primary symptoms and associated details"
                             icon={MedicalInformation}
                         >
@@ -937,7 +909,26 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
 
                         </FormSection>
 
-                        {/* History of Patient Illness */}
+                        {/* Associated Complaint */}
+                        <FormSection
+                            title="Associated Complaint"
+                            subtitle="Related or secondary complaints"
+                            icon={MedicalInformation}
+                        >
+                            <TextField
+                                fullWidth
+                                label="Associated Complaint"
+                                variant="outlined"
+                                multiline
+                                rows={3}
+                                value={formData.associatedComplaint}
+                                onChange={handleChange("associatedComplaint")}
+                                disabled={!isEditing}
+                                size="small"
+                            />
+                        </FormSection>
+
+                        {/* Illness History */}
                         <FormSection
                             title="Illness History"
                             subtitle="Onset, progression, and influencing factors"
@@ -994,6 +985,67 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                 </Grid>
                             </Grid>
                         </FormSection>
+
+                        {/* General Medical History */}
+                        <FormSection
+                            title="General Medical History"
+                            subtitle="Past conditions and interventions"
+                            icon={History}
+                        >
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Past Illness"
+                                        variant="outlined"
+                                        multiline
+                                        rows={2}
+                                        value={formData.pastIllness}
+                                        onChange={handleChange("pastIllness")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Surgeries"
+                                        variant="outlined"
+                                        multiline
+                                        rows={2}
+                                        value={formData.surgeries}
+                                        onChange={handleChange("surgeries")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Allergies"
+                                        variant="outlined"
+                                        value={formData.allergies}
+                                        onChange={handleChange("allergies")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Past Medications"
+                                        variant="outlined"
+                                        multiline
+                                        rows={2}
+                                        value={formData.medications}
+                                        onChange={handleChange("medications")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                            </Grid>
+                        </FormSection>
+
                         {/* Ongoing Medications */}
                         <FormSection
                             title="Ongoing Medications"
@@ -1012,71 +1064,65 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                 size="small"
                             />
                         </FormSection>
-                        {/* Physical Investigations */}
+
+                        {/* Family History */}
                         <FormSection
-                            title="Physical Investigations"
-                            subtitle="Lab tests and diagnostic results"
-                            icon={MonitorHeart}
-                        >
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Investigation Name"
-                                        variant="outlined"
-                                        value={formData.investigation}
-                                        onChange={handleChange("investigation")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Result"
-                                        variant="outlined"
-                                        multiline
-                                        rows={2}
-                                        value={formData.result}
-                                        onChange={handleChange("result")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Date"
-                                        variant="outlined"
-                                        type="date"
-                                        value={formData.date}
-                                        onChange={handleChange("date")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                        InputLabelProps={{ shrink: true }}
-                                    />
-                                </Grid>
-                            </Grid>
-                        </FormSection>
-                        {/* Laboratory Investigation */}
-                        <FormSection
-                            title="Laboratory Investigation"
-                            subtitle="Detailed laboratory test results and findings"
-                            icon={MonitorHeart}
+                            title="Family History"
+                            subtitle="Hereditary and familial medical conditions"
+                            icon={Groups}
                         >
                             <TextField
                                 fullWidth
-                                label="Laboratory Investigation"
+                                label="Family History"
                                 variant="outlined"
                                 multiline
                                 rows={4}
-                                value={formData.laboratoryInvestigation}
-                                onChange={handleChange("laboratoryInvestigation")}
+                                value={formData.familyHistory}
+                                onChange={handleChange("familyHistory")}
                                 disabled={!isEditing}
                                 size="small"
-                                placeholder="Enter detailed laboratory investigation results, test findings, and observations..."
                             />
                         </FormSection>
+
+                        {/* Personal History */}
+                        <FormSection
+                            title="Personal History"
+                            subtitle="Patient's personal health background"
+                            icon={PersonOutline}
+                        >
+                            <TextField
+                                fullWidth
+                                label="Personal History"
+                                variant="outlined"
+                                multiline
+                                rows={4}
+                                value={formData.personalHistory}
+                                onChange={handleChange("personalHistory")}
+                                disabled={!isEditing}
+                                size="small"
+                            />
+                        </FormSection>
+
+                        {/* Social History */}
+                        <FormSection
+                            title="Social History"
+                            subtitle="Occupation, living conditions, and social factors"
+                            icon={People}
+                        >
+                            <TextField
+                                fullWidth
+                                label="Social History"
+                                variant="outlined"
+                                multiline
+                                rows={4}
+                                value={formData.socialHistory}
+                                onChange={handleChange("socialHistory")}
+                                disabled={!isEditing}
+                                size="small"
+                            />
+                        </FormSection>
+
+                        {/* Patient Images */}
                         <FormSection
                             title="Patient Images"
                             subtitle="Upload and manage patient examination images"
@@ -1120,7 +1166,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                 ) : uploadedPatientImages.length > 0 ? (
                                     <Grid container spacing={2}>
                                         {uploadedPatientImages.map((image) => (
-                                            <Grid item xs={12} sm={6} md={4} key={image._id}>
+                                            <Grid item xs={12} sm={6} key={image._id}>
                                                 <Paper variant="outlined" sx={{ p: 1.5 }}>
                                                     {image.viewUrl ? (
                                                         <Box
@@ -1282,66 +1328,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                 </Grid>
                             </Grid>
                         </FormSection>
-                        {/* General Medical History */}
-                        <FormSection
-                            title="General Medical History"
-                            subtitle="Past conditions and interventions"
-                            icon={History}
-                        >
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Past Illness"
-                                        variant="outlined"
-                                        multiline
-                                        rows={2}
-                                        value={formData.pastIllness}
-                                        onChange={handleChange("pastIllness")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Surgeries"
-                                        variant="outlined"
-                                        multiline
-                                        rows={2}
-                                        value={formData.surgeries}
-                                        onChange={handleChange("surgeries")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Allergies"
-                                        variant="outlined"
-                                        value={formData.allergies}
-                                        onChange={handleChange("allergies")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Past Medications"
-                                        variant="outlined"
-                                        multiline
-                                        rows={2}
-                                        value={formData.medications}
-                                        onChange={handleChange("medications")}
-                                        disabled={!isEditing}
-                                        size="small"
-                                    />
-                                </Grid>
-                            </Grid>
-                        </FormSection>
-                        {/* AAHP Examination - Vitals */}
+                        {/* AAHP Examination */}
                         <FormSection
                             title="AAHP Examination"
                             subtitle="Allopathy, Ayurveda, Homeopathy, Physiotherapy integrated vitals and systems"
@@ -1510,6 +1497,170 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                 </Grid>
                             </Grid>
                         </FormSection>
+
+                        {/* Prakriti Assessment */}
+                        <FormSection
+                            title="Prakriti Assessment"
+                            subtitle="Ayurvedic constitutional evaluation"
+                            icon={Assessment}
+                        >
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Vata Dosha"
+                                        variant="outlined"
+                                        value={formData.vata}
+                                        onChange={handleChange("vata")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Pitta Dosha"
+                                        variant="outlined"
+                                        value={formData.pitta}
+                                        onChange={handleChange("pitta")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Kapha Dosha"
+                                        variant="outlined"
+                                        value={formData.kapha}
+                                        onChange={handleChange("kapha")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Final Prakriti"
+                                        variant="outlined"
+                                        value={formData.finalPrakriti}
+                                        onChange={handleChange("finalPrakriti")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                            </Grid>
+                        </FormSection>
+
+                        {/* Physical Examination */}
+                        <FormSection
+                            title="Physical Examination"
+                            subtitle="Bowel, appetite, sleep, and lifestyle observations"
+                            icon={MonitorHeart}
+                        >
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Bowel"
+                                        variant="outlined"
+                                        value={formData.personalBowel}
+                                        onChange={handleChange("personalBowel")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Appetite"
+                                        variant="outlined"
+                                        value={formData.personalAppetite}
+                                        onChange={handleChange("personalAppetite")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Micturition"
+                                        variant="outlined"
+                                        value={formData.personalMicturition}
+                                        onChange={handleChange("personalMicturition")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Sleep"
+                                        variant="outlined"
+                                        value={formData.personalSleep}
+                                        onChange={handleChange("personalSleep")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Diet and Hydration"
+                                        variant="outlined"
+                                        value={formData.dietAndHydration}
+                                        onChange={handleChange("dietAndHydration")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <TextField
+                                        fullWidth
+                                        label="Physical Activity"
+                                        variant="outlined"
+                                        value={formData.physicalActivity}
+                                        onChange={handleChange("physicalActivity")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Habits"
+                                        variant="outlined"
+                                        multiline
+                                        rows={2}
+                                        value={formData.habits}
+                                        onChange={handleChange("habits")}
+                                        disabled={!isEditing}
+                                        size="small"
+                                    />
+                                </Grid>
+                            </Grid>
+                        </FormSection>
+
+                        {/* Laboratory Investigations */}
+                        <FormSection
+                            title="Laboratory Investigations"
+                            subtitle="Detailed laboratory test results and findings"
+                            icon={MonitorHeart}
+                        >
+                            <TextField
+                                fullWidth
+                                label="Laboratory Investigations"
+                                variant="outlined"
+                                multiline
+                                rows={4}
+                                value={formData.laboratoryInvestigation}
+                                onChange={handleChange("laboratoryInvestigation")}
+                                disabled={!isEditing}
+                                size="small"
+                                placeholder="Enter detailed laboratory investigation results, test findings, and observations..."
+                            />
+                        </FormSection>
+
                         {/* Diagnosis & Recommendations */}
                         <FormSection
                             title="Diagnosis & Recommendations"
@@ -1709,6 +1860,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                         </FormSection>
                     </Grid>
                 </Grid>
+
                 {/* Submit Button */}
                 <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end", gap: 2 }}>
                     <Button

@@ -257,6 +257,13 @@ function ExaminationDetails() {
 
     // Parse vitals
     const vitals = examination.vitals?.[0] || {};
+    const physicalExam = examination.physicalExamination
+        || (examination.personalHistory && typeof examination.personalHistory === "object"
+            ? examination.personalHistory
+            : {});
+    const personalHistoryText = typeof examination.personalHistory === "string"
+        ? examination.personalHistory
+        : "";
     const patientImages = examination.patientImages || [];
 
     return (
@@ -333,15 +340,55 @@ function ExaminationDetails() {
                 {/* Examination Details */}
                 {renderSection("Chief Complaint", [
                     renderField("Chief Complaint", examination.complaints),
+                    renderField("Associated Complaint", examination.associatedComplaint),
                     renderField("Duration", examination.historyOfPatientIllness?.match(/Duration:\s*([^.]*)/)?.[1]),
                     renderField("Severity", examination.historyOfPatientIllness?.match(/Severity:\s*([^/]*)/)?.[1]),
                 ])}
 
-                {renderSection("History of Patient Illness", [
+                {renderSection("Illness History", [
                     renderField("Onset", examination.historyOfPatientIllness?.match(/Onset:\s*([^.]*)/)?.[1]),
                     renderField("Progression", examination.historyOfPatientIllness?.match(/Progression:\s*([^.]*)/)?.[1]),
                     renderField("Aggravating Factors", examination.historyOfPatientIllness?.match(/Aggravating Factors:\s*([^.]*)/)?.[1]),
                     renderField("Relieving Factors", examination.historyOfPatientIllness?.match(/Relieving Factors:\s*([^.]*)/)?.[1]),
+                ])}
+
+                {renderSection("General Medical History", [
+                    renderField("Past Illness", examination.medicalSurgicalHistory?.match(/Past Illness:\s*([^.]*)/)?.[1]),
+                    renderField("Surgeries", examination.medicalSurgicalHistory?.match(/Surgeries:\s*([^.]*)/)?.[1]),
+                    renderField("Allergies", examination.medicalSurgicalHistory?.match(/Allergies:\s*([^.]*)/)?.[1]),
+                    renderField("Past Medications", examination.medicalSurgicalHistory?.match(/Past Medications:\s*([^.]*)/)?.[1]),
+                ])}
+
+                {renderSection("Ongoing Medications", [
+                    renderField("Current Medications", examination.ongoingMedications),
+                ])}
+
+                {renderSection("Family History", [
+                    renderField("Family History", examination.familyHistory),
+                ])}
+
+                {renderSection("Personal History", [
+                    renderField("Personal History", personalHistoryText),
+                ])}
+
+                {renderSection("Social History", [
+                    renderField("Social History", examination.socialHistory),
+                ])}
+
+                {Object.keys(clinicalFields).length > 0 && renderSection("Clinical Examination", [
+                    ...Object.entries(clinicalFields).map(([label, value]) => renderField(label, value)),
+                ])}
+
+                {renderSection("AAHP Examination", [
+                    renderField("Height", vitals.height),
+                    renderField("Weight", vitals.weight),
+                    renderField("BMI", vitals.bmi),
+                    renderField("Blood Pressure", vitals.bloodPressure),
+                    renderField("Heart Rate", vitals.heartRate),
+                    renderField("Temperature", vitals.temperature),
+                    renderField("SpO2", vitals.spo2),
+                    renderField("Respiratory Rate", vitals.respiratoryRate),
+                    ...Object.entries(systemicFields).map(([label, value]) => renderField(label, value)),
                 ])}
 
                 {renderSection("Prakriti Assessment", [
@@ -351,37 +398,18 @@ function ExaminationDetails() {
                     renderField("Final Prakriti", examination.finalPrakriti),
                 ])}
 
-                {Object.keys(clinicalFields).length > 0 && renderSection("Clinical Examination", [
-                    ...Object.entries(clinicalFields).map(([label, value]) => renderField(label, value)),
+                {renderSection("Physical Examination", [
+                    renderField("Bowel", physicalExam.bowel),
+                    renderField("Appetite", physicalExam.appetite),
+                    renderField("Micturition", physicalExam.micturition),
+                    renderField("Sleep", physicalExam.sleep),
+                    renderField("Diet and Hydration", physicalExam.dietAndHydration),
+                    renderField("Physical Activity", physicalExam.physicalActivity),
+                    renderField("Habits", physicalExam.habits),
                 ])}
 
-                {renderSection("Vitals", [
-                    renderField("Height", vitals.height),
-                    renderField("Weight", vitals.weight),
-                    renderField("BMI", vitals.bmi),
-                    renderField("Blood Pressure", vitals.bloodPressure),
-                    renderField("Heart Rate", vitals.heartRate),
-                    renderField("Temperature", vitals.temperature),
-                    renderField("SpO2", vitals.spo2),
-                    renderField("Respiratory Rate", vitals.respiratoryRate),
-                ])}
-
-                {Object.keys(systemicFields).length > 0 && renderSection("Systemic Examination", [
-                    ...Object.entries(systemicFields).map(([label, value]) => renderField(label, value)),
-                ])}
-
-                {renderSection("Medical History", [
-                    renderField("Past Illness", examination.medicalSurgicalHistory?.match(/Past Illness:\s*([^.]*)/)?.[1]),
-                    renderField("Surgeries", examination.medicalSurgicalHistory?.match(/Surgeries:\s*([^.]*)/)?.[1]),
-                    renderField("Allergies", examination.medicalSurgicalHistory?.match(/Allergies:\s*([^.]*)/)?.[1]),
-                    renderField("Past Medications", examination.medicalSurgicalHistory?.match(/Past Medications:\s*([^.]*)/)?.[1]),
-                ])}
-
-                {renderSection("Medications & Investigations", [
-                    renderField("Ongoing Medications", examination.ongoingMedications),
-                    renderField("Previous Investigations", examination.previousInvestigations),
-                    renderField("Present Investigations", examination.presentInvestigations),
-                    renderField("Laboratory Investigation", examination.laboratoryInvestigation),
+                {renderSection("Laboratory Investigations", [
+                    renderField("Laboratory Investigations", examination.laboratoryInvestigation),
                 ])}
 
                 {renderSection("Diagnosis & Recommendations", [
