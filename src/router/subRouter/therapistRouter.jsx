@@ -44,6 +44,9 @@ const StoreView = lazy(() =>
 const AddEditStoreItem = lazy(() =>
     import("../../pages/therapist/store/AddEdit")
 );
+const SwarnaBinduEvents_Calendar = lazy(() =>
+    import("../../pages/receptionist/swarnaBinduEvents/Calendar")
+);
 
 // 🛣 Routes with Lazy Components
 export const therapistRoutes = [
@@ -173,6 +176,14 @@ export const therapistRoutes = [
         element: (
             <Suspense fallback={<div>Loading...</div>}>
                 <AddEditStoreItem />
+            </Suspense>
+        ),
+    },
+    {
+        path: "/therapist/swarna-bindu-events/calendar",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <SwarnaBinduEvents_Calendar />
             </Suspense>
         ),
     },

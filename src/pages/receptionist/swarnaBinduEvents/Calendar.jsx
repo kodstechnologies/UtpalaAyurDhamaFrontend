@@ -62,6 +62,13 @@ const CALENDAR_ROLE_CONFIG = {
         ],
         canManage: false,
     },
+    therapist: {
+        breadcrumbItems: [
+            { label: "Therapist", url: "/therapist/dashboard" },
+            { label: "Utpala Event" },
+        ],
+        canManage: false,
+    },
     patient: {
         breadcrumbItems: [
             { label: "Patient", url: "/patient/dashboard" },

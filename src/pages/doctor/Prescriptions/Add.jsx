@@ -937,7 +937,7 @@ function PrescriptionsAddPage() {
                                         label="Dosage"
                                         value={formData.currentMedicine.dosage}
                                         onChange={(e) => handleMedicineFieldChange("dosage", e.target.value)}
-                                        placeholder="e.g., 500mg"
+                                        placeholder=""
                                         size="small"
                                     />
                                 </Grid>

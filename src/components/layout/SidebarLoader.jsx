@@ -400,6 +400,12 @@ export const sidebarMenus = {
             icon: <Inventory2Icon style={{ color: "var(--color-icons)" }} />,
             to: "/therapist/store",
         },
+        {
+            key: "utpala_events",
+            label: "Utpala Event",
+            icon: <SparklesIcon style={{ color: "var(--color-icons)" }} />,
+            to: "/therapist/swarna-bindu-events/calendar",
+        },
     ],
     patient: [
         {
