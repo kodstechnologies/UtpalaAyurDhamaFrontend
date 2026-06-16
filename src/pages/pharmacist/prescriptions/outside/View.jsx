@@ -3,12 +3,8 @@ import { useNavigate } from "react-router-dom";
 import {
     Box,
     CircularProgress,
-    Chip,
-    Typography,
 } from "@mui/material";
 import { toast } from "react-toastify";
-import MedicationIcon from "@mui/icons-material/Medication";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
@@ -27,7 +23,7 @@ const derivePaymentStatus = (record) => {
     if (normalizedStatus === "partially paid") return "Unpaid";
     if (normalizedStatus === "unpaid") return "Unpaid";
 
-    const totalAmount = Number(record?.totalAmount || 0);
+    const totalAmount = Number(record?.totalAmountWithGst ?? record?.totalAmount ?? 0);
     const paidAmount = Number(record?.paidAmount || 0);
     return paidAmount >= totalAmount && totalAmount > 0 ? "Paid" : "Unpaid";
 };
@@ -70,10 +66,8 @@ function OutsideDispense_View() {
         return records.filter(
             (r) =>
                 (r.name || "").toLowerCase().includes(q) ||
-                (r.phone || "").toLowerCase().includes(q) ||
                 (r.email || "").toLowerCase().includes(q) ||
-                (r.disease || "").toLowerCase().includes(q) ||
-                (r.medicines || []).some((m) => m.medicineName?.toLowerCase().includes(q))
+                (r.phone || "").toLowerCase().includes(q)
         );
     }, [records, searchText]);
 
@@ -87,8 +81,7 @@ function OutsideDispense_View() {
                 email: record.email || "N/A",
                 age: record.age ?? "N/A",
                 disease: record.disease || "N/A",
-                medicines: record.medicines || [],
-                totalAmount: record.totalAmount || 0,
+                totalAmount: record.totalAmountWithGst ?? record.totalAmount ?? 0,
                 paymentStatus: derivePaymentStatus(record),
                 dispensedOn: record.createdAt
                     ? new Date(record.createdAt).toLocaleDateString()
@@ -105,37 +98,9 @@ function OutsideDispense_View() {
         { field: "age", header: "Age" },
         { field: "disease", header: "Disease" },
         {
-            field: "medicines",
-            header: "Medicines",
-            render: (row) => (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, maxWidth: 320 }}>
-                    {(row.medicines || []).map((med, idx) => (
-                        <Chip
-                            key={idx}
-                            size="small"
-                            icon={<MedicationIcon fontSize="small" />}
-                            label={`${med.medicineName} - ${med.dispensedQuantity}`}
-                        />
-                    ))}
-                </Box>
-            ),
-        },
-        {
             field: "totalAmount",
             header: "Total Amount",
             render: (row) => `₹${Number(row.totalAmount || 0).toFixed(2)}`,
-        },
-        {
-            field: "paymentStatus",
-            header: "Payment Status",
-            render: (row) => (
-                <Chip
-                    label={row.paymentStatus}
-                    size="small"
-                    color={row.paymentStatus === "Paid" ? "success" : "warning"}
-                    sx={{ fontWeight: 600 }}
-                />
-            ),
         },
         { field: "dispensedOn", header: "Dispensed On" },
     ];
@@ -182,7 +147,6 @@ function OutsideDispense_View() {
         { field: "age", header: "Age" },
         { field: "disease", header: "Disease" },
         { field: "totalAmount", header: "Total Amount" },
-        { field: "paymentStatus", header: "Payment Status" },
         { field: "dispensedOn", header: "Dispensed On" },
     ];
 
@@ -216,7 +180,7 @@ function OutsideDispense_View() {
                 <Search
                     value={searchText}
                     onChange={setSearchText}
-                    placeholder="Search by name, phone, email, disease..."
+                    placeholder="Search by name, email, phone..."
                     style={{ width: 280 }}
                 />
                 <Box sx={{ display: "flex", gap: 1 }}>
@@ -238,34 +202,25 @@ function OutsideDispense_View() {
                 columns={columns}
                 rows={tableRows}
                 actions={(row) => {
-                    const rowActions = [
-                        {
-                            label: "View",
-                            icon: <VisibilityIcon fontSize="small" />,
-                            color: "var(--color-primary)",
-                            onClick: (actionRow) =>
-                                navigate(`/pharmacist/prescriptions/outside/${actionRow._id}`),
-                        },
-                    ];
+                    if (row.paymentStatus === "Paid") {
+                        return [];
+                    }
 
-                    if (row.paymentStatus !== "Paid") {
-                        rowActions.push({
+                    return [
+                        {
                             label: "Edit",
                             icon: <EditIcon fontSize="small" />,
                             color: "var(--color-icon-2)",
                             onClick: (actionRow) =>
                                 navigate(`/pharmacist/prescriptions/outside/edit/${actionRow._id}`),
-                        });
-                    }
-
-                    rowActions.push({
-                        label: "Delete",
-                        icon: <DeleteIcon fontSize="small" />,
-                        color: "var(--color-icon-1)",
-                        onClick: handleDeleteClick,
-                    });
-
-                    return rowActions;
+                        },
+                        {
+                            label: "Delete",
+                            icon: <DeleteIcon fontSize="small" />,
+                            color: "var(--color-icon-1)",
+                            onClick: handleDeleteClick,
+                        },
+                    ];
                 }}
                 showAddButton={false}
                 showExportButton={false}

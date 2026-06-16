@@ -1,17 +1,16 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { Box, CircularProgress, Chip, Typography } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import MedicationIcon from "@mui/icons-material/Medication";
 
-import Breadcrumb from "../../../../components/breadcrumb/Breadcrumb";
 import HeadingCard from "../../../../components/card/HeadingCard";
 import TableComponent from "../../../../components/table/TableComponent";
 import CardBorder from "../../../../components/card/CardBorder";
 import Search from "../../../../components/search/Search";
 import ExportDataButton from "../../../../components/buttons/ExportDataButton";
 import prescriptionService from "../../../../services/prescriptionService";
+import { getRemainingPrescriptionQuantity } from "../../../../utils/prescriptionQuantity";
 
 function Inpatient_View_Details() {
     const navigate = useNavigate();
@@ -73,11 +72,21 @@ function Inpatient_View_Details() {
                 frequency: prescription.frequency,
                 duration: prescription.duration,
                 quantity: prescription.quantity,
+                dispensedQuantity: prescription.dispensedQuantity || 0,
                 medicineType: prescription.medicineType,
                 notes: prescription.notes,
             });
         });
-        return Object.values(grouped);
+        return Object.values(grouped).filter((group) =>
+            group.prescriptions.some((med) => {
+                const remaining = getRemainingPrescriptionQuantity({
+                    quantity: med.quantity,
+                    dosage: med.dosage,
+                    dispensedQuantity: med.dispensedQuantity,
+                });
+                return remaining > 0;
+            })
+        );
     }, [prescriptions]);
 
     const filteredRows = useMemo(() => {
@@ -93,23 +102,6 @@ function Inpatient_View_Details() {
         );
     }, [searchText, groupedPrescriptions]);
 
-    const formatMedicines = (medicines) => {
-        if (!medicines || medicines.length === 0) return "No medicines";
-        return medicines.map((med, idx) => (
-            <Chip
-                key={idx}
-                label={`${med.medication}${med.dosage ? ` - ${med.dosage}` : ""}${med.frequency ? ` (${med.frequency})` : ""}`}
-                size="small"
-                icon={<MedicationIcon fontSize="small" />}
-                sx={{
-                    m: 0.25,
-                    fontSize: "0.75rem",
-                    height: "24px",
-                }}
-            />
-        ));
-    };
-
     const columns = [
         { field: "name", header: "Patient Name" },
         { field: "age", header: "Age" },
@@ -117,27 +109,12 @@ function Inpatient_View_Details() {
         { field: "wardCategory", header: "Ward" },
         { field: "doctor", header: "Doctor" },
         { field: "diagnosis", header: "Diagnosis" },
-        {
-            field: "medicines",
-            header: "Medicines Allocated",
-            render: (row) => {
-                if (!row.prescriptions || row.prescriptions.length === 0) {
-                    return <Typography variant="body2" color="text.secondary">No medicines</Typography>;
-                }
-                return (
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, maxWidth: "500px" }}>
-                        {formatMedicines(row.prescriptions)}
-                    </Box>
-                );
-            },
-        },
     ];
 
     const actions = [
         {
-            label: "View Prescriptions",
+            label: "View Details",
             icon: <VisibilityIcon fontSize="small" />,
-            color: "var(--color-primary)",
             onClick: (row) => {
                 navigate(`/pharmacist/prescriptions/inpatient/${row.examinationId}?patientId=${row.patientId}`);
             },
@@ -154,42 +131,30 @@ function Inpatient_View_Details() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Breadcrumb
-                items={[
-                    { label: "Home", url: "/" },
-                    { label: "Pharmacist", url: "/pharmacist/dashboard" },
-                    { label: "Inpatient Prescriptions" },
-                ]}
-            />
-
             <HeadingCard
                 title="Inpatient Prescriptions"
                 subtitle="Manage and dispense medications prescribed for admitted patients with allocated medicines."
             />
 
-            <CardBorder justify="between" align="center" wrap={true} padding="2rem" className="mb-[2rem]">
+            <CardBorder className="mb-[2rem]" justify="between" align="center" wrap={true} padding="2rem">
                 <Box sx={{ flex: 1, mr: 1 }}>
                     <Search
                         value={searchText}
-                        onChange={(val) => setSearchText(val)}
-                        sx={{ flex: 1 }}
+                        onChange={setSearchText}
                         placeholder="Search by patient, doctor, room, diagnosis, or medicine..."
                     />
                 </Box>
-                <Box sx={{ display: "flex", gap: 1 }}>
-                    <ExportDataButton
-                        rows={filteredRows}
-                        columns={columns}
-                        fileName="inpatient-prescriptions.xlsx"
-                    />
-                </Box>
+                <ExportDataButton
+                    rows={filteredRows}
+                    columns={columns}
+                    fileName="inpatient-prescriptions.xlsx"
+                />
             </CardBorder>
 
             <TableComponent
                 columns={columns}
                 rows={filteredRows}
                 actions={actions}
-                showStatusBadge={false}
             />
         </Box>
     );

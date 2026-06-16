@@ -22,7 +22,6 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import MedicationIcon from "@mui/icons-material/Medication";
 import PaymentIcon from "@mui/icons-material/Payment";
 import CloseIcon from "@mui/icons-material/Close";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
@@ -43,6 +42,7 @@ function List_View_Details() {
     const [prescriptions, setPrescriptions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
+    const [paymentFilter, setPaymentFilter] = useState("All");
 
     // Payment Dialog State
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -58,7 +58,7 @@ function List_View_Details() {
     const fetchPrescriptions = useCallback(async () => {
         setIsLoading(true);
         try {
-            const response = await prescriptionService.getPendingAll_List_patientPrescriptions();
+            const response = await prescriptionService.getPendingAll_List_patientPrescriptions(1, 500);
             if (response && response.success) {
                 setPrescriptions(response.data || []);
             } else {
@@ -82,63 +82,71 @@ function List_View_Details() {
     // Group prescriptions by examination (patient + examination combination)
     const groupedPrescriptions = useMemo(() => {
         return prescriptions.map((item) => {
-            const total = item.totalAmountWithGst || 0;
-            const paid = item.padeamount || 0;
+            const isOutside = item.recordType === "outside";
+            const total = item.totalAmountWithGst || item.totalAmount || 0;
+            const paid = item.padeamount ?? item.paidAmount ?? 0;
             const balance = Math.max(0, total - paid);
+
+            const billMedicines = Array.isArray(item.dispenseLines) && item.dispenseLines.length > 0
+                ? item.dispenseLines.map((line) => ({
+                    medication: line.medicationName,
+                    quantity: line.quantity,
+                }))
+                : (item.prescriptions || []).map((med) => ({
+                    medication: med.medication,
+                    dosage: med.dosage,
+                    quantity: med.quantity,
+                }));
 
             return {
                 _id: item._id,
+                recordType: item.recordType || "pharmacy",
                 patientProfileId: item.patient?._id,
-                patientId: item.patient?.patientId || "N/A",
-                name: item.patient?.user?.name || "Unknown",
-                uhid: item.patient?.user?.uhid || "N/A",
-                status: item.patient?.admissionStatus || "N/A",
+                patientId: isOutside
+                    ? (item.outsideCustomer?.phone || "Outside")
+                    : (item.patient?.patientId || "N/A"),
+                name: isOutside
+                    ? (item.outsideCustomer?.name || "Walk-in Customer")
+                    : (item.patient?.user?.name || "Unknown"),
+                uhid: isOutside ? "Outside" : (item.patient?.user?.uhid || "N/A"),
+                email: isOutside
+                    ? (item.outsideCustomer?.email || "")
+                    : (item.patient?.user?.email || ""),
+                phone: isOutside ? (item.outsideCustomer?.phone || "") : (item.patient?.user?.phone || ""),
+                doctor: isOutside
+                    ? ""
+                    : (item.prescriptions?.[0]?.doctor?.user?.name || ""),
+                status: isOutside ? "Outside" : (item.patient?.admissionStatus || "N/A"),
                 total: total,
                 paid: paid,
                 balance: balance,
                 paymentStatus: item.paymentStatus || (paid > 0 ? "Partially Paid" : "Unpaid"),
-                prescriptions: (item.prescriptions || []).map((med) => ({
-                    medication: med.medication,
-                    dosage: med.dosage,
-                    quantity: med.quantity,
-                    status: med.status
-                }))
+                prescriptions: billMedicines,
             };
         });
     }, [prescriptions]);
 
     const filteredRows = useMemo(() => {
-        if (!searchText) return groupedPrescriptions;
+        let rows = groupedPrescriptions;
+
+        if (paymentFilter === "Paid") {
+            rows = rows.filter((r) => r.paymentStatus === "Paid");
+        } else if (paymentFilter === "Unpaid") {
+            rows = rows.filter((r) => r.paymentStatus !== "Paid");
+        }
+
+        if (!searchText) return rows;
 
         const q = searchText.toLowerCase();
 
-        return groupedPrescriptions.filter(
+        return rows.filter(
             (r) =>
                 r.name.toLowerCase().includes(q) ||
-                r.uhid.toLowerCase().includes(q) ||
-                r.patientId.toLowerCase().includes(q) ||
-                r.prescriptions.some((p) =>
-                    p.medication?.toLowerCase().includes(q)
-                )
+                (r.doctor || "").toLowerCase().includes(q) ||
+                (r.email || "").toLowerCase().includes(q) ||
+                (r.phone || "").toLowerCase().includes(q)
         );
-    }, [searchText, groupedPrescriptions]);
-
-    const formatMedicines = (medicines) => {
-        if (!medicines || medicines.length === 0) return "No medicines";
-        return medicines.map((med, idx) => (
-            <Chip
-                key={idx}
-                label={`${med.medication}${med.dosage ? ` - ${med.dosage}` : ""}`}
-                size="small"
-                icon={<MedicationIcon fontSize="small" />}
-                sx={{
-                    m: 0.25,
-                    fontSize: "0.75rem",
-                    height: "24px",
-                }}
-            />
-        ));
-    };
+    }, [searchText, paymentFilter, groupedPrescriptions]);
 
     const handleOpenPayment = (row) => {
         setSelectedRecord(row);
@@ -215,7 +223,18 @@ function List_View_Details() {
     };
 
     const columns = [
-        { field: "name", header: "Patient Name" },
+        {
+            field: "name",
+            header: "Patient Name",
+            render: (row) => (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                    <Typography variant="body2">{row.name}</Typography>
+                    {row.recordType === "outside" && (
+                        <Chip label="Outside" size="small" color="info" variant="outlined" sx={{ height: 20, fontSize: "0.65rem" }} />
+                    )}
+                </Box>
+            ),
+        },
         { field: "uhid", header: "UHID" },
         { field: "patientId", header: "Patient ID" },
       
@@ -234,25 +253,6 @@ function List_View_Details() {
                 />
             )
         },
-        {
-            field: "medicines",
-            header: "Medicines Allocated",
-            render: (row) => {
-                if (!row.prescriptions || row.prescriptions.length === 0) {
-                    return (
-                        <Typography variant="body2" color="text.secondary">
-                            No medicines
-                        </Typography>
-                    );
-                }
-
-                return (
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, maxWidth: "400px" }}>
-                        {formatMedicines(row.prescriptions)}
-                    </Box>
-                );
-            },
-        },
     ];
 
     const actions = [
@@ -261,6 +261,10 @@ function List_View_Details() {
             icon: <VisibilityIcon fontSize="small" />,
             color: "var(--color-primary)",
             onClick: (row) => {
+                if (row.recordType === "outside") {
+                    navigate(`/pharmacist/prescriptions/outside/${row._id}`);
+                    return;
+                }
                 navigate(`/pharmacist/prescriptions/list/${row._id}?patientId=${row.patientId}`);
             },
         },
@@ -297,13 +301,28 @@ function List_View_Details() {
             />
 
             <CardBorder justify="between" align="center" wrap={true} padding="2rem" className="mb-[2rem]">
-                <Box sx={{ flex: 1, mr: 1 }}>
-                    <Search
-                        value={searchText}
-                        onChange={(val) => setSearchText(val)}
-                        sx={{ flex: 1 }}
-                        placeholder="Search by patient name, UHID, or medicine"
-                    />
+                <Box sx={{ display: "flex", flex: 1, gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+                    <Box sx={{ flex: 1, minWidth: 220 }}>
+                        <Search
+                            value={searchText}
+                            onChange={(val) => setSearchText(val)}
+                            sx={{ flex: 1 }}
+                            placeholder="Search by doctor, patient name, email, phone..."
+                        />
+                    </Box>
+                    <FormControl size="small" sx={{ minWidth: 160 }}>
+                        <InputLabel id="payment-filter-label">Payment Status</InputLabel>
+                        <Select
+                            labelId="payment-filter-label"
+                            value={paymentFilter}
+                            label="Payment Status"
+                            onChange={(e) => setPaymentFilter(e.target.value)}
+                        >
+                            <MenuItem value="All">All</MenuItem>
+                            <MenuItem value="Paid">Paid</MenuItem>
+                            <MenuItem value="Unpaid">Unpaid</MenuItem>
+                        </Select>
+                    </FormControl>
                 </Box>
                 <Box sx={{ display: "flex", gap: 1 }}>
                     <ExportDataButton
@@ -430,7 +449,6 @@ function List_View_Details() {
                     >
                         {isSavingPayment ? "Saving..." : "Confirm UPI Payment"}
                     </Button>
-                    0000
                 </DialogActions>
             </Dialog>
         </Box>

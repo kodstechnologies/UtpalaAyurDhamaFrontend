@@ -1,17 +1,16 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { Box, CircularProgress, Chip, Typography } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import MedicationIcon from "@mui/icons-material/Medication";
 
-import Breadcrumb from "../../../../components/breadcrumb/Breadcrumb";
 import HeadingCard from "../../../../components/card/HeadingCard";
 import TableComponent from "../../../../components/table/TableComponent";
 import CardBorder from "../../../../components/card/CardBorder";
 import Search from "../../../../components/search/Search";
 import ExportDataButton from "../../../../components/buttons/ExportDataButton";
 import prescriptionService from "../../../../services/prescriptionService";
+import { getRemainingPrescriptionQuantity } from "../../../../utils/prescriptionQuantity";
 
 function Outpatient_View_Details() {
     const navigate = useNavigate();
@@ -75,7 +74,16 @@ function Outpatient_View_Details() {
                 notes: prescription.notes,
             });
         });
-        return Object.values(grouped);
+        return Object.values(grouped).filter((group) =>
+            group.prescriptions.some((med) => {
+                const remaining = getRemainingPrescriptionQuantity({
+                    quantity: med.quantity,
+                    dosage: med.dosage,
+                    dispensedQuantity: med.dispensedQuantity,
+                });
+                return remaining > 0;
+            })
+        );
     }, [prescriptions]);
 
     const filteredRows = useMemo(() => {
@@ -90,54 +98,11 @@ function Outpatient_View_Details() {
         );
     }, [searchText, groupedPrescriptions]);
 
-    const formatMedicines = (medicines) => {
-        if (!medicines || medicines.length === 0) return "No medicines";
-        return medicines.map((med, idx) => {
-            const prescribed = Number(med.quantity || 0);
-            const dispensed = Number(med.dispensedQuantity || 0);
-            const remaining = Math.max(0, prescribed - dispensed);
-            const qtyLabel = remaining > 0 && dispensed > 0
-                ? ` (${remaining} remaining)`
-                : prescribed > 0
-                    ? ` (qty: ${prescribed})`
-                    : "";
-
-            return (
-            <Chip
-                key={idx}
-                label={`${med.medication}${med.dosage ? ` - ${med.dosage}` : ""}${med.frequency ? ` (${med.frequency})` : ""}${qtyLabel}`}
-                size="small"
-                icon={<MedicationIcon fontSize="small" />}
-                color={remaining > 0 && dispensed > 0 ? "warning" : "default"}
-                sx={{
-                    m: 0.25,
-                    fontSize: "0.75rem",
-                    height: "24px",
-                }}
-            />
-            );
-        });
-    };
-
     const columns = [
         { field: "name", header: "Patient Name" },
         { field: "age", header: "Age" },
         { field: "doctor", header: "Doctor" },
         { field: "diagnosis", header: "Diagnosis" },
-        {
-            field: "medicines",
-            header: "Medicines Allocated",
-            render: (row) => {
-                if (!row.prescriptions || row.prescriptions.length === 0) {
-                    return <Typography variant="body2" color="text.secondary">No medicines</Typography>;
-                }
-                return (
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, maxWidth: "500px" }}>
-                        {formatMedicines(row.prescriptions)}
-                    </Box>
-                );
-            },
-        },
     ];
 
     const actions = [

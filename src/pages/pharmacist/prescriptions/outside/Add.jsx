@@ -19,6 +19,11 @@ import {
     Chip,
     Container,
     Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { toast } from "react-toastify";
@@ -129,6 +134,8 @@ function OutsideDispense_Add() {
     const [medicines, setMedicines] = useState([]);
     const [isLoadingMedicines, setIsLoadingMedicines] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [gst, setGst] = useState(0);
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
     const [form, setForm] = useState({
         name: "",
@@ -243,13 +250,15 @@ function OutsideDispense_Add() {
             form.medicines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0),
         [form.medicines]
     );
+    const gstAmount = useMemo(() => (totalAmount * gst) / 100, [totalAmount, gst]);
+    const totalWithGst = useMemo(() => totalAmount + gstAmount, [totalAmount, gstAmount]);
 
     const validMedicineCount = useMemo(
         () => form.medicines.filter((m) => m.medicine && Number(m.dispensedQuantity) > 0).length,
         [form.medicines]
     );
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
 
         const validMedicines = form.medicines.filter(
@@ -270,6 +279,16 @@ function OutsideDispense_Add() {
             return;
         }
 
+        setConfirmDialogOpen(true);
+    };
+
+    const handleConfirmSubmit = async () => {
+        setConfirmDialogOpen(false);
+
+        const validMedicines = form.medicines.filter(
+            (m) => m.medicine && Number(m.dispensedQuantity) > 0
+        );
+
         setIsSubmitting(true);
         try {
             const payload = {
@@ -280,6 +299,7 @@ function OutsideDispense_Add() {
                 address: form.address.trim(),
                 age: form.age ? Number(form.age) : undefined,
                 disease: form.disease.trim(),
+                gst,
                 medicines: validMedicines.map((m) => ({
                     medicine: m.medicine,
                     medicineName: m.medicineName,
@@ -769,11 +789,11 @@ function OutsideDispense_Add() {
                                 gap: 2,
                             }}
                         >
-                            <Box>
+                            <Box sx={{ flex: 1 }}>
                                 <Typography variant="body2" color="text.secondary">
-                                    Summary
+                                    Summary (before GST)
                                 </Typography>
-                                <Stack direction="row" spacing={2} alignItems="baseline" flexWrap="wrap" useFlexGap>
+                                <Stack direction="row" spacing={2} alignItems="baseline" flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
                                     <Typography variant="h5" fontWeight={800} color="primary.main">
                                         ₹{totalAmount.toFixed(2)}
                                     </Typography>
@@ -783,6 +803,9 @@ function OutsideDispense_Add() {
                                         variant="outlined"
                                     />
                                 </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                    GST is entered when you confirm dispense
+                                </Typography>
                             </Box>
 
                             <Stack direction="row" spacing={1.5} justifyContent="flex-end">
@@ -797,6 +820,91 @@ function OutsideDispense_Add() {
                     </CardContent>
                 </Card>
             </Box>
+
+            <Dialog
+                open={confirmDialogOpen}
+                onClose={() => setConfirmDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ fontWeight: 600 }}>
+                    Confirm Dispense
+                </DialogTitle>
+                <DialogContent sx={{ mt: 1 }}>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Enter GST and confirm dispense for this outside customer.
+                    </DialogContentText>
+
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 2 }}>
+                        {form.medicines
+                            .filter((m) => m.medicine && Number(m.dispensedQuantity) > 0)
+                            .map((m, idx) => (
+                                <Box
+                                    key={idx}
+                                    sx={{
+                                        p: 1.5,
+                                        borderRadius: 1,
+                                        bgcolor: alpha(theme.palette.primary.main, 0.04),
+                                        border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
+                                    }}
+                                >
+                                    <Typography variant="body2" fontWeight={600}>
+                                        {m.medicineName}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Qty: <b>{m.dispensedQuantity}</b> · Amount: <b>₹{Number(m.amount || 0).toFixed(2)}</b>
+                                    </Typography>
+                                </Box>
+                            ))}
+                    </Box>
+
+                    <TextField
+                        label="GST (%)"
+                        type="number"
+                        fullWidth
+                        value={gst}
+                        onChange={(e) => setGst(Math.max(0, Number(e.target.value) || 0))}
+                        sx={{ mb: 2 }}
+                        inputProps={{ min: 0 }}
+                        autoFocus
+                    />
+
+                    <Box
+                        sx={{
+                            p: 1.5,
+                            borderRadius: 1,
+                            bgcolor: alpha(theme.palette.success.main, 0.08),
+                            border: `1px solid ${alpha(theme.palette.success.main, 0.25)}`,
+                        }}
+                    >
+                        <Typography variant="body2" color="text.secondary">
+                            Subtotal: ₹{totalAmount.toFixed(2)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            GST ({gst}%): ₹{gstAmount.toFixed(2)}
+                        </Typography>
+                        <Typography variant="subtitle1" fontWeight={700} color="success.dark" sx={{ mt: 0.5 }}>
+                            Total bill amount: ₹{totalWithGst.toFixed(2)}
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button onClick={() => setConfirmDialogOpen(false)} variant="outlined" color="inherit">
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirmSubmit}
+                        variant="contained"
+                        disabled={isSubmitting}
+                        sx={{
+                            backgroundColor: theme.palette.success.main,
+                            "&:hover": { backgroundColor: theme.palette.success.dark },
+                        }}
+                    >
+                        {isSubmitting ? "Submitting..." : "Confirm & Dispense"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }

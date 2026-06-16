@@ -51,11 +51,13 @@ import HeadingCard from "../../../../components/card/HeadingCard";
 import outsideDispenseService from "../../../../services/outsideDispenseService";
 import { handleOutsidePrint } from "../components/OutsideDispenseGenerator";
 import { handleOutsideDownload } from "../components/OutsideDispenseDownload";
+import { displayField } from "../components/outsideDispensePdfUtils";
 
 const LIST_PATH = "/pharmacist/prescriptions/outside";
+const BILL_LIST_PATH = "/pharmacist/prescriptions/list";
 
 const formatDate = (date) => {
-    if (!date) return "N/A";
+    if (!date) return "";
     return new Date(date).toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
@@ -64,7 +66,7 @@ const formatDate = (date) => {
 };
 
 const formatPaymentMethod = (method) => {
-    if (!method) return "N/A";
+    if (!method) return "";
     if (String(method).toLowerCase() === "online") return "UPI";
     return method;
 };
@@ -75,7 +77,7 @@ const derivePaymentStatus = (record) => {
     if (normalizedStatus === "partially paid") return "Unpaid";
     if (normalizedStatus === "unpaid") return "Unpaid";
 
-    const totalAmount = Number(record?.totalAmount || 0);
+    const totalAmount = Number(record?.totalAmountWithGst ?? record?.totalAmount ?? 0);
     const paidAmount = Number(record?.paidAmount || 0);
     return paidAmount >= totalAmount && totalAmount > 0 ? "Paid" : "Unpaid";
 };
@@ -101,7 +103,7 @@ function DetailCard({ label, value, icon }) {
                 {label}
             </Typography>
             <Typography fontWeight={600} fontSize="0.875rem" sx={{ wordBreak: "break-word" }}>
-                {value || "N/A"}
+                {displayField(value)}
             </Typography>
         </Box>
     );
@@ -144,7 +146,10 @@ function OutsideDispense_Details() {
         if (id) fetchRecord();
     }, [id, fetchRecord]);
 
-    const totalAmount = Number(record?.totalAmount || 0);
+    const subtotal = Number(record?.totalAmount || 0);
+    const gstRate = Number(record?.gst || 0);
+    const gstAmount = Number(record?.gstAmount ?? (subtotal * gstRate) / 100);
+    const totalAmount = Number(record?.totalAmountWithGst ?? subtotal + gstAmount);
     const paidAmount = Number(record?.paidAmount || 0);
     const balanceAmount = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
 
@@ -159,17 +164,9 @@ function OutsideDispense_Details() {
     };
 
     const handleRecordPayment = async () => {
-        const paymentAmount = Number(paymentDetails.amount);
-        if (!paymentDetails.amount || Number.isNaN(paymentAmount) || paymentAmount <= 0) {
-            toast.error("Please enter a valid amount");
-            return;
-        }
+        const paymentAmount = balanceAmount;
         if (balanceAmount <= 0) {
             toast.info("This bill is already fully paid");
-            return;
-        }
-        if (paymentAmount > balanceAmount) {
-            toast.error(`Payment amount cannot exceed balance due (Max: ₹${balanceAmount})`);
             return;
         }
 
@@ -206,7 +203,7 @@ function OutsideDispense_Details() {
                 toast.success("Payment recorded successfully");
                 setShowPaymentDialog(false);
                 setPaymentDetails({ amount: "", method: "Online", transactionId: "", cardDigits: "" });
-                setRecord(response.data);
+                navigate(BILL_LIST_PATH);
             } else {
                 toast.error(response?.message || "Failed to record payment");
             }
@@ -231,8 +228,8 @@ function OutsideDispense_Details() {
     const medicines = record.medicines || [];
     const paymentStatus = derivePaymentStatus(record);
     const paymentMethod = formatPaymentMethod(record.paymentMethod || record.paymentDetails?.method);
-    const paymentSystem = paymentMethod !== "N/A" ? paymentMethod : "N/A";
-    const transactionId = record.transactionId || record.paymentDetails?.transactionId || "N/A";
+    const paymentSystem = paymentMethod || "";
+    const transactionId = displayField(record.transactionId || record.paymentDetails?.transactionId);
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -336,7 +333,7 @@ function OutsideDispense_Details() {
                                     <DetailCard label="Email" value={record.email} icon={<Email fontSize="small" />} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DetailCard label="Age" value={record.age ?? "N/A"} />
+                                    <DetailCard label="Age" value={record.age != null && record.age !== "" ? record.age : ""} />
                                 </Grid>
                                 <Grid item xs={12}>
                                     <DetailCard label="Address" value={record.address} />
@@ -351,7 +348,7 @@ function OutsideDispense_Details() {
                                 <Grid item xs={12} sm={6} md={4}>
                                     <DetailCard
                                         label="Dispensed By"
-                                        value={record.dispensedBy?.name || "N/A"}
+                                        value={record.dispensedBy?.name}
                                     />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
@@ -385,7 +382,7 @@ function OutsideDispense_Details() {
                                             Disease
                                         </Typography>
                                         <Typography fontWeight={600} fontSize="0.95rem">
-                                            {record.disease || "N/A"}
+                                            {displayField(record.disease)}
                                         </Typography>
                                     </Box>
                                 </Grid>
@@ -449,15 +446,15 @@ function OutsideDispense_Details() {
                                                         {med.medicineName}
                                                     </Typography>
                                                 </TableCell>
-                                                <TableCell>{med.frequency || "-"}</TableCell>
-                                                <TableCell>{med.duration || "-"}</TableCell>
-                                                <TableCell>{med.foodTiming || "-"}</TableCell>
-                                                <TableCell>{med.foodTime || "-"}</TableCell>
-                                                <TableCell>{med.dosageSchedule || "-"}</TableCell>
-                                                <TableCell>{med.subType || "-"}</TableCell>
+                                                <TableCell>{displayField(med.frequency)}</TableCell>
+                                                <TableCell>{displayField(med.duration)}</TableCell>
+                                                <TableCell>{displayField(med.foodTiming)}</TableCell>
+                                                <TableCell>{displayField(med.foodTime)}</TableCell>
+                                                <TableCell>{displayField(med.dosageSchedule)}</TableCell>
+                                                <TableCell>{displayField(med.subType)}</TableCell>
                                                 <TableCell align="center">{med.dispensedQuantity}</TableCell>
                                                 <TableCell align="center">₹{Number(med.amount || 0).toFixed(2)}</TableCell>
-                                                <TableCell>{med.notes || "-"}</TableCell>
+                                                <TableCell>{displayField(med.notes)}</TableCell>
                                                 <TableCell align="center">
                                                     <Chip label="Dispensed" size="small" color="success" variant="filled" />
                                                 </TableCell>
@@ -478,6 +475,18 @@ function OutsideDispense_Details() {
                                 >
                                     <CardContent sx={{ p: 2 }}>
                                         <Stack spacing={1}>
+                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                <Typography color="text.secondary">Subtotal</Typography>
+                                                <Typography fontWeight={600}>
+                                                    ₹{subtotal.toFixed(2)}
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                <Typography color="text.secondary">GST ({gstRate}%)</Typography>
+                                                <Typography fontWeight={600}>
+                                                    ₹{gstAmount.toFixed(2)}
+                                                </Typography>
+                                            </Box>
                                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                                 <Typography color="text.secondary">Total Amount</Typography>
                                                 <Typography fontWeight={700} color="primary.main">
@@ -525,14 +534,14 @@ function OutsideDispense_Details() {
                     <Box sx={{ mt: 2 }}>
                         <TextField
                             label="Payment Amount"
-                            type="number"
                             fullWidth
                             value={paymentDetails.amount}
-                            onChange={(e) => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
                             sx={{ mb: 2.5 }}
                             InputProps={{
+                                readOnly: true,
                                 startAdornment: <Typography sx={{ mr: 1, color: "text.secondary" }}>₹</Typography>,
                             }}
+                            helperText="Full balance due — amount cannot be edited"
                         />
 
                         <FormControl fullWidth sx={{ mb: 2.5 }}>

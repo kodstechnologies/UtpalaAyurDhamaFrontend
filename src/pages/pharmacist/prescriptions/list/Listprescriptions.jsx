@@ -95,13 +95,13 @@ function ListPrescriptions() {
         medicineCount: 0,
     });
     const [patient, setPatient] = useState(null);
-    const [gst, setGst] = useState(0);
     const [examination, setExamination] = useState(null);
     const [invoiceId, setInvoiceId] = useState(null);
     const [padeamount, setPadeamount] = useState(0);
     const [paymentStatus, setPaymentStatus] = useState("Unpaid");
 
     const [paymentHistory, setPaymentHistory] = useState([]);
+    const [isBillSession, setIsBillSession] = useState(false);
 
 
     // Payment Dialog State
@@ -114,29 +114,19 @@ function ListPrescriptions() {
     });
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
-    function calculateTotalWithGST() {
+    function calculateTotal() {
         let subtotal = 0;
 
         prescriptions.forEach((presc) => {
-            // To ensure the amount isn't 0 out by default, default to prescribedQuantity if dispenseQty not set yet.
             const prescribedQuantity = presc.quantity || 1;
             const qty = selectedMedicines[presc._id]?.quantity || presc.dispensedQuantity || prescribedQuantity;
-
             const amount = parseFloat(calculateAmount(presc.medication, qty)) || 0;
             subtotal += amount;
         });
 
-        // Use backend GST rate for dispensed prescriptions, otherwise use local gst state
-        const appliedGst = status === "Dispensed" ? (billingSummary.gst || 0) : gst;
-        const gstAmount = (subtotal * appliedGst) / 100;
-        const totalWithGst = subtotal + gstAmount;
-
         return {
             subtotal: subtotal.toFixed(2),
-            gstPercentage: appliedGst,
-            gstAmount: gstAmount.toFixed(2),
-            totalWithoutGst: subtotal.toFixed(2),
-            total: totalWithGst.toFixed(2),
+            total: subtotal.toFixed(2),
         };
     }
     // State for selected medicines and quantities
@@ -171,6 +161,9 @@ function ListPrescriptions() {
                         total: prescData.total || 0,
                         medicineCount: prescData.medicineCount || prescList.length,
                     });
+                    setIsBillSession(
+                        Array.isArray(prescData.dispenseLines) && prescData.dispenseLines.length > 0
+                    );
                     setInvoiceId(prescData.invoiceId || null);
                     setPadeamount(prescData.padeamount || 0);
                     setPaymentStatus(prescData.paymentStatus || "Unpaid");
@@ -410,21 +403,28 @@ function ListPrescriptions() {
     const prescriptionDate = examination?.createdAt || prescriptions[0]?.createdAt;
     // Check if all prescriptions are dispensed
     // const allDispensed = prescriptions.every((p) => p.status === "Dispensed");
-    const allDispensed = prescriptions.every(
+    const allDispensed = isBillSession || prescriptions.every(
         (p) => Number(p.dispensedQuantity || 0) >= Number(p.quantity || 0)
     );
     const status = allDispensed ? "Dispensed" : "Pending";
 
     // FALLBACK: If backend hasn't provided a total (e.g. before dispensing), 
     // use the locally calculated estimated total.
-    const localTotals = calculateTotalWithGST();
-    const totalAmount = Number(billingSummary.total) > 0 ? Number(billingSummary.total) : (Number(localTotals.total) || 0);
+    const localTotals = calculateTotal();
+    const subtotalAmount = Number(billingSummary.subtotal) > 0
+        ? Number(billingSummary.subtotal)
+        : (Number(localTotals.subtotal) || 0);
+    const gstRate = Number(billingSummary.gst) || 0;
+    const gstAmount = Number(billingSummary.gstAmount) || 0;
+    const totalAmount = Number(billingSummary.total) > 0
+        ? Number(billingSummary.total)
+        : (Number(localTotals.total) || 0);
     const paidAmount = Number(padeamount) || 0;
     const balanceDue = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
     const billingSnapshot = {
-        subtotal: Number(localTotals.subtotal) || 0,
-        gst: Number(localTotals.gstPercentage) || 0,
-        gstAmount: Number(localTotals.gstAmount) || 0,
+        subtotal: subtotalAmount,
+        gst: gstRate,
+        gstAmount,
         totalWithGst: totalAmount,
         totalPaid: paidAmount,
         balanceDue,
@@ -601,7 +601,7 @@ function ListPrescriptions() {
                 return {
                     prescriptionId: presc._id,
                     dispensedQuantity: selected.quantity,
-                    gst: gst
+                    gst: 0,
                 };
             });
 
@@ -629,6 +629,9 @@ function ListPrescriptions() {
                     total: prescData.total || 0,
                     medicineCount: prescData.medicineCount || prescList.length,
                 });
+                setIsBillSession(
+                    Array.isArray(prescData.dispenseLines) && prescData.dispenseLines.length > 0
+                );
                 setInvoiceId(prescData.invoiceId || null);
                 setPadeamount(prescData.padeamount || 0);
                 setPaymentStatus(prescData.paymentStatus || "Unpaid");
@@ -658,17 +661,9 @@ function ListPrescriptions() {
     };
 
     const handleRecordPayment = async () => {
-        const paymentAmount = Number(paymentDetails.amount);
-        if (!paymentDetails.amount || Number.isNaN(paymentAmount) || paymentAmount <= 0) {
-            toast.error("Please enter a valid amount");
-            return;
-        }
+        const paymentAmount = balanceDue;
         if (balanceDue <= 0) {
             toast.info("This bill is already fully paid");
-            return;
-        }
-        if (paymentAmount > balanceDue) {
-            toast.error(`Payment amount cannot exceed balance due (Max: ₹${balanceDue})`);
             return;
         }
 
@@ -713,27 +708,9 @@ function ListPrescriptions() {
                 toast.success("Payment recorded successfully");
                 setShowPaymentDialog(false);
                 setPaymentDetails({ amount: "", method: "Cash", transactionId: "", cardDigits: "" });
-
-                // Refresh data to update amountPaid and invoiceId
-                const prescriptionResponse = await prescriptionService.getPrescriptionsByExaminationList(id);
-                if (prescriptionResponse && prescriptionResponse.success) {
-                    setInvoiceId(prescriptionResponse.data.invoiceId);
-                    setPadeamount(prescriptionResponse.data.padeamount);
-                    setPaymentStatus(prescriptionResponse.data.paymentStatus);
-                    setPaymentHistory(prescriptionResponse.data.payments);
-
-
-
-                    // Also update billingSummary to reflect current state
-                    const prescData = prescriptionResponse.data;
-                    setBillingSummary({
-                        subtotal: prescData.subtotal || 0,
-                        gst: prescData.gst || 0,
-                        gstAmount: prescData.gstAmount || 0,
-                        total: prescData.total || 0,
-                        medicineCount: prescData.prescriptions?.length || 0,
-                    });
-                }
+                navigate("/pharmacist/prescriptions/list");
+            } else {
+                toast.error(response.data?.message || "Failed to record payment");
             }
         } catch (error) {
             console.error("Error recording payment:", error);
@@ -784,7 +761,7 @@ function ListPrescriptions() {
                             >
                                 Download
                             </Button>
-                            {status !== "Dispensed" && (
+                            {status !== "Dispensed" && !isBillSession && (
                                 <Button
                                     type="button"
                                     variant="contained"
@@ -919,16 +896,6 @@ function ListPrescriptions() {
                                         size="small"
                                         variant="outlined"
                                     />
-                                    <Chip
-                                        label={
-                                            billingSummary.gst
-                                                ? `GST ${billingSummary.gst}%`
-                                                : "GST 0%"
-                                        }
-                                        size="small"
-                                        color="primary"
-                                        variant="outlined"
-                                    />
                                 </Stack>
                             </Box>
 
@@ -957,6 +924,7 @@ function ListPrescriptions() {
                                         <TableRow>
                                             <TableCell sx={{ minWidth: 50 }} padding="checkbox">
                                                 <Checkbox
+                                                    disabled={isBillSession}
                                                     indeterminate={
                                                         prescriptions.filter(
                                                             (p) => Number(p.dispensedQuantity || 0) < Number(p.quantity || 0) && isMedicineAvailable(p.medication) && selectedMedicines[p._id]?.selected
@@ -1000,14 +968,15 @@ function ListPrescriptions() {
                                     </TableHead>
                                     <TableBody>
                                         {prescriptions.map((presc, idx) => {
-                                            // const isFullyDispensed = presc.status === "Dispensed";
-
-
-                                            const dispensedQty = presc.dispensedQuantity || 0;
+                                            const billSessionQty = presc.count ?? presc.sessionDispensedQuantity;
+                                            const isBillLine = isBillSession && billSessionQty != null;
+                                            const dispensedQty = isBillLine
+                                                ? Number(billSessionQty)
+                                                : Number(presc.dispensedQuantity || 0);
                                             const prescribedQuantity = presc.quantity || 1;
-                                            const isFullyDispensed = dispensedQty >= prescribedQuantity;
+                                            const isFullyDispensed = isBillLine || dispensedQty >= prescribedQuantity;
                                             const isPartiallyDispensed =
-                                                dispensedQty > 0 && dispensedQty < prescribedQuantity;
+                                                !isBillLine && dispensedQty > 0 && dispensedQty < prescribedQuantity;
                                             const isSelected = selectedMedicines[presc._id]?.selected || false;
                                             const dispenseQuantity = selectedMedicines[presc._id]?.quantity || "";
 
@@ -1026,7 +995,7 @@ function ListPrescriptions() {
                                                     <TableCell padding="checkbox">
                                                         <Checkbox
                                                             checked={isSelected}
-                                                            disabled={isFullyDispensed || !isMedicineAvailable(presc.medication)}
+                                                            disabled={isBillSession || isFullyDispensed || !isMedicineAvailable(presc.medication)}
                                                             onChange={(e) => handleMedicineSelect(presc._id, e.target.checked)}
                                                             title={!isMedicineAvailable(presc.medication) ? "This medicine is not available in the collection" : ""}
                                                         />
@@ -1168,17 +1137,22 @@ function ListPrescriptions() {
 
                                                     <TableCell align="center">
                                                         {(() => {
+                                                            const billSessionQty = presc.count ?? presc.sessionDispensedQuantity;
                                                             const qtyForAmount =
                                                                 dispenseQuantity ||
+                                                                billSessionQty ||
                                                                 dispensedQty ||
                                                                 prescribedQuantity;
+                                                            const lineAmount = presc.amount != null && !dispenseQuantity
+                                                                ? Number(presc.amount).toFixed(2)
+                                                                : calculateAmount(presc.medication, qtyForAmount);
                                                             return (
                                                                 <Typography
                                                                     fontWeight={600}
                                                                     color="primary"
                                                                     sx={{ fontSize: "0.875rem" }}
                                                                 >
-                                                                    ₹{calculateAmount(presc.medication, qtyForAmount)}
+                                                                    ₹{lineAmount}
                                                                 </Typography>
                                                             );
                                                         })()}
@@ -1290,7 +1264,6 @@ function ListPrescriptions() {
 
                             <Box sx={{ display: "flex", justifyContent: "flex-end", width: "100%", mt: 3, mb: 1 }}>
                                 {(() => {
-                                    const totals = calculateTotalWithGST();
                                     const hasHistory = paymentHistory.length > 0;
                                     return (
                                         <Card
@@ -1438,29 +1411,30 @@ function ListPrescriptions() {
                                                                 />
                                                             </Box>
                                                         )}
-                                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mb: 1 }}>
-                                                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "left" }}>
-                                                                Cost (without GST):
-                                                            </Typography>
-                                                            <Typography variant="body2" fontWeight={500} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                                                                ₹{totals.subtotal}
-                                                            </Typography>
-                                                        </Box>
-                                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mb: 1 }}>
-                                                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "left" }}>
-                                                                GST ({totals.gstPercentage}%):
-                                                            </Typography>
-                                                            <Typography variant="body2" fontWeight={500} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                                                                ₹{totals.gstAmount}
-                                                            </Typography>
-                                                        </Box>
-                                                        <Box sx={{ borderBottom: 1, borderColor: "divider", my: 1.5 }} />
                                                         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "center" }}>
+                                                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "left" }}>
+                                                                Subtotal:
+                                                            </Typography>
+                                                            <Typography variant="body2" fontWeight={600} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                                ₹{subtotalAmount.toFixed(2)}
+                                                            </Typography>
+                                                        </Box>
+                                                        {gstRate > 0 && (
+                                                            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mt: 0.5 }}>
+                                                                <Typography variant="body2" color="text.secondary" sx={{ textAlign: "left" }}>
+                                                                    GST ({gstRate}%):
+                                                                </Typography>
+                                                                <Typography variant="body2" fontWeight={600} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                                    ₹{gstAmount.toFixed(2)}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+                                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, mt: 0.5, alignItems: "center" }}>
                                                             <Typography variant="subtitle1" fontWeight={600} color="text.primary" sx={{ textAlign: "left" }}>
-                                                                Total (with GST):
+                                                                Total:
                                                             </Typography>
                                                             <Typography variant="subtitle1" fontWeight={700} color="primary.main" sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                                                                ₹{totals.total}
+                                                                ₹{totalAmount.toFixed(2)}
                                                             </Typography>
                                                         </Box>
                                                         {padeamount > 0 && (
@@ -1491,7 +1465,7 @@ function ListPrescriptions() {
                                 })()}
                             </Box>
 
-                            {status !== "Dispensed" && (
+                            {status !== "Dispensed" && !isBillSession && (
                                 <Box
                                     sx={{
                                         mt: 3,
@@ -1574,32 +1548,13 @@ function ListPrescriptions() {
                         Are you sure you want to dispense {pendingSelectedPrescriptions.length} medicine(s) for {patientName}?
                     </DialogContentText>
 
-                    <TextField
-                        label="GST (%)"
-                        type="number"
-                        fullWidth
-                        value={gst}
-                        onChange={(e) => setGst(Number(e.target.value))}
-                        sx={{ mb: 2 }}
-                        inputProps={{ min: 0 }}
-                    />
-
-                    {(() => {
-                        const totals = calculateTotalWithGST();
-                        return (
-                            <Box>
-                                <Typography variant="body2">
-                                    Subtotal: ₹{totals.subtotal}
-                                </Typography>
-                                <Typography variant="body2">
-                                    GST ({gst}%): ₹{totals.gstAmount}
-                                </Typography>
-                                <Typography variant="h6" fontWeight={600}>
-                                    Total: ₹{totals.total}
-                                </Typography>
-                            </Box>
-                        );
-                    })()}
+                    <Typography variant="h6" fontWeight={600}>
+                        Total: ₹{pendingSelectedPrescriptions.reduce((sum, presc) => {
+                            const selected = selectedMedicines[presc._id];
+                            const qty = selected?.quantity;
+                            return sum + (parseFloat(calculateAmount(presc.medication, qty)) || 0);
+                        }, 0).toFixed(2)}
+                    </Typography>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, gap: 1 }}>
                     <Button
@@ -1653,14 +1608,14 @@ function ListPrescriptions() {
                     <Box sx={{ mt: 2 }}>
                         <TextField
                             label="Payment Amount"
-                            type="number"
                             fullWidth
                             value={paymentDetails.amount}
-                            onChange={(e) => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
                             sx={{ mb: 2.5 }}
                             InputProps={{
+                                readOnly: true,
                                 startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography>,
                             }}
+                            helperText="Full balance due — amount cannot be edited"
                         />
 
                         <FormControl fullWidth sx={{ mb: 2.5 }}>

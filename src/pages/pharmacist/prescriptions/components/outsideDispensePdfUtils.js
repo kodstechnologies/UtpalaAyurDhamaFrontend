@@ -42,6 +42,14 @@ export const escapeHtml = (text) => {
     return div.innerHTML;
 };
 
+/** Show blank instead of N/A or missing values in UI and PDF output. */
+export const displayField = (value) => {
+    if (value === null || value === undefined) return "";
+    const str = String(value).trim();
+    if (!str || str.toLowerCase() === "n/a") return "";
+    return value;
+};
+
 export const buildOutsideDispensePdfData = (record) => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const generatedBy = user?.name || record?.dispensedBy?.name || "";
