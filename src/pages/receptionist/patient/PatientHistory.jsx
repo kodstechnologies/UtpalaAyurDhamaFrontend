@@ -49,6 +49,7 @@ import {
     ArrowBack,
     CloudUpload,
     PictureAsPdf,
+    Image as ImageIcon,
     Visibility,
     Delete,
     Close,
@@ -66,6 +67,8 @@ function PatientHistory() {
     const [loading, setLoading] = useState(true);
     const [historyData, setHistoryData] = useState(null);
     const [documents, setDocuments] = useState([]);
+    const [patientImages, setPatientImages] = useState([]);
+    const [previewImage, setPreviewImage] = useState(null);
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -85,7 +88,24 @@ function PatientHistory() {
         try {
             const response = await patientDocumentService.getPatientDocuments(patientId);
             if (response && response.success) {
-                setDocuments(response.data || []);
+                const allDocs = response.data || [];
+                const imageDocs = allDocs.filter((doc) => doc.fileType?.startsWith("image/"));
+                const documentFiles = allDocs.filter((doc) => !doc.fileType?.startsWith("image/"));
+
+                const imagesWithUrls = await Promise.all(
+                    imageDocs.map(async (doc) => {
+                        try {
+                            const viewResponse = await patientDocumentService.getDocumentViewUrl(doc._id);
+                            return { ...doc, viewUrl: viewResponse?.data?.url || "" };
+                        } catch (error) {
+                            console.error("Error loading image URL:", error);
+                            return { ...doc, viewUrl: "" };
+                        }
+                    })
+                );
+
+                setPatientImages(imagesWithUrls);
+                setDocuments(documentFiles);
             }
         } catch (error) {
             console.error("Error fetching documents:", error);
@@ -427,6 +447,95 @@ function PatientHistory() {
                             </Stack>
                         </Grid>
                     </Grid>
+                </CardContent>
+            </Card>
+
+            {/* Patient Images Section */}
+            <Card sx={{ mb: 3, boxShadow: 3 }}>
+                <CardContent>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+                        <ImageIcon sx={{ color: "var(--color-primary)" }} />
+                        <Typography variant="h6" fontWeight={700}>
+                            Patient Images ({patientImages.length})
+                        </Typography>
+                    </Box>
+                    {patientImages.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 3 }}>
+                            No patient images uploaded yet.
+                        </Typography>
+                    ) : (
+                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+                            {patientImages.map((image) => (
+                                <Paper
+                                    key={image._id}
+                                    variant="outlined"
+                                    title={image.originalFileName}
+                                    sx={{
+                                        width: 88,
+                                        height: 88,
+                                        overflow: "hidden",
+                                        borderRadius: 1.5,
+                                        position: "relative",
+                                        flexShrink: 0,
+                                        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                                        "&:hover": {
+                                            transform: "scale(1.04)",
+                                            boxShadow: 2,
+                                        },
+                                    }}
+                                >
+                                    {image.viewUrl ? (
+                                        <Box
+                                            component="img"
+                                            src={image.viewUrl}
+                                            alt={image.originalFileName}
+                                            onClick={() => setPreviewImage(image)}
+                                            sx={{
+                                                width: "100%",
+                                                height: "100%",
+                                                objectFit: "cover",
+                                                display: "block",
+                                                cursor: "pointer",
+                                            }}
+                                        />
+                                    ) : (
+                                        <Box
+                                            sx={{
+                                                width: "100%",
+                                                height: "100%",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                bgcolor: "grey.100",
+                                            }}
+                                        >
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+                                                N/A
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteDocument(image._id);
+                                        }}
+                                        sx={{
+                                            position: "absolute",
+                                            top: 2,
+                                            right: 2,
+                                            bgcolor: "rgba(255,255,255,0.9)",
+                                            width: 22,
+                                            height: 22,
+                                            "&:hover": { bgcolor: "error.light", color: "white" },
+                                        }}
+                                    >
+                                        <Delete sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                </Paper>
+                            ))}
+                        </Box>
+                    )}
                 </CardContent>
             </Card>
 
@@ -1189,6 +1298,40 @@ function PatientHistory() {
                                 minHeight: 'calc(98vh - 64px)',
                             }}
                             title="PDF Viewer"
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* View Image Dialog */}
+            <Dialog
+                open={Boolean(previewImage)}
+                onClose={() => setPreviewImage(null)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle sx={{ pb: 1 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="h6" noWrap sx={{ maxWidth: "80%" }}>
+                            {previewImage?.originalFileName || "View Image"}
+                        </Typography>
+                        <IconButton onClick={() => setPreviewImage(null)}>
+                            <Close />
+                        </IconButton>
+                    </Box>
+                </DialogTitle>
+                <DialogContent sx={{ p: 1.5 }}>
+                    {previewImage?.viewUrl && (
+                        <Box
+                            component="img"
+                            src={previewImage.viewUrl}
+                            alt={previewImage.originalFileName}
+                            sx={{
+                                width: "100%",
+                                maxHeight: "80vh",
+                                objectFit: "contain",
+                                borderRadius: 1,
+                            }}
                         />
                     )}
                 </DialogContent>

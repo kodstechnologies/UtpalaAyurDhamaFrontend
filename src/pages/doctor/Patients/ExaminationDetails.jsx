@@ -11,10 +11,13 @@ import {
     Grid,
     Card,
     CardContent,
+    Dialog,
+    DialogContent,
 } from "@mui/material";
 import {
     PersonOutline,
     ArrowBack,
+    Image as ImageIcon,
 } from "@mui/icons-material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
@@ -34,6 +37,7 @@ function ExaminationDetails() {
         avatar: "P",
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [previewImage, setPreviewImage] = useState(null);
     const appointmentData = location.state?.appointment || null;
     // Prioritize examinationId from URL params, then location state
     const examinationId = examIdFromParams || location.state?.examinationId || null;
@@ -253,6 +257,7 @@ function ExaminationDetails() {
 
     // Parse vitals
     const vitals = examination.vitals?.[0] || {};
+    const patientImages = examination.patientImages || [];
 
     return (
         <>
@@ -414,6 +419,97 @@ function ExaminationDetails() {
                         </CardContent>
                     </Card>
                 )}
+
+                {patientImages.length > 0 && (
+                    <Card sx={{ mb: 3 }}>
+                        <CardContent>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                                <ImageIcon sx={{ fontSize: "1.5rem", color: "var(--color-primary)" }} />
+                                <Typography variant="h6" sx={{ fontWeight: 700, color: "var(--color-primary)" }}>
+                                    Patient Images ({patientImages.length})
+                                </Typography>
+                            </Box>
+                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+                                {patientImages.map((image) => (
+                                    <Paper
+                                        key={image._id}
+                                        variant="outlined"
+                                        title={image.originalFileName}
+                                        onClick={() => image.viewUrl && setPreviewImage(image)}
+                                        sx={{
+                                            width: 88,
+                                            height: 88,
+                                            overflow: "hidden",
+                                            borderRadius: 1.5,
+                                            cursor: image.viewUrl ? "pointer" : "default",
+                                            flexShrink: 0,
+                                            transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                                            "&:hover": image.viewUrl
+                                                ? {
+                                                    transform: "scale(1.04)",
+                                                    boxShadow: 2,
+                                                }
+                                                : {},
+                                        }}
+                                    >
+                                        {image.viewUrl ? (
+                                            <Box
+                                                component="img"
+                                                src={image.viewUrl}
+                                                alt={image.originalFileName}
+                                                sx={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    objectFit: "cover",
+                                                    display: "block",
+                                                }}
+                                            />
+                                        ) : (
+                                            <Box
+                                                sx={{
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    bgcolor: "grey.100",
+                                                    p: 0.5,
+                                                }}
+                                            >
+                                                <Typography variant="caption" color="text.secondary" align="center" sx={{ fontSize: "0.65rem" }}>
+                                                    N/A
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                    </Paper>
+                                ))}
+                            </Box>
+                        </CardContent>
+                    </Card>
+                )}
+
+                <Dialog
+                    open={Boolean(previewImage)}
+                    onClose={() => setPreviewImage(null)}
+                    maxWidth="md"
+                    fullWidth
+                >
+                    <DialogContent sx={{ p: 1.5 }}>
+                        {previewImage?.viewUrl && (
+                            <Box
+                                component="img"
+                                src={previewImage.viewUrl}
+                                alt={previewImage.originalFileName}
+                                sx={{
+                                    width: "100%",
+                                    maxHeight: "80vh",
+                                    objectFit: "contain",
+                                    borderRadius: 1,
+                                }}
+                            />
+                        )}
+                    </DialogContent>
+                </Dialog>
             </div>
         </>
     );

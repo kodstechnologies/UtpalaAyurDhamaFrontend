@@ -16,6 +16,8 @@ import {
     TableHead,
     TableRow,
     Paper,
+    Dialog,
+    DialogContent,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
@@ -32,12 +34,14 @@ import MedicationIcon from "@mui/icons-material/Medication";
 import HealingIcon from "@mui/icons-material/Healing";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import EventIcon from "@mui/icons-material/Event";
+import ImageIcon from "@mui/icons-material/Image";
 
 function ConsultationDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [consultationData, setConsultationData] = useState(null);
+    const [previewImage, setPreviewImage] = useState(null);
 
     useEffect(() => {
         const fetchConsultationDetails = async () => {
@@ -219,7 +223,7 @@ function ConsultationDetails() {
         );
     }
 
-    const { appointment, examination, prescriptions, therapySessions, appointmentInvoice, doctorConsultationFee } = consultationData;
+    const { appointment, examination, prescriptions, therapySessions, appointmentInvoice, doctorConsultationFee, patientImages = [] } = consultationData;
 
     // We allow rendering if either appointment or examination exists
     if (!appointment && !examination) {
@@ -522,6 +526,74 @@ function ConsultationDetails() {
                                 </CardContent>
                             </Card>
                         )}
+
+                        {patientImages.length > 0 && (
+                            <Card sx={{ mb: 3 }}>
+                                <CardContent>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                                        <ImageIcon sx={{ fontSize: "1.5rem", color: "var(--color-primary)" }} />
+                                        <Typography variant="h6" sx={{ fontWeight: 700, color: "var(--color-primary)" }}>
+                                            Examination Images ({patientImages.length})
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+                                        {patientImages.map((image) => (
+                                            <Paper
+                                                key={image._id}
+                                                variant="outlined"
+                                                title={image.originalFileName}
+                                                onClick={() => image.viewUrl && setPreviewImage(image)}
+                                                sx={{
+                                                    width: 88,
+                                                    height: 88,
+                                                    overflow: "hidden",
+                                                    borderRadius: 1.5,
+                                                    cursor: image.viewUrl ? "pointer" : "default",
+                                                    flexShrink: 0,
+                                                    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                                                    "&:hover": image.viewUrl
+                                                        ? {
+                                                            transform: "scale(1.04)",
+                                                            boxShadow: 2,
+                                                        }
+                                                        : {},
+                                                }}
+                                            >
+                                                {image.viewUrl ? (
+                                                    <Box
+                                                        component="img"
+                                                        src={image.viewUrl}
+                                                        alt={image.originalFileName}
+                                                        sx={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            objectFit: "cover",
+                                                            display: "block",
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <Box
+                                                        sx={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            bgcolor: "grey.100",
+                                                            p: 0.5,
+                                                        }}
+                                                    >
+                                                        <Typography variant="caption" color="text.secondary" align="center" sx={{ fontSize: "0.65rem" }}>
+                                                            N/A
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </Paper>
+                                        ))}
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        )}
                     </>
                 );
             })()}
@@ -650,6 +722,29 @@ function ConsultationDetails() {
                     </CardContent>
                 </Card>
             )}
+
+            <Dialog
+                open={Boolean(previewImage)}
+                onClose={() => setPreviewImage(null)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogContent sx={{ p: 1.5 }}>
+                    {previewImage?.viewUrl && (
+                        <Box
+                            component="img"
+                            src={previewImage.viewUrl}
+                            alt={previewImage.originalFileName}
+                            sx={{
+                                width: "100%",
+                                maxHeight: "80vh",
+                                objectFit: "contain",
+                                borderRadius: 1,
+                            }}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -5,11 +5,17 @@ const patientDocumentService = {
     /**
      * Upload PDF document for a patient
      */
-    uploadDocument: async (patientId, file, description = '', category = 'other') => {
+    uploadDocument: async (patientId, file, description = '', category = 'other', appointmentId = null, examinationId = null) => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('description', description);
         formData.append('category', category);
+        if (appointmentId) {
+            formData.append('appointmentId', appointmentId);
+        }
+        if (examinationId) {
+            formData.append('examinationId', examinationId);
+        }
 
         const response = await axios.post(
             getApiUrl(`patient-documents/${patientId}/upload`),

@@ -524,7 +524,9 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                         patient._id,
                         file,
                         "Uploaded from examination page",
-                        "scan_report"
+                        "scan_report",
+                        appointmentId,
+                        examinationId
                     )
                 )
             );
