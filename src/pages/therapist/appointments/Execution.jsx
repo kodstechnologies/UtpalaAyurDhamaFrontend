@@ -107,7 +107,7 @@ function Execution() {
 
     const hasDurationReached = (day, data = progressData) => {
         const durationMs = getDurationMs(data);
-        if (!durationMs) return true; // No duration set — allow stopping once session has started
+        if (!durationMs) return false;
         return getEffectiveElapsedMs(day) >= durationMs;
     };
 
@@ -201,7 +201,7 @@ function Execution() {
                 const sessionData = sessionResponse.data.data;
                 // Add sessionTime, duration, and charges to progressData for easier access
                 progressData.sessionTime = sessionData.sessionTime || "10:00";
-                progressData.duration = sessionData.duration || "";
+                progressData.duration = sessionData.duration || sessionData?.treatmentPlan?.duration || progressData.duration || "";
                 progressData.cost = sessionData.cost || 0;
                 progressData.therapistCharge = sessionData.therapistCharge || 0;
                 progressData.isBilled = sessionData.isBilled || false;
@@ -254,12 +254,13 @@ function Execution() {
                 await handleAutoComplete(slot, data);
             }
             /* Auto-start logic removed to ensure manual control by therapist
-            else if (slotDate.getTime() === today.getTime()) {
+            else if (slotDate.getTimeimage.png
+            () === today.getTime()) {
                 const scheduledDateTime = new Date(slotDate);
                 scheduledDateTime.setHours(scheduledHour, scheduledMinute, 0, 0);
-
-                // If current time >= scheduled time and not started, auto-start
-                if (now >= scheduledDateTime && !dayRecord?.startTime) {
+// If current time >= scheduled time and not started, auto-start
+       
+                         if (now >= scheduledDateTime && !dayRecord?.startTime) {
                     await handleAutoStart(slot, data);
                 }
             }
@@ -1132,7 +1133,9 @@ function Execution() {
                                 const dayRecord = getDayRecord(slot);
                                 const isInProgress = dayRecord && dayRecord.startTime && !dayRecord.endTime && !dayRecord.completed;
                                 const isPaused = isInProgress && isSessionPaused(dayRecord);
-                                const durationReached = isInProgress && hasDurationReached(dayRecord);
+                                const durationConfigured = Boolean(getDurationMs());
+                                const durationReached = isInProgress && durationConfigured && hasDurationReached(dayRecord);
+                                const canStop = isInProgress && (!durationConfigured || durationReached);
                                 const elapsedInfo = getElapsedTimeForSlot(slot);
 
                                 // Check if the session date is in the future
@@ -1234,7 +1237,7 @@ function Execution() {
                                                         <Chip
                                                             size="small"
                                                             icon={slot.isCompleted ? <CheckCircleIcon fontSize="small" /> : isPaused ? <PauseCircleFilledIcon fontSize="small" /> : isInProgress ? <PlayCircleFilledIcon fontSize="small" /> : <PendingActionsIcon fontSize="small" />}
-                                                            label={slot.isCompleted ? "Completed" : isPaused ? "Paused" : isInProgress ? (durationReached ? "Ready to Stop" : "In Progress") : "Scheduled"}
+                                                            label={slot.isCompleted ? "Completed" : isPaused ? "Paused" : isInProgress ? (durationConfigured && durationReached ? "Ready to Stop" : "In Progress") : "Scheduled"}
                                                             sx={{
                                                                 bgcolor: slot.isCompleted ? "#F0FFF4" : isPaused ? "#F1F5F9" : isInProgress ? (durationReached ? "#F0FFF4" : "#FFFBF0") : "#FFFBEB",
                                                                 color: slot.isCompleted ? "#2F855A" : isPaused ? "#64748B" : isInProgress ? (durationReached ? "#16A34A" : "#F59E0B") : "#D69E2E",
@@ -1242,7 +1245,7 @@ function Execution() {
                                                                 fontWeight: 600
                                                             }}
                                                         />
-                                                        {isInProgress && !isPaused && !durationReached && (
+                                                        {isInProgress && !isPaused && (!durationConfigured || !durationReached) && (
                                                             <Typography variant="caption" sx={{ color: "#F59E0B", display: "block", mt: 0.5 }}>
                                                                 Running...
                                                             </Typography>
@@ -1282,25 +1285,7 @@ function Execution() {
                                                         </Button>
                                                     ) : isInProgress ? (
                                                         <Box sx={{ display: "flex", flexDirection: "column", gap: 1, alignItems: "flex-end" }}>
-                                                            {durationReached ? (
-                                                                <Button
-                                                                    variant="contained"
-                                                                    size="small"
-                                                                    onClick={() => handleStopSession(slot)}
-                                                                    disabled={updatingSlot === slot.dateLabel}
-                                                                    startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <StopCircleIcon />}
-                                                                    sx={{
-                                                                        borderRadius: "10px",
-                                                                        textTransform: "none",
-                                                                        bgcolor: "#E53E3E",
-                                                                        boxShadow: "0 4px 6px rgba(229, 62, 62, 0.25)",
-                                                                        "&:hover": { bgcolor: "#C53030" },
-                                                                        "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
-                                                                    }}
-                                                                >
-                                                                    Stop
-                                                                </Button>
-                                                            ) : isPaused ? (
+                                                            {isPaused ? (
                                                                 <Button
                                                                     variant="contained"
                                                                     size="small"
@@ -1319,23 +1304,44 @@ function Execution() {
                                                                     Resume
                                                                 </Button>
                                                             ) : (
-                                                                <Button
-                                                                    variant="contained"
-                                                                    size="small"
-                                                                    onClick={() => handlePauseSession(slot)}
-                                                                    disabled={updatingSlot === slot.dateLabel}
-                                                                    startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PauseCircleFilledIcon />}
-                                                                    sx={{
-                                                                        borderRadius: "10px",
-                                                                        textTransform: "none",
-                                                                        bgcolor: "#F59E0B",
-                                                                        boxShadow: "0 4px 6px rgba(245, 158, 11, 0.25)",
-                                                                        "&:hover": { bgcolor: "#D97706" },
-                                                                        "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
-                                                                    }}
-                                                                >
-                                                                    Pause
-                                                                </Button>
+                                                                <>
+                                                                    <Button
+                                                                        variant="contained"
+                                                                        size="small"
+                                                                        onClick={() => handlePauseSession(slot)}
+                                                                        disabled={updatingSlot === slot.dateLabel}
+                                                                        startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PauseCircleFilledIcon />}
+                                                                        sx={{
+                                                                            borderRadius: "10px",
+                                                                            textTransform: "none",
+                                                                            bgcolor: "#F59E0B",
+                                                                            boxShadow: "0 4px 6px rgba(245, 158, 11, 0.25)",
+                                                                            "&:hover": { bgcolor: "#D97706" },
+                                                                            "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
+                                                                        }}
+                                                                    >
+                                                                        Pause
+                                                                    </Button>
+                                                                    {canStop && (
+                                                                        <Button
+                                                                            variant="contained"
+                                                                            size="small"
+                                                                            onClick={() => handleStopSession(slot)}
+                                                                            disabled={updatingSlot === slot.dateLabel}
+                                                                            startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <StopCircleIcon />}
+                                                                            sx={{
+                                                                                borderRadius: "10px",
+                                                                                textTransform: "none",
+                                                                                bgcolor: "#E53E3E",
+                                                                                boxShadow: "0 4px 6px rgba(229, 62, 62, 0.25)",
+                                                                                "&:hover": { bgcolor: "#C53030" },
+                                                                                "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
+                                                                            }}
+                                                                        >
+                                                                            Stop
+                                                                        </Button>
+                                                                    )}
+                                                                </>
                                                             )}
                                                         </Box>
                                                     ) : (

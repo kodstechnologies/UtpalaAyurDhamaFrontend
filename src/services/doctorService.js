@@ -66,6 +66,57 @@ const doctorService = {
             throw error.response?.data || error.message;
         }
     },
+
+    // Get follow-up detail (notes + attachments)
+    getFollowUpDetail: async (examinationId, followUpId) => {
+        try {
+            const response = await axios.get(
+                getApiUrl(`examinations/${examinationId}/followups/${followUpId}/detail`),
+                { headers: getAuthHeaders() }
+            );
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
+
+    // Update follow-up note and upload files
+    updateFollowUpDetail: async (examinationId, followUpId, { note, files = [] }) => {
+        try {
+            const formData = new FormData();
+            if (typeof note === "string") {
+                formData.append("note", note);
+            }
+            files.forEach((file) => formData.append("files", file));
+
+            const response = await axios.patch(
+                getApiUrl(`examinations/${examinationId}/followups/${followUpId}/detail`),
+                formData,
+                {
+                    headers: {
+                        ...getAuthHeaders(),
+                        "Content-Type": "multipart/form-data",
+                    },
+                }
+            );
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
+
+    // Delete a follow-up attachment
+    deleteFollowUpAttachment: async (examinationId, followUpId, attachmentId) => {
+        try {
+            const response = await axios.delete(
+                getApiUrl(`examinations/${examinationId}/followups/${followUpId}/attachments/${attachmentId}`),
+                { headers: getAuthHeaders() }
+            );
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error.message;
+        }
+    },
 };
 
 export default doctorService;

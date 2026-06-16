@@ -622,8 +622,27 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 // import { Box, Stack, Button, CircularProgress, Chip, Checkbox } from "@mui/material";
-import { Box, Stack, CircularProgress, Chip, TextField, MenuItem, IconButton, Tooltip } from "@mui/material";
+import {
+    Box,
+    Stack,
+    CircularProgress,
+    Chip,
+    TextField,
+    MenuItem,
+    IconButton,
+    Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    Typography,
+    Paper,
+} from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import EditIcon from "@mui/icons-material/Edit";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import ReplayIcon from "@mui/icons-material/Replay";
@@ -641,6 +660,169 @@ import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
+const isImageAttachment = (file) =>
+    file?.fileType?.startsWith("image/") ||
+    /\.(jpe?g|png|gif|webp)$/i.test(file?.originalFileName || "");
+
+const isPdfAttachment = (file) =>
+    file?.fileType === "application/pdf" ||
+    /\.pdf$/i.test(file?.originalFileName || "");
+
+const formatUploadedAt = (date) => {
+    if (!date) return "Upload time not available";
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return "Upload time not available";
+    return parsed.toLocaleString();
+};
+
+function FollowUpAttachmentPreview({
+    file,
+    uploadedAt,
+    maxImageHeight = "70vh",
+    iframeHeight = 480,
+    onDelete,
+    isDeleting = false,
+}) {
+    return (
+        <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} mb={1}>
+                <Typography variant="caption" color="text.secondary">
+                    {file.originalFileName || file.name}
+                    {uploadedAt ? ` • Uploaded: ${formatUploadedAt(uploadedAt)}` : ""}
+                </Typography>
+                {onDelete && (
+                    <Tooltip title="Delete file">
+                        <span>
+                            <IconButton
+                                size="small"
+                                color="error"
+                                onClick={onDelete}
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? (
+                                    <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                    <DeleteIcon fontSize="small" />
+                                )}
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                )}
+            </Stack>
+            {file.viewUrl && isImageAttachment(file) ? (
+                <Box
+                    component="img"
+                    src={file.viewUrl}
+                    alt={file.originalFileName || file.name}
+                    sx={{
+                        width: "100%",
+                        maxHeight: maxImageHeight,
+                        objectFit: "contain",
+                        borderRadius: 1,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        bgcolor: "grey.50",
+                    }}
+                />
+            ) : file.viewUrl && isPdfAttachment(file) ? (
+                <Box
+                    component="iframe"
+                    src={file.viewUrl}
+                    title={file.originalFileName || file.name}
+                    sx={{
+                        width: "100%",
+                        height: iframeHeight,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                    }}
+                />
+            ) : file.viewUrl ? (
+                <Button
+                    variant="outlined"
+                    href={file.viewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<AttachFileIcon />}
+                >
+                    Open {file.originalFileName || file.name}
+                </Button>
+            ) : (
+                <Typography variant="body2" color="text.secondary">
+                    Preview unavailable
+                </Typography>
+            )}
+        </Box>
+    );
+}
+
+function LocalFilePreview({ file, selectedAt, onRemove }) {
+    const [previewUrl, setPreviewUrl] = useState("");
+
+    useEffect(() => {
+        const objectUrl = URL.createObjectURL(file);
+        setPreviewUrl(objectUrl);
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [file]);
+
+    const previewFile = {
+        name: file.name,
+        originalFileName: file.name,
+        fileType: file.type,
+        viewUrl: previewUrl,
+    };
+
+    return (
+        <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} mb={1}>
+                <Typography variant="caption" color="text.secondary">
+                    {file.name} • Selected: {formatUploadedAt(selectedAt)}
+                </Typography>
+                {onRemove && (
+                    <Tooltip title="Remove file">
+                        <IconButton size="small" color="error" onClick={onRemove}>
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                )}
+            </Stack>
+            {previewUrl && isImageAttachment(previewFile) ? (
+                <Box
+                    component="img"
+                    src={previewUrl}
+                    alt={file.name}
+                    sx={{
+                        width: "100%",
+                        maxHeight: 240,
+                        objectFit: "contain",
+                        borderRadius: 1,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        bgcolor: "grey.50",
+                    }}
+                />
+            ) : previewUrl && isPdfAttachment(previewFile) ? (
+                <Box
+                    component="iframe"
+                    src={previewUrl}
+                    title={file.name}
+                    sx={{
+                        width: "100%",
+                        height: 320,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                    }}
+                />
+            ) : (
+                <Typography variant="body2" color="text.secondary">
+                    {file.name}
+                </Typography>
+            )}
+        </Box>
+    );
+}
+
 function FollowUps_View() {
     const [followUps, setFollowUps] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -648,6 +830,15 @@ function FollowUps_View() {
     const [filter, setFilter] = useState("All");
     const [pagination, setPagination] = useState({ page: 0, rowsPerPage: 25, total: 0 });
     const [deletingId, setDeletingId] = useState(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [selectedFollowUp, setSelectedFollowUp] = useState(null);
+    const [viewDialogOpen, setViewDialogOpen] = useState(false);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [followUpDetail, setFollowUpDetail] = useState(null);
+    const [editNote, setEditNote] = useState("");
+    const [editFiles, setEditFiles] = useState([]);
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [deletingAttachmentId, setDeletingAttachmentId] = useState(null);
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
 
@@ -858,7 +1049,124 @@ function FollowUps_View() {
         }
     };
 
+    const fetchFollowUpDetail = useCallback(async (row) => {
+        setDetailLoading(true);
+        try {
+            const response = await doctorService.getFollowUpDetail(row.examinationId, row.followUpId);
+            const detail = response?.data || null;
+            setFollowUpDetail(detail);
+            return detail;
+        } catch (error) {
+            console.error("Error fetching follow-up detail:", error);
+            toast.error(error?.message || "Failed to fetch follow-up details");
+            return null;
+        } finally {
+            setDetailLoading(false);
+        }
+    }, []);
+
+    const handleOpenView = async (row, event) => {
+        event.stopPropagation();
+        setSelectedFollowUp(row);
+        setViewDialogOpen(true);
+        await fetchFollowUpDetail(row);
+    };
+
+    const handleOpenEdit = async (row, event) => {
+        event.stopPropagation();
+        setSelectedFollowUp(row);
+        setEditDialogOpen(true);
+        const detail = await fetchFollowUpDetail(row);
+        setEditNote(detail?.note || row.reason || "");
+        setEditFiles([]);
+    };
+
+    const handleDeleteAttachment = async (attachmentId) => {
+        if (!selectedFollowUp?.examinationId || !selectedFollowUp?.followUpId) {
+            toast.error("Missing follow-up information.");
+            return;
+        }
+
+        const confirmed = window.confirm("Delete this file? This cannot be undone.");
+        if (!confirmed) return;
+
+        setDeletingAttachmentId(attachmentId);
+        try {
+            const response = await doctorService.deleteFollowUpAttachment(
+                selectedFollowUp.examinationId,
+                selectedFollowUp.followUpId,
+                attachmentId
+            );
+            setFollowUpDetail(response?.data || null);
+            toast.success("File deleted successfully");
+        } catch (error) {
+            console.error("Error deleting attachment:", error);
+            toast.error(error?.message || "Failed to delete file");
+        } finally {
+            setDeletingAttachmentId(null);
+        }
+    };
+
+    const handleRemoveNewFile = (indexToRemove) => {
+        setEditFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    };
+
+    const handleUpdateFollowUp = async () => {
+        if (!selectedFollowUp?.examinationId || !selectedFollowUp?.followUpId) {
+            toast.error("Missing follow-up information.");
+            return;
+        }
+
+        setSavingEdit(true);
+        try {
+            await doctorService.updateFollowUpDetail(
+                selectedFollowUp.examinationId,
+                selectedFollowUp.followUpId,
+                { note: editNote, files: editFiles }
+            );
+            toast.success("Follow-up updated successfully");
+            setEditDialogOpen(false);
+            setEditFiles([]);
+            await fetchFollowUps();
+        } catch (error) {
+            console.error("Error updating follow-up:", error);
+            toast.error(error?.message || "Failed to update follow-up");
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
     const actions = [
+        {
+            render: (row) => (
+                <Tooltip title="View follow-up">
+                    <span>
+                        <IconButton
+                            size="small"
+                            color="info"
+                            onClick={(e) => handleOpenView(row, e)}
+                        >
+                            <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            ),
+        },
+        {
+            render: (row) => (
+                <Tooltip title="Edit follow-up">
+                    <span>
+                        <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={(e) => handleOpenEdit(row, e)}
+                        >
+                            <EditIcon fontSize="small" />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            ),
+        },
         {
             render: (row) => (
                 <Tooltip title="Delete follow-up">
@@ -979,6 +1287,136 @@ function FollowUps_View() {
                     onRowsPerPageChange={handleRowsPerPageChange}
                 />
             )}
+            <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} fullWidth maxWidth="lg">
+                <DialogTitle>Follow-up Details</DialogTitle>
+                <DialogContent dividers>
+                    {detailLoading ? (
+                        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Stack spacing={2}>
+                            <Typography variant="body2" color="text.secondary">
+                                Patient: {selectedFollowUp?.patientName || "N/A"}
+                                {selectedFollowUp?.followUpDate ? ` • ${selectedFollowUp.followUpDate}` : ""}
+                            </Typography>
+                            <Paper variant="outlined" sx={{ p: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                                    Notes
+                                </Typography>
+                                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                                    {followUpDetail?.note?.trim() || "No notes added."}
+                                </Typography>
+                            </Paper>
+                            <Paper variant="outlined" sx={{ p: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                                    Uploaded Files
+                                </Typography>
+                                {Array.isArray(followUpDetail?.attachments) && followUpDetail.attachments.length > 0 ? (
+                                    <Stack spacing={2}>
+                                        {followUpDetail.attachments.map((file) => (
+                                            <FollowUpAttachmentPreview
+                                                key={file._id}
+                                                file={file}
+                                                uploadedAt={file.uploadedAt}
+                                            />
+                                        ))}
+                                    </Stack>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No files uploaded.
+                                    </Typography>
+                                )}
+                            </Paper>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button variant="outlined" onClick={() => setViewDialogOpen(false)}>
+                        Cancel
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} fullWidth maxWidth="lg">
+                <DialogTitle>Edit Follow-up</DialogTitle>
+                <DialogContent dividers>
+                    {detailLoading ? (
+                        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Stack spacing={2} mt={0.5}>
+                            <TextField
+                                label="Notes"
+                                value={editNote}
+                                onChange={(e) => setEditNote(e.target.value)}
+                                fullWidth
+                                multiline
+                                rows={4}
+                            />
+                            <Button variant="outlined" component="label">
+                                Upload Files
+                                <input
+                                    hidden
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,image/*"
+                                    onChange={(e) => setEditFiles(Array.from(e.target.files || []))}
+                                />
+                            </Button>
+                            {Array.isArray(followUpDetail?.attachments) && followUpDetail.attachments.length > 0 && (
+                                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                                        Uploaded Files
+                                    </Typography>
+                                    <Stack spacing={2}>
+                                        {followUpDetail.attachments.map((file) => (
+                                            <FollowUpAttachmentPreview
+                                                key={file._id}
+                                                file={file}
+                                                uploadedAt={file.uploadedAt}
+                                                maxImageHeight={240}
+                                                iframeHeight={320}
+                                                onDelete={() => handleDeleteAttachment(file._id)}
+                                                isDeleting={deletingAttachmentId === file._id}
+                                            />
+                                        ))}
+                                    </Stack>
+                                </Paper>
+                            )}
+                            {editFiles.length > 0 && (
+                                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                                    <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                                        New Files (not saved yet)
+                                    </Typography>
+                                    <Stack spacing={2}>
+                                        {editFiles.map((file, idx) => (
+                                            <LocalFilePreview
+                                                key={`${file.name}-${idx}`}
+                                                file={file}
+                                                selectedAt={new Date()}
+                                                onRemove={() => handleRemoveNewFile(idx)}
+                                            />
+                                        ))}
+                                    </Stack>
+                                </Paper>
+                            )}
+                            <Typography variant="caption" color="text.secondary">
+                                Existing files are kept. New uploads will be added.
+                            </Typography>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditDialogOpen(false)} disabled={savingEdit}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleUpdateFollowUp} variant="contained" disabled={savingEdit || detailLoading}>
+                        {savingEdit ? "Saving..." : "Save Changes"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

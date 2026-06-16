@@ -19,6 +19,9 @@ import {
     InputLabel,
     Select,
     CircularProgress,
+    IconButton,
+    Dialog,
+    DialogContent,
 } from "@mui/material";
 import {
     CalendarToday,
@@ -32,10 +35,14 @@ import {
     TrackChanges,
     LocalHospital,
     Healing,
+    CloudUpload,
+    Image as ImageIcon,
+    Delete,
 } from "@mui/icons-material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import diseaseService from "../../../services/diseaseService";
+import patientDocumentService from "../../../services/patientDocumentService";
 import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
 
@@ -97,6 +104,31 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
     // Diseases for chief complaint dropdown
     const [diseases, setDiseases] = useState([]);
     const [isDiseasesLoading, setIsDiseasesLoading] = useState(false);
+    const [selectedPatientImages, setSelectedPatientImages] = useState([]);
+    const [uploadedPatientImages, setUploadedPatientImages] = useState([]);
+    const [isImagesLoading, setIsImagesLoading] = useState(false);
+    const [isImagesUploading, setIsImagesUploading] = useState(false);
+    const [previewImage, setPreviewImage] = useState(null);
+
+    const loadPatientImages = async (patientId) => {
+        const response = await patientDocumentService.getPatientDocuments(patientId);
+        const documents = response?.data || [];
+        const imageDocs = documents.filter((doc) => doc.fileType?.startsWith("image/"));
+
+        const imagesWithUrls = await Promise.all(
+            imageDocs.map(async (doc) => {
+                try {
+                    const viewResponse = await patientDocumentService.getDocumentViewUrl(doc._id);
+                    return { ...doc, viewUrl: viewResponse?.data?.url || "" };
+                } catch (error) {
+                    console.error("Error generating image URL:", error);
+                    return { ...doc, viewUrl: "" };
+                }
+            })
+        );
+
+        setUploadedPatientImages(imagesWithUrls);
+    };
 
     // Generate localStorage key based on appointment ID
     const storageKey = appointmentId ? `examination_${appointmentId}` : null;
@@ -191,6 +223,23 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
 
         fetchDiseases();
     }, []);
+
+    useEffect(() => {
+        const fetchPatientImages = async () => {
+            if (!patient?._id) return;
+            setIsImagesLoading(true);
+            try {
+                await loadPatientImages(patient._id);
+            } catch (error) {
+                console.error("Error fetching patient images:", error);
+                toast.error("Unable to load patient images.");
+            } finally {
+                setIsImagesLoading(false);
+            }
+        };
+
+        fetchPatientImages();
+    }, [patient?._id]);
 
     // Ensure existing chiefComplaint (for edit mode) is present in dropdown options
     useEffect(() => {
@@ -445,6 +494,60 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
 
     const handleInpatientChange = (field) => (event) => {
         setInpatientFormData({ ...inpatientFormData, [field]: event.target.value });
+    };
+
+    const handleImageSelection = (event) => {
+        const files = Array.from(event.target.files || []);
+        if (!files.length) return;
+        const validFiles = files.filter((file) => file.type.startsWith("image/"));
+        if (validFiles.length !== files.length) {
+            toast.error("Only image files are allowed.");
+        }
+        setSelectedPatientImages(validFiles);
+    };
+
+    const handleUploadPatientImages = async () => {
+        if (!patient?._id) {
+            toast.error("Patient details are missing.");
+            return;
+        }
+        if (!selectedPatientImages.length) {
+            toast.error("Please select at least one image.");
+            return;
+        }
+
+        setIsImagesUploading(true);
+        try {
+            await Promise.all(
+                selectedPatientImages.map((file) =>
+                    patientDocumentService.uploadDocument(
+                        patient._id,
+                        file,
+                        "Uploaded from examination page",
+                        "scan_report"
+                    )
+                )
+            );
+            toast.success("Patient images uploaded successfully.");
+            setSelectedPatientImages([]);
+            await loadPatientImages(patient._id);
+        } catch (error) {
+            console.error("Error uploading patient images:", error);
+            toast.error(error?.response?.data?.message || "Failed to upload patient images");
+        } finally {
+            setIsImagesUploading(false);
+        }
+    };
+
+    const handleDeleteImage = async (documentId) => {
+        try {
+            await patientDocumentService.deleteDocument(documentId);
+            setUploadedPatientImages((prev) => prev.filter((doc) => doc._id !== documentId));
+            toast.success("Image deleted successfully.");
+        } catch (error) {
+            console.error("Error deleting patient image:", error);
+            toast.error("Failed to delete image.");
+        }
     };
 
     const handleSave = async () => {
@@ -971,6 +1074,112 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                 size="small"
                                 placeholder="Enter detailed laboratory investigation results, test findings, and observations..."
                             />
+                        </FormSection>
+                        <FormSection
+                            title="Patient Images"
+                            subtitle="Upload and manage patient examination images"
+                            icon={ImageIcon}
+                        >
+                            <Stack spacing={2}>
+                                <Button
+                                    component="label"
+                                    variant="outlined"
+                                    startIcon={<CloudUpload />}
+                                >
+                                    Select Images
+                                    <input
+                                        hidden
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleImageSelection}
+                                    />
+                                </Button>
+
+                                {selectedPatientImages.length > 0 && (
+                                    <Typography variant="body2" color="text.secondary">
+                                        {selectedPatientImages.length} image(s) selected
+                                    </Typography>
+                                )}
+
+                                <Button
+                                    variant="contained"
+                                    onClick={handleUploadPatientImages}
+                                    disabled={isImagesUploading || selectedPatientImages.length === 0}
+                                    startIcon={isImagesUploading ? <CircularProgress size={18} /> : <CloudUpload />}
+                                >
+                                    {isImagesUploading ? "Uploading..." : "Upload Images"}
+                                </Button>
+
+                                {isImagesLoading ? (
+                                    <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                                        <CircularProgress size={24} />
+                                    </Box>
+                                ) : uploadedPatientImages.length > 0 ? (
+                                    <Grid container spacing={2}>
+                                        {uploadedPatientImages.map((image) => (
+                                            <Grid item xs={12} sm={6} md={4} key={image._id}>
+                                                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                                                    {image.viewUrl ? (
+                                                        <Box
+                                                            component="img"
+                                                            src={image.viewUrl}
+                                                            alt={image.originalFileName}
+                                                            onClick={() => setPreviewImage(image)}
+                                                            sx={{
+                                                                width: "100%",
+                                                                height: 110,
+                                                                objectFit: "cover",
+                                                                borderRadius: 1,
+                                                                mb: 1,
+                                                                cursor: "pointer",
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <Box
+                                                            sx={{
+                                                                width: "100%",
+                                                                height: 110,
+                                                                borderRadius: 1,
+                                                                mb: 1,
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                bgcolor: "grey.100",
+                                                            }}
+                                                        >
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                Preview unavailable
+                                                            </Typography>
+                                                        </Box>
+                                                    )}
+                                                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                                                        <Box sx={{ minWidth: 0 }}>
+                                                            <Typography variant="body2" fontWeight={600} noWrap>
+                                                                {image.originalFileName}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {new Date(image.uploadedAt).toLocaleString()}
+                                                            </Typography>
+                                                        </Box>
+                                                        <IconButton
+                                                            edge="end"
+                                                            color="error"
+                                                            onClick={() => handleDeleteImage(image._id)}
+                                                        >
+                                                            <Delete />
+                                                        </IconButton>
+                                                    </Stack>
+                                                </Paper>
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No patient images uploaded yet.
+                                    </Typography>
+                                )}
+                            </Stack>
                         </FormSection>
                     </Grid>
                     {/* Right Column */}
@@ -1524,6 +1733,28 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                     : "Save Examination (OPD)"}
                     </Button>
                 </Box>
+                <Dialog
+                    open={Boolean(previewImage)}
+                    onClose={() => setPreviewImage(null)}
+                    maxWidth="md"
+                    fullWidth
+                >
+                    <DialogContent sx={{ p: 1.5 }}>
+                        {previewImage?.viewUrl && (
+                            <Box
+                                component="img"
+                                src={previewImage.viewUrl}
+                                alt={previewImage.originalFileName}
+                                sx={{
+                                    width: "100%",
+                                    maxHeight: "80vh",
+                                    objectFit: "contain",
+                                    borderRadius: 1,
+                                }}
+                            />
+                        )}
+                    </DialogContent>
+                </Dialog>
             </Box>
         </Box>
     );
