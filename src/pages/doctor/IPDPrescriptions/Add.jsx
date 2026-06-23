@@ -27,6 +27,7 @@ const foodTimingOptions = [
     "Early Morning",
     "After Breakfast",
     "Before Food",
+    "After Lunch",
     "After Dinner",
     "Empty Stomach",
     "Before Bed",

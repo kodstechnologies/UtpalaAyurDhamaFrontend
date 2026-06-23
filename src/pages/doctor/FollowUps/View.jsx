@@ -836,6 +836,7 @@ function FollowUps_View() {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [followUpDetail, setFollowUpDetail] = useState(null);
     const [editNote, setEditNote] = useState("");
+    const [editProgressNote, setEditProgressNote] = useState("");
     const [editFiles, setEditFiles] = useState([]);
     const [savingEdit, setSavingEdit] = useState(false);
     const [deletingAttachmentId, setDeletingAttachmentId] = useState(null);
@@ -1078,6 +1079,7 @@ function FollowUps_View() {
         setEditDialogOpen(true);
         const detail = await fetchFollowUpDetail(row);
         setEditNote(detail?.note || row.reason || "");
+        setEditProgressNote(detail?.progressNote || "");
         setEditFiles([]);
     };
 
@@ -1122,7 +1124,7 @@ function FollowUps_View() {
             await doctorService.updateFollowUpDetail(
                 selectedFollowUp.examinationId,
                 selectedFollowUp.followUpId,
-                { note: editNote, files: editFiles }
+                { note: editNote, progressNote: editProgressNote, files: editFiles }
             );
             toast.success("Follow-up updated successfully");
             setEditDialogOpen(false);
@@ -1310,6 +1312,14 @@ function FollowUps_View() {
                             </Paper>
                             <Paper variant="outlined" sx={{ p: 2 }}>
                                 <Typography variant="subtitle2" gutterBottom fontWeight={600}>
+                                    Progress Notes
+                                </Typography>
+                                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                                    {followUpDetail?.progressNote?.trim() || "No progress notes added."}
+                                </Typography>
+                            </Paper>
+                            <Paper variant="outlined" sx={{ p: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom fontWeight={600}>
                                     Uploaded Files
                                 </Typography>
                                 {Array.isArray(followUpDetail?.attachments) && followUpDetail.attachments.length > 0 ? (
@@ -1351,6 +1361,14 @@ function FollowUps_View() {
                                 label="Notes"
                                 value={editNote}
                                 onChange={(e) => setEditNote(e.target.value)}
+                                fullWidth
+                                multiline
+                                rows={4}
+                            />
+                            <TextField
+                                label="Progress Notes"
+                                value={editProgressNote}
+                                onChange={(e) => setEditProgressNote(e.target.value)}
                                 fullWidth
                                 multiline
                                 rows={4}

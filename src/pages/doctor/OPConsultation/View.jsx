@@ -261,8 +261,9 @@ function OPConsultation_View() {
                 return;
             }
 
+            const uhid = row.patientId; // Note: row.patientId actually holds the UHID evaluated earlier
             navigate(
-                `/doctor/prescriptions/new?patientId=${patientProfileId}&patientName=${encodeURIComponent(name)}`
+                `/doctor/prescriptions/new?patientId=${patientProfileId}&patientName=${encodeURIComponent(name)}&uhid=${encodeURIComponent(uhid)}`
             );
         } catch (error) {
             console.error("Error opening prescription:", error);

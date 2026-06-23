@@ -81,11 +81,14 @@ const doctorService = {
     },
 
     // Update follow-up note and upload files
-    updateFollowUpDetail: async (examinationId, followUpId, { note, files = [] }) => {
+    updateFollowUpDetail: async (examinationId, followUpId, { note, progressNote, files = [] }) => {
         try {
             const formData = new FormData();
             if (typeof note === "string") {
                 formData.append("note", note);
+            }
+            if (typeof progressNote === "string") {
+                formData.append("progressNote", progressNote);
             }
             files.forEach((file) => formData.append("files", file));
 

@@ -26,6 +26,7 @@ const foodTimingOptions = [
     "Early Morning",
     "After Breakfast",
     "Before Food",
+    "After Lunch",
     "After Dinner",
     "Empty Stomach",
     "Before Bed",
@@ -67,6 +68,7 @@ function PrescriptionsAddPage() {
     const [searchParams] = useSearchParams();
     const patientId = searchParams.get("patientId") || "";
     const patientName = searchParams.get("patientName") || "";
+    const uhidParam = searchParams.get("uhid") || "";
     const isEditMode = !!prescriptionId;
     const { user } = useSelector((state) => state.auth);
 
@@ -198,6 +200,19 @@ function PrescriptionsAddPage() {
                                 patientId: foundPatient.user?.uhid || foundPatient.patientId || foundPatient._id,
                                 patientName: foundPatient.user?.name || patientName,
                             }));
+                        } else {
+                            const newPatient = {
+                                _id: patientId,
+                                user: { name: patientName, uhid: uhidParam },
+                                patientId: patientId
+                            };
+                            setSelectedPatient(newPatient);
+                            setOpdPatients((prev) => [...prev, newPatient]);
+                            setFormData((prev) => ({
+                                ...prev,
+                                patientId: uhidParam || patientId,
+                                patientName: patientName,
+                            }));
                         }
                     }
                 } else {
@@ -278,6 +293,10 @@ function PrescriptionsAddPage() {
                             user: patient.user,
                         };
                         setSelectedPatient(foundPatient);
+                        setOpdPatients((prev) => {
+                            const exists = prev.some(p => p._id === foundPatient._id);
+                            return exists ? prev : [...prev, foundPatient];
+                        });
                         setFormData((prev) => ({
                             ...prev,
                             patientId: foundPatient.patientId || foundPatient._id,
