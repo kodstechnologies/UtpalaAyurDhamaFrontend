@@ -149,11 +149,34 @@ const getOutpatientStatus = (patient) => {
     return "Unbilled";
 };
 
+const renderOutpatientStatusBadge = (patient) => {
+    if (patient.isDischarged) {
+        return (
+            <span className="badge rounded-pill bg-info" style={{ fontSize: "0.75rem", padding: "5px 10px" }}>
+                Discharged
+            </span>
+        );
+    }
+    if (patient.hasFinalizedBill) {
+        return (
+            <span className="badge rounded-pill bg-success" style={{ fontSize: "0.75rem", padding: "5px 10px" }}>
+                Billed
+            </span>
+        );
+    }
+    return (
+        <span className="badge rounded-pill bg-warning text-dark" style={{ fontSize: "0.75rem", padding: "5px 10px" }}>
+            Unbilled
+        </span>
+    );
+};
+
 function Outpatient_View() {
     const [outpatients, setOutpatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
     const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All");
     const [pagination, setPagination] = useState({
         page: 0,
         rowsPerPage: 25,
@@ -190,6 +213,11 @@ function Outpatient_View() {
                 examParams.search = search.trim();
             }
 
+            if (statusFilter === "Unbilled") {
+                examParams.isBilled = "false";
+            } else if (statusFilter === "Billed" || statusFilter === "Discharged") {
+                examParams.isBilled = "true";
+            }
 
             const [patientsResponse, allExamsResponse, invoicesResponse] = await Promise.all([
                 axios.get(
@@ -259,16 +287,16 @@ function Outpatient_View() {
         } finally {
             setIsLoading(false);
         }
-    }, [pagination.page, pagination.rowsPerPage, search]);
+    }, [pagination.page, pagination.rowsPerPage, search, statusFilter]);
 
     useEffect(() => {
         fetchOutpatients();
     }, [fetchOutpatients]);
 
-    // Reset to first page when search changes
+    // Reset to first page when search or status filter changes
     useEffect(() => {
         setPagination(prev => (prev.page === 0 ? prev : { ...prev, page: 0 }));
-    }, [search]);
+    }, [search, statusFilter]);
 
     // Refresh data when navigating back from allocation page
     useEffect(() => {
@@ -303,10 +331,14 @@ function Outpatient_View() {
         };
     }, [outpatients, pagination.total]);
 
-    // Sort outpatients by time (most recent first) - search is now server-side
+    // Filter and sort outpatients - search is server-side where supported
     const filteredData = useMemo(() => {
-        // Server-side search is already applied, just sort client-side
-        return [...outpatients].sort((a, b) => {
+        const filtered = outpatients.filter((patient) => {
+            if (statusFilter === "All") return true;
+            return getOutpatientStatus(patient) === statusFilter;
+        });
+
+        return filtered.sort((a, b) => {
             const dateA = a.lastVisitDate && a.lastVisitDate !== "N/A"
                 ? new Date(a.lastVisitDate)
                 : (a.registeredDate && a.registeredDate !== "N/A" ? new Date(a.registeredDate) : new Date(0));
@@ -315,7 +347,7 @@ function Outpatient_View() {
                 : (b.registeredDate && b.registeredDate !== "N/A" ? new Date(b.registeredDate) : new Date(0));
             return dateB - dateA; // Most recent first
         });
-    }, [outpatients]);
+    }, [outpatients, statusFilter]);
 
     const handleOpenAllocationModal = (patient) => {
         const params = new URLSearchParams({
@@ -335,6 +367,11 @@ function Outpatient_View() {
             };
             if (search && search.trim()) {
                 examParams.search = search.trim();
+            }
+            if (statusFilter === "Unbilled") {
+                examParams.isBilled = "false";
+            } else if (statusFilter === "Billed" || statusFilter === "Discharged") {
+                examParams.isBilled = "true";
             }
 
             const allExaminations = [];
@@ -391,6 +428,10 @@ function Outpatient_View() {
                 patientByIdMap,
                 invoicesMap
             )
+                .filter((patient) => {
+                    if (statusFilter === "All") return true;
+                    return getOutpatientStatus(patient) === statusFilter;
+                })
                 .sort((a, b) => {
                     const dateA =
                         a.lastVisitDate && a.lastVisitDate !== "N/A"
@@ -488,9 +529,9 @@ function Outpatient_View() {
                             <h5 className="card-title mb-0">Outpatients List</h5>
                         </div>
 
-                        {/* Search */}
+                        {/* Search and Filter */}
                         <div className="row g-3 mb-4 align-items-center">
-                            <div className="col-md-6">
+                            <div className="col-md-4">
                                 <div className="input-group">
                                     <span className="input-group-text">
                                         <SearchIcon />
@@ -504,7 +545,19 @@ function Outpatient_View() {
                                     />
                                 </div>
                             </div>
-                            <div className="col-md-6 d-flex justify-content-md-end">
+                            <div className="col-md-4">
+                                <select
+                                    className="form-select"
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                >
+                                    <option value="All">All Status</option>
+                                    <option value="Billed">Billed</option>
+                                    <option value="Discharged">Discharged</option>
+                                    <option value="Unbilled">Unbilled</option>
+                                </select>
+                            </div>
+                            <div className="col-md-4 d-flex justify-content-md-end">
                                 <button
                                     type="button"
                                     onClick={handleExportExcel}
@@ -543,6 +596,7 @@ function Outpatient_View() {
                                         <tr>
                                             <th style={{ fontSize: "0.875rem" }}>Sl. No.</th>
                                             <th style={{ fontSize: "0.875rem" }}>Patient Name</th>
+                                            <th style={{ fontSize: "0.875rem" }}>Status</th>
                                             <th style={{ fontSize: "0.875rem" }}>Doctor</th>
                                             <th style={{ fontSize: "0.875rem" }}>Last Visit</th>
                                             <th style={{ fontSize: "0.875rem" }}>Allocated Nurse</th>
@@ -555,18 +609,10 @@ function Outpatient_View() {
                                             <tr key={patient.id}>
                                                 <td style={{ fontSize: "0.875rem" }}>{pagination.page * pagination.rowsPerPage + index + 1}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>
-                                                    <div className="d-flex align-items-center gap-2">
-                                                        <strong>{patient.name}</strong>
-                                                        {patient.isDischarged ? (
-                                                            <span className="badge rounded-pill bg-info" style={{ fontSize: "0.65rem" }}>
-                                                                Discharged
-                                                            </span>
-                                                        ) : patient.hasFinalizedBill ? (
-                                                            <span className="badge rounded-pill bg-success" style={{ fontSize: "0.65rem" }}>
-                                                                Billed
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
+                                                    <strong>{patient.name}</strong>
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {renderOutpatientStatusBadge(patient)}
                                                 </td>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     {patient.doctorName && patient.doctorName !== "N/A" ? (

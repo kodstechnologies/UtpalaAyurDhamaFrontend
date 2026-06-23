@@ -13,6 +13,7 @@ import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import wardChargeService from "../../../services/wardChargeService";
 
 // Icons
 import PeopleIcon from "@mui/icons-material/People";
@@ -30,6 +31,8 @@ function Inpatient_View() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All"); // Changed default to "All" to show discharged patients
+  const [wardFilter, setWardFilter] = useState("All");
+  const [wardOptions, setWardOptions] = useState([]);
   const [pagination, setPagination] = useState({
     page: 0,
     rowsPerPage: 25,
@@ -47,6 +50,37 @@ function Inpatient_View() {
     { label: "Inpatients" },
   ];
 
+  useEffect(() => {
+    const fetchWardOptions = async () => {
+      try {
+        const response = await wardChargeService.getAllWardCharges({
+          page: 1,
+          limit: 100,
+        });
+        if (response.success) {
+          const categories = [
+            ...new Set(
+              (response.data || [])
+                .map((ward) => ward.wardCategory)
+                .filter(Boolean),
+            ),
+          ].sort((a, b) =>
+            a.localeCompare(b, undefined, { sensitivity: "base" }),
+          );
+          setWardOptions(
+            categories.length > 0
+              ? categories
+              : ["Duplex", "General", "Semi Special", "Special"],
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching ward options:", error);
+      }
+    };
+
+    fetchWardOptions();
+  }, []);
+
   // Fetch only inpatients
   const fetchInpatients = useCallback(async () => {
     setIsLoading(true);
@@ -59,6 +93,11 @@ function Inpatient_View() {
       // Add status filter if not "All"
       if (statusFilter !== "All") {
         params.status = statusFilter;
+      }
+
+      // Add ward filter if not "All"
+      if (wardFilter !== "All") {
+        params.wardCategory = wardFilter;
       }
 
       // Add search parameter if search is active
@@ -199,7 +238,7 @@ function Inpatient_View() {
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.page, pagination.rowsPerPage, statusFilter, search]);
+  }, [pagination.page, pagination.rowsPerPage, statusFilter, wardFilter, search]);
 
   useEffect(() => {
     fetchInpatients();
@@ -214,7 +253,7 @@ function Inpatient_View() {
       // Even if page is already 0, trigger a fetch by updating state
       return prev;
     });
-  }, [search, statusFilter]);
+  }, [search, statusFilter, wardFilter]);
 
   // Calculate statistics: total from server (all pages), status counts from current page (backend may add meta.admitted/meta.discharged later)
   const stats = useMemo(() => {
@@ -238,16 +277,25 @@ function Inpatient_View() {
     const filtered = inpatients.filter((patient) => {
       const matchesStatus =
         statusFilter === "All" || patient.admitStatus === statusFilter;
-      return matchesStatus;
+      const matchesWard =
+        wardFilter === "All" || patient.wardCategory === wardFilter;
+      return matchesStatus && matchesWard;
     });
 
-    // Sort by createdAt date (most recent first)
+    // Sort by status (ascending), then by createdAt (most recent first)
     return filtered.sort((a, b) => {
+      const statusCompare = (a.admitStatus || "").localeCompare(
+        b.admitStatus || "",
+        undefined,
+        { sensitivity: "base" },
+      );
+      if (statusCompare !== 0) return statusCompare;
+
       const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
       const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-      return dateB - dateA; // Most recent first
+      return dateB - dateA;
     });
-  }, [inpatients, statusFilter]);
+  }, [inpatients, statusFilter, wardFilter]);
 
   const handleOpenAllocationModal = (patient) => {
     const params = new URLSearchParams({
@@ -326,7 +374,7 @@ function Inpatient_View() {
 
             {/* Search and Filter */}
             <div className="row g-3 mb-4">
-              <div className="col-md-6">
+              <div className="col-md-4">
                 <div className="input-group">
                   <span className="input-group-text">
                     <SearchIcon />
@@ -340,7 +388,7 @@ function Inpatient_View() {
                   />
                 </div>
               </div>
-              <div className="col-md-6">
+              <div className="col-md-4">
                 <select
                   className="form-select"
                   value={statusFilter}
@@ -348,9 +396,23 @@ function Inpatient_View() {
                 >
                   <option value="All">All Status</option>
                   <option value="Admitted">Admitted</option>
-                  <option value="Under Observation">Under Observation</option>
-                  <option value="Pending Allocation">Pending Allocation</option>
                   <option value="Discharged">Discharged</option>
+                  <option value="Pending Allocation">Pending Allocation</option>
+                  <option value="Under Observation">Under Observation</option>
+                </select>
+              </div>
+              <div className="col-md-4">
+                <select
+                  className="form-select"
+                  value={wardFilter}
+                  onChange={(e) => setWardFilter(e.target.value)}
+                >
+                  <option value="All">All Wards</option>
+                  {wardOptions.map((ward) => (
+                    <option key={ward} value={ward}>
+                      {ward}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

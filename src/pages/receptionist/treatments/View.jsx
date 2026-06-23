@@ -800,6 +800,7 @@ function Treatments_View() {
   const [allVisits, setAllVisits] = useState([]); // all grouped visits (for counts & pagination)
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [hoveredButton, setHoveredButton] = useState(null);
 
   const [pagination, setPagination] = useState({
@@ -960,11 +961,16 @@ function Treatments_View() {
         status: v.highestStatus,
       }));
 
-      // Final client-side search
+      const getVisitDisplayStatus = (visit) => {
+        if (visit.isDischarged) return "Discharged";
+        return visit.status || "Pending";
+      };
+
+      // Final client-side search & status filter
       let filtered = groupedVisits;
       if (search.trim()) {
         const q = search.toLowerCase();
-        filtered = groupedVisits.filter(
+        filtered = filtered.filter(
           (v) =>
             v.patientName.toLowerCase().includes(q) ||
             v.uhid.toLowerCase().includes(q) ||
@@ -975,8 +981,12 @@ function Treatments_View() {
         );
       }
 
-      // Sort newest first
-      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (statusFilter !== "All") {
+        filtered = filtered.filter((v) => getVisitDisplayStatus(v) === statusFilter);
+      }
+
+      // Sort oldest first (ascending by visit date)
+      filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
       setAllVisits(filtered);
       setPagination((prev) => ({ ...prev, total: filtered.length }));
@@ -998,7 +1008,7 @@ function Treatments_View() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, search, pagination.page, pagination.rowsPerPage]);
+  }, [activeTab, search, statusFilter, pagination.page, pagination.rowsPerPage]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -1009,7 +1019,7 @@ function Treatments_View() {
   // Reset page when filters change
   useEffect(() => {
     setPagination((p) => ({ ...p, page: 0 }));
-  }, [search, activeTab]);
+  }, [search, activeTab, statusFilter]);
 
   // ── Helpers ────────────────────────────────────────────────
   const getTypeBadge = (isIPD) =>
@@ -1076,7 +1086,7 @@ function Treatments_View() {
               </Tabs>
             </Box>
 
-            {/* Search */}
+            {/* Search & Status filter */}
             <div className="row g-3 mb-4">
               <div className="col-12 col-md-6 col-lg-4">
                 <div className="input-group">
@@ -1092,6 +1102,21 @@ function Treatments_View() {
                   />
                 </div>
               </div>
+              <div className="col-12 col-md-6 col-lg-4">
+                <select
+                  className="form-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="All">All Status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Discharged">Discharged</option>
+                </select>
+              </div>
             </div>
 
             {/* Table / Loading / Empty */}
@@ -1101,7 +1126,8 @@ function Treatments_View() {
               </Box>
             ) : allVisits.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
-                No treatment visits found {search && "matching your search"}.
+                No treatment visits found
+                {(search || statusFilter !== "All") && " matching your filters"}.
               </Box>
             ) : (
               <>

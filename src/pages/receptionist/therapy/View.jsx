@@ -97,9 +97,27 @@ function TherapyReportsView() {
                     subTherapyService.getAllSubTherapies({ limit: 1000 }),
                 ]);
 
-                if (doctorRes.success) setDoctors(doctorRes.data);
-                if (therapyRes.success) setTherapies(therapyRes.data);
-                if (subTherapyRes.success) setSubTherapies(subTherapyRes.data);
+                if (doctorRes.success) {
+                    setDoctors(
+                        [...doctorRes.data].sort((a, b) =>
+                            (a.user?.name || "").localeCompare(b.user?.name || "", undefined, { sensitivity: "base" })
+                        )
+                    );
+                }
+                if (therapyRes.success) {
+                    setTherapies(
+                        [...therapyRes.data].sort((a, b) =>
+                            (a.therapyName || "").localeCompare(b.therapyName || "", undefined, { sensitivity: "base" })
+                        )
+                    );
+                }
+                if (subTherapyRes.success) {
+                    setSubTherapies(
+                        [...subTherapyRes.data].sort((a, b) =>
+                            (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+                        )
+                    );
+                }
             } catch (error) {
                 console.error("Error fetching dropdown data:", error);
                 toast.error("Failed to load filter options.");

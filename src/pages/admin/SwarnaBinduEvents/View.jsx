@@ -49,9 +49,8 @@ function SwarnaBinduEvents_View() {
             
             if (response.success && response.data) {
                 // Transform data for table display
-                const transformedData = response.data.map((event, index) => ({
+                const transformedData = response.data.map((event) => ({
                     _id: event._id,
-                    slNo: index + 1,
                     title: event.title || "N/A",
                     description: event.description || "",
                     eventDate: event.eventDate ? new Date(event.eventDate).toLocaleDateString() : "N/A",
@@ -127,7 +126,6 @@ function SwarnaBinduEvents_View() {
 
     // Columns
     const columns = [
-        { field: "slNo", header: "Sl. No." },
         { field: "title", header: "Title" },
         { 
             field: "description", 
@@ -225,8 +223,8 @@ function SwarnaBinduEvents_View() {
                 {/* RIGHT SIDE — Export + Create */}
                 <Box sx={{ display: "flex", gap: "1rem" }}>
                     <ExportDataButton
-                        rows={filteredRows}
-                        columns={columns}
+                        rows={filteredRows.map((row, index) => ({ ...row, slNo: index + 1 }))}
+                        columns={[{ field: "slNo", header: "Sl. No." }, ...columns]}
                         fileName="swarna-bindu-events.xlsx"
                     />
                     <RedirectButton text="Create Event" link="/admin/swarna-bindu-events/add" />

@@ -94,6 +94,7 @@ function Marketing_View() {
         gender: "",
         disease: "",
         treatment: "",
+        source: "",
     });
     const [selectedPatientIds, setSelectedPatientIds] = useState([]);
     const [message, setMessage] = useState("");
@@ -218,9 +219,8 @@ function Marketing_View() {
             if (prev.page === 0) return prev;
             return { ...prev, page: 0 };
         });
-    }, [filters.gender, filters.disease, filters.treatment, searchQuery]);
+    }, [filters.gender, filters.disease, filters.treatment, filters.source, searchQuery]);
 
-    // Manual contacts always shown at top; filters apply only to registered patients
     const filteredPatients = useMemo(() => {
         const filteredRegistered = normalizedPatients.filter((patient) => {
             const matchesFilters =
@@ -242,6 +242,12 @@ function Marketing_View() {
             return 0;
         });
 
+        if (filters.source === "manual") {
+            return [...manualContacts];
+        }
+        if (filters.source === "registered") {
+            return sortedRegistered;
+        }
         return [...manualContacts, ...sortedRegistered];
     }, [filters, manualContacts, normalizedPatients]);
 
@@ -1024,7 +1030,20 @@ function Marketing_View() {
 
                         {/* Filter Dropdowns */}
                         <div className="row g-3">
-                            <div className="col-md-4">
+                            <div className="col-md-3">
+                                <label className="form-label">Source</label>
+                                <select
+                                    name="source"
+                                    className="form-select"
+                                    value={filters.source}
+                                    onChange={handleFilterChange}
+                                >
+                                    <option value="">All Sources</option>
+                                    <option value="manual">Manual</option>
+                                    <option value="registered">Registered</option>
+                                </select>
+                            </div>
+                            <div className="col-md-3">
                                 <label className="form-label">Gender</label>
                                 <select
                                     name="gender"
@@ -1038,7 +1057,7 @@ function Marketing_View() {
                                     <option value="Other">Other</option>
                                 </select>
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-md-3">
                                 <label className="form-label">Disease/Complaint</label>
                                 <select
                                     name="disease"
@@ -1054,7 +1073,7 @@ function Marketing_View() {
                                     ))}
                                 </select>
                             </div>
-                            <div className="col-md-4">
+                            <div className="col-md-3">
                                 <label className="form-label">Therapies</label>
                                 <TextField
                                     select

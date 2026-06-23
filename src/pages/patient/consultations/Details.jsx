@@ -456,6 +456,7 @@ function ConsultationDetails() {
                         {renderSection("Illness History", [
                             renderField("Onset", examination.historyOfPatientIllness?.match(/Onset:\s*([^.]*)/)?.[1]),
                             renderField("Progression", examination.historyOfPatientIllness?.match(/Progression:\s*([^.]*)/)?.[1]),
+                            renderField("History of Presenting Complaint", examination.historyOfPatientIllness?.match(/History of Presenting Complaint:\s*([\s\S]*?)(?=\.\s*Aggravating Factors:|$)/)?.[1]?.trim()),
                             renderField("Aggravating Factors", examination.historyOfPatientIllness?.match(/Aggravating Factors:\s*([^.]*)/)?.[1]),
                             renderField("Relieving Factors", examination.historyOfPatientIllness?.match(/Relieving Factors:\s*([^.]*)/)?.[1]),
                         ])}
@@ -476,7 +477,14 @@ function ConsultationDetails() {
                         ])}
 
                         {renderSection("Personal History", [
-                            renderField("Personal History", personalHistoryText),
+                            renderField("Bowel", physicalExam.bowel),
+                            renderField("Appetite", physicalExam.appetite),
+                            renderField("Micturition", physicalExam.micturition),
+                            renderField("Sleep", physicalExam.sleep),
+                            renderField("Diet and Hydration", physicalExam.dietAndHydration),
+                            renderField("Physical Activity", physicalExam.physicalActivity),
+                            renderField("Habits", physicalExam.habits),
+                            ...(personalHistoryText ? [renderField("Notes", personalHistoryText)] : []),
                         ])}
 
                         {renderSection("Social History", [
@@ -493,6 +501,7 @@ function ConsultationDetails() {
                             renderField("BMI", vitals.bmi),
                             renderField("Blood Pressure", vitals.bloodPressure),
                             renderField("Heart Rate", vitals.heartRate),
+                            renderField("Pulse", vitals.pulseRate),
                             renderField("Temperature", vitals.temperature),
                             renderField("SpO2", vitals.spo2),
                             renderField("Respiratory Rate", vitals.respiratoryRate),
@@ -507,13 +516,8 @@ function ConsultationDetails() {
                         ])}
 
                         {renderSection("Physical Examination", [
-                            renderField("Bowel", physicalExam.bowel),
-                            renderField("Appetite", physicalExam.appetite),
-                            renderField("Micturition", physicalExam.micturition),
-                            renderField("Sleep", physicalExam.sleep),
-                            renderField("Diet and Hydration", physicalExam.dietAndHydration),
-                            renderField("Physical Activity", physicalExam.physicalActivity),
-                            renderField("Habits", physicalExam.habits),
+                            renderField("General Examination", examination.generalExamination),
+                            renderField("Local Examination", examination.localExamination),
                         ])}
 
                         {renderSection("Laboratory Investigations", [
