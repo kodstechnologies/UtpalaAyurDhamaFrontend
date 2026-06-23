@@ -334,7 +334,20 @@ function TherapyReportsView() {
                             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
                             onClick={handleSearch}
                             disabled={loading}
-                            sx={{ backgroundColor: "var(--color-btn-bg)", "&:hover": { backgroundColor: "var(--color-btn-hover)" } }}
+                            sx={{
+                                backgroundColor: "var(--color-btn-bg)",
+                                color: "#fff",
+                                boxShadow: "none",
+                                "&:hover": {
+                                    backgroundColor: "var(--color-btn-hover)",
+                                    boxShadow: "none",
+                                },
+                                "&.Mui-disabled": {
+                                    backgroundColor: "var(--color-btn-bg)",
+                                    color: "#fff",
+                                    opacity: 0.7,
+                                },
+                            }}
                         >
                             {loading ? "Searching..." : "Search"}
                         </Button>
