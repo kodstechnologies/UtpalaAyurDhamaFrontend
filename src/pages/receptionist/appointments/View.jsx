@@ -8,6 +8,8 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import SearchIcon from "@mui/icons-material/Search";
+import doctorService from "../../../services/doctorService";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCard from "../../../components/card/HeadingCard";
 import DashboardCard from "../../../components/card/DashboardCard";
@@ -132,7 +134,23 @@ function Appointments_View() {
     const [filters, setFilters] = useState({
         search: "",
         appointmentStatus: "",
+        doctorId: "",
     });
+    const [doctors, setDoctors] = useState([]);
+
+    useEffect(() => {
+        const fetchDoctors = async () => {
+            try {
+                const response = await doctorService.getAllDoctorProfiles();
+                if (response.success) {
+                    setDoctors(response.data || []);
+                }
+            } catch (error) {
+                console.error("Error fetching doctors:", error);
+            }
+        };
+        fetchDoctors();
+    }, []);
     const [allPatients, setAllPatients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [appointments, setAppointments] = useState([]);
@@ -261,7 +279,7 @@ function Appointments_View() {
         return () => {
             abortController.abort();
         };
-    }, [patientsPagination.page, patientsPagination.rowsPerPage, filters.search, activeTab]);
+    }, [patientsPagination.page, patientsPagination.rowsPerPage, filters.search, filters.doctorId, activeTab]);
 
 
 
@@ -306,10 +324,18 @@ function Appointments_View() {
     // Note: Server-side pagination is used, so allPatients already contains only the current page's data
     // We only need to sort and apply client-side filtering if search is NOT active (for other tabs)
     const filteredPatients = useMemo(() => {
+        let currentPatients = [...allPatients];
+
+        if (activeTab === "allPatients" && filters.doctorId) {
+            currentPatients = currentPatients.filter(
+                (patient) => patient.primaryDoctorId === filters.doctorId || patient.doctorId === filters.doctorId || patient.doctor?._id === filters.doctorId
+            );
+        }
+
         // For "All Registered Patients" tab, data is already paginated from server
         // Just sort by registration date (most recent first)
         if (activeTab === "allPatients") {
-            return [...allPatients].sort((a, b) => {
+            return currentPatients.sort((a, b) => {
                 const dateA = a.registeredDate && a.registeredDate !== "N/A"
                     ? new Date(a.registeredDate.split("/").reverse().join("-"))
                     : new Date(0);
@@ -372,9 +398,9 @@ function Appointments_View() {
                 params.search = filters.search.trim();
             }
 
-            // Add status filter if provided
-            if (filters.appointmentStatus) {
-                params.status = filters.appointmentStatus;
+            // Add doctor filter if provided
+            if (filters.doctorId) {
+                params.doctorId = filters.doctorId;
             }
 
             const response = await axios.get(
@@ -454,7 +480,7 @@ function Appointments_View() {
         return () => {
             abortController.abort();
         };
-    }, [pagination.page, pagination.rowsPerPage, filters.search, filters.appointmentStatus, activeTab]);
+    }, [pagination.page, pagination.rowsPerPage, filters.search, filters.appointmentStatus, filters.doctorId, activeTab]);
 
 
     // Fetch Walk-in patients (OPD + IPD) from dedicated API
@@ -468,6 +494,10 @@ function Appointments_View() {
 
             if (filters.search && filters.search.trim() && activeTab === "walkIn") {
                 params.search = filters.search.trim();
+            }
+
+            if (filters.doctorId) {
+                params.doctorId = filters.doctorId;
             }
 
             const response = await axios.get(getApiUrl("walk-in/patients"), {
@@ -491,7 +521,7 @@ function Appointments_View() {
         } finally {
             setIsLoadingWalkInPatients(false);
         }
-    }, [walkInPagination.page, walkInPagination.rowsPerPage, filters.search, activeTab]);
+    }, [walkInPagination.page, walkInPagination.rowsPerPage, filters.search, filters.doctorId, activeTab]);
 
     useEffect(() => {
         fetchReceptionPatients();
@@ -499,7 +529,6 @@ function Appointments_View() {
         fetchIpdWalkIns();
     }, [fetchReceptionPatients, fetchAppointments, fetchIpdWalkIns]);
 
-    // Reset to first page when filters change
     useEffect(() => {
         if (activeTab === "appointments") {
             setPagination(prev => ({ ...prev, page: 0 }));
@@ -510,36 +539,22 @@ function Appointments_View() {
         if (activeTab === "walkIn") {
             setWalkInPagination(prev => ({ ...prev, page: 0 }));
         }
-    }, [filters.appointmentStatus, filters.search, activeTab]);
+    }, [filters.appointmentStatus, filters.search, filters.doctorId, activeTab]);
 
     // Filter and sort appointments by time (most recent first)
     // Note: Server-side search is now used, so this only handles client-side filtering for status
     const filteredAppointments = useMemo(() => {
-        // If server-side search/filter is active, return appointments as-is (already filtered by backend)
-        if (activeTab === "appointments" && (filters.search || filters.appointmentStatus)) {
-            return appointments.sort((a, b) => {
-                try {
-                    const dateA = new Date(a.appointmentDateTime.split(" ")[0]);
-                    const dateB = new Date(b.appointmentDateTime.split(" ")[0]);
-                    return dateB - dateA; // Most recent first
-                } catch {
-                    return 0;
-                }
-            });
-        }
+        let filtered = appointments;
 
         const now = new Date();
         now.setHours(0, 0, 0, 0);
 
-        let filtered = [];
-
-        // For "Upcoming Appointments" tab, show all future appointments
         if (activeTab === "appointments") {
             if (!filters.appointmentStatus) {
                 // Default: Show all future appointments
-                filtered = appointments.filter((apt) => {
+                filtered = filtered.filter((apt) => {
                     try {
-                        const [dateStr, timeStr] = apt.appointmentDateTime.split(" ");
+                        const [dateStr] = apt.appointmentDateTime.split(" ");
                         if (!dateStr) return false;
                         const appointmentDate = new Date(dateStr);
                         appointmentDate.setHours(0, 0, 0, 0);
@@ -548,15 +563,8 @@ function Appointments_View() {
                         return false;
                     }
                 });
-            }
-        }
-
-        // Apply filters if any
-        if (filtered.length === 0) {
-            if (!filters.appointmentStatus) {
-                filtered = appointments;
             } else {
-                filtered = appointments.filter((apt) => {
+                filtered = filtered.filter((apt) => {
                     try {
                         const [dateStr] = apt.appointmentDateTime.split(" ");
                         if (!dateStr) return false;
@@ -564,11 +572,11 @@ function Appointments_View() {
                         appointmentDate.setHours(0, 0, 0, 0);
 
                         if (filters.appointmentStatus === "upcoming") {
-                            return appointmentDate > now && apt.status !== "Ongoing" && apt.status !== "Completed" && apt.status !== "Cancelled";
+                            return apt.status === "Scheduled" || apt.status === "Confirmed" || apt.status === "Pending";
                         } else if (filters.appointmentStatus === "ongoing") {
-                            return apt.status === "Ongoing" || (appointmentDate.getTime() === now.getTime() && apt.status === "Confirmed");
+                            return apt.status === "Ongoing";
                         } else if (filters.appointmentStatus === "completed") {
-                            return apt.status === "Completed" || appointmentDate < now;
+                            return apt.status === "Completed";
                         }
                         return true;
                     } catch {
@@ -599,6 +607,11 @@ function Appointments_View() {
             });
         }
 
+        // Apply doctor filter
+        if (filters.doctorId) {
+            filtered = filtered.filter((apt) => apt.doctorId === filters.doctorId);
+        }
+
         // Sort by appointment date/time (most recent first)
         return filtered.sort((a, b) => {
             try {
@@ -609,7 +622,7 @@ function Appointments_View() {
                 return 0;
             }
         });
-    }, [appointments, filters.appointmentStatus, filters.search, activeTab]);
+    }, [appointments, filters.appointmentStatus, filters.search, filters.doctorId, activeTab]);
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -940,22 +953,62 @@ function Appointments_View() {
                         </ul>
                     </div>
 
-                    <div className="card-body">
-                        {/* All Patients Tab */}
-                        {activeTab === "allPatients" && (
-                            <>
-                                <div className="row g-3 mb-4">
-                                    <div className="col-md-4">
+                    <div className="card shadow-sm mb-4" style={{ border: 'none', borderBottom: '1px solid #ddd', borderRadius: 0 }}>
+                        <div className="card-body">
+                            <div className="row g-3">
+                                <div className="col-md-4">
+                                    <label className="form-label">Search</label>
+                                    <div className="input-group">
+                                        <span className="input-group-text"><SearchIcon /></span>
                                         <input
                                             type="text"
                                             name="search"
                                             className="form-control"
-                                            placeholder="Search by Name, Contact, ID, Email, Age, Date..."
+                                            placeholder="Search Name, Contact, ID..."
                                             value={filters.search}
                                             onChange={handleFilterChange}
                                         />
                                     </div>
                                 </div>
+                                <div className="col-md-4">
+                                    <label className="form-label">Doctor</label>
+                                    <select
+                                        name="doctorId"
+                                        className="form-select"
+                                        value={filters.doctorId}
+                                        onChange={handleFilterChange}
+                                    >
+                                        <option value="">All Doctors</option>
+                                        {doctors.map((doc) => (
+                                            <option key={doc._id} value={doc._id}>
+                                                {`Dr. ${doc.user?.name || doc.name || "N/A"}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-md-4">
+                                    <label className="form-label">Appointment Status</label>
+                                    <select
+                                        name="appointmentStatus"
+                                        className="form-select"
+                                        value={filters.appointmentStatus}
+                                        onChange={handleFilterChange}
+                                        disabled={activeTab !== "appointments"}
+                                    >
+                                        <option value="">All Future Appointments</option>
+                                        <option value="upcoming">Upcoming</option>
+                                        <option value="ongoing">Ongoing (Today)</option>
+                                        <option value="completed">Completed</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card-body pt-0">
+                        {/* All Patients Tab */}
+                        {activeTab === "allPatients" && (
+                            <>
                                 {isLoading ? (
                                     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
                                         <CircularProgress />
@@ -1277,31 +1330,6 @@ function Appointments_View() {
                         {/* Appointments Tab */}
                         {activeTab === "appointments" && (
                             <>
-                                <div className="row g-3 mb-4">
-                                    <div className="col-md-6">
-                                        <input
-                                            type="text"
-                                            name="search"
-                                            className="form-control"
-                                            placeholder="Search by Name, Contact, Doctor, Date, Status..."
-                                            value={filters.search}
-                                            onChange={handleFilterChange}
-                                        />
-                                    </div>
-                                    <div className="col-md-6 d-flex justify-content-end">
-                                        <select
-                                            name="appointmentStatus"
-                                            className="form-select w-auto"
-                                            value={filters.appointmentStatus}
-                                            onChange={handleFilterChange}
-                                        >
-                                            <option value="">All Future Appointments</option>
-                                            <option value="upcoming">Upcoming</option>
-                                            <option value="ongoing">Ongoing (Today)</option>
-                                            <option value="completed">Completed</option>
-                                        </select>
-                                    </div>
-                                </div>
                                 {isLoadingAppointments ? (
                                     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
                                         <CircularProgress />
@@ -1456,18 +1484,6 @@ function Appointments_View() {
                         {/* Walk-in Patients Tab */}
                         {activeTab === "walkIn" && (
                             <>
-                                <div className="row g-3 mb-4">
-                                    <div className="col-md-12">
-                                        <input
-                                            type="text"
-                                            name="search"
-                                            className="form-control"
-                                            placeholder="Search by Name, Contact, Doctor, Date, Status, Room/Bed..."
-                                            value={filters.search}
-                                            onChange={handleFilterChange}
-                                        />
-                                    </div>
-                                </div>
                                 {(() => {
                                     let filteredWalkIns = walkInPatients;
                                     if (filters.search && filters.search.trim()) {
@@ -1490,6 +1506,10 @@ function Appointments_View() {
                                                 roomBed.includes(searchLower)
                                             );
                                         });
+                                    }
+
+                                    if (filters.doctorId) {
+                                        filteredWalkIns = filteredWalkIns.filter((walkIn) => walkIn.doctorId === filters.doctorId || walkIn.primaryDoctorId === filters.doctorId || walkIn.doctor?._id === filters.doctorId);
                                     }
 
                                     const sortedWalkIns = filteredWalkIns.sort((a, b) => {
