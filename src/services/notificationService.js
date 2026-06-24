@@ -58,6 +58,22 @@ const notificationService = {
     },
 
     /**
+     * Get Utpala event notifications
+     */
+    getEventNotifications: async (daysBack = 30) => {
+        try {
+            const response = await axios.get(
+                getApiUrl(`notifications/event-notifications?daysBack=${daysBack}`),
+                { headers: getAuthHeaders() }
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching event notifications:', error);
+            throw error.response?.data || error.message;
+        }
+    },
+
+    /**
      * Deactivate FCM token
      */
     deactivateToken: async (fcmToken) => {

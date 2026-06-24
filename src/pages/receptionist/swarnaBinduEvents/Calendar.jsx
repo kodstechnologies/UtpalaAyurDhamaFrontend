@@ -22,6 +22,22 @@ import RedirectButton from "../../../components/buttons/RedirectButton";
 import swarnaBinduEventService from "../../../services/swarnaBinduEventService";
 import { toast } from "react-toastify";
 
+const formatEventTime = (time) => {
+    if (!time) return null;
+    const [hours, minutes] = time.split(":").map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return time;
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+};
+
+const getEventTimeLabel = (startTime, endTime) => {
+    const formattedStart = formatEventTime(startTime);
+    const formattedEnd = formatEventTime(endTime);
+    if (formattedStart && formattedEnd) return `${formattedStart} - ${formattedEnd}`;
+    return formattedStart || formattedEnd || null;
+};
+
 const CALENDAR_ROLE_CONFIG = {
     admin: {
         listPath: "/admin/swarna-bindu-events/view",
@@ -385,21 +401,47 @@ function SwarnaBinduEvents_Calendar() {
                                 });
                                 return dayEvents.length > 0 ? ["swarna-bindu-day"] : [];
                             }}
-                            eventContent={(eventInfo) => (
-                                <div
-                                    style={{
-                                        padding: "4px 6px",
-                                        fontSize: "0.75rem",
-                                        fontWeight: 500,
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    {eventInfo.event.title}
-                                </div>
-                            )}
+                            eventContent={(eventInfo) => {
+                                const { startTime, endTime } = eventInfo.event.extendedProps;
+                                const timeLabel = getEventTimeLabel(startTime, endTime);
+
+                                return (
+                                    <div
+                                        style={{
+                                            padding: "4px 6px",
+                                            fontSize: "0.75rem",
+                                            fontWeight: 500,
+                                            overflow: "hidden",
+                                            cursor: "pointer",
+                                            lineHeight: 1.3,
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {eventInfo.event.title}
+                                        </div>
+                                        {timeLabel && (
+                                            <div
+                                                style={{
+                                                    fontSize: "0.65rem",
+                                                    fontWeight: 400,
+                                                    marginTop: "2px",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {timeLabel}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }}
                         />
                     </Box>
                 )}

@@ -15,22 +15,20 @@ export const useNotifications = () => {
     const { user, role } = authState;
     const [paymentReminders, setPaymentReminders] = useState([]);
     const [dobReminders, setDobReminders] = useState([]);
+    const [eventNotifications, setEventNotifications] = useState([]);
     const [showPaymentPopup, setShowPaymentPopup] = useState(false);
     const [showDOBPopup, setShowDOBPopup] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const [fcmToken, setFcmToken] = useState(null);
     
-    // Staff roles that can receive notifications
-    const staffRoles = ['receptionist', 'doctor', 'nurse', 'therapist', 'pharmacist'];
+    const staffRoles = ['admin', 'receptionist', 'doctor', 'nurse', 'therapist', 'pharmacist'];
     const userRole = role?.toLowerCase() || '';
     
-    // Payment reminders: Receptionist only
     const shouldFetchPaymentReminders = userRole === 'receptionist';
-    
-    // DOB reminders: All staff roles
     const shouldFetchDOBReminders = userRole && staffRoles.includes(userRole);
+    const shouldFetchEventNotifications = Boolean(user && userRole);
+    const shouldInitializeFirebase = Boolean(user && userRole);
 
-    // Fetch payment reminders (Receptionist only)
     const fetchPaymentReminders = useCallback(async () => {
         if (!shouldFetchPaymentReminders) {
             setPaymentReminders([]);
@@ -38,34 +36,21 @@ export const useNotifications = () => {
         }
         
         try {
-            console.log('📊 Fetching payment reminders...');
             const response = await notificationService.getPaymentReminders();
-            console.log('📊 Payment reminders response:', response);
             
             if (response.success && response.data) {
                 const reminders = response.data.filter(r => r.amountDue > 0);
-                console.log('💰 Payment reminders found:', reminders.length, reminders);
                 setPaymentReminders(reminders);
-                
-                // Show popup if there are reminders
-                if (reminders.length > 0) {
-                    console.log('✅ Showing payment reminder popup');
-                    setShowPaymentPopup(true);
-                } else {
-                    console.log('ℹ️ No payment reminders, hiding popup');
-                    setShowPaymentPopup(false);
-                }
+                setShowPaymentPopup(reminders.length > 0);
             } else {
-                console.log('⚠️ Payment reminders response not successful:', response);
                 setShowPaymentPopup(false);
             }
         } catch (error) {
-            console.error('❌ Error fetching payment reminders:', error);
+            console.error('Error fetching payment reminders:', error);
             setShowPaymentPopup(false);
         }
     }, [shouldFetchPaymentReminders]);
 
-    // Fetch DOB reminders (All staff roles)
     const fetchDOBReminders = useCallback(async () => {
         if (!shouldFetchDOBReminders) {
             setDobReminders([]);
@@ -73,34 +58,41 @@ export const useNotifications = () => {
         }
         
         try {
-            console.log('🎂 Fetching DOB reminders...');
             const response = await notificationService.getDOBReminders(7);
-            console.log('🎂 DOB reminders response:', response);
             
             if (response.success && response.data) {
                 const reminders = response.data.filter(r => r.daysUntil <= 7);
-                console.log('🎉 DOB reminders found:', reminders.length, reminders);
                 setDobReminders(reminders);
-                
-                // Show popup if there are reminders
-                if (reminders.length > 0) {
-                    console.log('✅ Showing DOB reminder popup');
-                    setShowDOBPopup(true);
-                } else {
-                    console.log('ℹ️ No DOB reminders, hiding popup');
-                    setShowDOBPopup(false);
-                }
+                setShowDOBPopup(reminders.length > 0);
             } else {
-                console.log('⚠️ DOB reminders response not successful:', response);
                 setShowDOBPopup(false);
             }
         } catch (error) {
-            console.error('❌ Error fetching DOB reminders:', error);
+            console.error('Error fetching DOB reminders:', error);
             setShowDOBPopup(false);
         }
     }, [shouldFetchDOBReminders]);
 
-    // Handle foreground messages (defined after fetch functions)
+    const fetchEventNotifications = useCallback(async () => {
+        if (!shouldFetchEventNotifications) {
+            setEventNotifications([]);
+            return;
+        }
+
+        try {
+            const response = await notificationService.getEventNotifications(30);
+
+            if (response.success && response.data) {
+                setEventNotifications(response.data);
+            } else {
+                setEventNotifications([]);
+            }
+        } catch (error) {
+            console.error('Error fetching event notifications:', error);
+            setEventNotifications([]);
+        }
+    }, [shouldFetchEventNotifications]);
+
     const handleForegroundMessage = useCallback((payload) => {
         const notificationType = payload.data?.type || payload.notification?.data?.type;
 
@@ -113,29 +105,27 @@ export const useNotifications = () => {
                 fetchDOBReminders();
                 toast.info(payload.notification?.title || 'Birthday reminder received');
                 break;
+            case 'utpala_event':
+                fetchEventNotifications();
+                toast.info(payload.notification?.title || 'New Utpala event created');
+                break;
             default:
                 toast.info(payload.notification?.title || 'New notification');
         }
-    }, [fetchPaymentReminders, fetchDOBReminders]);
+    }, [fetchPaymentReminders, fetchDOBReminders, fetchEventNotifications]);
 
-    // Initialize Firebase notifications (after handleForegroundMessage is defined)
     useEffect(() => {
         const initializeNotifications = async () => {
-            // Only initialize for staff roles
-            if (!user || !userRole || isInitialized || !shouldFetchDOBReminders) return;
+            if (!shouldInitializeFirebase || isInitialized) return;
 
             try {
-                // Request notification permission and get token
                 const token = await firebaseService.initializeNotifications();
                 if (token) {
                     setFcmToken(token);
-                    // Save token to backend
                     await notificationService.registerToken(token);
                 }
 
-                // Setup foreground message listener
                 const unsubscribe = firebaseService.setupForegroundListener((payload) => {
-                    console.log('Foreground message received:', payload);
                     handleForegroundMessage(payload);
                 });
 
@@ -146,62 +136,60 @@ export const useNotifications = () => {
                 };
             } catch (error) {
                 console.error('Error initializing notifications:', error);
-                // Don't break the app if Firebase fails
             }
         };
 
         initializeNotifications();
-    }, [user, userRole, isInitialized, shouldFetchDOBReminders, handleForegroundMessage]);
+    }, [user, userRole, isInitialized, shouldInitializeFirebase, handleForegroundMessage]);
 
-    // Fetch reminders on mount and periodically
-    // Note: Don't wait for Firebase initialization - popups work independently
     useEffect(() => {
-        if (!user || (!shouldFetchPaymentReminders && !shouldFetchDOBReminders)) {
-            console.log('⏸️ No user or not authorized role, skipping notification fetch');
-            return;
-        }
+        if (!user) return;
 
-        console.log('🚀 Starting notification interval (once per day)');
-        
-        // Initial fetch immediately
-        console.log('🔄 Initial fetch...');
         if (shouldFetchPaymentReminders) {
             fetchPaymentReminders();
         }
         if (shouldFetchDOBReminders) {
             fetchDOBReminders();
         }
+        if (shouldFetchEventNotifications) {
+            fetchEventNotifications();
+        }
 
-        // Set up periodic refresh (once per day)
         const interval = setInterval(() => {
-            console.log('🔄 Periodic refresh at', new Date().toLocaleTimeString());
             if (shouldFetchPaymentReminders) {
                 fetchPaymentReminders();
             }
             if (shouldFetchDOBReminders) {
                 fetchDOBReminders();
             }
-        }, 24 * 60 * 60 * 1000); // Once per day (24 hours)
+            if (shouldFetchEventNotifications) {
+                fetchEventNotifications();
+            }
+        }, 5 * 60 * 1000);
 
-        console.log('✅ Notification interval started');
-
-        return () => {
-            console.log('🛑 Clearing notification interval');
-            clearInterval(interval);
-        };
-    }, [user, shouldFetchPaymentReminders, shouldFetchDOBReminders, fetchPaymentReminders, fetchDOBReminders]);
+        return () => clearInterval(interval);
+    }, [
+        user,
+        shouldFetchPaymentReminders,
+        shouldFetchDOBReminders,
+        shouldFetchEventNotifications,
+        fetchPaymentReminders,
+        fetchDOBReminders,
+        fetchEventNotifications,
+    ]);
 
     return {
         paymentReminders,
         dobReminders,
+        eventNotifications,
         showPaymentPopup,
         showDOBPopup,
         setShowPaymentPopup,
         setShowDOBPopup,
         fetchPaymentReminders,
         fetchDOBReminders,
+        fetchEventNotifications,
         fcmToken,
         isInitialized,
     };
 };
-

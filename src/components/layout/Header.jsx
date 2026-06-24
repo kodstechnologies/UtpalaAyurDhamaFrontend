@@ -45,18 +45,22 @@ function ResponsiveAppBar() {
   const [notificationDrawerOpen, setNotificationDrawerOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
 
-  // Get notifications from hook (for all staff roles)
-  const staffRoles = ['receptionist', 'doctor', 'nurse', 'therapist', 'pharmacist'];
+  // Get notifications from hook (all authenticated roles)
+  const staffRoles = ['admin', 'receptionist', 'doctor', 'nurse', 'therapist', 'pharmacist'];
   const userRole = role?.toLowerCase() || '';
   const isStaff = userRole && staffRoles.includes(userRole);
   const isReceptionist = userRole === 'receptionist';
-  const { paymentReminders, dobReminders } = useNotifications();
+  const showNotificationBell = Boolean(user && userRole);
+  const { paymentReminders, dobReminders, eventNotifications } = useNotifications();
 
-  // Receptionist gets both payment and DOB reminders, other staff only get DOB reminders
-  const totalNotifications = isReceptionist
-    ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0))
-    : (dobReminders?.length || 0);
-  const hasNotifications = isStaff && totalNotifications > 0;
+  const totalNotifications = (eventNotifications?.length || 0) + (
+    isReceptionist
+      ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0))
+      : isStaff
+        ? (dobReminders?.length || 0)
+        : 0
+  );
+  const hasNotifications = showNotificationBell && totalNotifications > 0;
 
   // Blinking animation state
   const [isBlinking, setIsBlinking] = React.useState(false);
@@ -315,8 +319,8 @@ function ResponsiveAppBar() {
           {/* RIGHT SIDE SECTION */}
           <Box sx={{ display: "flex", alignItems: "center", gap: "1.2rem" }}>
 
-            {/* Notification Bell Icon - For all staff roles */}
-            {isStaff && (
+            {/* Notification Bell Icon - All authenticated roles */}
+            {showNotificationBell && (
               <>
                 <Tooltip title={hasNotifications ? "You have notifications" : "No notifications"}>
                   <IconButton
@@ -359,6 +363,7 @@ function ResponsiveAppBar() {
                   onClose={() => setNotificationDrawerOpen(false)}
                   paymentReminders={paymentReminders}
                   dobReminders={dobReminders}
+                  eventNotifications={eventNotifications}
                 />
               </>
             )}

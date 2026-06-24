@@ -10,11 +10,22 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PaymentIcon from '@mui/icons-material/Payment';
 import CakeIcon from '@mui/icons-material/Cake';
+import EventIcon from '@mui/icons-material/Event';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
 
-function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders = [] }) {
+const getEventCalendarPath = (role) => {
+    const roleKey = role?.toLowerCase() || '';
+    if (roleKey === 'receptionist') return '/receptionist/swarna-bindu-events/calendar';
+    if (roleKey === 'therapist') return '/therapist/swarna-bindu-events/calendar';
+    if (roleKey === 'admin') return '/admin/swarna-bindu-events/calendar';
+    return '/admin/swarna-bindu-events/calendar';
+};
+
+function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders = [], eventNotifications = [] }) {
     const navigate = useNavigate();
+    const role = useSelector((state) => state.auth.role);
     
     // Format currency
     const formatCurrency = (amount) => {
@@ -60,6 +71,15 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
             unread: true,
             data: reminder,
         })),
+        ...eventNotifications.map((notification) => ({
+            id: `event-${notification.id}`,
+            type: 'event',
+            title: `Utpala Event: ${notification.title}`,
+            description: notification.description,
+            time: formatDate(notification.createdAt),
+            unread: true,
+            data: notification,
+        })),
     ];
     
     const totalNotifications = allNotifications.length;
@@ -68,7 +88,10 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
         if (notification.type === 'payment' && notification.data?.invoiceId) {
             navigate(`/receptionist/payments/invoice/${notification.data.invoiceId}`);
         }
-        onClose(); // Close drawer after interaction
+        if (notification.type === 'event') {
+            navigate(getEventCalendarPath(role));
+        }
+        onClose();
     };
 
     return (
@@ -112,12 +135,14 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
                             transition: "background 0.25s ease",
                             '&:hover': { bgcolor: "rgba(205,152,125,0.22)" },
                             '&:last-child': { borderBottom: 'none' },
-                            cursor: notification.type === 'payment' ? 'pointer' : 'default',
+                            cursor: notification.type === 'payment' || notification.type === 'event' ? 'pointer' : 'default',
                         }}
                     >
                         <ListItemAvatar sx={{ minWidth: 42 }}>
                             {notification.type === 'payment' ? (
                                 <PaymentIcon sx={{ color: "#f44336", fontSize: "1.5rem", mt: 0.5 }} />
+                            ) : notification.type === 'event' ? (
+                                <EventIcon sx={{ color: "#FFA500", fontSize: "1.5rem", mt: 0.5 }} />
                             ) : (
                                 <CakeIcon sx={{ color: "#ff9800", fontSize: "1.5rem", mt: 0.5 }} />
                             )}
@@ -167,6 +192,7 @@ NotificationDrawer.propTypes = {
     onClose: PropTypes.func.isRequired,
     paymentReminders: PropTypes.array,
     dobReminders: PropTypes.array,
+    eventNotifications: PropTypes.array,
 };
 
 export default NotificationDrawer;

@@ -251,8 +251,14 @@ function WalkInHub() {
         );
         setTherapiesList(sortedTherapies);
       }
-      if (subTherapiesRes.data.success)
-        setSubTherapiesList(subTherapiesRes.data.data || []);
+      if (subTherapiesRes.data.success) {
+        const sortedSubTherapies = [...(subTherapiesRes.data.data || [])].sort((a, b) =>
+          (a?.name || "").localeCompare(b?.name || "", undefined, {
+            sensitivity: "base",
+          }),
+        );
+        setSubTherapiesList(sortedSubTherapies);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load required data");
@@ -789,10 +795,25 @@ function WalkInHub() {
   const handleTherapyChange = (index, field, value) => {
     setFormData((prev) => {
       const updatedTherapies = [...prev.therapies];
-      updatedTherapies[index] = {
-        ...updatedTherapies[index],
-        [field]: value,
-      };
+
+      if (field === "treatmentName" && !isTherapyRowFilled({ treatmentName: value })) {
+        const existingRow = updatedTherapies[index];
+        if (existingRow?._id) {
+          setDeletedTherapyIds((ids) =>
+            ids.includes(existingRow._id) ? ids : [...ids, existingRow._id],
+          );
+        }
+        updatedTherapies[index] = {
+          ...getEmptyTherapy(),
+          startDate: "",
+        };
+      } else {
+        updatedTherapies[index] = {
+          ...updatedTherapies[index],
+          [field]: value,
+        };
+      }
+
       const updatedRow = updatedTherapies[index];
       setTherapyErrors((prevErrors) => {
         if (!prevErrors[index]) return prevErrors;
