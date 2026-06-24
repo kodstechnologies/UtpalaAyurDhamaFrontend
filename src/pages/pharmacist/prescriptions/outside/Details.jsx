@@ -164,9 +164,20 @@ function OutsideDispense_Details() {
     };
 
     const handleRecordPayment = async () => {
-        const paymentAmount = balanceAmount;
+        const paymentAmount = Number(paymentDetails.amount);
+
         if (balanceAmount <= 0) {
             toast.info("This bill is already fully paid");
+            return;
+        }
+
+        if (!paymentDetails.amount || !Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+            toast.error("Please enter a valid payment amount");
+            return;
+        }
+
+        if (paymentAmount > balanceAmount + 0.01) {
+            toast.error(`Payment amount cannot exceed balance due (₹${balanceAmount.toFixed(2)})`);
             return;
         }
 
@@ -203,7 +214,13 @@ function OutsideDispense_Details() {
                 toast.success("Payment recorded successfully");
                 setShowPaymentDialog(false);
                 setPaymentDetails({ amount: "", method: "Online", transactionId: "", cardDigits: "" });
-                navigate(BILL_LIST_PATH);
+
+                const remainingBalance = Math.max(0, balanceAmount - paymentAmount);
+                if (remainingBalance <= 0.01) {
+                    navigate(BILL_LIST_PATH);
+                } else {
+                    await fetchRecord();
+                }
             } else {
                 toast.error(response?.message || "Failed to record payment");
             }
@@ -273,7 +290,7 @@ function OutsideDispense_Details() {
                                     },
                                 }}
                             >
-                                Pay via UPI
+                                UPY VIA
                             </Button>
                             <Button
                                 variant="outlined"
@@ -534,14 +551,16 @@ function OutsideDispense_Details() {
                     <Box sx={{ mt: 2 }}>
                         <TextField
                             label="Payment Amount"
+                            type="number"
                             fullWidth
                             value={paymentDetails.amount}
+                            onChange={(e) => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
                             sx={{ mb: 2.5 }}
+                            inputProps={{ min: 0, step: "0.01" }}
                             InputProps={{
-                                readOnly: true,
                                 startAdornment: <Typography sx={{ mr: 1, color: "text.secondary" }}>₹</Typography>,
                             }}
-                            helperText="Full balance due — amount cannot be edited"
+                            helperText={`Enter full or partial payment (balance due: ₹${balanceAmount.toFixed(2)})`}
                         />
 
                         <FormControl fullWidth sx={{ mb: 2.5 }}>

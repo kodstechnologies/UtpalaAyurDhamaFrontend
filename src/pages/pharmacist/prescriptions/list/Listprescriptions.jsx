@@ -65,6 +65,9 @@ import medicineService from "../../../../services/medicineService";
 import { getApiUrl, getAuthHeaders } from "../../../../config/api";
 import { handlePrint } from "../components/PrescriptionGenerator";
 import { handleDownload } from "../components/PrescriptionDownload";
+import { displayField, shouldShowInvoiceNo } from "../components/outsideDispensePdfUtils";
+
+const LIST_PATH = "/pharmacist/prescriptions/list";
 
 /** Matches PharmaciesPrescription enum; used as pharmacy-payment body.paymentStatus. */
 function derivePaymentStatusForPayload(totalAmountWithGst, padeamountAfterPayment) {
@@ -97,6 +100,7 @@ function ListPrescriptions() {
     const [patient, setPatient] = useState(null);
     const [examination, setExamination] = useState(null);
     const [invoiceId, setInvoiceId] = useState(null);
+    const [invoiceNo, setInvoiceNo] = useState("");
     const [padeamount, setPadeamount] = useState(0);
     const [paymentStatus, setPaymentStatus] = useState("Unpaid");
 
@@ -165,6 +169,7 @@ function ListPrescriptions() {
                         Array.isArray(prescData.dispenseLines) && prescData.dispenseLines.length > 0
                     );
                     setInvoiceId(prescData.invoiceId || null);
+                    setInvoiceNo(prescData.invoiceNo || "");
                     setPadeamount(prescData.padeamount || 0);
                     setPaymentStatus(prescData.paymentStatus || "Unpaid");
 
@@ -429,7 +434,20 @@ function ListPrescriptions() {
         totalPaid: paidAmount,
         balanceDue,
         paymentStatus,
+        admissionStatus: patient?.admissionStatus || "",
+        patientCategory:
+            patient?.admissionStatus === "In-patient"
+                ? "Inpatient"
+                : patient?.admissionStatus === "Out-patient"
+                    ? "Outpatient"
+                    : "",
+        invoiceNo,
     };
+
+    const showInvoiceNo = shouldShowInvoiceNo({
+        patientCategory: billingSnapshot.patientCategory,
+        admissionStatus: patient?.admissionStatus || "",
+    });
 
     const breadcrumbItems = [
         { label: "Home", url: "/" },
@@ -633,6 +651,7 @@ function ListPrescriptions() {
                     Array.isArray(prescData.dispenseLines) && prescData.dispenseLines.length > 0
                 );
                 setInvoiceId(prescData.invoiceId || null);
+                setInvoiceNo(prescData.invoiceNo || "");
                 setPadeamount(prescData.padeamount || 0);
                 setPaymentStatus(prescData.paymentStatus || "Unpaid");
 
@@ -730,21 +749,40 @@ function ListPrescriptions() {
             <Box sx={{ mb: 4 }}>
                 <HeadingCard
                     title={
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
                             <LocalPharmacy sx={{ color: theme.palette.primary.main }} />
-                            <span>Listprescription Prescription</span>
+                            <span>Prescription</span>
                             <Chip
                                 label={status === "Dispensed" ? "Dispensed" : "Pending"}
                                 color={status === "Dispensed" ? "success" : "warning"}
                                 size="small"
                                 icon={status === "Dispensed" ? <CheckCircle /> : <Pending />}
-                                sx={{ ml: 1 }}
                             />
                         </Box>
                     }
-                    subtitle="View and manage all patient prescriptions with accurate medication details."
+                    subtitle="View and manage patient prescription and dispense details."
                     action={
-                        <Stack direction="row" spacing={1}>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Button
+                                variant="contained"
+                                startIcon={<Payments />}
+                                onClick={() => {
+                                    setPaymentDetails((prev) => ({
+                                        ...prev,
+                                        amount: balanceDue > 0 ? balanceDue.toFixed(2) : "",
+                                    }));
+                                    setShowPaymentDialog(true);
+                                }}
+                                disabled={balanceDue <= 0}
+                                sx={{
+                                    backgroundColor: theme.palette.primary.main,
+                                    "&:hover": {
+                                        backgroundColor: theme.palette.primary.dark,
+                                    },
+                                }}
+                            >
+                                UPY VIA
+                            </Button>
                             <Button
                                 variant="outlined"
                                 startIcon={<Print />}
@@ -764,21 +802,16 @@ function ListPrescriptions() {
                             {status !== "Dispensed" && !isBillSession && (
                                 <Button
                                     type="button"
-                                    variant="contained"
+                                    variant="outlined"
                                     startIcon={isDispensing ? <CircularProgress size={16} color="inherit" /> : <CheckCircle />}
-                                    onClick={(e) => {
-                                        console.log("Header button clicked");
-                                        handleDispense(e);
-                                    }}
-                                    // disabled={isDispensing || status === "Dispensed"}
+                                    onClick={(e) => handleDispense(e)}
                                     disabled={isDispensing || allDispensed}
                                     sx={{
-                                        backgroundColor: theme.palette.success.main,
+                                        borderColor: theme.palette.success.main,
+                                        color: theme.palette.success.main,
                                         "&:hover": {
-                                            backgroundColor: theme.palette.success.dark,
-                                        },
-                                        "&:disabled": {
-                                            backgroundColor: alpha(theme.palette.success.main, 0.5),
+                                            borderColor: theme.palette.success.dark,
+                                            backgroundColor: alpha(theme.palette.success.main, 0.08),
                                         },
                                     }}
                                 >
@@ -786,34 +819,15 @@ function ListPrescriptions() {
                                 </Button>
                             )}
                             <Button
-                                variant="contained"
-                                startIcon={<Payments />}
-                                onClick={() => {
-                                    setPaymentDetails(prev => ({
-                                        ...prev,
-                                        amount: balanceDue > 0 ? balanceDue.toFixed(2) : "",
-                                    }));
-                                    setShowPaymentDialog(true);
-                                }}
-                                disabled={balanceDue <= 0}
-
-                                sx={{
-                                    backgroundColor: theme.palette.primary.main,
-                                    "&:hover": {
-                                        backgroundColor: theme.palette.primary.dark,
-                                    },
-                                }}
+                                variant="outlined"
+                                startIcon={<ArrowBack />}
+                                onClick={() => navigate(LIST_PATH)}
+                                sx={{ borderColor: alpha(theme.palette.divider, 0.5) }}
                             >
-                                Pay via UPI
+                                Back to List
                             </Button>
                         </Stack>
-
                     }
-                    sx={{
-                        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 100%)`,
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        borderRadius: 2,
-                    }}
                 />
             </Box>
 
@@ -837,14 +851,36 @@ function ListPrescriptions() {
                                     <DetailCard label="Full Name" value={patientName} icon={<Person fontSize="small" />} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DetailCard label="UHID" value={patient?.user?.uhid || "N/A"} />
+                                    <DetailCard label="UHID" value={displayField(patient?.user?.uhid)} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DetailCard label="Consulting Doctor" value={doctorName} />
+                                    <DetailCard label="Consulting Doctor" value={displayField(doctorName)} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DetailCard label="Prescription Date" value={formatDate(prescriptionDate)} icon={<CalendarToday fontSize="small" />} />
+                                    <DetailCard
+                                        label="Prescription Date"
+                                        value={formatDate(prescriptionDate)}
+                                        icon={<CalendarToday fontSize="small" />}
+                                    />
                                 </Grid>
+                                {showInvoiceNo && (
+                                    <Grid item xs={12} sm={6} md={4}>
+                                        <DetailCard label="Invoice No." value={displayField(invoiceNo)} />
+                                    </Grid>
+                                )}
+                                {(isBillSession || allDispensed) && (
+                                    <>
+                                        <Grid item xs={12} sm={6} md={4}>
+                                            <DetailCard label="Payment Status" value={displayField(paymentStatus)} />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6} md={4}>
+                                            <DetailCard label="Paid Amount" value={`₹${paidAmount.toFixed(2)}`} />
+                                        </Grid>
+                                        <Grid item xs={12} sm={6} md={4}>
+                                            <DetailCard label="Balance Amount" value={`₹${balanceDue.toFixed(2)}`} />
+                                        </Grid>
+                                    </>
+                                )}
                                 <Grid item xs={12}>
                                     <Box
                                         sx={{
@@ -867,7 +903,7 @@ function ListPrescriptions() {
                                                 maxWidth: "100%",
                                             }}
                                         >
-                                            {diagnosis || "N/A"}
+                                            {displayField(diagnosis)}
                                         </Typography>
                                     </Box>
                                 </Grid>
@@ -888,7 +924,7 @@ function ListPrescriptions() {
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
                                 <Typography variant="h6" fontWeight={600} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                     <Medication fontSize="small" />
-                                    Prescribed Medicines
+                                    {isBillSession ? "Dispensed Medicines" : "Prescribed Medicines"}
                                 </Typography>
                                 <Stack direction="row" spacing={1} alignItems="center">
                                     <Chip
@@ -922,6 +958,7 @@ function ListPrescriptions() {
                                 >
                                     <TableHead>
                                         <TableRow>
+                                            {!isBillSession && (
                                             <TableCell sx={{ minWidth: 50 }} padding="checkbox">
                                                 <Checkbox
                                                     disabled={isBillSession}
@@ -955,6 +992,7 @@ function ListPrescriptions() {
                                                     }}
                                                 />
                                             </TableCell>
+                                            )}
                                             <TableCell sx={{ minWidth: 250 }}>Medicine</TableCell>
                                             <TableCell sx={{ minWidth: 100 }}>Dosage</TableCell>
                                             <TableCell sx={{ minWidth: 120 }}>Frequency</TableCell>
@@ -983,15 +1021,19 @@ function ListPrescriptions() {
                                             return (
                                                 <TableRow
                                                     key={presc._id || idx}
+                                                    hover={isBillSession}
                                                     sx={{
                                                         "&:last-child td": { borderBottom: 0 },
-                                                        backgroundColor: isSelected ? alpha(theme.palette.primary.main, 0.05) : "transparent",
-                                                        opacity: isFullyDispensed ? 0.6 : 1,
-                                                        "& td": {
-                                                            color: isFullyDispensed ? "text.disabled" : "text.primary",
-                                                        },
+                                                        ...(!isBillSession && {
+                                                            backgroundColor: isSelected ? alpha(theme.palette.primary.main, 0.05) : "transparent",
+                                                            opacity: isFullyDispensed ? 0.6 : 1,
+                                                            "& td": {
+                                                                color: isFullyDispensed ? "text.disabled" : "text.primary",
+                                                            },
+                                                        }),
                                                     }}
                                                 >
+                                                    {!isBillSession && (
                                                     <TableCell padding="checkbox">
                                                         <Checkbox
                                                             checked={isSelected}
@@ -1000,6 +1042,7 @@ function ListPrescriptions() {
                                                             title={!isMedicineAvailable(presc.medication) ? "This medicine is not available in the collection" : ""}
                                                         />
                                                     </TableCell>
+                                                    )}
 
                                                     <TableCell>
                                                         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexDirection: "column" }}>
@@ -1732,7 +1775,7 @@ const DetailCard = ({ label, value, icon, sx = {}, fullWidth = false }) => (
                 maxWidth: "100%",
             }}
         >
-            {value || "N/A"}
+            {displayField(value) || ""}
         </Typography>
     </Box>
 );

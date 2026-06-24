@@ -76,33 +76,35 @@ function OutsideDispense_View() {
             filteredRows.map((record, index) => ({
                 _id: record._id,
                 slNo: index + 1,
-                name: record.name || "N/A",
-                phone: record.phone || "N/A",
-                email: record.email || "N/A",
-                age: record.age ?? "N/A",
-                disease: record.disease || "N/A",
+                name: record.name || "",
+                phone: record.phone || "",
+                email: record.email || "",
+                age: record.age != null && String(record.age).trim() !== "" ? record.age : "",
+                disease: record.disease || "",
                 totalAmount: record.totalAmountWithGst ?? record.totalAmount ?? 0,
                 paymentStatus: derivePaymentStatus(record),
                 dispensedOn: record.createdAt
                     ? new Date(record.createdAt).toLocaleDateString()
-                    : "N/A",
+                    : "",
                 raw: record,
             })),
         [filteredRows]
     );
 
+    const displayCell = (value) => (value == null || value === "" ? "" : value);
+
     const columns = [
-        { field: "name", header: "Name" },
-        { field: "phone", header: "Phone" },
-        { field: "email", header: "Email" },
-        { field: "age", header: "Age" },
-        { field: "disease", header: "Disease" },
+        { field: "name", header: "Name", render: (row) => displayCell(row.name) },
+        { field: "phone", header: "Phone", render: (row) => displayCell(row.phone) },
+        { field: "email", header: "Email", render: (row) => displayCell(row.email) },
+        { field: "age", header: "Age", render: (row) => displayCell(row.age) },
+        { field: "disease", header: "Disease", render: (row) => displayCell(row.disease) },
         {
             field: "totalAmount",
             header: "Total Amount",
             render: (row) => `₹${Number(row.totalAmount || 0).toFixed(2)}`,
         },
-        { field: "dispensedOn", header: "Dispensed On" },
+        { field: "dispensedOn", header: "Dispensed On", render: (row) => displayCell(row.dispensedOn) },
     ];
 
     const handleDeleteClick = useCallback((row) => {

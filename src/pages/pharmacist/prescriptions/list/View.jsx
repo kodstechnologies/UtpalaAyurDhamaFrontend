@@ -43,6 +43,7 @@ function List_View_Details() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
     const [paymentFilter, setPaymentFilter] = useState("All");
+    const [patientTypeFilter, setPatientTypeFilter] = useState("All");
 
     // Payment Dialog State
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -79,6 +80,15 @@ function List_View_Details() {
         fetchPrescriptions();
     }, [fetchPrescriptions]);
 
+    const getPatientCategory = (item) => {
+        if (item.recordType === "outside") return "Outsider";
+        const admissionStatus = item.patient?.admissionStatus;
+        if (admissionStatus === "In-patient" || item.patient?.inpatient === true) {
+            return "Inpatient";
+        }
+        return "Outpatient";
+    };
+
     // Group prescriptions by examination (patient + examination combination)
     const groupedPrescriptions = useMemo(() => {
         return prescriptions.map((item) => {
@@ -101,9 +111,10 @@ function List_View_Details() {
             return {
                 _id: item._id,
                 recordType: item.recordType || "pharmacy",
+                patientCategory: getPatientCategory(item),
                 patientProfileId: item.patient?._id,
                 patientId: isOutside
-                    ? (item.outsideCustomer?.phone || "Outside")
+                    ? ""
                     : (item.patient?.patientId || "N/A"),
                 name: isOutside
                     ? (item.outsideCustomer?.name || "Walk-in Customer")
@@ -135,6 +146,14 @@ function List_View_Details() {
             rows = rows.filter((r) => r.paymentStatus !== "Paid");
         }
 
+        if (patientTypeFilter === "Outpatient") {
+            rows = rows.filter((r) => r.patientCategory === "Outpatient");
+        } else if (patientTypeFilter === "Inpatient") {
+            rows = rows.filter((r) => r.patientCategory === "Inpatient");
+        } else if (patientTypeFilter === "Outsider") {
+            rows = rows.filter((r) => r.patientCategory === "Outsider");
+        }
+
         if (!searchText) return rows;
 
         const q = searchText.toLowerCase();
@@ -146,7 +165,7 @@ function List_View_Details() {
                 (r.email || "").toLowerCase().includes(q) ||
                 (r.phone || "").toLowerCase().includes(q)
         );
-    }, [searchText, paymentFilter, groupedPrescriptions]);
+    }, [searchText, paymentFilter, patientTypeFilter, groupedPrescriptions]);
 
     const handleOpenPayment = (row) => {
         setSelectedRecord(row);
@@ -236,7 +255,11 @@ function List_View_Details() {
             ),
         },
         { field: "uhid", header: "UHID" },
-        { field: "patientId", header: "Patient ID" },
+        {
+            field: "patientId",
+            header: "Patient ID",
+            render: (row) => row.patientId || "",
+        },
       
         {
             field: "paymentStatus",
@@ -311,6 +334,20 @@ function List_View_Details() {
                         />
                     </Box>
                     <FormControl size="small" sx={{ minWidth: 160 }}>
+                        <InputLabel id="patient-type-filter-label">Patient Type</InputLabel>
+                        <Select
+                            labelId="patient-type-filter-label"
+                            value={patientTypeFilter}
+                            label="Patient Type"
+                            onChange={(e) => setPatientTypeFilter(e.target.value)}
+                        >
+                            <MenuItem value="All">All</MenuItem>
+                            <MenuItem value="Outpatient">Outpatient</MenuItem>
+                            <MenuItem value="Inpatient">Inpatient</MenuItem>
+                            <MenuItem value="Outsider">Outsider</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <FormControl size="small" sx={{ minWidth: 160 }}>
                         <InputLabel id="payment-filter-label">Payment Status</InputLabel>
                         <Select
                             labelId="payment-filter-label"
@@ -368,7 +405,10 @@ function List_View_Details() {
                             <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.05), border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}` }}>
                                 <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>Patient Details</Typography>
                                 <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.5 }}>{selectedRecord.name}</Typography>
-                                <Typography variant="body2" color="text.secondary">UHID: {selectedRecord.uhid} | ID: {selectedRecord.patientId}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    UHID: {selectedRecord.uhid}
+                                    {selectedRecord.patientId ? ` | ID: ${selectedRecord.patientId}` : ""}
+                                </Typography>
                             </Box>
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.error.main, 0.05), border: `1px solid ${alpha(theme.palette.error.main, 0.1)}` }}>

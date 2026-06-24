@@ -38,7 +38,7 @@ export const handleOutsideDownload = async (record) => {
     }
 
     try {
-        const { customer, invoice, generatedBy, grandTotalStr, amountInWords, medicinesRows } =
+        const { customer, invoice, generatedBy, amountInWords, medicinesRows, paymentSummaryHtmlPdf, invoiceNoRowHtmlPdf } =
             buildOutsideDispensePdfData(record);
 
         const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:15px 15px 0;">${getHeader()}</div>`;
@@ -64,7 +64,7 @@ export const handleOutsideDownload = async (record) => {
               OUTSIDE DISPENSE
             </div>
             <table style="width:100%;">
-              <tr><td style="font-weight:bold; width:70px;">No</td><td style="width:10px;">:</td><td>${escapeHtml(invoice.no)}</td></tr>
+              ${invoiceNoRowHtmlPdf}
               <tr><td style="font-weight:bold;">Date / Time</td><td>:</td><td style="white-space:nowrap;">${invoice.date} @ ${invoice.time}</td></tr>
               <tr><td style="font-weight:bold;">Dispensed By</td><td>:</td><td>${escapeHtml(invoice.dispensedBy)}</td></tr>
             </table>
@@ -96,9 +96,7 @@ export const handleOutsideDownload = async (record) => {
             <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
           </div>
           <div style="width:45%; font-size:12px;">
-            <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">
-              <span>TOTAL PAYABLE:</span><span>₹${grandTotalStr}</span>
-            </div>
+            ${paymentSummaryHtmlPdf}
           </div>
         </div>
       </div>

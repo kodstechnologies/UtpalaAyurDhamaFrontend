@@ -9,7 +9,7 @@ export const handleOutsidePrint = (record) => {
     }
 
     try {
-        const { customer, invoice, generatedBy, grandTotalStr, amountInWords, medicinesRowsPrint } =
+        const { customer, invoice, generatedBy, amountInWords, medicinesRowsPrint, paymentSummaryHtml, invoiceNoRowHtml } =
             buildOutsideDispensePdfData(record);
 
         const html = `
@@ -118,7 +118,7 @@ export const handleOutsidePrint = (record) => {
                   <div class="receipt-box">
                     <div class="receipt-title">OUTSIDE DISPENSE</div>
                     <table class="info-table" style="margin-top:8px;">
-                      <tr><td class="label">Invoice No.</td><td>:</td><td>${escapeHtml(String(invoice.no))}</td></tr>
+                      ${invoiceNoRowHtml}
                       <tr><td class="label">Date / Time</td><td>:</td><td style="white-space:nowrap;">${invoice.date} @ ${invoice.time}</td></tr>
                       <tr><td class="label">Dispensed By</td><td>:</td><td>${escapeHtml(invoice.dispensedBy)}</td></tr>
                     </table>
@@ -150,9 +150,7 @@ export const handleOutsidePrint = (record) => {
                     <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
                   </div>
                   <div style="width:45%; font-size:12px;">
-                    <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">
-                      <span>TOTAL PAYABLE:</span><span>₹${grandTotalStr}</span>
-                    </div>
+                    ${paymentSummaryHtml}
                   </div>
                 </div>
               </div>

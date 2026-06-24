@@ -128,6 +128,21 @@ function SectionHeader({ icon, title, subtitle, action }) {
     );
 }
 
+const sanitizePhoneInput = (value) => String(value || "").replace(/\D/g, "").slice(0, 10);
+
+const validatePhoneFields = (phone, alternativePhone) => {
+    const phoneDigits = sanitizePhoneInput(phone);
+    const altDigits = sanitizePhoneInput(alternativePhone);
+
+    if (phoneDigits && phoneDigits.length !== 10) {
+        return "Phone number must be exactly 10 digits.";
+    }
+    if (altDigits && altDigits.length !== 10) {
+        return "Alternative number must be exactly 10 digits.";
+    }
+    return null;
+};
+
 function OutsideDispense_Add() {
     const navigate = useNavigate();
     const theme = useTheme();
@@ -165,7 +180,11 @@ function OutsideDispense_Add() {
     }, [fetchMedicines]);
 
     const handleFormChange = (field, value) => {
-        setForm((prev) => ({ ...prev, [field]: value }));
+        const nextValue =
+            field === "phone" || field === "alternativePhone"
+                ? sanitizePhoneInput(value)
+                : value;
+        setForm((prev) => ({ ...prev, [field]: nextValue }));
     };
 
     const handleMedicineChange = (index, field, value) => {
@@ -267,6 +286,12 @@ function OutsideDispense_Add() {
 
         if (validMedicines.length === 0) {
             toast.error("Please add at least one medicine with dispense quantity.");
+            return;
+        }
+
+        const phoneError = validatePhoneFields(form.phone, form.alternativePhone);
+        if (phoneError) {
+            toast.error(phoneError);
             return;
         }
 
@@ -405,7 +430,8 @@ function OutsideDispense_Add() {
                                     label="Phone"
                                     value={form.phone}
                                     onChange={(e) => handleFormChange("phone", e.target.value)}
-                                    placeholder="Primary contact"
+                                    placeholder="10-digit number"
+                                    inputProps={{ maxLength: 10, inputMode: "numeric" }}
                                     InputProps={{
                                         startAdornment: (
                                             <PhoneOutlinedIcon sx={{ mr: 1, color: "text.secondary", fontSize: 20 }} />
@@ -419,7 +445,8 @@ function OutsideDispense_Add() {
                                     label="Alternative No."
                                     value={form.alternativePhone}
                                     onChange={(e) => handleFormChange("alternativePhone", e.target.value)}
-                                    placeholder="Secondary contact"
+                                    placeholder="10-digit number"
+                                    inputProps={{ maxLength: 10, inputMode: "numeric" }}
                                     InputProps={{
                                         startAdornment: (
                                             <PhoneOutlinedIcon sx={{ mr: 1, color: "text.secondary", fontSize: 20 }} />

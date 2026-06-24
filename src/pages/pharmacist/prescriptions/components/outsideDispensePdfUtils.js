@@ -42,6 +42,29 @@ export const escapeHtml = (text) => {
     return div.innerHTML;
 };
 
+export const shouldShowInvoiceNo = ({ patientCategory, admissionStatus, recordType } = {}) => {
+    if (recordType === "outside" || patientCategory === "Outsider") return false;
+    if (
+        patientCategory === "Outpatient" ||
+        patientCategory === "Inpatient" ||
+        admissionStatus === "Out-patient" ||
+        admissionStatus === "In-patient"
+    ) {
+        return true;
+    }
+    return false;
+};
+
+export const buildInvoiceNoRowHtml = (invoiceNo, showInvoiceNo, variant = "print") => {
+    if (!showInvoiceNo || !invoiceNo) return "";
+
+    if (variant === "pdf") {
+        return `<tr><td style="font-weight:bold; width:70px;">No</td><td style="width:10px;">:</td><td>${escapeHtml(invoiceNo)}</td></tr>`;
+    }
+
+    return `<tr><td class="label">Invoice No.</td><td>:</td><td>${escapeHtml(String(invoiceNo))}</td></tr>`;
+};
+
 /** Show blank instead of N/A or missing values in UI and PDF output. */
 export const displayField = (value) => {
     if (value === null || value === undefined) return "";
@@ -88,9 +111,58 @@ export const buildOutsideDispensePdfData = (record) => {
         };
     });
 
-    const grandTotal = Number(record?.totalAmount) || items.reduce((sum, m) => sum + m.total, 0);
-    const grandTotalStr = grandTotal.toFixed(2);
-    const amountInWords = `Rupees ${numberToWords(grandTotal)} Only`;
+    const subtotal = Number(record?.totalAmount) || items.reduce((sum, m) => sum + m.total, 0);
+    const gstRate = Number(record?.gst || 0);
+    const gstAmount = Number(record?.gstAmount ?? (subtotal * gstRate) / 100);
+    const totalAmount = Number(record?.totalAmountWithGst ?? subtotal + gstAmount);
+    const paidAmount = Number(record?.paidAmount || 0);
+    const balanceDue = Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100);
+
+    const formatMoney = (value) => Number(value || 0).toFixed(2);
+    const grandTotal = totalAmount;
+    const grandTotalStr = formatMoney(grandTotal);
+    const amountInWords = `Rupees ${numberToWords(Math.round(grandTotal))} Only`;
+
+    const paymentSummaryRows = [
+        { label: "Subtotal", value: `₹${formatMoney(subtotal)}` },
+        { label: `GST (${gstRate}%)`, value: `₹${formatMoney(gstAmount)}` },
+        { label: "Total Amount", value: `₹${formatMoney(totalAmount)}`, bold: true },
+        { label: "Paid Amount", value: `₹${formatMoney(paidAmount)}`, color: "#2e7d32" },
+    ];
+
+    if (balanceDue > 0) {
+        paymentSummaryRows.push({
+            label: "Balance Due",
+            value: `₹${formatMoney(balanceDue)}`,
+            bold: true,
+            color: "#c62828",
+        });
+    }
+
+    const buildPaymentSummaryHtml = (variant = "print") => {
+        const fontSize = variant === "pdf" ? "12px" : "12px";
+        const rowStyle = `display:flex; justify-content:space-between; padding:4px 0; font-size:${fontSize};`;
+        const borderTop = "border-top:1px solid #ddd; margin-top:4px; padding-top:8px;";
+
+        return paymentSummaryRows
+            .map((row, index) => {
+                const style = [
+                    rowStyle,
+                    row.bold ? "font-weight:bold;" : "",
+                    row.color ? `color:${row.color};` : "",
+                    index === 2 ? borderTop : "",
+                ].join(" ");
+
+                return `<div style="${style}"><span>${row.label}</span><span>${row.value}</span></div>`;
+            })
+            .join("");
+    };
+
+    const paymentSummaryHtml = buildPaymentSummaryHtml("print");
+    const paymentSummaryHtmlPdf = buildPaymentSummaryHtml("pdf");
+    const showInvoiceNo = false;
+    const invoiceNoRowHtml = buildInvoiceNoRowHtml(invoiceNo, showInvoiceNo, "print");
+    const invoiceNoRowHtmlPdf = buildInvoiceNoRowHtml(invoiceNo, showInvoiceNo, "pdf");
 
     const medicinesRows = items
         .map((m, i) => {
@@ -134,6 +206,17 @@ export const buildOutsideDispensePdfData = (record) => {
         grandTotal,
         grandTotalStr,
         amountInWords,
+        subtotal,
+        gstRate,
+        gstAmount,
+        totalAmount,
+        paidAmount,
+        balanceDue,
+        paymentSummaryHtml,
+        paymentSummaryHtmlPdf,
+        showInvoiceNo,
+        invoiceNoRowHtml,
+        invoiceNoRowHtmlPdf,
         medicinesRows,
         medicinesRowsPrint,
     };

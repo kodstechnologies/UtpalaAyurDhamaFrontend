@@ -85,6 +85,21 @@ const derivePaymentStatus = (record) => {
     return paidAmount >= totalAmount && totalAmount > 0 ? "Paid" : "Unpaid";
 };
 
+const sanitizePhoneInput = (value) => String(value || "").replace(/\D/g, "").slice(0, 10);
+
+const validatePhoneFields = (phone, alternativePhone) => {
+    const phoneDigits = sanitizePhoneInput(phone);
+    const altDigits = sanitizePhoneInput(alternativePhone);
+
+    if (phoneDigits && phoneDigits.length !== 10) {
+        return "Phone number must be exactly 10 digits.";
+    }
+    if (altDigits && altDigits.length !== 10) {
+        return "Alternative number must be exactly 10 digits.";
+    }
+    return null;
+};
+
 function OutsideDispense_Edit() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -136,8 +151,8 @@ function OutsideDispense_Edit() {
             setForm({
                 name: record.name || "",
                 email: record.email || "",
-                phone: record.phone || "",
-                alternativePhone: record.alternativePhone || "",
+                phone: sanitizePhoneInput(record.phone),
+                alternativePhone: sanitizePhoneInput(record.alternativePhone),
                 address: record.address || "",
                 age: record.age ?? "",
                 disease: record.disease || "",
@@ -171,7 +186,11 @@ function OutsideDispense_Edit() {
     }, [id, loadData]);
 
     const handleFormChange = (field, value) => {
-        setForm((prev) => ({ ...prev, [field]: value }));
+        const nextValue =
+            field === "phone" || field === "alternativePhone"
+                ? sanitizePhoneInput(value)
+                : value;
+        setForm((prev) => ({ ...prev, [field]: nextValue }));
     };
 
     const handleMedicineChange = (index, field, value) => {
@@ -278,6 +297,12 @@ function OutsideDispense_Edit() {
             return;
         }
 
+        const phoneError = validatePhoneFields(form.phone, form.alternativePhone);
+        if (phoneError) {
+            toast.error(phoneError);
+            return;
+        }
+
         const overStockLine = form.medicines.find((line) => getStockInfo(line)?.isOverStock);
         if (overStockLine) {
             const stock = getStockInfo(overStockLine);
@@ -377,7 +402,14 @@ function OutsideDispense_Edit() {
                         <TextField fullWidth label="Name" value={form.name} onChange={(e) => handleFormChange("name", e.target.value)} />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                        <TextField fullWidth label="Phone" value={form.phone} onChange={(e) => handleFormChange("phone", e.target.value)} />
+                        <TextField
+                            fullWidth
+                            label="Phone"
+                            value={form.phone}
+                            onChange={(e) => handleFormChange("phone", e.target.value)}
+                            placeholder="10-digit number"
+                            inputProps={{ maxLength: 10, inputMode: "numeric" }}
+                        />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <TextField
@@ -385,6 +417,8 @@ function OutsideDispense_Edit() {
                             label="Alternative No."
                             value={form.alternativePhone}
                             onChange={(e) => handleFormChange("alternativePhone", e.target.value)}
+                            placeholder="10-digit number"
+                            inputProps={{ maxLength: 10, inputMode: "numeric" }}
                         />
                     </Grid>
                     <Grid item xs={12} sm={6}>
