@@ -6,6 +6,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import EventIcon from "@mui/icons-material/Event";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -183,7 +184,6 @@ function IPDPrescriptions_View() {
             color: "var(--color-primary)",
             tooltip: "View Details",
             onClick: (row) => {
-                // Navigate to prescription details page
                 if (row.prescriptions && row.prescriptions.length > 0) {
                     navigate(`/doctor/ipd-prescriptions/${row.prescriptions[0]._id}`);
                 } else {
@@ -196,11 +196,50 @@ function IPDPrescriptions_View() {
             color: "var(--color-warning)",
             tooltip: "Edit Prescription",
             onClick: (row) => {
-                // Navigate to edit page for the first prescription
                 if (row.prescriptions && row.prescriptions.length > 0) {
                     navigate(`/doctor/ipd-prescriptions/edit/${row.prescriptions[0]._id}`);
                 } else {
                     toast.info("No prescriptions found for this patient");
+                }
+            },
+        },
+        {
+            icon: <DeleteIcon fontSize="small" />,
+            color: "var(--color-error)",
+            tooltip: "Delete Prescription",
+            onClick: async (row) => {
+                if (!row.prescriptions || row.prescriptions.length === 0) {
+                    toast.info("No prescriptions found for this patient");
+                    return;
+                }
+
+                const prescriptionCount = row.prescriptions.length;
+                const confirmMessage = prescriptionCount > 1
+                    ? `Delete all ${prescriptionCount} prescriptions for ${row.patientName}? This cannot be undone.`
+                    : `Delete this prescription for ${row.patientName}? This cannot be undone.`;
+
+                const confirmed = window.confirm(confirmMessage);
+                if (!confirmed) return;
+
+                try {
+                    await Promise.all(
+                        row.prescriptions.map((prescription) =>
+                            axios.delete(
+                                getApiUrl(`examinations/prescriptions/${prescription._id}`),
+                                { headers: getAuthHeaders() }
+                            )
+                        )
+                    );
+
+                    toast.success(
+                        prescriptionCount > 1
+                            ? `${prescriptionCount} prescriptions deleted successfully`
+                            : "Prescription deleted successfully"
+                    );
+                    fetchPrescriptions();
+                } catch (error) {
+                    console.error("Error deleting prescription(s):", error);
+                    toast.error(error.response?.data?.message || "Failed to delete prescription");
                 }
             },
         },

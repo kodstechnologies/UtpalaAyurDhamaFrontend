@@ -680,9 +680,20 @@ function ListPrescriptions() {
     };
 
     const handleRecordPayment = async () => {
-        const paymentAmount = balanceDue;
+        const paymentAmount = Number(paymentDetails.amount);
+
         if (balanceDue <= 0) {
             toast.info("This bill is already fully paid");
+            return;
+        }
+
+        if (!paymentDetails.amount || !Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+            toast.error("Please enter a valid payment amount");
+            return;
+        }
+
+        if (paymentAmount > balanceDue + 0.01) {
+            toast.error(`Payment amount cannot exceed balance due (₹${balanceDue.toFixed(2)})`);
             return;
         }
 
@@ -701,10 +712,11 @@ function ListPrescriptions() {
         }
 
         setIsSubmittingPayment(true);
+        const newPaidTotal = paidAmount + paymentAmount;
         const payload = {
             paymentAmount,
             paymentMethod: paymentDetails.method,
-            paymentStatus: derivePaymentStatusForPayload(totalAmount, paidAmount + paymentAmount),
+            paymentStatus: derivePaymentStatusForPayload(totalAmount, newPaidTotal),
         };
 
         if (paymentDetails.method !== "Cash") {
@@ -727,7 +739,26 @@ function ListPrescriptions() {
                 toast.success("Payment recorded successfully");
                 setShowPaymentDialog(false);
                 setPaymentDetails({ amount: "", method: "Cash", transactionId: "", cardDigits: "" });
-                navigate("/pharmacist/prescriptions/list");
+
+                const remainingBalance = Math.max(0, balanceDue - paymentAmount);
+                if (remainingBalance <= 0.01) {
+                    navigate("/pharmacist/prescriptions/list");
+                } else {
+                    const refreshResponse = await prescriptionService.getPrescriptionsByExaminationList(id);
+                    if (refreshResponse?.success && refreshResponse.data) {
+                        const prescData = refreshResponse.data;
+                        setPadeamount(prescData.padeamount || 0);
+                        setPaymentStatus(prescData.paymentStatus || "Partially Paid");
+                        setPaymentHistory(prescData.payments || []);
+                        setBillingSummary((prev) => ({
+                            ...prev,
+                            subtotal: prescData.subtotal || prev.subtotal,
+                            gst: prescData.gst || prev.gst,
+                            gstAmount: prescData.gstAmount || prev.gstAmount,
+                            total: prescData.total || prev.total,
+                        }));
+                    }
+                }
             } else {
                 toast.error(response.data?.message || "Failed to record payment");
             }
@@ -1651,14 +1682,16 @@ function ListPrescriptions() {
                     <Box sx={{ mt: 2 }}>
                         <TextField
                             label="Payment Amount"
+                            type="number"
                             fullWidth
                             value={paymentDetails.amount}
+                            onChange={(e) => setPaymentDetails({ ...paymentDetails, amount: e.target.value })}
                             sx={{ mb: 2.5 }}
+                            inputProps={{ min: 0, step: "0.01" }}
                             InputProps={{
-                                readOnly: true,
                                 startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>₹</Typography>,
                             }}
-                            helperText="Full balance due — amount cannot be edited"
+                            helperText={`Enter full or partial payment (balance due: ₹${balanceDue.toFixed(2)})`}
                         />
 
                         <FormControl fullWidth sx={{ mb: 2.5 }}>
@@ -1731,7 +1764,7 @@ function ListPrescriptions() {
                     <Button
                         variant="contained"
                         onClick={handleRecordPayment}
-                        disabled={isSubmittingPayment}
+                        disabled={isSubmittingPayment || !paymentDetails.amount}
                         sx={{
                             px: 4,
                             fontWeight: 700,

@@ -147,6 +147,18 @@ const prescriptionService = {
       throw error.response?.data || error.message;
     }
   },
+
+  getPharmacyBillsByUserId: async (userId) => {
+    try {
+      const response = await axios.get(
+        getApiUrl(`examinations/prescriptions/pharmacy-bills/by-user/${userId}`),
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
 };
 
 export default prescriptionService;

@@ -835,7 +835,6 @@ function FollowUps_View() {
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [followUpDetail, setFollowUpDetail] = useState(null);
-    const [editNote, setEditNote] = useState("");
     const [editProgressNote, setEditProgressNote] = useState("");
     const [editFiles, setEditFiles] = useState([]);
     const [savingEdit, setSavingEdit] = useState(false);
@@ -897,7 +896,6 @@ function FollowUps_View() {
                         patientId: fup.patientUhid || fup.patientId || "N/A",
                         followUpDate,
                         followUpTime,
-                        reason: fup.note || "Follow-up appointment",
                         status: fup.status || "Upcoming",
                         daysUntil,
                         examinationId: parsedExaminationId, // Use parsed ID for updates
@@ -1017,7 +1015,6 @@ function FollowUps_View() {
                 );
             },
         },
-        { field: "reason", header: "Reason" },
     ];
 
     const handleDeleteFollowUp = async (row, event) => {
@@ -1078,7 +1075,6 @@ function FollowUps_View() {
         setSelectedFollowUp(row);
         setEditDialogOpen(true);
         const detail = await fetchFollowUpDetail(row);
-        setEditNote(detail?.note || row.reason || "");
         setEditProgressNote(detail?.progressNote || "");
         setEditFiles([]);
     };
@@ -1124,7 +1120,7 @@ function FollowUps_View() {
             await doctorService.updateFollowUpDetail(
                 selectedFollowUp.examinationId,
                 selectedFollowUp.followUpId,
-                { note: editNote, progressNote: editProgressNote, files: editFiles }
+                { progressNote: editProgressNote, files: editFiles }
             );
             toast.success("Follow-up updated successfully");
             setEditDialogOpen(false);
@@ -1304,14 +1300,6 @@ function FollowUps_View() {
                             </Typography>
                             <Paper variant="outlined" sx={{ p: 2 }}>
                                 <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-                                    Notes
-                                </Typography>
-                                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-                                    {followUpDetail?.note?.trim() || "No notes added."}
-                                </Typography>
-                            </Paper>
-                            <Paper variant="outlined" sx={{ p: 2 }}>
-                                <Typography variant="subtitle2" gutterBottom fontWeight={600}>
                                     Progress Notes
                                 </Typography>
                                 <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
@@ -1357,14 +1345,6 @@ function FollowUps_View() {
                         </Box>
                     ) : (
                         <Stack spacing={2} mt={0.5}>
-                            <TextField
-                                label="Notes"
-                                value={editNote}
-                                onChange={(e) => setEditNote(e.target.value)}
-                                fullWidth
-                                multiline
-                                rows={4}
-                            />
                             <TextField
                                 label="Progress Notes"
                                 value={editProgressNote}

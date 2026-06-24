@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from "react";
+import { Navigate } from "react-router-dom";
 // import PatientProfile from "../../pages/patient/Profile";
 // import Family_Members_View from "../../pages/patient/familyMembers/View";
 // Lazy-loaded components
@@ -21,8 +22,12 @@ const Consultation_Details = lazy(() =>
     import("../../pages/patient/consultations/Details")
 );
 
-const Prescriptions_View = lazy(() =>
-    import("../../pages/patient/prescriptions/View")
+const Prescription_Orders_View = lazy(() =>
+    import("../../pages/patient/prescriptions/Orders")
+);
+
+const Prescription_Bills_View = lazy(() =>
+    import("../../pages/patient/prescriptions/Bills")
 );
 
 const Prescription_Details = lazy(() =>
@@ -50,6 +55,10 @@ const InvoicePage = lazy(() =>
 
 const FollowUps_View = lazy(() =>
     import("../../pages/patient/followUps/View")
+);
+
+const FollowUp_Details = lazy(() =>
+    import("../../pages/patient/followUps/Details")
 );
 
 // Routes configuration for patient panel
@@ -113,9 +122,21 @@ export const patientRoutes = [
     },
     { 
         path: "/patient/prescriptions", 
+        element: <Navigate to="/patient/prescriptions/orders" replace />
+    },
+    {
+        path: "/patient/prescriptions/orders",
         element: (
             <Suspense fallback={<div>Loading...</div>}>
-                <Prescriptions_View />
+                <Prescription_Orders_View />
+            </Suspense>
+        )
+    },
+    {
+        path: "/patient/prescriptions/bills",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <Prescription_Bills_View />
             </Suspense>
         )
     },
@@ -164,6 +185,14 @@ export const patientRoutes = [
         element: (
             <Suspense fallback={<div>Loading...</div>}>
                 <FollowUps_View />
+            </Suspense>
+        )
+    },
+    {
+        path: "/patient/follow-ups/:examinationId/:followUpId",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <FollowUp_Details />
             </Suspense>
         )
     },

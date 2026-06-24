@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { toggleSidebar } from '../../redux/slices/uiSlice';
 import { logout, updateUser } from '../../redux/slices/authSlice'; // Adjust path to your authSlice file
 import NotificationDrawer from './component/NotificationDrawer'; // Import the separate component here
+import UtpalaEventNotificationPopup from '../notifications/UtpalaEventNotificationPopup';
 import { useNotifications } from '../../hooks/useNotifications'; // Import notification hook
 import profileService from '../../services/profileService';
 
@@ -51,7 +52,7 @@ function ResponsiveAppBar() {
   const isStaff = userRole && staffRoles.includes(userRole);
   const isReceptionist = userRole === 'receptionist';
   const showNotificationBell = Boolean(user && userRole);
-  const { paymentReminders, dobReminders, eventNotifications } = useNotifications();
+  const { paymentReminders, dobReminders, eventNotifications, unseenEventNotifications, showEventPopup, dismissEventNotifications } = useNotifications();
 
   const totalNotifications = (eventNotifications?.length || 0) + (
     isReceptionist
@@ -365,6 +366,14 @@ function ResponsiveAppBar() {
                   dobReminders={dobReminders}
                   eventNotifications={eventNotifications}
                 />
+
+                {isReceptionist && (
+                  <UtpalaEventNotificationPopup
+                    open={showEventPopup}
+                    onClose={dismissEventNotifications}
+                    events={unseenEventNotifications}
+                  />
+                )}
               </>
             )}
 

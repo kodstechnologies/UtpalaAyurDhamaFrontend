@@ -81,6 +81,7 @@ function PrescriptionsAddPage() {
     const [isLoadingMedicines, setIsLoadingMedicines] = useState(false);
     const [examinationId, setExaminationId] = useState(null);
     const [existingPrescriptionIds, setExistingPrescriptionIds] = useState([]);
+    const [editingMedicineIndex, setEditingMedicineIndex] = useState(null);
 
     const [formData, setFormData] = useState({
         patientId: patientId,
@@ -459,118 +460,109 @@ function PrescriptionsAddPage() {
         }));
     };
 
+    const emptyMedicine = () => ({
+        name: "",
+        dosage: "",
+        frequency: "",
+        duration: "",
+        foodTiming: "",
+        foodTime: "",
+        remarks: "",
+        instructions: "",
+        dosageSchedule: "",
+        subType: "",
+        stockStatus: "",
+    });
+
     const handleAddMedicine = () => {
         if (!formData.currentMedicine.name) {
             toast.error("Please enter medicine name and dosage");
             return;
         }
-        setFormData((prev) => ({
-            ...prev,
-            medicines: [...prev.medicines, { ...prev.currentMedicine }],
-            currentMedicine: {
-                name: "",
-                dosage: "",
-                frequency: "",
-                duration: "",
-                foodTiming: "",
-                foodTime: "",
-                remarks: "",
-                instructions: "",
-                dosageSchedule: "",
-                subType: "",
-                stockStatus: "",
-            },
-        }));
+
+        const medicineEntry = { ...formData.currentMedicine };
+
+        setFormData((prev) => {
+            let updatedMedicines;
+
+            if (editingMedicineIndex !== null) {
+                updatedMedicines = [...prev.medicines];
+                updatedMedicines[editingMedicineIndex] = medicineEntry;
+            } else {
+                updatedMedicines = [...prev.medicines, medicineEntry];
+            }
+
+            return {
+                ...prev,
+                medicines: updatedMedicines,
+                currentMedicine: emptyMedicine(),
+            };
+        });
+        setEditingMedicineIndex(null);
     };
 
     const handleRemoveMedicine = (index) => {
+        if (editingMedicineIndex === index) {
+            setEditingMedicineIndex(null);
+            setFormData((prev) => ({
+                ...prev,
+                medicines: prev.medicines.filter((_, i) => i !== index),
+                currentMedicine: emptyMedicine(),
+            }));
+            return;
+        }
+
         setFormData((prev) => ({
             ...prev,
             medicines: prev.medicines.filter((_, i) => i !== index),
         }));
+
+        if (editingMedicineIndex !== null && index < editingMedicineIndex) {
+            setEditingMedicineIndex(editingMedicineIndex - 1);
+        }
     };
 
-    // Get or create examination for the patient
-    const getOrCreateExamination = async (patientProfileId) => {
-        try {
-            // First, check if an examination already exists for this patient today
-            // This prevents duplicates when walk-in hub has already created an examination
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
+    const handleEditMedicine = (index) => {
+        const medicineToEdit = formData.medicines[index];
+        setEditingMedicineIndex(index);
+        setFormData((prev) => ({
+            ...prev,
+            currentMedicine: {
+                name: medicineToEdit.name || "",
+                dosage: medicineToEdit.dosage || "",
+                frequency: medicineToEdit.frequency || "",
+                duration: medicineToEdit.duration || "",
+                foodTiming: medicineToEdit.foodTiming || "",
+                foodTime: medicineToEdit.foodTime || "",
+                remarks: medicineToEdit.remarks || "",
+                instructions: medicineToEdit.instructions || "",
+                medicineType: medicineToEdit.medicineType || "",
+                administration: medicineToEdit.administration || "",
+                quantity: medicineToEdit.quantity || "",
+                dosageSchedule: medicineToEdit.dosageSchedule || "",
+                subType: medicineToEdit.subType || "",
+                stockStatus: medicineToEdit.stockStatus || "",
+                _id: medicineToEdit._id,
+            },
+        }));
+    };
 
-            try {
-                const existingExamsResponse = await axios.get(
-                    getApiUrl("examinations"),
-                    {
-                        headers: getAuthHeaders(),
-                        params: {
-                            patientId: patientProfileId,
-                            startDate: today.toISOString(),
-                            endDate: tomorrow.toISOString(),
-                        }
-                    }
-                );
+    const createNewExamination = async (patientProfileId) => {
+        const createExamResponse = await axios.post(
+            getApiUrl("examinations"),
+            {
+                patient: patientProfileId,
+                complaints: formData.diagnosis || "Prescription consultation",
+                forceNew: true,
+            },
+            { headers: getAuthHeaders() }
+        );
 
-                if (existingExamsResponse.data.success && existingExamsResponse.data.data) {
-                    // Filter for OPD examinations (no inpatient) and get the most recent one
-                    const opdExams = existingExamsResponse.data.data
-                        .filter(exam => !exam.inpatient)
-                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-                    if (opdExams.length > 0) {
-                        console.log("Found existing examination for today, reusing it:", opdExams[0]._id);
-                        return opdExams[0]._id;
-                    }
-                }
-            } catch (checkError) {
-                // If check fails, continue to create new examination
-                console.warn("Error checking for existing examination:", checkError);
-            }
-
-            // No existing examination found, create a new one
-            // The backend will also check and prevent duplicates, but frontend check provides better UX
-            const createExamResponse = await axios.post(
-                getApiUrl("examinations"),
-                {
-                    patient: patientProfileId,
-                    complaints: formData.diagnosis || "Prescription consultation",
-                },
-                { headers: getAuthHeaders() }
-            );
-
-            if (createExamResponse.data.success) {
-                return createExamResponse.data.data._id;
-            }
-
-            return null;
-        } catch (error) {
-            console.error("Error creating examination:", error);
-            // If it's a duplicate error from backend, try to get the existing examination
-            if (error.response?.status === 409 || error.response?.data?.message?.includes("already exists")) {
-                try {
-                    const existingExamsResponse = await axios.get(
-                        getApiUrl("examinations"),
-                        {
-                            headers: getAuthHeaders(),
-                            params: { patientId: patientProfileId }
-                        }
-                    );
-                    if (existingExamsResponse.data.success && existingExamsResponse.data.data) {
-                        const opdExams = existingExamsResponse.data.data
-                            .filter(exam => !exam.inpatient)
-                            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                        if (opdExams.length > 0) {
-                            return opdExams[0]._id;
-                        }
-                    }
-                } catch (retryError) {
-                    console.error("Error fetching existing examination:", retryError);
-                }
-            }
-            throw error;
+        if (createExamResponse.data.success) {
+            return createExamResponse.data.data._id;
         }
+
+        return null;
     };
 
     const handleSubmit = async (e) => {
@@ -700,10 +692,10 @@ function PrescriptionsAddPage() {
                     return;
                 }
 
-                // Get or create examination
+                // Always create a new examination so each prescription save is a separate entry
                 let examinationId;
                 try {
-                    examinationId = await getOrCreateExamination(patientProfileId);
+                    examinationId = await createNewExamination(patientProfileId);
                     if (!examinationId) {
                         toast.error("Failed to create examination for this patient");
                         setIsSubmitting(false);
@@ -1087,7 +1079,7 @@ function PrescriptionsAddPage() {
                                         fullWidth
                                         sx={{ height: "40px" }}
                                     >
-                                        Add
+                                        {editingMedicineIndex !== null ? "Update" : "Add"}
                                     </Button>
                                 </Grid>
                             </Grid>
@@ -1129,13 +1121,22 @@ function PrescriptionsAddPage() {
                                                 {medicine.instructions && ` • ${medicine.instructions}`}
                                             </Typography>
                                         </Box>
-                                        <Button
-                                            size="small"
-                                            color="error"
-                                            onClick={() => handleRemoveMedicine(index)}
-                                        >
-                                            Remove
-                                        </Button>
+                                        <Box sx={{ display: "flex", gap: 1 }}>
+                                            <Button
+                                                size="small"
+                                                color="primary"
+                                                onClick={() => handleEditMedicine(index)}
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                size="small"
+                                                color="error"
+                                                onClick={() => handleRemoveMedicine(index)}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </Box>
                                     </Box>
                                 ))}
                             </Box>

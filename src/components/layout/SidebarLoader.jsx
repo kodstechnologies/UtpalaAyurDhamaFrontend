@@ -430,7 +430,18 @@ export const sidebarMenus = {
             key: "prescriptions",
             label: "Prescriptions",
             icon: <MedicationIcon style={{ color: "var(--color-icons)" }} />,
-            to: "/patient/prescriptions",
+            children: [
+                {
+                    key: "prescriptionOrders",
+                    label: "Orders",
+                    to: "/patient/prescriptions/orders",
+                },
+                {
+                    key: "prescriptionBills",
+                    label: "Bills",
+                    to: "/patient/prescriptions/bills",
+                },
+            ],
         },
         {
             key: "therapies",

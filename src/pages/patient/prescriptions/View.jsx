@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
+import CardBorder from "../../../components/card/CardBorder";
 import LocalPrintshopIcon from '@mui/icons-material/LocalPrintshop';
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Chip, FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 import prescriptionService from "../../../services/prescriptionService";
 import { toast } from "react-toastify";
 
@@ -14,22 +15,38 @@ function Prescriptions_View() {
     const { user } = useSelector((state) => state.auth);
     const [rows, setRows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [orderFilter, setOrderFilter] = useState("All");
+    const [paymentFilter, setPaymentFilter] = useState("All");
 
-    // ============================
-    // TABLE COLUMNS
-    // ============================
     const columns = [
         { header: "Patient Name", field: "patientName" },
         { header: "Prescription ID", field: "prescriptionId" },
         { header: "Date", field: "date" },
         { header: "Doctor", field: "doctor" },
-        { header: "Medicines Count", field: "medicinesCount" },
+        { header: "Medicines in Order", field: "medicinesInOrder" },
         { header: "Consultation ID", field: "consultationId" },
+        {
+            header: "Bill Status",
+            field: "paymentStatus",
+            render: (row) => (
+                <Chip
+                    label={row.paymentStatus}
+                    size="small"
+                    color={
+                        row.paymentStatus === "Paid"
+                            ? "success"
+                            : row.paymentStatus === "Partially Paid"
+                                ? "info"
+                                : row.paymentStatus === "Pending"
+                                    ? "default"
+                                    : "warning"
+                    }
+                    sx={{ fontWeight: 500 }}
+                />
+            ),
+        },
     ];
 
-    // ============================
-    // ACTION BUTTONS
-    // ============================
     const actions = [
         {
             icon: <VisibilityIcon fontSize="small" />,
@@ -41,13 +58,9 @@ function Prescriptions_View() {
         },
     ];
 
-    // ============================
-    // FETCH PRESCRIPTIONS FROM API
-    // ============================
     useEffect(() => {
         const fetchPrescriptions = async () => {
             if (!user?._id) {
-                // Try to get user from localStorage if Redux doesn't have it
                 try {
                     const storedUser = JSON.parse(localStorage.getItem("user") || "null");
                     if (!storedUser?._id) {
@@ -72,7 +85,6 @@ function Prescriptions_View() {
                 const response = await prescriptionService.getPrescriptionsByUserId(userId);
 
                 if (response.success && response.data) {
-                    // Transform the prescription data for table display
                     const transformedData = response.data.map((prescription, index) => {
                         const prescriptionDate = prescription.createdAt
                             ? new Date(prescription.createdAt).toLocaleDateString('en-US', {
@@ -82,18 +94,16 @@ function Prescriptions_View() {
                             })
                             : "N/A";
 
-                        // Generate prescription ID from _id
                         const prescriptionId = prescription._id
                             ? `RX-${prescription._id.toString().slice(-8).toUpperCase()}`
                             : `RX-${index + 1}`;
 
-                        // Get consultation/examination ID
                         const consultationId = prescription.examination?._id
                             ? `CONS-${prescription.examination._id.toString().slice(-5)}`
                             : prescription.examination || "N/A";
 
                         return {
-                            _id: prescription._id, // Use real MongoDB _id
+                            _id: prescription._id,
                             patientName: (
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     {prescription.patient?.user?.name || prescription.examination?.patient?.user?.name || "Unknown"}
@@ -116,11 +126,12 @@ function Prescriptions_View() {
                                     )}
                                 </Box>
                             ),
-                            prescriptionId: prescriptionId,
+                            prescriptionId,
                             date: prescriptionDate,
                             doctor: prescription.doctor?.user?.name || prescription.examination?.doctor?.user?.name || "Unknown",
-                            medicinesCount: 1, // Each prescription is one medicine, but we can count if there are multiple
-                            consultationId: consultationId,
+                            medicinesInOrder: prescription.medicinesInOrder || 1,
+                            consultationId,
+                            paymentStatus: prescription.paymentStatus || "Pending",
                             examinationId: prescription.examination?._id || prescription.examination,
                         };
                     });
@@ -142,11 +153,52 @@ function Prescriptions_View() {
         fetchPrescriptions();
     }, [user]);
 
-    // ============================
-    // PRINT ALL FUNCTION (Only Table)
-    // ============================
+    const orderOptions = useMemo(() => {
+        const counts = rows.reduce((acc, row) => {
+            const count = row.medicinesInOrder || 1;
+            acc[count] = (acc[count] || 0) + 1;
+            return acc;
+        }, {});
+
+        return Object.keys(counts)
+            .map(Number)
+            .sort((a, b) => a - b)
+            .map((count) => ({
+                value: String(count),
+                label: `${count} Medicine${count > 1 ? "s" : ""} (${counts[count]} order${counts[count] > 1 ? "s" : ""})`,
+            }));
+    }, [rows]);
+
+    const paymentOptions = useMemo(() => {
+        const counts = rows.reduce((acc, row) => {
+            const status = row.paymentStatus || "Pending";
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {});
+
+        return Object.keys(counts).map((status) => ({
+            value: status,
+            label: `${status} (${counts[status]})`,
+        }));
+    }, [rows]);
+
+    const filteredRows = useMemo(() => {
+        let result = rows;
+
+        if (orderFilter !== "All") {
+            const selectedCount = Number(orderFilter);
+            result = result.filter((row) => (row.medicinesInOrder || 1) === selectedCount);
+        }
+
+        if (paymentFilter !== "All") {
+            result = result.filter((row) => row.paymentStatus === paymentFilter);
+        }
+
+        return result;
+    }, [rows, orderFilter, paymentFilter]);
+
     const handlePrintAll = () => {
-        if (rows.length === 0) {
+        if (filteredRows.length === 0) {
             toast.info("No prescriptions to print");
             return;
         }
@@ -174,7 +226,7 @@ function Prescriptions_View() {
                             </tr>
                         </thead>
                         <tbody>
-                            ${rows.map((row, idx) => `
+                            ${filteredRows.map((row) => `
                                 <tr>
                                     ${columns.map(col => `<td>${row[col.field] ?? '-'}</td>`).join('')}
                                 </tr>
@@ -204,7 +256,6 @@ function Prescriptions_View() {
 
     return (
         <div style={{ paddingBottom: "30px" }}>
-            {/* Page Heading */}
             <HeadingCard
                 title="My Prescriptions"
                 subtitle="Access all your prescriptions, check dosage details, and view records from past consultations."
@@ -214,11 +265,54 @@ function Prescriptions_View() {
                 ]}
             />
 
-            {/* TABLE */}
+            <CardBorder
+                justify="between"
+                align="center"
+                wrap={true}
+                padding="2rem"
+                style={{ width: "100%", marginBottom: "2rem" }}
+            >
+                <Box sx={{ display: "flex", flex: 1, gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+                    <FormControl size="small" sx={{ minWidth: 220 }}>
+                        <InputLabel id="order-filter-label">Orders</InputLabel>
+                        <Select
+                            labelId="order-filter-label"
+                            value={orderFilter}
+                            label="Orders"
+                            onChange={(e) => setOrderFilter(e.target.value)}
+                        >
+                            <MenuItem value="All">All Orders ({rows.length})</MenuItem>
+                            {orderOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    <FormControl size="small" sx={{ minWidth: 220 }}>
+                        <InputLabel id="payment-filter-label">Bill Status</InputLabel>
+                        <Select
+                            labelId="payment-filter-label"
+                            value={paymentFilter}
+                            label="Bill Status"
+                            onChange={(e) => setPaymentFilter(e.target.value)}
+                        >
+                            <MenuItem value="All">All Bills ({rows.length})</MenuItem>
+                            {paymentOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </Box>
+            </CardBorder>
+
             <TableComponent
                 title="Prescriptions List"
                 columns={columns}
-                rows={rows}
+                rows={filteredRows}
                 actions={actions}
                 showView={false}
                 showEdit={false}
@@ -240,7 +334,6 @@ function Prescriptions_View() {
                     },
                 ]}
             />
-
         </div>
     );
 }

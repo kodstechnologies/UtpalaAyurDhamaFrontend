@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import SubmitButton from "../../../components/buttons/SubmitButton";
 import CancelButton from "../../../components/buttons/CancelButton";
-import { X, Edit2 } from "lucide-react";
+import { X } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
@@ -916,7 +916,7 @@ function IPDPrescriptionsAddPage() {
                                             size="small"
                                             sx={{ height: "40px" }}
                                         >
-                                            Add
+                                            {formData.currentMedicine._id ? "Update" : "Add"}
                                         </Button>
                                     </Grid>
                                 </Grid>
@@ -968,17 +968,15 @@ function IPDPrescriptionsAddPage() {
                                                         size="small"
                                                         color="primary"
                                                         onClick={() => handleEditMedicine(index)}
-                                                        sx={{ minWidth: 'auto', p: 1 }}
                                                     >
-                                                        <Edit2 size={16} />
+                                                        Edit
                                                     </Button>
                                                     <Button
                                                         size="small"
                                                         color="error"
                                                         onClick={() => handleRemoveMedicine(index)}
-                                                        sx={{ minWidth: 'auto', p: 1 }}
                                                     >
-                                                        <X size={16} />
+                                                        Remove
                                                     </Button>
                                                 </Box>
                                             </Box>

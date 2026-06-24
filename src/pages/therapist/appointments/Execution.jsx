@@ -29,7 +29,6 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import PlayCircleFilledIcon from "@mui/icons-material/PlayCircleFilled";
-import PauseCircleFilledIcon from "@mui/icons-material/PauseCircleFilled";
 import StopCircleIcon from "@mui/icons-material/StopCircle";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
@@ -87,16 +86,10 @@ function Execution() {
         return null; // Invalid format
     };
 
-    // Calculate effective elapsed time accounting for pauses
     const getEffectiveElapsedMs = (day, now = new Date()) => {
         if (!day?.startTime) return 0;
         const start = new Date(day.startTime).getTime();
-        const totalPausedMs = day.totalPausedMs || 0;
-        if (day.pausedAt) {
-            const pausedAt = new Date(day.pausedAt).getTime();
-            return Math.max(0, pausedAt - start - totalPausedMs);
-        }
-        return Math.max(0, now.getTime() - start - totalPausedMs);
+        return Math.max(0, now.getTime() - start);
     };
 
     const getDurationMs = (data = progressData) => {
@@ -110,8 +103,6 @@ function Execution() {
         if (!durationMs) return false;
         return getEffectiveElapsedMs(day) >= durationMs;
     };
-
-    const isSessionPaused = (day) => Boolean(day?.pausedAt);
 
     const clearAutoCompleteTimer = (slotDateKey) => {
         if (autoCompleteTimersRef.current[slotDateKey]) {
@@ -172,7 +163,7 @@ function Execution() {
     };
 
     const triggerAutoCompleteIfDue = async (day, data) => {
-        if (!day?.startTime || day.endTime || day.completed || day.pausedAt) return;
+        if (!day?.startTime || day.endTime || day.completed) return;
 
         const durationMs = getDurationMs(data);
         if (!durationMs) return;
@@ -341,11 +332,10 @@ function Execution() {
                     newElapsed[key] = {
                         display: formatElapsedDisplay(cappedElapsedMs),
                         startTimeFormatted: startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-                        isPaused: Boolean(day.pausedAt),
                         durationReached
                     };
 
-                    if (durationReached && !day.pausedAt) {
+                    if (durationReached) {
                         triggerAutoCompleteIfDue(day, data);
                     }
                 }
@@ -549,11 +539,6 @@ function Execution() {
 
                 if (!slot) return;
 
-                if (day.pausedAt) {
-                    console.log("[AutoComplete] Session is paused, not setting timer");
-                    return;
-                }
-
                 if (remainingMs > 0) {
                     const slotDateKey = dayDate.toISOString().split('T')[0];
                     console.log(`[AutoComplete] Session already in progress, setting timer for remaining ${remainingMs / 1000 / 60} minutes`);
@@ -707,104 +692,7 @@ function Execution() {
         }
     };
 
-    const handlePauseSession = async (slot) => {
-        setUpdatingSlot(slot.dateLabel);
-        try {
-            const slotDate = new Date(slot.date);
-            slotDate.setHours(0, 0, 0, 0);
-            const slotDateKey = slotDate.toISOString().split('T')[0];
-            clearAutoCompleteTimer(slotDateKey);
-
-            const now = new Date();
-            const currentDays = progressData.days || [];
-            const updatedDays = currentDays.map(day => {
-                const dayDate = new Date(day.date);
-                dayDate.setHours(0, 0, 0, 0);
-                if (dayDate.getTime() === slotDate.getTime()) {
-                    return { ...day, pausedAt: now };
-                }
-                return day;
-            });
-
-            const response = await axios.patch(
-                getApiUrl(`therapist-sessions/${id}`),
-                { days: updatedDays, status: "In Progress" },
-                { headers: getAuthHeaders() }
-            );
-
-            if (response.data.success) {
-                toast.info("Session paused");
-                fetchProgress(true);
-            }
-        } catch (error) {
-            console.error("Error pausing session:", error);
-            toast.error("Failed to pause session");
-        } finally {
-            setUpdatingSlot(null);
-        }
-    };
-
-    const handleResumeSession = async (slot) => {
-        setUpdatingSlot(slot.dateLabel);
-        try {
-            const slotDate = new Date(slot.date);
-            slotDate.setHours(0, 0, 0, 0);
-            const slotDateKey = slotDate.toISOString().split('T')[0];
-            const now = new Date();
-            const currentDays = progressData.days || [];
-
-            let resumedDay = null;
-            const updatedDays = currentDays.map(day => {
-                const dayDate = new Date(day.date);
-                dayDate.setHours(0, 0, 0, 0);
-                if (dayDate.getTime() === slotDate.getTime()) {
-                    const pauseDuration = day.pausedAt
-                        ? now.getTime() - new Date(day.pausedAt).getTime()
-                        : 0;
-                    resumedDay = {
-                        ...day,
-                        pausedAt: null,
-                        totalPausedMs: (day.totalPausedMs || 0) + pauseDuration
-                    };
-                    return resumedDay;
-                }
-                return day;
-            });
-
-            const response = await axios.patch(
-                getApiUrl(`therapist-sessions/${id}`),
-                { days: updatedDays, status: "In Progress" },
-                { headers: getAuthHeaders() }
-            );
-
-            if (response.data.success) {
-                toast.success("Session resumed");
-
-                const durationMs = getDurationMs(progressData);
-                if (durationMs && resumedDay && !hasDurationReached(resumedDay)) {
-                    const remainingMs = durationMs - getEffectiveElapsedMs(resumedDay, now);
-                    if (remainingMs > 0) {
-                        setupAutoCompleteTimer(slotDateKey, slot, progressData, remainingMs);
-                    }
-                }
-
-                fetchProgress(true);
-            }
-        } catch (error) {
-            console.error("Error resuming session:", error);
-            toast.error("Failed to resume session");
-        } finally {
-            setUpdatingSlot(null);
-        }
-    };
-
     const handleStopSession = async (slot) => {
-        const dayRecord = getDayRecord(slot);
-        if (dayRecord && getDurationMs() && !hasDurationReached(dayRecord)) {
-            toast.error("Session duration has not been reached yet. Use Pause if you need a break.");
-            return;
-        }
-
         const slotDateKey = getSlotDateKey(slot.date);
         if (autoCompletingSlotsRef.current.has(slotDateKey) || isDayAlreadyCompleted(progressData?.days, slot)) {
             return;
@@ -1105,11 +993,6 @@ function Execution() {
                                             <Typography variant="body1" fontWeight={600}>
                                                 {progressData.duration || "Not set"}
                                             </Typography>
-                                            {progressData.duration && (
-                                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                                                    Stop becomes available when duration is reached
-                                                </Typography>
-                                            )}
                                         </Box>
                                     </Box>
                                 </Grid>
@@ -1132,10 +1015,8 @@ function Execution() {
                             {slots.map((slot, index) => {
                                 const dayRecord = getDayRecord(slot);
                                 const isInProgress = dayRecord && dayRecord.startTime && !dayRecord.endTime && !dayRecord.completed;
-                                const isPaused = isInProgress && isSessionPaused(dayRecord);
                                 const durationConfigured = Boolean(getDurationMs());
                                 const durationReached = isInProgress && durationConfigured && hasDurationReached(dayRecord);
-                                const canStop = isInProgress && (!durationConfigured || durationReached);
                                 const elapsedInfo = getElapsedTimeForSlot(slot);
 
                                 // Check if the session date is in the future
@@ -1150,9 +1031,9 @@ function Execution() {
                                         key={index}
                                         sx={{
                                             borderRadius: "20px",
-                                            border: isInProgress ? (isPaused ? "2px solid #94A3B8" : durationReached ? "2px solid #48BB78" : "2px solid #F59E0B") : "1px solid #E2E8F0",
+                                            border: isInProgress ? (durationReached ? "2px solid #48BB78" : "2px solid #F59E0B") : "1px solid #E2E8F0",
                                             boxShadow: slot.isCompleted ? "none" : isInProgress ? "0 4px 12px rgba(245,158,11,0.15)" : "0 4px 6px rgba(0,0,0,0.02)",
-                                            background: slot.isCompleted ? "#F7FAFC" : isPaused ? "#F8FAFC" : isInProgress ? "#FFFBF0" : "white",
+                                            background: slot.isCompleted ? "#F7FAFC" : isInProgress ? "#FFFBF0" : "white",
                                             transition: "transform 0.2s ease, box-shadow 0.2s ease",
                                             "&:hover": {
                                                 transform: slot.isCompleted ? "none" : "translateY(-4px)",
@@ -1171,8 +1052,8 @@ function Execution() {
                                                             display: "flex",
                                                             alignItems: "center",
                                                             justifyContent: "center",
-                                                            bgcolor: slot.isCompleted ? "#48BB78" : isPaused ? "#94A3B8" : isInProgress ? "#FFC107" : "#EDF2F7",
-                                                            color: slot.isCompleted ? "white" : (isInProgress || isPaused) ? "white" : "#718096"
+                                                            bgcolor: slot.isCompleted ? "#48BB78" : isInProgress ? "#FFC107" : "#EDF2F7",
+                                                            color: slot.isCompleted ? "white" : isInProgress ? "white" : "#718096"
                                                         }}
                                                     >
                                                         <Typography fontWeight={700}>{index + 1}</Typography>
@@ -1189,7 +1070,7 @@ function Execution() {
                                                 <Grid item xs={12} sm={4}>
                                                     <Box>
                                                         <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                                                            {isInProgress ? (isPaused ? "STARTED AT / ELAPSED (PAUSED)" : "STARTED AT / ELAPSED") : "PLANNED TIME"}
+                                                            {isInProgress ? "STARTED AT / ELAPSED" : "PLANNED TIME"}
                                                         </Typography>
                                                         {isInProgress ? (
                                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -1200,10 +1081,10 @@ function Execution() {
                                                                     <Typography
                                                                         variant="h6"
                                                                         sx={{
-                                                                            color: isPaused ? "#64748B" : durationReached ? "#16A34A" : "#D97706",
+                                                                            color: durationReached ? "#16A34A" : "#D97706",
                                                                             fontWeight: 800,
                                                                             fontFamily: "monospace",
-                                                                            animation: isPaused ? "none" : "pulse 2s infinite",
+                                                                            animation: "pulse 2s infinite",
                                                                             "@keyframes pulse": {
                                                                                 "0%, 100%": { opacity: 1 },
                                                                                 "50%": { opacity: 0.7 }
@@ -1218,9 +1099,9 @@ function Execution() {
                                                                         </Typography>
                                                                     )}
                                                                 </Box>
-                                                                {durationReached && !isPaused && (
+                                                                {durationReached && (
                                                                     <Typography variant="caption" sx={{ color: "#16A34A", fontWeight: 600 }}>
-                                                                        Session time reached — you can stop now
+                                                                        Session time reached
                                                                     </Typography>
                                                                 )}
                                                             </Box>
@@ -1236,23 +1117,18 @@ function Execution() {
                                                         <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>STATUS</Typography>
                                                         <Chip
                                                             size="small"
-                                                            icon={slot.isCompleted ? <CheckCircleIcon fontSize="small" /> : isPaused ? <PauseCircleFilledIcon fontSize="small" /> : isInProgress ? <PlayCircleFilledIcon fontSize="small" /> : <PendingActionsIcon fontSize="small" />}
-                                                            label={slot.isCompleted ? "Completed" : isPaused ? "Paused" : isInProgress ? (durationConfigured && durationReached ? "Ready to Stop" : "In Progress") : "Scheduled"}
+                                                            icon={slot.isCompleted ? <CheckCircleIcon fontSize="small" /> : isInProgress ? <PlayCircleFilledIcon fontSize="small" /> : <PendingActionsIcon fontSize="small" />}
+                                                            label={slot.isCompleted ? "Completed" : isInProgress ? (durationConfigured && durationReached ? "Duration Reached" : "In Progress") : "Scheduled"}
                                                             sx={{
-                                                                bgcolor: slot.isCompleted ? "#F0FFF4" : isPaused ? "#F1F5F9" : isInProgress ? (durationReached ? "#F0FFF4" : "#FFFBF0") : "#FFFBEB",
-                                                                color: slot.isCompleted ? "#2F855A" : isPaused ? "#64748B" : isInProgress ? (durationReached ? "#16A34A" : "#F59E0B") : "#D69E2E",
+                                                                bgcolor: slot.isCompleted ? "#F0FFF4" : isInProgress ? (durationReached ? "#F0FFF4" : "#FFFBF0") : "#FFFBEB",
+                                                                color: slot.isCompleted ? "#2F855A" : isInProgress ? (durationReached ? "#16A34A" : "#F59E0B") : "#D69E2E",
                                                                 border: "none",
                                                                 fontWeight: 600
                                                             }}
                                                         />
-                                                        {isInProgress && !isPaused && (!durationConfigured || !durationReached) && (
+                                                        {isInProgress && (!durationConfigured || !durationReached) && (
                                                             <Typography variant="caption" sx={{ color: "#F59E0B", display: "block", mt: 0.5 }}>
                                                                 Running...
-                                                            </Typography>
-                                                        )}
-                                                        {isPaused && (
-                                                            <Typography variant="caption" sx={{ color: "#64748B", display: "block", mt: 0.5 }}>
-                                                                Paused
                                                             </Typography>
                                                         )}
                                                     </Box>
@@ -1284,66 +1160,23 @@ function Execution() {
                                                             Start
                                                         </Button>
                                                     ) : isInProgress ? (
-                                                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, alignItems: "flex-end" }}>
-                                                            {isPaused ? (
-                                                                <Button
-                                                                    variant="contained"
-                                                                    size="small"
-                                                                    onClick={() => handleResumeSession(slot)}
-                                                                    disabled={updatingSlot === slot.dateLabel}
-                                                                    startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PlayCircleFilledIcon />}
-                                                                    sx={{
-                                                                        borderRadius: "10px",
-                                                                        textTransform: "none",
-                                                                        bgcolor: "#3182CE",
-                                                                        boxShadow: "0 4px 6px rgba(49, 130, 206, 0.2)",
-                                                                        "&:hover": { bgcolor: "#2B6CB0" },
-                                                                        "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
-                                                                    }}
-                                                                >
-                                                                    Resume
-                                                                </Button>
-                                                            ) : (
-                                                                <>
-                                                                    <Button
-                                                                        variant="contained"
-                                                                        size="small"
-                                                                        onClick={() => handlePauseSession(slot)}
-                                                                        disabled={updatingSlot === slot.dateLabel}
-                                                                        startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PauseCircleFilledIcon />}
-                                                                        sx={{
-                                                                            borderRadius: "10px",
-                                                                            textTransform: "none",
-                                                                            bgcolor: "#F59E0B",
-                                                                            boxShadow: "0 4px 6px rgba(245, 158, 11, 0.25)",
-                                                                            "&:hover": { bgcolor: "#D97706" },
-                                                                            "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
-                                                                        }}
-                                                                    >
-                                                                        Pause
-                                                                    </Button>
-                                                                    {canStop && (
-                                                                        <Button
-                                                                            variant="contained"
-                                                                            size="small"
-                                                                            onClick={() => handleStopSession(slot)}
-                                                                            disabled={updatingSlot === slot.dateLabel}
-                                                                            startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <StopCircleIcon />}
-                                                                            sx={{
-                                                                                borderRadius: "10px",
-                                                                                textTransform: "none",
-                                                                                bgcolor: "#E53E3E",
-                                                                                boxShadow: "0 4px 6px rgba(229, 62, 62, 0.25)",
-                                                                                "&:hover": { bgcolor: "#C53030" },
-                                                                                "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
-                                                                            }}
-                                                                        >
-                                                                            Stop
-                                                                        </Button>
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                        </Box>
+                                                        <Button
+                                                            variant="contained"
+                                                            size="small"
+                                                            onClick={() => handleStopSession(slot)}
+                                                            disabled={updatingSlot === slot.dateLabel}
+                                                            startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <StopCircleIcon />}
+                                                            sx={{
+                                                                borderRadius: "10px",
+                                                                textTransform: "none",
+                                                                bgcolor: "#E53E3E",
+                                                                boxShadow: "0 4px 6px rgba(229, 62, 62, 0.25)",
+                                                                "&:hover": { bgcolor: "#C53030" },
+                                                                "&.Mui-disabled": { bgcolor: "#E2E8F0", color: "#A0AEC0" },
+                                                            }}
+                                                        >
+                                                            Stop
+                                                        </Button>
                                                     ) : (
                                                         <></>
                                                         // <Button

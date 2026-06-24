@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import HeadingCard from "../../../components/card/HeadingCard";
-import { Box, CircularProgress, Typography, Chip, Card, CardContent, Grid } from "@mui/material";
-import { Calendar, Clock, User, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Box, CircularProgress, Typography, Chip, Button } from "@mui/material";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+import TableComponent from "../../../components/table/TableComponent";
 
 function FollowUps_View() {
     const user = useSelector((state) => state.auth.user);
+    const navigate = useNavigate();
     const [followUps, setFollowUps] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState("all"); // "all", "upcoming", "past"
@@ -21,23 +24,6 @@ function FollowUps_View() {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
-            });
-        } catch (error) {
-            return "—";
-        }
-    };
-
-    const formatDateTime = (dateString) => {
-        if (!dateString) return "—";
-        try {
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return "—";
-            return date.toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
             });
         } catch (error) {
             return "—";
@@ -97,7 +83,9 @@ function FollowUps_View() {
                             const isUpcoming = daysUntil !== null && daysUntil >= 0;
 
                             allFollowUps.push({
-                                _id: `followup-${index}`,
+                                _id: item._id || `followup-${index}`,
+                                followUpId: item.followUpId || null,
+                                examinationId: item.examinationId || null,
                                 date: item.date,
                                 note: item.note || "",
                                 daysUntil: daysUntil,
@@ -105,6 +93,7 @@ function FollowUps_View() {
                                 status: item.completed ? "completed" : (isUpcoming ? "upcoming" : "past"),
                                 patientName: item.patientName || "",
                                 isFamilyMember: item.isFamilyMember || false,
+                                completed: Boolean(item.completed),
                             });
                         }
                     });
@@ -156,8 +145,8 @@ function FollowUps_View() {
         return followUps;
     }, [followUps, filter]);
 
-    const getStatusColor = (status, daysUntil) => {
-        if (status === "completed") return "success";
+    const getStatusColor = (status, daysUntil, completed) => {
+        if (completed || status === "completed") return "success";
         if (status === "upcoming") {
             if (daysUntil === 0) return "error"; // Today
             if (daysUntil <= 3) return "warning"; // Within 3 days
@@ -166,8 +155,8 @@ function FollowUps_View() {
         return "default";
     };
 
-    const getStatusLabel = (status, daysUntil) => {
-        if (status === "completed") return "Completed";
+    const getStatusLabel = (status, daysUntil, completed) => {
+        if (completed || status === "completed") return "Completed";
         if (status === "upcoming") {
             if (daysUntil === 0) return "Today";
             if (daysUntil === 1) return "Tomorrow";
@@ -178,6 +167,75 @@ function FollowUps_View() {
 
     const upcomingCount = followUps.filter(fu => fu.isUpcoming).length;
     const pastCount = followUps.filter(fu => !fu.isUpcoming).length;
+
+    const getTimelineDisplay = (daysUntil) => {
+        if (daysUntil === null || daysUntil === undefined) return "—";
+        if (daysUntil === 0) return "Today";
+        if (daysUntil === 1) return "Tomorrow";
+        if (daysUntil > 1) return `${daysUntil} days remaining`;
+        return `${Math.abs(daysUntil)} days ago`;
+    };
+
+    const columns = [
+        {
+            field: "date",
+            header: "Follow-up Date",
+            render: (row) => formatDate(row.date),
+        },
+        {
+            field: "patientName",
+            header: "Patient",
+            render: (row) => row.patientName || "Primary User",
+        },
+        {
+            field: "status",
+            header: "Status",
+            render: (row) => (
+                <Chip
+                    label={getStatusLabel(row.status, row.daysUntil, row.completed)}
+                    color={getStatusColor(row.status, row.daysUntil, row.completed)}
+                    size="small"
+                />
+            ),
+        },
+        {
+            field: "timeline",
+            header: "Timeline",
+            render: (row) => (
+                <Chip
+                    icon={<AccessTimeIcon fontSize="small" />}
+                    label={getTimelineDisplay(row.daysUntil)}
+                    size="small"
+                    variant="outlined"
+                />
+            ),
+        },
+        {
+            field: "note",
+            header: "Note",
+            render: (row) => row.note?.trim() || "No additional notes",
+        },
+    ];
+
+    const actions = [
+        {
+            render: (row) => (
+                <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                        if (!row.examinationId || !row.followUpId) {
+                            toast.error("Details are not available for this follow-up.");
+                            return;
+                        }
+                        navigate(`/patient/follow-ups/${row.examinationId}/${row.followUpId}`);
+                    }}
+                >
+                    View
+                </Button>
+            ),
+        },
+    ];
 
     return (
         <div style={{ paddingBottom: 30 }}>
@@ -233,126 +291,12 @@ function FollowUps_View() {
                     </Typography>
                 </Box>
             ) : (
-                <Grid container spacing={3}>
-                    {filteredFollowUps.map((followUp) => (
-                        <Grid item xs={12} sm={6} md={4} key={followUp._id}>
-                            <Card
-                                sx={{
-                                    height: "100%",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    transition: "all 0.3s ease",
-                                    border: followUp.isUpcoming && followUp.daysUntil <= 3
-                                        ? "2px solid"
-                                        : "1px solid",
-                                    borderColor: followUp.isUpcoming && followUp.daysUntil <= 3
-                                        ? "warning.main"
-                                        : "divider",
-                                    "&:hover": {
-                                        transform: "translateY(-4px)",
-                                        boxShadow: 4,
-                                    },
-                                }}
-                            >
-                                <CardContent sx={{ flexGrow: 1 }}>
-                                    {/* Status Badge */}
-                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
-                                        <Chip
-                                            icon={
-                                                followUp.status === "completed" ? (
-                                                    <CheckCircle2 size={16} />
-                                                ) : followUp.isUpcoming && followUp.daysUntil <= 3 ? (
-                                                    <AlertCircle size={16} />
-                                                ) : (
-                                                    <Calendar size={16} />
-                                                )
-                                            }
-                                            label={getStatusLabel(followUp.status, followUp.daysUntil)}
-                                            color={getStatusColor(followUp.status, followUp.daysUntil)}
-                                            size="small"
-                                        />
-                                        {followUp.isFamilyMember && (
-                                            <Chip
-                                                icon={<User size={14} />}
-                                                label="Family Member"
-                                                variant="outlined"
-                                                size="small"
-                                                color="secondary"
-                                            />
-                                        )}
-                                    </Box>
-
-                                    {/* Date */}
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                                        <Calendar size={20} style={{ color: "var(--color-primary)" }} />
-                                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                            {formatDate(followUp.date)}
-                                        </Typography>
-                                    </Box>
-
-                                    {/* Patient Name */}
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                                        <User size={16} style={{ color: "var(--color-text-muted)" }} />
-                                        <Typography variant="body2" sx={{ fontWeight: 500, color: "var(--color-text-dark)" }}>
-                                            Patient: {followUp.patientName || "Primary User"}
-                                        </Typography>
-                                    </Box>
-
-                                    {/* Days Until / Days Ago */}
-                                    {followUp.daysUntil !== null && (
-                                        <Box sx={{ mb: 2 }}>
-                                            <Typography
-                                                variant="body2"
-                                                color={
-                                                    followUp.isUpcoming
-                                                        ? followUp.daysUntil <= 3
-                                                            ? "warning.main"
-                                                            : "text.secondary"
-                                                        : "text.secondary"
-                                                }
-                                                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-                                            >
-                                                <Clock size={16} />
-                                                {followUp.isUpcoming
-                                                    ? followUp.daysUntil === 0
-                                                        ? "Today"
-                                                        : followUp.daysUntil === 1
-                                                            ? "Tomorrow"
-                                                            : `${followUp.daysUntil} days remaining`
-                                                    : `${Math.abs(followUp.daysUntil)} days ago`}
-                                            </Typography>
-                                        </Box>
-                                    )}
-
-                                    {/* Note */}
-                                    {followUp.note && (
-                                        <Box
-                                            sx={{
-                                                mt: 2,
-                                                p: 1.5,
-                                                bgcolor: "action.hover",
-                                                borderRadius: 1,
-                                                display: "flex",
-                                                gap: 1,
-                                            }}
-                                        >
-                                            <FileText size={18} style={{ color: "var(--color-text-secondary)", flexShrink: 0, marginTop: 2 }} />
-                                            <Typography variant="body2" color="text.secondary">
-                                                {followUp.note}
-                                            </Typography>
-                                        </Box>
-                                    )}
-
-                                    {!followUp.note && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic", mt: 2 }}>
-                                            No additional notes
-                                        </Typography>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    ))}
-                </Grid>
+                <TableComponent
+                    columns={columns}
+                    rows={filteredFollowUps}
+                    actions={actions}
+                    showCheckbox={false}
+                />
             )}
         </div>
     );

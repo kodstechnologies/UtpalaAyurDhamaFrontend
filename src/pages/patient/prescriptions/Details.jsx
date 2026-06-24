@@ -19,6 +19,12 @@ import {
     ListItem,
     ListItemIcon,
     ListItemText,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MedicationIcon from "@mui/icons-material/Medication";
@@ -33,6 +39,7 @@ import WbSunnyIcon from "@mui/icons-material/WbSunny";
 import Brightness6Icon from "@mui/icons-material/Brightness6";
 import Brightness3Icon from "@mui/icons-material/Brightness3";
 import NightsStayIcon from "@mui/icons-material/NightsStay";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import prescriptionService from "../../../services/prescriptionService";
 import { toast } from "react-toastify";
 
@@ -137,13 +144,21 @@ function PrescriptionDetailsPage() {
                     // Transform the prescription data
                     const transformedPrescription = {
                         _id: data._id,
+                        prescriptionId: data._id
+                            ? `RX-${data._id.toString().slice(-8).toUpperCase()}`
+                            : "N/A",
                         patientName: data.patient?.user?.name || data.examination?.patient?.user?.name || "Unknown",
-                        patientId: data.patient?.patientId || data.patient?.user?.uhid || data.examination?.patient?.patientId || data.examination?.patient?.user?.uhid || "N/A",
+                        patientId: data.patient?.user?.uhid || data.patient?.patientId || data.examination?.patient?.user?.uhid || "N/A",
                         prescriptionDate: data.createdAt
                             ? new Date(data.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                             : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
                         diagnosis: data.examination?.complaints || data.diagnosis || "Not specified",
-                        status: data.status === "Pending" ? "Pending" : data.status === "Dispensed" ? "Dispensed" : data.status || "Pending",
+                        status: data.status || "Pending",
+                        billingStatus: data.billingStatus || (data.isBilled ? "Unpaid" : "Not Billed"),
+                        isBilled: !!data.isBilled,
+                        billDetails: data.billDetails || null,
+                        relatedPrescriptions: data.relatedPrescriptions || [],
+                        medicinesInOrder: data.medicinesInOrder || 1,
                         doctorName: data.doctor?.user?.name || data.examination?.doctor?.user?.name || "Unknown",
                         doctorSpecialization: data.doctor?.specialization || data.examination?.doctor?.specialization || "",
                         medication: data.medication || "",
@@ -155,22 +170,27 @@ function PrescriptionDetailsPage() {
                         frequency: data.frequency || "",
                         duration: data.duration || "",
                         foodTiming: data.foodTiming || "",
+                        foodTime: data.foodTime || "",
                         remarks: data.remarks || "",
                         notes: data.notes || "",
                         quantity: data.quantity || 1,
+                        dispensedQuantity: data.dispensedQuantity,
                         createdAt: data.createdAt,
                         examinationId: data.examination?._id || data.examination,
+                        consultationId: data.examination?._id
+                            ? `CONS-${data.examination._id.toString().slice(-5)}`
+                            : "N/A",
                     };
 
                     setPrescription(transformedPrescription);
                 } else {
                     toast.error(response.message || "Failed to fetch prescription details");
-                    navigate("/patient/prescriptions");
+                    navigate("/patient/prescriptions/orders");
                 }
             } catch (error) {
                 console.error("Error fetching prescription:", error);
                 toast.error(error.response?.data?.message || error.message || "Error fetching prescription details");
-                navigate("/patient/prescriptions");
+                navigate("/patient/prescriptions/orders");
             } finally {
                 setIsLoading(false);
             }
@@ -210,24 +230,42 @@ function PrescriptionDetailsPage() {
         }
     };
 
+    const getBillingStatusColor = (status) => {
+        switch (status) {
+            case "Paid":
+                return "success";
+            case "Partially Paid":
+                return "info";
+            case "Unpaid":
+                return "warning";
+            case "Not Billed":
+            default:
+                return "default";
+        }
+    };
+
+    const backPath = prescription.isBilled
+        ? "/patient/prescriptions/bills"
+        : "/patient/prescriptions/orders";
+    const backLabel = prescription.isBilled ? "Back to Bills" : "Back to Orders";
+
     return (
         <Box sx={{ pb: 4 }}>
-            {/* Header */}
             <HeadingCard
                 title="Prescription Details"
-                subtitle="View complete prescription information including medicines, dosage, and timing"
+                subtitle="View complete prescription information including medicines, dosage, and billing status"
                 breadcrumbItems={[
                     { label: "Patient", url: "/patient/dashboard" },
-                    { label: "Prescriptions", url: "/patient/prescriptions" },
+                    { label: "Prescriptions", url: backPath },
+                    { label: prescription.isBilled ? "Bills" : "Orders", url: backPath },
                     { label: "Details" },
                 ]}
             />
 
-            {/* Back Button */}
             <Box sx={{ mb: 3 }}>
                 <Button
                     startIcon={<ArrowBackIcon />}
-                    onClick={() => navigate("/patient/prescriptions")}
+                    onClick={() => navigate(backPath)}
                     sx={{
                         color: "var(--color-text-dark)",
                         textTransform: "none",
@@ -236,11 +274,99 @@ function PrescriptionDetailsPage() {
                         },
                     }}
                 >
-                    Back to Prescriptions
+                    {backLabel}
                 </Button>
             </Box>
 
             <Grid container spacing={3}>
+                <Grid item xs={12}>
+                    <Card
+                        elevation={0}
+                        sx={{
+                            mb: 3,
+                            borderRadius: 2,
+                            border: "1px solid",
+                            borderColor: "divider",
+                        }}
+                    >
+                        <CardContent sx={{ p: 3 }}>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                                <Typography variant="h6" fontWeight={600} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    <MedicationIcon fontSize="small" />
+                                    Prescribed Medicines
+                                </Typography>
+                                <Chip
+                                    label={`${prescription.medicinesInOrder} medicine${prescription.medicinesInOrder > 1 ? "s" : ""}`}
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                />
+                            </Box>
+                            <Divider sx={{ mb: 2 }} />
+                            <TableContainer component={Paper} elevation={0} sx={{ border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.05) }}>
+                                            <TableCell sx={{ fontWeight: 700 }}>Medicine</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Dosage</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Frequency</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Duration</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Quantity</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Food Timing</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {(prescription.relatedPrescriptions.length > 0
+                                            ? prescription.relatedPrescriptions
+                                            : [{
+                                                _id: prescription._id,
+                                                medication: prescription.medication,
+                                                dosage: prescription.dosage,
+                                                frequency: prescription.frequency,
+                                                duration: prescription.duration,
+                                                quantity: prescription.quantity,
+                                                foodTiming: prescription.foodTiming,
+                                                status: prescription.status,
+                                            }]
+                                        ).map((item) => {
+                                            const isCurrent = item._id === prescription._id;
+                                            return (
+                                                <TableRow
+                                                    key={item._id}
+                                                    sx={{
+                                                        backgroundColor: isCurrent
+                                                            ? alpha(theme.palette.primary.main, 0.08)
+                                                            : "inherit",
+                                                    }}
+                                                >
+                                                    <TableCell sx={{ fontWeight: isCurrent ? 700 : 500 }}>
+                                                        {item.medication || "N/A"}
+                                                        {isCurrent ? " (Viewing)" : ""}
+                                                    </TableCell>
+                                                    <TableCell>{item.dosage || "N/A"}</TableCell>
+                                                    <TableCell>{item.frequency || "N/A"}</TableCell>
+                                                    <TableCell>{item.duration || "Not specified"}</TableCell>
+                                                    <TableCell>{item.quantity || 1}</TableCell>
+                                                    <TableCell>{item.foodTiming || "N/A"}</TableCell>
+                                                    <TableCell>
+                                                        <Chip
+                                                            label={item.status || "Pending"}
+                                                            size="small"
+                                                            color={getStatusColor(item.status || "Pending")}
+                                                            sx={{ fontWeight: 500 }}
+                                                        />
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
                 {/* Left Column - Prescription Info */}
                 <Grid item xs={12} md={8}>
                     {/* Medicine Details Card */}
@@ -766,7 +892,16 @@ function PrescriptionDetailsPage() {
                                         Prescription ID
                                     </Typography>
                                     <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
-                                        {prescription._id?.toString().slice(-8).toUpperCase() || "N/A"}
+                                        {prescription.prescriptionId}
+                                    </Typography>
+                                </Box>
+
+                                <Box>
+                                    <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                        Consultation ID
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
+                                        {prescription.consultationId}
                                     </Typography>
                                 </Box>
 
@@ -784,7 +919,7 @@ function PrescriptionDetailsPage() {
 
                                 <Box>
                                     <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
-                                        Status
+                                        Prescription Status
                                     </Typography>
                                     <Chip
                                         label={prescription.status}
@@ -793,9 +928,100 @@ function PrescriptionDetailsPage() {
                                         sx={{ fontWeight: 500 }}
                                     />
                                 </Box>
+
+                                <Box>
+                                    <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                        Billing Status
+                                    </Typography>
+                                    <Chip
+                                        label={prescription.billingStatus}
+                                        color={getBillingStatusColor(prescription.billingStatus)}
+                                        size="small"
+                                        sx={{ fontWeight: 600 }}
+                                    />
+                                </Box>
+
+                                <Box>
+                                    <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                        Medicines in Order
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
+                                        {prescription.medicinesInOrder}
+                                    </Typography>
+                                </Box>
                             </Stack>
                         </CardContent>
                     </Card>
+
+                    {prescription.isBilled && prescription.billDetails && (
+                        <Card
+                            elevation={0}
+                            sx={{
+                                mb: 3,
+                                borderRadius: 2,
+                                border: "1px solid",
+                                borderColor: "divider",
+                            }}
+                        >
+                            <CardContent sx={{ p: 3 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                                    <ReceiptLongIcon
+                                        sx={{ fontSize: 24, color: "var(--color-primary)", mr: 1.5 }}
+                                    />
+                                    <Typography variant="h6" fontWeight="bold" sx={{ color: "var(--color-text-dark)" }}>
+                                        Bill Information
+                                    </Typography>
+                                </Box>
+                                <Divider sx={{ mb: 2 }} />
+
+                                <Stack spacing={2}>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                            Bill ID
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
+                                            {prescription.billDetails.billId}
+                                        </Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                            Total Amount
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
+                                            ₹{Number(prescription.billDetails.totalAmount || 0).toFixed(2)}
+                                        </Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                            Paid Amount
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
+                                            ₹{Number(prescription.billDetails.paidAmount || 0).toFixed(2)}
+                                        </Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                            Balance
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ color: "var(--color-text-dark)", fontWeight: 600 }}>
+                                            ₹{Number(prescription.billDetails.balance || 0).toFixed(2)}
+                                        </Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ color: "var(--color-text)", mb: 0.5 }}>
+                                            Payment Status
+                                        </Typography>
+                                        <Chip
+                                            label={prescription.billDetails.paymentStatus}
+                                            color={getBillingStatusColor(prescription.billDetails.paymentStatus)}
+                                            size="small"
+                                            sx={{ fontWeight: 600 }}
+                                        />
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Doctor Info Card */}
                     <Card

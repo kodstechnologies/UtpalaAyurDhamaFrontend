@@ -10,14 +10,48 @@ import firebaseService from '../services/firebaseService';
 import notificationService from '../services/notificationService';
 import { toast } from 'react-toastify';
 
+const getSeenEventIds = (userId) => {
+    if (!userId) return [];
+    try {
+        return JSON.parse(localStorage.getItem(`utpala_seen_event_ids_${userId}`) || '[]');
+    } catch {
+        return [];
+    }
+};
+
+const markEventsAsSeen = (userId, eventIds) => {
+    if (!userId || !eventIds?.length) return;
+    const seenIds = new Set(getSeenEventIds(userId));
+    eventIds.forEach((id) => seenIds.add(id));
+    localStorage.setItem(`utpala_seen_event_ids_${userId}`, JSON.stringify([...seenIds]));
+};
+
+const getToastedEventIds = (userId) => {
+    if (!userId) return [];
+    try {
+        return JSON.parse(localStorage.getItem(`utpala_toasted_event_ids_${userId}`) || '[]');
+    } catch {
+        return [];
+    }
+};
+
+const markEventsAsToasted = (userId, eventIds) => {
+    if (!userId || !eventIds?.length) return;
+    const toastedIds = new Set(getToastedEventIds(userId));
+    eventIds.forEach((id) => toastedIds.add(id));
+    localStorage.setItem(`utpala_toasted_event_ids_${userId}`, JSON.stringify([...toastedIds]));
+};
+
 export const useNotifications = () => {
     const authState = useSelector((state) => state.auth) || {};
     const { user, role } = authState;
     const [paymentReminders, setPaymentReminders] = useState([]);
     const [dobReminders, setDobReminders] = useState([]);
     const [eventNotifications, setEventNotifications] = useState([]);
+    const [unseenEventNotifications, setUnseenEventNotifications] = useState([]);
     const [showPaymentPopup, setShowPaymentPopup] = useState(false);
     const [showDOBPopup, setShowDOBPopup] = useState(false);
+    const [showEventPopup, setShowEventPopup] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const [fcmToken, setFcmToken] = useState(null);
     
@@ -27,7 +61,9 @@ export const useNotifications = () => {
     const shouldFetchPaymentReminders = userRole === 'receptionist';
     const shouldFetchDOBReminders = userRole && staffRoles.includes(userRole);
     const shouldFetchEventNotifications = Boolean(user && userRole);
+    const shouldShowEventPopup = userRole === 'receptionist';
     const shouldInitializeFirebase = Boolean(user && userRole);
+    const userId = user?._id || user?.id;
 
     const fetchPaymentReminders = useCallback(async () => {
         if (!shouldFetchPaymentReminders) {
@@ -76,6 +112,8 @@ export const useNotifications = () => {
     const fetchEventNotifications = useCallback(async () => {
         if (!shouldFetchEventNotifications) {
             setEventNotifications([]);
+            setUnseenEventNotifications([]);
+            setShowEventPopup(false);
             return;
         }
 
@@ -83,15 +121,59 @@ export const useNotifications = () => {
             const response = await notificationService.getEventNotifications(30);
 
             if (response.success && response.data) {
-                setEventNotifications(response.data);
+                const events = response.data;
+                setEventNotifications(events);
+
+                if (shouldShowEventPopup && userId) {
+                    const seenIds = getSeenEventIds(userId);
+                    const unseenEvents = events.filter((event) => !seenIds.includes(event.id));
+                    setUnseenEventNotifications(unseenEvents);
+
+                    if (unseenEvents.length > 0) {
+                        setShowEventPopup(true);
+
+                        const toastedIds = getToastedEventIds(userId);
+                        const newlyDetected = unseenEvents.filter((event) => !toastedIds.includes(event.id));
+                        if (newlyDetected.length > 0) {
+                            const newestEvent = newlyDetected[0];
+                            toast.info(
+                                newestEvent.title
+                                    ? `New Utpala Event: ${newestEvent.title}`
+                                    : 'New Utpala event created',
+                            );
+                            markEventsAsToasted(
+                                userId,
+                                newlyDetected.map((event) => event.id),
+                            );
+                        }
+                    } else {
+                        setShowEventPopup(false);
+                    }
+                }
             } else {
                 setEventNotifications([]);
+                setUnseenEventNotifications([]);
+                setShowEventPopup(false);
             }
         } catch (error) {
             console.error('Error fetching event notifications:', error);
             setEventNotifications([]);
+            setUnseenEventNotifications([]);
+            setShowEventPopup(false);
         }
-    }, [shouldFetchEventNotifications]);
+    }, [shouldFetchEventNotifications, shouldShowEventPopup, userId]);
+
+    const dismissEventNotifications = useCallback(() => {
+        if (!userId) {
+            setShowEventPopup(false);
+            return;
+        }
+
+        const unseenIds = unseenEventNotifications.map((event) => event.id);
+        markEventsAsSeen(userId, unseenIds);
+        setUnseenEventNotifications([]);
+        setShowEventPopup(false);
+    }, [userId, unseenEventNotifications]);
 
     const handleForegroundMessage = useCallback((payload) => {
         const notificationType = payload.data?.type || payload.notification?.data?.type;
@@ -182,10 +264,14 @@ export const useNotifications = () => {
         paymentReminders,
         dobReminders,
         eventNotifications,
+        unseenEventNotifications,
         showPaymentPopup,
         showDOBPopup,
+        showEventPopup,
         setShowPaymentPopup,
         setShowDOBPopup,
+        setShowEventPopup,
+        dismissEventNotifications,
         fetchPaymentReminders,
         fetchDOBReminders,
         fetchEventNotifications,

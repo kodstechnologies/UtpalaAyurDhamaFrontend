@@ -49,17 +49,21 @@ function Prescriptions_View() {
                 const total = response.data.meta?.total ?? 0;
                 setPagination((prev) => ({ ...prev, total }));
 
-                // Group prescriptions by patient (current page only)
-                const groupedByPatient = {};
+                // Group prescriptions by examination (each create/save = separate row)
+                const groupedByExamination = {};
 
                 prescriptionData.forEach((prescription) => {
                     const patientId = prescription.patient?._id?.toString() || prescription.patient?.toString();
                     const patientUhid = prescription.patient?.user?.uhid || prescription.patient?.patientId || "N/A";
-                    const key = patientId || patientUhid;
+                    const examId = prescription.examination?._id?.toString()
+                        || prescription.examination?.toString()
+                        || prescription._id;
+                    const key = examId;
 
-                    if (!groupedByPatient[key]) {
-                        groupedByPatient[key] = {
-                            _id: key, // Use patient ID as the row ID
+                    if (!groupedByExamination[key]) {
+                        groupedByExamination[key] = {
+                            _id: key,
+                            examinationId: examId,
                             patientName: prescription.patient?.user?.name || "Unknown",
                             patientUhid: patientUhid,
                             patientIdRaw: patientId,
@@ -69,13 +73,12 @@ function Prescriptions_View() {
                             prescriptionDate: prescription.createdAt
                                 ? new Date(prescription.createdAt).toISOString().split("T")[0]
                                 : new Date().toISOString().split("T")[0],
-                            prescriptions: [], // Array to store all prescriptions for this patient
-                            status: "Active", // Default status
+                            prescriptions: [],
+                            status: "Active",
                         };
                     }
 
-                    // Add this prescription to the patient's list
-                    groupedByPatient[key].prescriptions.push({
+                    groupedByExamination[key].prescriptions.push({
                         _id: prescription._id,
                         medication: prescription.medication || "N/A",
 
@@ -91,22 +94,20 @@ function Prescriptions_View() {
                     // Update date to the latest prescription date
                     if (prescription.createdAt) {
                         const presDate = new Date(prescription.createdAt).toISOString().split("T")[0];
-                        if (presDate > groupedByPatient[key].prescriptionDate) {
-                            groupedByPatient[key].prescriptionDate = presDate;
+                        if (presDate > groupedByExamination[key].prescriptionDate) {
+                            groupedByExamination[key].prescriptionDate = presDate;
                         }
                     }
 
-                    // Update status - if any prescription is Active, show Active
                     const presStatus = prescription.status === "Pending" ? "Active" : prescription.status === "Dispensed" ? "Completed" : prescription.status;
-                    if (presStatus === "Active" || groupedByPatient[key].status === "Active") {
-                        groupedByPatient[key].status = "Active";
+                    if (presStatus === "Active" || groupedByExamination[key].status === "Active") {
+                        groupedByExamination[key].status = "Active";
                     } else if (presStatus === "Completed") {
-                        groupedByPatient[key].status = "Completed";
+                        groupedByExamination[key].status = "Completed";
                     }
                 });
 
-                // Convert grouped object to array
-                const groupedPrescriptions = Object.values(groupedByPatient);
+                const groupedPrescriptions = Object.values(groupedByExamination);
 
                 setPrescriptions(groupedPrescriptions);
             } else {
@@ -144,7 +145,7 @@ function Prescriptions_View() {
         }
     }, [location.state, navigate, fetchPrescriptions]);
 
-    // Display rows from API (grouped by patient; no client-side filter)
+    // Display rows from API (grouped by examination; no client-side filter)
     const displayedPrescriptions = prescriptions;
 
     // Calculate statistics

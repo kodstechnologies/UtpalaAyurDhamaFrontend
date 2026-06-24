@@ -7,8 +7,6 @@ import GreetingBanner from "../../components/card/GreetingCard";
 import DashboardCard from "../../components/card/DashboardCard";
 import TableComponent from "../../components/table/TableComponent";
 import receptionistService from "../../services/receptionistService";
-// Removed popup imports - notifications now show in header bell icon
-import { useNotifications } from "../../hooks/useNotifications";
 
 // ICONS
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
@@ -42,11 +40,6 @@ function Receptionist_Dashboard() {
     const [invoicesPagination, setInvoicesPagination] = useState({ page: 0, rowsPerPage: 5 });
     const [therapyPagination, setTherapyPagination] = useState({ page: 0, rowsPerPage: 5 });
 
-    // Notification hooks (not showing popups anymore - using header bell icon instead)
-    const {
-        paymentReminders,
-        dobReminders,
-    } = useNotifications();
 
     useEffect(() => {
         fetchDashboardData();
