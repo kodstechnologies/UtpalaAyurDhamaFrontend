@@ -290,7 +290,7 @@ function OutsideDispense_Details() {
                                     },
                                 }}
                             >
-                                UPY VIA
+                                PAY VIA
                             </Button>
                             <Button
                                 variant="outlined"

@@ -58,9 +58,11 @@ export const buildPrescriptionDocumentData = (apiData, billingSnapshot = {}, rec
 
     const invoice = {
         no: data.invoiceNo || billingSnapshot.invoiceNo || "",
-        date: data.date || new Date().toLocaleDateString("en-IN"),
+        date: data.date
+            ? data.date
+            : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }),
         doctor: data.doctorName || "",
-        time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
     };
 
     const showInvoiceNo = shouldShowInvoiceNo({
@@ -78,10 +80,8 @@ export const buildPrescriptionDocumentData = (apiData, billingSnapshot = {}, rec
             ? Number(billingSnapshot.totalWithGst ?? data.totalWithGst)
             : estimatedTotalNum;
 
-    let gstRateText = "";
-    if (gstRateNum > 0) {
-        gstRateText = `${gstRateNum}%`;
-    } else if (gstAmountNum > 0 && subtotalNum > 0) {
+    let gstRateText = `${gstRateNum}%`;
+    if (gstRateNum === 0 && gstAmountNum > 0 && subtotalNum > 0) {
         gstRateText = `${Math.round((gstAmountNum / subtotalNum) * 100)}%`;
     }
 
@@ -190,28 +190,20 @@ const buildTotalsHtml = (doc) => {
     const statusColor =
         paymentStatusLabel === "Paid" ? "#2e7d32" : paymentStatusLabel === "Partially Paid" ? "#000000" : "#000000";
 
+    const row = (label, value, style = "") =>
+        `<tr><td style="padding:3px 0; text-align:left; ${style}">${label}</td><td style="padding:3px 0; text-align:right; white-space:nowrap; font-weight:600; ${style}">${value}</td></tr>`;
+
     return `
-    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-      <span>Subtotal:</span><span>₹${subtotal}</span>
-    </div>
-    ${Number(gstAmount) > 0 ? `
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-        <span>GST (${gstRateText || "—"}):</span><span>₹${gstAmount}</span>
-      </div>
-    ` : ""}
-    <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">
-      <span>TOTAL PAYABLE:</span><span>₹${totalWithGst}</span>
-    </div>
-    ${paidNum > 0 ? `
-      <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
-        <span>Total Paid:</span><span>₹${paidNum.toFixed(2)}</span>
-      </div>
-    ` : ""}
-    ${balanceDueNum > 0 ? `
-      <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; color:${statusColor}; margin-top:6px;">
-        <span>Balance Due:</span><span>₹${balanceDueNum.toFixed(2)}</span>
-      </div>
-    ` : ""}
+    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+      ${row("Subtotal:", `₹${subtotal}`)}
+      ${row(`GST (${gstRateText}):`, `₹${gstAmount}`)}
+      <tr>
+        <td style="padding:8px 0 3px; font-size:14px; font-weight:bold; border-top:2px solid #000;">TOTAL PAYABLE:</td>
+        <td style="padding:8px 0 3px; font-size:14px; font-weight:bold; text-align:right; border-top:2px solid #000;">₹${totalWithGst}</td>
+      </tr>
+      ${paidNum > 0 ? row("Total Paid:", `₹${paidNum.toFixed(2)}`, "color:#2e7d32;") : ""}
+      ${balanceDueNum > 0 ? row("Balance Due:", `₹${balanceDueNum.toFixed(2)}`, `font-weight:bold; font-size:13px; color:${statusColor};`) : ""}
+    </table>
   `;
 };
 
@@ -225,34 +217,43 @@ export const buildPrescriptionBodyHtml = (doc, variant = "print") => {
     const statusBg =
         paymentStatusLabel === "Paid" ? "#ffffff" : paymentStatusLabel === "Partially Paid" ? "#f5f5f5" : "#f5f5f5";
 
+    const labelCell = "font-weight:bold; width:110px; padding:4px 0; vertical-align:top; white-space:nowrap;";
+    const colonCell = "width:10px; padding:4px 0; vertical-align:top;";
+    const valueCell = "padding:4px 0; vertical-align:top;";
+
     return `
-    <div style="width:100%; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
-      <div style="display:flex; border:1px solid #000; margin:10px 0; font-size:13px;">
-        <div style="width:65%; background:#f9f5f0; padding:12px; border-right:1px solid #000;">
-          <table style="width:100%; margin-top:30px; border-collapse:collapse;">
-            <tr><td style="font-weight:bold; width:110px; padding:4px 0;">Patient Name</td><td style="width:10px;">:</td><td>${escapeHtml(patient.name)}</td></tr>
-            <tr><td style="font-weight:bold; padding:4px 0;">Age / Gender</td><td>:</td><td>${patient.age !== "" && patient.age != null ? `${patient.age} / ` : ""}${escapeHtml(patient.gender)}</td></tr>
-            <tr><td style="font-weight:bold; padding:4px 0;">Mobile No</td><td>:</td><td>${escapeHtml(patient.mobile)}</td></tr>
-            <tr><td style="font-weight:bold; padding:4px 0;">Generated By</td><td>:</td><td>${escapeHtml(generatedBy)}</td></tr>
-          </table>
-        </div>
-        <div style="width:35%; background:#f9f5f0; padding:12px;">
-          <div style="text-align:center; font-weight:bold; font-size:17px; margin-bottom:10px; border-bottom:1px solid #000; padding-bottom:6px;">
-            PRESCRIPTION
-          </div>
-          <table style="width:100%; border-collapse:collapse;">
-            ${invoiceNoRowHtml}
-            <tr><td style="font-weight:bold; padding:4px 0;">Date / Time</td><td style="width:10px;">:</td><td style="white-space:nowrap;">${invoice.date} @ ${invoice.time}</td></tr>
-            <tr><td style="font-weight:bold; padding:4px 0;">Doctor</td><td>:</td><td>${escapeHtml(invoice.doctor)}</td></tr>
-          </table>
-          <div style="margin-top:8px; margin-bottom:10px; font-size:11px;">
-            <span style="font-weight:bold;">Payment Status:</span>
-            <span style="margin-left:6px; border:1px solid #999; background-color:${statusBg}; color:#000; font-size:12px; font-weight:700; border-radius:4px; display:inline-block; padding:2px 8px;">
-              ${escapeHtml(paymentStatusLabel)}
-            </span>
-          </div>
-        </div>
-      </div>
+    <div style="width:100%; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; font-size:13px;">
+      <table style="width:100%; border:1px solid #000; border-collapse:collapse; margin:10px 0; table-layout:fixed;">
+        <tr>
+          <td style="width:65%; background:#f9f5f0; padding:12px; border-right:1px solid #000; vertical-align:top;">
+            <table style="width:100%; border-collapse:collapse;">
+              <tr><td style="${labelCell}">Patient Name</td><td style="${colonCell}">:</td><td style="${valueCell}">${escapeHtml(patient.name)}</td></tr>
+              <tr><td style="${labelCell}">Age / Gender</td><td style="${colonCell}">:</td><td style="${valueCell}">${patient.age !== "" && patient.age != null ? `${patient.age} / ` : ""}${escapeHtml(patient.gender)}</td></tr>
+              <tr><td style="${labelCell}">Mobile No</td><td style="${colonCell}">:</td><td style="${valueCell}">${escapeHtml(patient.mobile)}</td></tr>
+              <tr><td style="${labelCell}">Generated By</td><td style="${colonCell}">:</td><td style="${valueCell}">${escapeHtml(generatedBy)}</td></tr>
+            </table>
+          </td>
+          <td style="width:35%; background:#f9f5f0; padding:12px; vertical-align:top;">
+            <div style="text-align:center; font-weight:bold; font-size:17px; margin-bottom:10px; border-bottom:1px solid #000; padding-bottom:6px;">
+              PRESCRIPTION
+            </div>
+            <table style="width:100%; border-collapse:collapse;">
+              ${invoiceNoRowHtml}
+              <tr><td style="${labelCell}">Date / Time</td><td style="${colonCell}">:</td><td style="${valueCell}; white-space:nowrap;">${invoice.date} @ ${invoice.time}</td></tr>
+              <tr><td style="${labelCell}">Doctor</td><td style="${colonCell}">:</td><td style="${valueCell}">${escapeHtml(invoice.doctor)}</td></tr>
+              <tr>
+                <td style="${labelCell}">Payment Status</td>
+                <td style="${colonCell}">:</td>
+                <td style="${valueCell}">
+                  <span style=" background-color:${statusBg}; color:#000; font-size:12px; font-weight:700; border-radius:4px; display:inline-block; padding:2px 8px;">
+                    ${escapeHtml(paymentStatusLabel)}
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
 
       <table style="width:100%; border-collapse:collapse; margin:16px 0; font-size:11px;">
         <thead>
@@ -267,16 +268,18 @@ export const buildPrescriptionBodyHtml = (doc, variant = "print") => {
         <tbody>${medicinesRows}</tbody>
       </table>
 
-      <div style="display:flex; margin-top:15px; padding-top:10px; margin-bottom:10px;">
-        <div style="width:55%; padding-right:15px;">
-          <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
-          <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
-          ${paymentHistoryHtml}
-        </div>
-        <div style="width:45%; font-size:12px;">
-          ${totalsHtml}
-        </div>
-      </div>
+      <table style="width:100%; border-collapse:collapse; margin-top:15px; margin-bottom:10px;">
+        <tr>
+          <td style="width:55%; vertical-align:top; padding-right:15px;">
+            <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
+            <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
+            ${paymentHistoryHtml}
+          </td>
+          <td style="width:45%; vertical-align:top; font-size:12px;">
+            ${totalsHtml}
+          </td>
+        </tr>
+      </table>
     </div>
   `;
 };

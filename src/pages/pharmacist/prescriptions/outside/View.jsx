@@ -28,6 +28,11 @@ const derivePaymentStatus = (record) => {
     return paidAmount >= totalAmount && totalAmount > 0 ? "Paid" : "Unpaid";
 };
 
+const displayCell = (value) => {
+    if (value == null || value === "" || String(value).trim() === "") return "_";
+    return value;
+};
+
 function OutsideDispense_View() {
     const navigate = useNavigate();
     const [records, setRecords] = useState([]);
@@ -76,35 +81,33 @@ function OutsideDispense_View() {
             filteredRows.map((record, index) => ({
                 _id: record._id,
                 slNo: index + 1,
-                name: record.name || "",
-                phone: record.phone || "",
-                email: record.email || "",
-                age: record.age != null && String(record.age).trim() !== "" ? record.age : "",
-                disease: record.disease || "",
+                name: displayCell(record.name),
+                phone: displayCell(record.phone),
+                email: displayCell(record.email),
+                age: displayCell(record.age != null && String(record.age).trim() !== "" ? record.age : ""),
+                disease: displayCell(record.disease),
                 totalAmount: record.totalAmountWithGst ?? record.totalAmount ?? 0,
                 paymentStatus: derivePaymentStatus(record),
-                dispensedOn: record.createdAt
-                    ? new Date(record.createdAt).toLocaleDateString()
-                    : "",
+                dispensedOn: displayCell(
+                    record.createdAt ? new Date(record.createdAt).toLocaleDateString() : ""
+                ),
                 raw: record,
             })),
         [filteredRows]
     );
 
-    const displayCell = (value) => (value == null || value === "" ? "" : value);
-
     const columns = [
-        { field: "name", header: "Name", render: (row) => displayCell(row.name) },
-        { field: "phone", header: "Phone", render: (row) => displayCell(row.phone) },
-        { field: "email", header: "Email", render: (row) => displayCell(row.email) },
-        { field: "age", header: "Age", render: (row) => displayCell(row.age) },
-        { field: "disease", header: "Disease", render: (row) => displayCell(row.disease) },
+        { field: "name", header: "Name" },
+        { field: "phone", header: "Phone" },
+        { field: "email", header: "Email" },
+        { field: "age", header: "Age" },
+        { field: "disease", header: "Disease" },
         {
             field: "totalAmount",
             header: "Total Amount",
             render: (row) => `₹${Number(row.totalAmount || 0).toFixed(2)}`,
         },
-        { field: "dispensedOn", header: "Dispensed On", render: (row) => displayCell(row.dispensedOn) },
+        { field: "dispensedOn", header: "Dispensed On" },
     ];
 
     const handleDeleteClick = useCallback((row) => {
@@ -204,15 +207,14 @@ function OutsideDispense_View() {
                 columns={columns}
                 rows={tableRows}
                 actions={(row) => {
-                    if (row.paymentStatus === "Paid") {
-                        return [];
-                    }
+                    const isPaid = row.paymentStatus === "Paid";
 
                     return [
                         {
                             label: "Edit",
                             icon: <EditIcon fontSize="small" />,
                             color: "var(--color-icon-2)",
+                            disabled: isPaid,
                             onClick: (actionRow) =>
                                 navigate(`/pharmacist/prescriptions/outside/edit/${actionRow._id}`),
                         },
@@ -220,6 +222,7 @@ function OutsideDispense_View() {
                             label: "Delete",
                             icon: <DeleteIcon fontSize="small" />,
                             color: "var(--color-icon-1)",
+                            disabled: isPaid,
                             onClick: handleDeleteClick,
                         },
                     ];

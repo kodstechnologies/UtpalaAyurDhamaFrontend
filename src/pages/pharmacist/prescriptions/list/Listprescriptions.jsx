@@ -781,7 +781,7 @@ function ListPrescriptions() {
                                     },
                                 }}
                             >
-                                UPY VIA
+                                PAY VIA
                             </Button>
                             <Button
                                 variant="outlined"

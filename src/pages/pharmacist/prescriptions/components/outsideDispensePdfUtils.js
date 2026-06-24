@@ -58,8 +58,12 @@ export const shouldShowInvoiceNo = ({ patientCategory, admissionStatus, recordTy
 export const buildInvoiceNoRowHtml = (invoiceNo, showInvoiceNo, variant = "print") => {
     if (!showInvoiceNo || !invoiceNo) return "";
 
+    const labelStyle = "font-weight:bold; width:110px; padding:4px 0; vertical-align:top;";
+    const colonStyle = "width:10px; padding:4px 0; vertical-align:top;";
+    const valueStyle = "padding:4px 0; vertical-align:top;";
+
     if (variant === "pdf") {
-        return `<tr><td style="font-weight:bold; width:70px;">No</td><td style="width:10px;">:</td><td>${escapeHtml(invoiceNo)}</td></tr>`;
+        return `<tr><td style="${labelStyle}">Invoice No.</td><td style="${colonStyle}">:</td><td style="${valueStyle}">${escapeHtml(String(invoiceNo))}</td></tr>`;
     }
 
     return `<tr><td class="label">Invoice No.</td><td>:</td><td>${escapeHtml(String(invoiceNo))}</td></tr>`;

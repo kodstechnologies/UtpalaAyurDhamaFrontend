@@ -115,7 +115,7 @@ function List_View_Details() {
                 patientProfileId: item.patient?._id,
                 patientId: isOutside
                     ? ""
-                    : (item.patient?.patientId || "N/A"),
+                    : (item.patient?.patientId || ""),
                 name: isOutside
                     ? (item.outsideCustomer?.name || "Walk-in Customer")
                     : (item.patient?.user?.name || "Unknown"),
@@ -258,7 +258,7 @@ function List_View_Details() {
         {
             field: "patientId",
             header: "Patient ID",
-            render: (row) => row.patientId || "",
+            render: (row) => (row.patientId ? row.patientId : "_"),
         },
       
         {
