@@ -77,6 +77,80 @@ export const displayField = (value) => {
     return value;
 };
 
+export const formatPaymentMethodLabel = (method) => {
+    if (!method) return "";
+    if (String(method).toLowerCase() === "online") return "UPI";
+    return method;
+};
+
+export const getOutsidePaymentHistory = (record) => {
+    const payments = Array.isArray(record?.payments) ? [...record.payments] : [];
+
+    if (payments.length === 0 && Number(record?.paidAmount) > 0) {
+        payments.push({
+            amount: record.paidAmount,
+            method: record.paymentMethod || "Cash",
+            transactionId: record.transactionId || "",
+            cardDigits: "",
+            paidAt: record.updatedAt || record.createdAt || new Date(),
+        });
+    }
+
+    return payments.map((payment) => ({
+        ...payment,
+        method: formatPaymentMethodLabel(payment.method),
+    }));
+};
+
+const formatPaymentDateTime = (paidAt) => {
+    if (!paidAt) return "";
+    const date = new Date(paidAt);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    })} ${date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
+};
+
+export const buildPaymentHistoryHtml = (payments, variant = "print") => {
+    if (!payments.length) {
+        return `
+      <div style="margin-top:20px; font-weight:bold; font-size:13px;">Payment History:</div>
+      <div style="font-size:11px; margin-top:4px;">No payment history available.</div>
+    `;
+    }
+
+    const itemStyle =
+        variant === "pdf"
+            ? "font-size:11px; margin-top:6px; padding:6px 8px; border:1px solid #ddd; border-radius:4px;"
+            : "font-size:11px; margin-top:6px; padding:6px 8px; border:1px solid #ddd; border-radius:4px;";
+
+    return `
+    <div style="margin-top:20px; font-weight:bold; font-size:13px;">Payment History:</div>
+    ${payments
+        .map((payment, index) => {
+            const ref =
+                payment.method === "Card" && payment.cardDigits
+                    ? `Card ending in ${payment.cardDigits}`
+                    : payment.transactionId || "";
+            return `
+        <div style="${itemStyle}">
+          <div style="display:flex; justify-content:space-between; gap:8px; font-weight:600; margin-bottom:2px;">
+            <span>${index + 1}. ₹${Number(payment.amount || 0).toFixed(2)}</span>
+            <span style="font-weight:500; color:#555; font-size:10px; white-space:nowrap;">${escapeHtml(formatPaymentDateTime(payment.paidAt))}</span>
+          </div>
+          <div>
+            <span style="font-weight:600;">${escapeHtml(payment.method || "Cash")}</span>
+            ${ref ? `<span style="color:#555;"> | ${escapeHtml(ref)}</span>` : ""}
+          </div>
+        </div>
+      `;
+        })
+        .join("")}
+  `;
+};
+
 export const buildOutsideDispensePdfData = (record) => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const generatedBy = user?.name || record?.dispensedBy?.name || "";
@@ -164,6 +238,9 @@ export const buildOutsideDispensePdfData = (record) => {
 
     const paymentSummaryHtml = buildPaymentSummaryHtml("print");
     const paymentSummaryHtmlPdf = buildPaymentSummaryHtml("pdf");
+    const payments = getOutsidePaymentHistory(record);
+    const paymentHistoryHtml = buildPaymentHistoryHtml(payments, "print");
+    const paymentHistoryHtmlPdf = buildPaymentHistoryHtml(payments, "pdf");
     const showInvoiceNo = false;
     const invoiceNoRowHtml = buildInvoiceNoRowHtml(invoiceNo, showInvoiceNo, "print");
     const invoiceNoRowHtmlPdf = buildInvoiceNoRowHtml(invoiceNo, showInvoiceNo, "pdf");
@@ -218,6 +295,9 @@ export const buildOutsideDispensePdfData = (record) => {
         balanceDue,
         paymentSummaryHtml,
         paymentSummaryHtmlPdf,
+        payments,
+        paymentHistoryHtml,
+        paymentHistoryHtmlPdf,
         showInvoiceNo,
         invoiceNoRowHtml,
         invoiceNoRowHtmlPdf,

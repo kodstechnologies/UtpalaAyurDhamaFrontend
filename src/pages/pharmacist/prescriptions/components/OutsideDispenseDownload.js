@@ -38,7 +38,7 @@ export const handleOutsideDownload = async (record) => {
     }
 
     try {
-        const { customer, invoice, generatedBy, amountInWords, medicinesRows, paymentSummaryHtmlPdf, invoiceNoRowHtmlPdf } =
+        const { customer, invoice, generatedBy, amountInWords, medicinesRows, paymentSummaryHtmlPdf, paymentHistoryHtmlPdf, invoiceNoRowHtmlPdf } =
             buildOutsideDispensePdfData(record);
 
         const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:15px 15px 0;">${getHeader()}</div>`;
@@ -94,6 +94,7 @@ export const handleOutsideDownload = async (record) => {
           <div style="width:55%; padding-right:15px;">
             <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
             <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
+            ${paymentHistoryHtmlPdf}
           </div>
           <div style="width:45%; font-size:12px;">
             ${paymentSummaryHtmlPdf}

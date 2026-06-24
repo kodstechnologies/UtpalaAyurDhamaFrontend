@@ -9,7 +9,7 @@ export const handleOutsidePrint = (record) => {
     }
 
     try {
-        const { customer, invoice, generatedBy, amountInWords, medicinesRowsPrint, paymentSummaryHtml, invoiceNoRowHtml } =
+        const { customer, invoice, generatedBy, amountInWords, medicinesRowsPrint, paymentSummaryHtml, paymentHistoryHtml, invoiceNoRowHtml } =
             buildOutsideDispensePdfData(record);
 
         const html = `
@@ -148,6 +148,7 @@ export const handleOutsidePrint = (record) => {
                   <div style="width:55%; padding-right:15px;">
                     <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
                     <div style="font-style:italic; font-size:12px;">${escapeHtml(amountInWords)}</div>
+                    ${paymentHistoryHtml}
                   </div>
                   <div style="width:45%; font-size:12px;">
                     ${paymentSummaryHtml}
