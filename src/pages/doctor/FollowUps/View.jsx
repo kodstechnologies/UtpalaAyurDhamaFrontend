@@ -873,13 +873,6 @@ function FollowUps_View() {
                     const followUpDate = fup.date
                         ? new Date(fup.date).toISOString().split("T")[0]
                         : "N/A";
-                    const followUpTime = fup.date
-                        ? new Date(fup.date).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                        })
-                        : "N/A";
 
                     const daysUntil = fup.daysUntil !== undefined ? fup.daysUntil : 0;
 
@@ -895,7 +888,6 @@ function FollowUps_View() {
                         patientName: fup.patientName || "Unknown",
                         patientId: fup.patientUhid || fup.patientId || "N/A",
                         followUpDate,
-                        followUpTime,
                         status: fup.status || "Upcoming",
                         daysUntil,
                         examinationId: parsedExaminationId, // Use parsed ID for updates
@@ -992,7 +984,6 @@ function FollowUps_View() {
         { field: "patientName", header: "Patient Name" },
         { field: "patientId", header: "Patient ID" },
         { field: "followUpDate", header: "Date" },
-        { field: "followUpTime", header: "Time" },
         {
             field: "daysUntil",
             header: "Timeline",

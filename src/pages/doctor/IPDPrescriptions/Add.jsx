@@ -70,6 +70,7 @@ function IPDPrescriptionsAddPage() {
     const inpatientId = searchParams.get("inpatientId") || "";
     const patientName = searchParams.get("patientName") || "";
     const isEditMode = !!prescriptionId;
+    const isInpatientLocked = isEditMode || Boolean(inpatientId || patientName);
 
     const [inpatients, setInpatients] = useState([]);
     const [isLoadingInpatients, setIsLoadingInpatients] = useState(false);
@@ -124,17 +125,23 @@ function IPDPrescriptionsAddPage() {
 
                 if (response.data.success) {
                     const inpatientsData = response.data.data || [];
-                    // In edit mode, include all inpatients (admitted and discharged)
-                    // In create mode, filter only admitted patients
+                    // In edit mode, include all inpatients (admitted and discharged).
+                    // In create mode, prefer admitted patients, but always include the
+                    // inpatient received via query param so row action deep-links work.
                     const filteredInpatients = isEditMode
                         ? inpatientsData
-                        : inpatientsData.filter(ip => ip.status === "Admitted");
+                        : inpatientsData.filter((ip) =>
+                            ip.status === "Admitted" || ip._id?.toString() === inpatientId?.toString()
+                        );
                     setInpatients(filteredInpatients);
 
-                    // If inpatientId or patientName is provided in URL, find and select that inpatient
+                    // If inpatientId or patientName is provided in URL, find and select that inpatient.
+                    // Prioritize inpatientId because names may not be unique.
                     if (inpatientId || patientName) {
                         const foundInpatient = filteredInpatients.find(
-                            (ip) => ip._id === inpatientId || ip.patient?.user?.name === patientName
+                            (ip) =>
+                                ip._id?.toString() === inpatientId?.toString() ||
+                                ip.patient?.user?.name === patientName
                         );
                         if (foundInpatient) {
                             setSelectedInpatient(foundInpatient);
@@ -142,6 +149,13 @@ function IPDPrescriptionsAddPage() {
                                 ...prev,
                                 inpatientId: foundInpatient._id,
                                 patientName: foundInpatient.patient?.user?.name || patientName,
+                            }));
+                        } else if (inpatientId) {
+                            // Keep id in form state even if list API is stale; user can still submit.
+                            setFormData((prev) => ({
+                                ...prev,
+                                inpatientId,
+                                patientName: patientName || prev.patientName,
                             }));
                         }
                     }
@@ -672,10 +686,14 @@ function IPDPrescriptionsAddPage() {
                                 getOptionLabel={(option) =>
                                     `${option.patient?.user?.name || "Unknown"} - Room: ${option.roomNumber || "N/A"}`
                                 }
+                                isOptionEqualToValue={(option, value) =>
+                                    option?._id?.toString() === value?._id?.toString()
+                                }
                                 loading={isLoadingInpatients}
                                 value={selectedInpatient}
                                 onChange={handleInpatientSelect}
-                                disabled={isEditMode}
+                                disabled={isInpatientLocked}
+                                disableClearable={isInpatientLocked}
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}

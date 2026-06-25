@@ -957,7 +957,7 @@ function Appointments_View() {
                     <div className="card shadow-sm mb-4" style={{ border: 'none', borderBottom: '1px solid #ddd', borderRadius: 0 }}>
                         <div className="card-body">
                             <div className="row g-3">
-                                <div className="col-md-4">
+                                <div className="col-md-6">
                                     <label className="form-label">Search</label>
                                     <div className="input-group">
                                         <span className="input-group-text"><SearchIcon /></span>
@@ -971,7 +971,7 @@ function Appointments_View() {
                                         />
                                     </div>
                                 </div>
-                                <div className="col-md-4">
+                                <div className="col-md-6">
                                     <label className="form-label">Doctor</label>
                                     <select
                                         name="doctorId"
@@ -985,21 +985,6 @@ function Appointments_View() {
                                                 {`Dr. ${doc.user?.name || doc.name || "N/A"}`}
                                             </option>
                                         ))}
-                                    </select>
-                                </div>
-                                <div className="col-md-4">
-                                    <label className="form-label">Appointment Status</label>
-                                    <select
-                                        name="appointmentStatus"
-                                        className="form-select"
-                                        value={filters.appointmentStatus}
-                                        onChange={handleFilterChange}
-                                        disabled={activeTab !== "appointments"}
-                                    >
-                                        <option value="">All Future Appointments</option>
-                                        <option value="upcoming">Upcoming</option>
-                                        <option value="ongoing">Ongoing (Today)</option>
-                                        <option value="completed">Completed</option>
                                     </select>
                                 </div>
                             </div>

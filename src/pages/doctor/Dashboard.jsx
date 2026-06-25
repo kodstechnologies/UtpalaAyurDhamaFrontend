@@ -234,7 +234,7 @@ function Doctor_Dashboard() {
                 .map((apt) => ({
                     _id: apt._id,
                     patientName: apt.patient?.user?.name || "Unknown",
-                    date: apt.appointmentDate || new Date(apt.createdAt).toISOString().split("T")[0],
+                    date: toDateOnly(apt.appointmentDate) || toDateOnly(apt.createdAt) || "N/A",
                     time: apt.appointmentTime || "N/A",
                     status: apt.status || "Scheduled",
                 }));

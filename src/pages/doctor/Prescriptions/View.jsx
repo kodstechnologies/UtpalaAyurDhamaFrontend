@@ -7,6 +7,7 @@ import EventIcon from "@mui/icons-material/Event";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import DeleteIcon from "@mui/icons-material/Delete";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -242,6 +243,46 @@ function Prescriptions_View() {
                     navigate(`/doctor/prescriptions/edit/${row.prescriptions[0]._id}`);
                 } else {
                     toast.info("No prescriptions found for this patient");
+                }
+            },
+        },
+        {
+            icon: <DeleteIcon fontSize="small" />,
+            color: "#d32f2f",
+            tooltip: "Delete Prescription",
+            onClick: async (row) => {
+                if (!row.prescriptions || row.prescriptions.length === 0) {
+                    toast.info("No prescriptions found for this patient");
+                    return;
+                }
+
+                const prescriptionCount = row.prescriptions.length;
+                const confirmMessage = prescriptionCount > 1
+                    ? `Delete all ${prescriptionCount} prescriptions for ${row.patientName}? This cannot be undone.`
+                    : `Delete this prescription for ${row.patientName}? This cannot be undone.`;
+
+                const confirmed = window.confirm(confirmMessage);
+                if (!confirmed) return;
+
+                try {
+                    await Promise.all(
+                        row.prescriptions.map((prescription) =>
+                            axios.delete(
+                                getApiUrl(`examinations/prescriptions/${prescription._id}`),
+                                { headers: getAuthHeaders() }
+                            )
+                        )
+                    );
+
+                    toast.success(
+                        prescriptionCount > 1
+                            ? `${prescriptionCount} prescriptions deleted successfully`
+                            : "Prescription deleted successfully"
+                    );
+                    fetchPrescriptions();
+                } catch (error) {
+                    console.error("Error deleting prescription(s):", error);
+                    toast.error(error.response?.data?.message || "Failed to delete prescription");
                 }
             },
         },

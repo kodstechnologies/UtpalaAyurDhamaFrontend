@@ -124,7 +124,12 @@ function AssignTherapyAddPage() {
             );
 
             if (response.data.success) {
-                setTherapists(response.data.data || []);
+                const sortedTherapists = [...(response.data.data || [])].sort((a, b) => {
+                    const nameA = (a?.user?.name || a?.name || "").toString();
+                    const nameB = (b?.user?.name || b?.name || "").toString();
+                    return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+                });
+                setTherapists(sortedTherapists);
             } else {
                 console.error("Failed to fetch therapists:", response.data.message);
             }
@@ -151,7 +156,12 @@ function AssignTherapyAddPage() {
             );
 
             if (response.data.success) {
-                setTherapies(response.data.data || []);
+                const sortedTherapies = [...(response.data.data || [])].sort((a, b) => {
+                    const nameA = (a?.therapyName || "").toString();
+                    const nameB = (b?.therapyName || "").toString();
+                    return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+                });
+                setTherapies(sortedTherapies);
             } else {
                 console.error("Failed to fetch therapies:", response.data.message);
             }

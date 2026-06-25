@@ -11,6 +11,7 @@ import EventIcon from "@mui/icons-material/Event";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import MedicationIcon from "@mui/icons-material/Medication";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 import HeadingCard from "../../../components/card/HeadingCard";
 import TableComponent from "../../../components/table/TableComponent";
@@ -271,6 +272,36 @@ function OPConsultation_View() {
         }
     };
 
+    const handleDeleteConsultation = async (row) => {
+        if (!row?._id) {
+            toast.error("Appointment ID not found");
+            return;
+        }
+
+        const patientName = row.patientName || "this patient";
+        if (!window.confirm(`Are you sure you want to delete the appointment for ${patientName}?`)) {
+            return;
+        }
+
+        try {
+            const response = await axios.patch(
+                getApiUrl(`appointments/${row._id}/status`),
+                { status: "Cancelled" },
+                { headers: getAuthHeaders() }
+            );
+
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || "Failed to delete appointment");
+            }
+
+            toast.success("Appointment deleted successfully");
+            await fetchAppointments();
+        } catch (error) {
+            console.error("Error deleting appointment:", error);
+            toast.error(error.response?.data?.message || error.message || "Failed to delete appointment");
+        }
+    };
+
     // Dynamic actions - always show View Details button (like IPD patients)
     const getActions = (row) => {
         const actionsList = [];
@@ -381,6 +412,14 @@ function OPConsultation_View() {
             label: "Prescription",
             title: "Open Prescription",
             onClick: handleOpenPrescription,
+        });
+
+        actionsList.push({
+            icon: <DeleteIcon fontSize="small" />,
+            color: "#d32f2f",
+            label: "Delete",
+            title: "Delete Appointment",
+            onClick: handleDeleteConsultation,
         });
 
         return actionsList;

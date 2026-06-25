@@ -6,6 +6,7 @@ import EventIcon from "@mui/icons-material/Event";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import PersonIcon from "@mui/icons-material/Person";
+import DeleteIcon from "@mui/icons-material/Delete";
 import axios from "axios";
 import { toast } from "react-toastify";
 import PsychologyIcon from "@mui/icons-material/Psychology";
@@ -225,6 +226,46 @@ function OPDTherapies_View() {
                         });
                     } else {
                         toast.info("No therapies found for this patient");
+                    }
+                },
+            },
+            {
+                icon: <DeleteIcon fontSize="small" />,
+                color: "#d32f2f",
+                tooltip: "Delete Therapy",
+                onClick: async (row) => {
+                    if (!row.therapies || row.therapies.length === 0) {
+                        toast.info("No therapies found for this patient");
+                        return;
+                    }
+
+                    const therapyCount = row.therapies.length;
+                    const confirmMessage = therapyCount > 1
+                        ? `Delete all ${therapyCount} therapy plans for ${row.patientName}? This cannot be undone.`
+                        : `Delete this therapy plan for ${row.patientName}? This cannot be undone.`;
+
+                    const confirmed = window.confirm(confirmMessage);
+                    if (!confirmed) return;
+
+                    try {
+                        await Promise.all(
+                            row.therapies.map((therapy) =>
+                                axios.delete(
+                                    getApiUrl(`examinations/therapy-plans/opd/${therapy._id}`),
+                                    { headers: getAuthHeaders() }
+                                )
+                            )
+                        );
+
+                        toast.success(
+                            therapyCount > 1
+                                ? `${therapyCount} therapy plans deleted successfully`
+                                : "Therapy plan deleted successfully"
+                        );
+                        fetchTherapies();
+                    } catch (error) {
+                        console.error("Error deleting therapy plan(s):", error);
+                        toast.error(error.response?.data?.message || "Failed to delete therapy plan");
                     }
                 },
             },
