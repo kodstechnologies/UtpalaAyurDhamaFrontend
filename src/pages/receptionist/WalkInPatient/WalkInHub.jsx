@@ -238,8 +238,12 @@ function WalkInHub() {
 
       if (doctorsRes.data.success) setDoctors(doctorsRes.data.data || []);
       if (nursesRes.data.success) {
-        const nursesData = nursesRes.data.data || [];
-        setNurses(nursesData);
+        const sortedNurses = [...(nursesRes.data.data || [])].sort((a, b) => {
+          const nameA = (a?.user?.name || a?.name || "").toString();
+          const nameB = (b?.user?.name || b?.name || "").toString();
+          return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+        });
+        setNurses(sortedNurses);
       }
       if (therapistsRes.data.success)
         setTherapists(therapistsRes.data.data || []);

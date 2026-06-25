@@ -89,6 +89,52 @@ const isAdminEditableInvoiceItem = (item) => {
   return category === "Doctor Consultation" || category === "Therapy";
 };
 
+const isPharmacyItem = (item) =>
+  item.category?.toLowerCase() === "pharmacy" || categorizeInvoiceItem(item) === "Medicines";
+
+const recalculateAdminSummary = (form, invoiceData) => {
+  if (!invoiceData) {
+    return { subtotal: form.subtotal, totalPayable: form.totalPayable, amountPaid: form.amountPaid };
+  }
+
+  const subtotal = (invoiceData.items || [])
+    .filter((item) => !isPharmacyItem(item))
+    .reduce((sum, item, index) => {
+      const editEntry = form.items.find((entry) => entry.index === index);
+      const total =
+        editEntry && isAdminEditableInvoiceItem(item)
+          ? parseFloat(editEntry.total) || 0
+          : item.total || item.amount || 0;
+      return sum + total;
+    }, 0);
+
+  const pharmacySubtotal = (invoiceData.items || [])
+    .filter((item) => item.category?.toLowerCase() === "pharmacy")
+    .reduce((sum, item) => sum + (item.total || 0), 0);
+  const taxAmount = (pharmacySubtotal * (invoiceData.taxRate || 0)) / 100;
+  const grandTotal = subtotal + taxAmount;
+
+  let discount = 0;
+  if (invoiceData.discountType === "fixed") {
+    discount = Math.min(Number(invoiceData.discountValue) || 0, grandTotal);
+  } else if ((invoiceData.discountRate || 0) > 0 || (invoiceData.discountValue || 0) > 0) {
+    const rate = invoiceData.discountRate || invoiceData.discountValue || 0;
+    discount = grandTotal * (Number(rate) / 100);
+  }
+
+  const totalPayable = Math.round(Math.max(0, grandTotal - discount) * 100) / 100;
+  const amountPaid = (form.payments || []).reduce(
+    (sum, payment) => sum + (parseFloat(payment.amount) || 0),
+    0,
+  );
+
+  return {
+    subtotal: String(subtotal),
+    totalPayable: String(totalPayable),
+    amountPaid: String(amountPaid),
+  };
+};
+
 function InvoiceDetails({
   homeUrl = "/",
   backUrl = "/receptionist/payments",
@@ -181,12 +227,32 @@ function InvoiceDetails({
   };
 
   const updateAdminItemField = (itemIndex, field, value) => {
-    setAdminEditForm((prev) => ({
-      ...prev,
-      items: prev.items.map((entry) =>
+    setAdminEditForm((prev) => {
+      let items = prev.items.map((entry) =>
         entry.index === itemIndex ? { ...entry, [field]: value } : entry
-      ),
-    }));
+      );
+
+      if (field === "unitPrice" && invoice?.items?.[itemIndex]) {
+        const quantity = invoice.items[itemIndex].quantity || 1;
+        const syncedTotal = (parseFloat(value) || 0) * quantity;
+        items = items.map((entry) =>
+          entry.index === itemIndex ? { ...entry, total: String(syncedTotal) } : entry
+        );
+      }
+
+      const summary = recalculateAdminSummary({ ...prev, items }, invoice);
+      return { ...prev, items, ...summary };
+    });
+  };
+
+  const updateAdminPaymentAmount = (paymentIndex, value) => {
+    setAdminEditForm((prev) => {
+      const payments = prev.payments.map((item, i) =>
+        i === paymentIndex ? { ...item, amount: value } : item
+      );
+      const summary = recalculateAdminSummary({ ...prev, payments }, invoice);
+      return { ...prev, payments, ...summary };
+    });
   };
 
   const getAdminItemField = (itemIndex, field, fallback) => {
@@ -824,15 +890,7 @@ function InvoiceDetails({
                               type="number"
                               size="small"
                               value={adminEditForm.payments[idx]?.amount ?? payment.amount}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                setAdminEditForm((prev) => ({
-                                  ...prev,
-                                  payments: prev.payments.map((item, i) =>
-                                    i === idx ? { ...item, amount: value } : item
-                                  ),
-                                }));
-                              }}
+                              onChange={(e) => updateAdminPaymentAmount(idx, e.target.value)}
                               inputProps={{ min: 0, step: 0.01 }}
                               sx={{ width: 130 }}
                             />
@@ -868,12 +926,20 @@ function InvoiceDetails({
               </Box>
 
               {(() => {
+                const summarySubtotal =
+                  adminViewMode && isAdminEditing
+                    ? parseFloat(adminEditForm.subtotal) || 0
+                    : invoice.subtotal || 0;
+                const summaryTotalPayable =
+                  adminViewMode && isAdminEditing
+                    ? parseFloat(adminEditForm.totalPayable) || 0
+                    : invoice.totalPayable || 0;
                 const pharmacySubtotal = (invoice.items || [])
                   .filter(item => item.category?.toLowerCase() === "pharmacy")
                   .reduce((sum, item) => sum + (item.total || 0), 0);
                 const taxAmount = (pharmacySubtotal * (invoice.taxRate || 0)) / 100;
-                const grandTotal = (invoice.subtotal || 0) + taxAmount;
-                const discountAmount = Math.max(0, grandTotal - (invoice.totalPayable || 0));
+                const grandTotal = summarySubtotal + taxAmount;
+                const discountAmount = Math.max(0, grandTotal - summaryTotalPayable);
 
                 return (
                   <>

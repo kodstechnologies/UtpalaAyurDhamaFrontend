@@ -58,21 +58,43 @@ function Reports_View({
 
     // Calculate totals from report data (as fallback)
     const totals = useMemo(() => {
+        const dedupeInvoicePayable = (transactions) => {
+            const seen = new Set();
+            return transactions.reduce((sum, transaction) => {
+                if (transaction.totalPayable == null) return sum;
+                if (transaction.invoiceId) {
+                    if (seen.has(transaction.invoiceId)) return sum;
+                    seen.add(transaction.invoiceId);
+                }
+                return sum + (transaction.totalPayable || 0);
+            }, 0);
+        };
+
+        const totalPayable = summaryData?.totalPayable ?? dedupeInvoicePayable(reportData);
+
         if (summaryData) {
-            // Use backend summary data
+            // Use backend summary data; credit reflects total payable for invoice income
             return {
-                credit: summaryData.totalIncome || 0,
+                credit: totalPayable > 0 ? totalPayable : (summaryData.totalIncome || 0),
                 debit: summaryData.totalExpense || 0,
-                balance: summaryData.netTotal || 0,
+                balance: (totalPayable > 0 ? totalPayable : (summaryData.totalIncome || 0)) - (summaryData.totalExpense || 0),
                 transactionCount: reportData.length,
+                totalPayable,
             };
         }
         // Fallback: calculate from report data
-        const credit = reportData.filter((t) => t.type === "Credit" || t.type === "Income").reduce((sum, t) => sum + (t.amount || 0), 0);
+        const creditFromAmount = reportData.filter((t) => t.type === "Credit" || t.type === "Income").reduce((sum, t) => sum + (t.amount || 0), 0);
+        const credit = totalPayable > 0 ? totalPayable : creditFromAmount;
         const debit = reportData.filter((t) => t.type === "Debit" || t.type === "Expense").reduce((sum, t) => sum + (t.amount || 0), 0);
         const balance = credit - debit;
         const transactionCount = reportData.length;
-        return { credit, debit, balance, transactionCount };
+        return {
+            credit,
+            debit,
+            balance,
+            transactionCount,
+            totalPayable,
+        };
     }, [reportData, summaryData]);
 
     useEffect(() => {
@@ -202,6 +224,7 @@ function Reports_View({
                     description: payment.description || "N/A",
                     type: payment.type === "Income" ? "Credit" : payment.type === "Expense" ? "Debit" : payment.type,
                     amount: payment.amount || 0,
+                    totalPayable: payment.totalPayable ?? payment.invoice?.totalPayable ?? null,
                     paymentMethod: payment.paymentMethod || "N/A",
                     originalType: payment.type,
                     invoiceId: resolveInvoiceId(payment),
@@ -565,6 +588,12 @@ function Reports_View({
                             prefix="₹"
                             icon={MoneyOffIcon}
                         />
+                        <DashboardCard
+                            title="Total Payable"
+                            count={totals.totalPayable}
+                            prefix="₹"
+                            icon={AccountBalanceIcon}
+                        />
 
                         <DashboardCard
                             title="Total Transactions"
@@ -667,7 +696,7 @@ function Reports_View({
                                                 <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Payment Method</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Type</th>
-                                                <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Amount (INR)</th>
+                                                <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Total Payable</th>
                                                 <th style={{ fontSize: "0.875rem", textAlign: "center", minWidth: "90px" }} className="no-print">Action</th>
                                             </tr>
                                         </thead>
@@ -708,7 +737,14 @@ function Reports_View({
                                                         </div>
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
-                                                        {formatCurrency(transaction.amount)}
+                                                        {(() => {
+                                                            const payable = transaction.totalPayable != null
+                                                                ? transaction.totalPayable
+                                                                : (transaction.type === "Debit" || transaction.type === "Expense"
+                                                                    ? transaction.amount
+                                                                    : null);
+                                                            return payable != null ? formatCurrency(payable) : "—";
+                                                        })()}
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem", textAlign: "center" }} className="no-print">
                                                         {transaction.invoiceId ? (
@@ -745,9 +781,18 @@ function Reports_View({
                                         <tfoot style={{ borderTop: "2px solid #e0e0e0" }}>
                                             <tr>
                                                 <td colSpan={6} style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", paddingTop: "12px" }}>
+                                                    Total Payable:
+                                                </td>
+                                                <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", paddingTop: "12px" }}>
+                                                    {formatCurrency(totals.totalPayable)}
+                                                </td>
+                                                <td className="no-print"></td>
+                                            </tr>
+                                            <tr>
+                                                <td colSpan={6} style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right" }}>
                                                     Total Credit:
                                                 </td>
-                                                <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#198754", paddingTop: "12px" }}>
+                                                <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", color: "#198754" }}>
                                                     {formatCurrency(totals.credit)}
                                                 </td>
                                                 <td className="no-print"></td>
