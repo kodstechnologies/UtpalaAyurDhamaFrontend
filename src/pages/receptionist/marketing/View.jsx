@@ -25,11 +25,6 @@ import CloseIcon from "@mui/icons-material/Close";
 
 const mockTemplates = [
     {
-        id: "2",
-        title: "Promotional Offer",
-        content: "Hello {{patientName}}, we are running a special 20% discount on all Panchakarma treatments this month. Book now to avail the offer!",
-    },
-    {
         id: "3",
         title: "Follow-up Check",
         content: "Hello {{1}}, We hope you are feeling better after your recent treatment at Utpala Ayurdhama. Please let us know if you have any questions or require further assistance.",
@@ -105,8 +100,6 @@ function Marketing_View() {
         rowsPerPage: 25,
         total: 0,
     });
-    const [discountText, setDiscountText] = useState("");
-    const [offerDateText, setOfferDateText] = useState("");
     const [selectedImage, setSelectedImage] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [imageUrl, setImageUrl] = useState(null);
@@ -506,8 +499,8 @@ function Marketing_View() {
         if (templateId) {
             const template = mockTemplates.find((t) => t.id === templateId);
             if (template) {
-                // For templates that use WhatsApp API (Promotional Offer "2" and Follow-up Check "3"), clear message
-                if (templateId === "2" || templateId === "3") {
+                // For templates that use WhatsApp API (Follow-up Check "3"), clear message
+                if (templateId === "3") {
                     setMessage("");
                 } else {
                     // For other templates, prefill message body
@@ -518,18 +511,12 @@ function Marketing_View() {
             setMessage("");
         }
 
-        // Reset promotional inputs when switching away from promotional template
-        if (templateId !== "2") {
-            setDiscountText("");
-            setOfferDateText("");
+        // Reset campaign inputs when switching away from campaign template
+        if (templateId !== "4") {
+            setCampaignText("");
             setSelectedImage(null);
             setImagePreview(null);
             setImageUrl(null);
-        }
-
-        // Reset campaign text when switching
-        if (templateId !== "4") {
-            setCampaignText("");
         }
     };
 
@@ -615,54 +602,6 @@ function Marketing_View() {
 
         if (validContacts.length === 0) {
             toast.error("No valid contact numbers found for selected patients.");
-            return;
-        }
-
-        // If Promotional Offer template is selected, call WhatsApp API for template campaign
-        if (selectedTemplateId === "2") {
-            if (!offerDateText.trim()) {
-                toast.error("Please enter the therapy name.");
-                return;
-            }
-            if (!imageUrl) {
-                toast.error("Please upload a promotional image.");
-                return;
-            }
-
-            try {
-                const response = await fetch(getApiUrl("whatsapp/send-therapy-promotional-offer"), {
-                    method: "POST",
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        patients: validContacts.map((p) => ({
-                            name: p.name,
-                            contact: p.contact,
-                        })),
-                        discountText: discountText.trim(),
-                        dateText: offerDateText.trim(),
-                        imageUrl: imageUrl,
-                    }),
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    toast.success(`Promotional WhatsApp sent to ${data.data?.sentTo || validContacts.length} patient(s).`);
-                    setSelectedPatientIds([]);
-                    // Reset promotional inputs after successful send
-                    setDiscountText("");
-                    setOfferDateText("");
-                    setSelectedImage(null);
-                    setImagePreview(null);
-                    setImageUrl(null);
-                } else {
-                    toast.error(data.message || "Failed to send promotional messages via WhatsApp");
-                }
-            } catch (error) {
-                console.error("WhatsApp Promotional Error:", error);
-                toast.error("An error occurred while sending promotional messages");
-            }
-
             return;
         }
 
@@ -1292,80 +1231,6 @@ function Marketing_View() {
                             </small>
                         </div>
 
-                        {/* Promotional Offer Template Specific Inputs */}
-                        {selectedTemplateId === "2" && (
-                            <>
-                                <div className="row g-3 mb-3">
-                                    <div className="col-md-6">
-                                        <label className="form-label">
-                                            Discount Details (Optional)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="e.g. 20%"
-                                            value={discountText}
-                                            onChange={(e) => setDiscountText(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="col-md-6">
-                                        <label className="form-label">
-                                            Therapy
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="e.g. Panchakarma, Abhyanga"
-                                            value={offerDateText}
-                                            onChange={(e) => setOfferDateText(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="mb-3">
-                                    <label className="form-label fw-bold">
-                                        <ImageIcon className="me-2" style={{ verticalAlign: "middle", fontSize: "1.2rem", color: "#D4A574" }} />
-                                        Promotional Image <span className="text-danger">*</span>
-                                    </label>
-                                    <div
-                                        className="border rounded p-4 text-center"
-                                        style={{ borderStyle: "dashed !important", cursor: "pointer", backgroundColor: "#fcfcfc" }}
-                                        onClick={() => document.getElementById("imageInput").click()}
-                                    >
-                                        <input
-                                            type="file"
-                                            id="imageInput"
-                                            className="d-none"
-                                            accept="image/*"
-                                            onChange={handleImageSelect}
-                                        />
-                                        {imagePreview ? (
-                                            <div className="position-relative d-inline-block">
-                                                <img
-                                                    src={imagePreview}
-                                                    alt="Preview"
-                                                    className="img-fluid rounded"
-                                                    style={{ maxHeight: "200px" }}
-                                                />
-                                                <div className="mt-2 text-muted small">Click to change image</div>
-                                            </div>
-                                        ) : (
-                                            <div className="py-2">
-                                                <CloudUploadIcon sx={{ fontSize: 48, color: "#D4A574", mb: 1 }} />
-                                                <p className="mb-0 text-muted">Click to upload promotional image</p>
-                                                <p className="small text-muted mb-0">Max size: 5MB (JPG, PNG)</p>
-                                            </div>
-                                        )}
-                                        {isUploadingImage && (
-                                            <div className="mt-2">
-                                                <CircularProgress size={20} sx={{ color: "#D4A574" }} />
-                                                <span className="ms-2 small">Uploading...</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
                         {/* Utpala Campaign Template Specific Inputs */}
                         {selectedTemplateId === "4" && (
                             <>
@@ -1440,20 +1305,20 @@ function Marketing_View() {
                                     className="form-control"
                                     rows={8}
                                     placeholder={
-                                        selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4"
+                                        selectedTemplateId === "3" || selectedTemplateId === "4"
                                             ? "Message will be auto-generated from the WhatsApp template."
                                             : "Enter your WhatsApp message here or select a template above..."
                                     }
-                                    value={selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4" ? "" : message}
+                                    value={selectedTemplateId === "3" || selectedTemplateId === "4" ? "" : message}
                                     onChange={(e) => {
-                                        if (selectedTemplateId !== "2" && selectedTemplateId !== "3" && selectedTemplateId !== "4") {
+                                        if (selectedTemplateId !== "3" && selectedTemplateId !== "4") {
                                             setMessage(e.target.value);
                                         }
                                     }}
-                                    disabled={selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4"}
+                                    disabled={selectedTemplateId === "3" || selectedTemplateId === "4"}
                                 ></textarea>
                                 <small className="form-text text-muted">
-                                    Character count: {selectedTemplateId === "2" || selectedTemplateId === "3" || selectedTemplateId === "4" ? 0 : message.length}
+                                    Character count: {selectedTemplateId === "3" || selectedTemplateId === "4" ? 0 : message.length}
                                 </small>
                             </div>
                             <div className="col-lg-4">
@@ -1496,8 +1361,7 @@ function Marketing_View() {
                                     onClick={handleSendMessage}
                                     disabled={
                                         selectedPatientIds.length === 0 ||
-                                        (selectedTemplateId !== "2" && selectedTemplateId !== "3" && selectedTemplateId !== "4" && !message.trim()) ||
-                                        (selectedTemplateId === "2" && !imageUrl) ||
+                                        (selectedTemplateId !== "3" && selectedTemplateId !== "4" && !message.trim()) ||
                                         (selectedTemplateId === "4" && (!campaignText.trim() || !imageUrl)) ||
                                         isUploadingImage
                                     }
