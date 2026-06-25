@@ -1340,18 +1340,13 @@ function ListPrescriptions() {
                                 {(() => {
                                     const hasHistory = paymentHistory.length > 0;
                                     return (
-                                        <Card
-                                            variant="outlined"
+                                        <Box
                                             sx={{
                                                 width: { xs: "100%", sm: hasHistory ? 640 : 380 },
                                                 maxWidth: "100%",
                                                 minWidth: 0,
-                                                backgroundColor: alpha(theme.palette.primary.main, 0.02),
-                                                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                                                borderRadius: 2,
                                             }}
                                         >
-                                            <CardContent sx={{ pb: "16px !important", p: 2 }}>
                                                 {!hasHistory && (
                                                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
                                                         <Typography variant="subtitle2" color="text.primary" sx={{ fontWeight: 600 }}>
@@ -1405,41 +1400,31 @@ function ListPrescriptions() {
                                                             >
                                                                 Payment History
                                                             </Typography>
-                                                            <Stack spacing={1}>
+                                                            <Stack spacing={0.75}>
                                                                 {paymentHistory.map((payment, index) => (
-                                                                    <Box
-                                                                        key={index}
-                                                                        sx={{
-                                                                            p: 1,
-                                                                            borderRadius: 1.5,
-                                                                            backgroundColor: alpha(theme.palette.background.default, 0.8),
-                                                                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                                                                        }}
-                                                                    >
-                                                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
-                                                                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                                                                                ₹{payment.amount}
-                                                                            </Typography>
-                                                                            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "10px" }}>
+                                                                    <Box key={index}>
+                                                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                                            ₹{payment.amount}
+                                                                            <Typography
+                                                                                component="span"
+                                                                                variant="body2"
+                                                                                sx={{ color: "text.secondary", fontWeight: 400, ml: 1 }}
+                                                                            >
                                                                                 {new Date(payment.paidAt).toLocaleDateString()}{" "}
                                                                                 {new Date(payment.paidAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                                                             </Typography>
-                                                                        </Box>
-                                                                        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-                                                                            <Chip
-                                                                                label={payment.method}
-                                                                                size="small"
-                                                                                variant="outlined"
-                                                                                sx={{ height: "18px", fontSize: "9px", fontWeight: 500 }}
-                                                                            />
+                                                                        </Typography>
+                                                                        <Typography variant="body2" color="text.secondary">
+                                                                            {payment.method}
                                                                             {(payment.transactionId || payment.cardDigits) && (
-                                                                                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "9px" }}>
+                                                                                <>
+                                                                                    {" · "}
                                                                                     {payment.method === "Card"
                                                                                         ? `Card ending in ${payment.cardDigits || "XXXX"}`
                                                                                         : payment.transactionId}
-                                                                                </Typography>
+                                                                                </>
                                                                             )}
-                                                                        </Box>
+                                                                        </Typography>
                                                                     </Box>
                                                                 ))}
                                                             </Stack>
@@ -1533,8 +1518,7 @@ function ListPrescriptions() {
                                                         )}
                                                     </Box>
                                                 </Box>
-                                            </CardContent>
-                                        </Card>
+                                        </Box>
                                     );
                                 })()}
                             </Box>
