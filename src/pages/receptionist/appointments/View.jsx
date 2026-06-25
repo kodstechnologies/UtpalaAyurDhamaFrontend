@@ -222,6 +222,7 @@ function Appointments_View() {
                     name: patient.patientName || "",
                     contact: patient.contactNumber || "",
                     age: patient.age || "",
+                    ageUnit: patient.ageUnit || "years",
                     email: patient.email || "",
                     registeredDate: patient.createdAt
                         ? new Date(patient.createdAt).toLocaleDateString("en-GB", {
@@ -1058,7 +1059,13 @@ function Appointments_View() {
                                                             </div>
                                                         </td>
                                                         <td>{patient.contact}</td>
-                                                        <td>{patient.age}</td>
+                                                        <td>
+                                                            {patient.age !== "" && patient.age != null
+                                                                ? patient.ageUnit === "months"
+                                                                    ? `${patient.age}m`
+                                                                    : patient.age
+                                                                : ""}
+                                                        </td>
                                                         <td>{patient.email}</td>
                                                         <td>{patient.registeredDate}</td>
                                                         <td>

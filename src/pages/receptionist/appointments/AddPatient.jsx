@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import HeadingCard from "../../../components/card/HeadingCard";
-import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, Grid, CircularProgress } from "@mui/material";
+import { Box, TextField, Button, MenuItem, Select, FormControl, InputLabel, Grid, CircularProgress, Checkbox, FormControlLabel } from "@mui/material";
 import adminUserService from "../../../services/adminUserService";
 
 function AddPatientPage() {
@@ -12,6 +12,8 @@ function AddPatientPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState({});
     const phoneCheckTimeoutRef = useRef(null);
+
+    const PHONE_EXISTS_MSG = "This number is already registered";
 
     const [formData, setFormData] = useState({
         patientName: "",
@@ -22,6 +24,12 @@ function AddPatientPage() {
         age: "",
         address: "",
     });
+    const [ageInMonths, setAgeInMonths] = useState(false);
+
+    const handleAgeUnitToggle = (checked) => {
+        setAgeInMonths(checked);
+        setFormData((prev) => ({ ...prev, age: "" }));
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -30,27 +38,22 @@ function AddPatientPage() {
         if (name === "contactNumber" || name === "alternativeNumber") {
             const numericValue = value.replace(/\D/g, "");
             setFormData((prev) => ({ ...prev, [name]: numericValue }));
-            
-            // Check for duplicate contact number
-            if (name === "contactNumber") {
-                checkContactAvailability(numericValue);
-            }
+            checkPhoneAvailability(numericValue, name);
             return;
         }
 
-        // Age validation: Only numbers and one decimal point allowed, max 2 decimal places
+        // Age validation: integers only, range depends on unit
         if (name === "age") {
-            // Allow empty value
             if (value === "") {
                 setFormData((prev) => ({ ...prev, [name]: value }));
                 return;
             }
 
-            // Only allow digits and one decimal point
-            if (!/^\d*\.?\d*$/.test(value)) return;
+            if (!/^\d+$/.test(value)) return;
 
-            // Enforce max 2 decimal places
-            if (value.includes(".") && value.split(".")[1].length > 2) return;
+            const ageNum = parseInt(value, 10);
+            const maxAge = ageInMonths ? 12 : 100;
+            if (ageNum > maxAge) return;
 
             setFormData((prev) => ({ ...prev, [name]: value }));
             return;
@@ -59,10 +62,10 @@ function AddPatientPage() {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    // Check contact number availability (debounced)
-    const checkContactAvailability = async (contactNumber) => {
-        if (!contactNumber || contactNumber.length !== 10) {
-            setErrors((prev) => ({ ...prev, contactNumber: "" }));
+    // Check phone availability for contact or alternative number (debounced)
+    const checkPhoneAvailability = async (phoneNumber, fieldName) => {
+        if (!phoneNumber || phoneNumber.length !== 10) {
+            setErrors((prev) => ({ ...prev, [fieldName]: "" }));
             return;
         }
 
@@ -72,15 +75,15 @@ function AddPatientPage() {
 
         phoneCheckTimeoutRef.current = setTimeout(async () => {
             try {
-                const checkResult = await adminUserService.checkPhoneAvailability(contactNumber, "Patient");
+                const checkResult = await adminUserService.checkPhoneAvailability(phoneNumber, "Patient");
                 if (checkResult.exists) {
-                    toast.error("This contact number is already registered. Please use a different number.");
-                    setErrors((prev) => ({ ...prev, contactNumber: "This contact number is already registered" }));
+                    toast.error(`${fieldName === "alternativeNumber" ? "Alternative" : "Contact"} number is already registered.`);
+                    setErrors((prev) => ({ ...prev, [fieldName]: PHONE_EXISTS_MSG }));
                 } else {
-                    setErrors((prev) => ({ ...prev, contactNumber: "" }));
+                    setErrors((prev) => ({ ...prev, [fieldName]: "" }));
                 }
             } catch (error) {
-                console.error("Error checking contact number:", error);
+                console.error("Error checking phone number:", error);
             }
         }, 800);
     };
@@ -88,7 +91,7 @@ function AddPatientPage() {
     const handleKeyDown = (e) => {
         // Prevent scientific notation characters and other symbols in number fields
         if (e.target.type === "number" || e.target.name === "age") {
-            if (["e", "E", "+", "-"].includes(e.key)) {
+            if (["e", "E", "+", "-", "."].includes(e.key)) {
                 e.preventDefault();
             }
         }
@@ -114,17 +117,22 @@ function AddPatientPage() {
             return;
         }
 
-        // Check for duplicate contact number error before submitting
-        if (errors.contactNumber) {
-            toast.error("Please fix the contact number error before submitting");
+        // Check for duplicate phone number errors before submitting
+        if (errors.contactNumber || errors.alternativeNumber) {
+            toast.error("Please fix the phone number errors before submitting");
             return;
         }
 
         // Strict Age Validation
         if (formData.age) {
-            const ageNum = parseFloat(formData.age);
-            if (isNaN(ageNum) || ageNum < 0 || ageNum > 150) {
-                toast.error("Please enter a valid age between 0 and 150");
+            const ageNum = parseInt(formData.age, 10);
+            if (ageInMonths) {
+                if (isNaN(ageNum) || ageNum < 1 || ageNum > 12) {
+                    toast.error("Please enter a valid age between 1 and 12 months");
+                    return;
+                }
+            } else if (isNaN(ageNum) || ageNum < 1 || ageNum > 100) {
+                toast.error("Please enter a valid age between 1 and 100 years");
                 return;
             }
         }
@@ -137,6 +145,8 @@ function AddPatientPage() {
             // Using a default password that should be changed later
             const patientData = {
                 ...formData,
+                age: formData.age ? Number(formData.age) : undefined,
+                ageUnit: ageInMonths ? "months" : "years",
                 password: "TempPassword123!", // Temporary password - should be changed by user later
             };
 
@@ -222,6 +232,8 @@ function AddPatientPage() {
                                 onChange={handleChange}
                                 onKeyDown={handleKeyDown}
                                 inputProps={{ maxLength: 10 }}
+                                error={!!errors.alternativeNumber}
+                                helperText={errors.alternativeNumber || ""}
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>
@@ -251,15 +263,28 @@ function AddPatientPage() {
                             </FormControl>
                         </Grid>
                         <Grid item xs={12} md={6}>
-                            <TextField
-                                label="Age"
-                                name="age"
-                                fullWidth
-                                value={formData.age}
-                                onChange={handleChange}
-                                onKeyDown={handleKeyDown}
-                                placeholder="e.g. 25.5"
-                            />
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <TextField
+                                    label={ageInMonths ? "Age (Months)" : "Age (Years)"}
+                                    name="age"
+                                    fullWidth
+                                    value={formData.age}
+                                    onChange={handleChange}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder={ageInMonths ? "1-12" : "1-100"}
+                                    helperText={ageInMonths ? "Enter age in months (1-12)" : "Enter age in years (1-100)"}
+                                />
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={ageInMonths}
+                                            onChange={(e) => handleAgeUnitToggle(e.target.checked)}
+                                        />
+                                    }
+                                    label="Months"
+                                    sx={{ flexShrink: 0, mr: 0 }}
+                                />
+                            </Box>
                         </Grid>
                         <Grid item xs={12}>
                             <TextField

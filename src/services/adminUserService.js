@@ -232,29 +232,23 @@ const adminUserService = {
                 return { available: true, exists: false };
             }
             
-            // For Patient, use a different endpoint
+            // For Patient, check contact and alternative numbers across all patient records
             if (userType === "Patient") {
+                const params = { phone: cleanPhone };
+                if (excludeUserId) params.excludeUserId = excludeUserId;
+
                 const response = await axios.get(
-                    getApiUrl("patients"),
-                    { headers: getAuthHeaders() }
+                    getApiUrl("reception-patients/check-phone"),
+                    { headers: getAuthHeaders(), params }
                 );
-                
+
                 if (response.data.success && response.data.data) {
-                    const patients = Array.isArray(response.data.data) ? response.data.data : 
-                                    (response.data.data.patients || []);
-                    
-                    const existingPatient = patients.find(patient => {
-                        const patientPhone = patient.phone || patient.user?.phone;
-                        const patientId = patient._id || patient.id || patient.user?._id || patient.user?.id;
-                        if (!patientPhone) return false;
-                        const cleanPatientPhone = patientPhone.replace(/[\s-]/g, "").replace(/^(\+91|0)/, "");
-                        return cleanPatientPhone === cleanPhone && 
-                               (!excludeUserId || patientId !== excludeUserId);
-                    });
-                    
-                    return { available: !existingPatient, exists: !!existingPatient };
+                    return {
+                        available: response.data.data.available,
+                        exists: response.data.data.exists,
+                    };
                 }
-                
+
                 return { available: true, exists: false };
             }
             

@@ -19,7 +19,10 @@ function EditPatientPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState({});
     const [originalContactNumber, setOriginalContactNumber] = useState("");
+    const [originalAlternativeNumber, setOriginalAlternativeNumber] = useState("");
     const phoneCheckTimeoutRef = useRef(null);
+
+    const PHONE_EXISTS_MSG = "This number is already registered";
 
     const [doctors, setDoctors] = useState([]);
     const [therapists, setTherapists] = useState([]);
@@ -99,6 +102,7 @@ function EditPatientPage() {
                 });
                 // Store original contact number for duplicate checking
                 setOriginalContactNumber(data.phoneNumber || "");
+                setOriginalAlternativeNumber(data.alternatePhoneNumber || "");
 
             } else {
                 // Regular Reception Patient
@@ -119,6 +123,7 @@ function EditPatientPage() {
                 });
                 // Store original contact number for duplicate checking
                 setOriginalContactNumber(data.contactNumber || "");
+                setOriginalAlternativeNumber(data.alternativeNumber || "");
             }
         } catch (error) {
             console.error("Error fetching patient details:", error);
@@ -129,16 +134,31 @@ function EditPatientPage() {
         }
     };
 
-    // Check contact number availability (debounced) - exclude current patient
-    const checkContactAvailability = async (contactNumber) => {
-        if (!contactNumber || contactNumber.length !== 10) {
-            setErrors((prev) => ({ ...prev, contactNumber: "" }));
+    const getExcludeUserId = async () => {
+        if (!patientId || isFamilyMember) return null;
+        try {
+            const response = await axios.get(getApiUrl(`reception-patients/${patientId}`), {
+                headers: getAuthHeaders(),
+            });
+            if (response.data.success && response.data.data?.patientProfile?.user?._id) {
+                return response.data.data.patientProfile.user._id;
+            }
+        } catch (err) {
+            console.error("Error fetching patient for exclusion:", err);
+        }
+        return null;
+    };
+
+    const checkPhoneAvailability = async (phoneNumber, fieldName) => {
+        const originalValue = fieldName === "alternativeNumber" ? originalAlternativeNumber : originalContactNumber;
+
+        if (!phoneNumber || phoneNumber.length !== 10) {
+            setErrors((prev) => ({ ...prev, [fieldName]: "" }));
             return;
         }
 
-        // Don't check if it's the same as original
-        if (contactNumber === originalContactNumber) {
-            setErrors((prev) => ({ ...prev, contactNumber: "" }));
+        if (phoneNumber === originalValue) {
+            setErrors((prev) => ({ ...prev, [fieldName]: "" }));
             return;
         }
 
@@ -148,30 +168,16 @@ function EditPatientPage() {
 
         phoneCheckTimeoutRef.current = setTimeout(async () => {
             try {
-                // Get current patient's user ID to exclude from check
-                let excludeUserId = null;
-                if (patientId && !isFamilyMember) {
-                    try {
-                        const response = await axios.get(getApiUrl(`reception-patients/${patientId}`), {
-                            headers: getAuthHeaders(),
-                        });
-                        if (response.data.success && response.data.data?.patientProfile?.user?._id) {
-                            excludeUserId = response.data.data.patientProfile.user._id;
-                        }
-                    } catch (err) {
-                        console.error("Error fetching patient for exclusion:", err);
-                    }
-                }
-
-                const checkResult = await adminUserService.checkPhoneAvailability(contactNumber, "Patient", excludeUserId);
+                const excludeUserId = await getExcludeUserId();
+                const checkResult = await adminUserService.checkPhoneAvailability(phoneNumber, "Patient", excludeUserId);
                 if (checkResult.exists) {
-                    toast.error("This contact number is already registered. Please use a different number.");
-                    setErrors((prev) => ({ ...prev, contactNumber: "This contact number is already registered" }));
+                    toast.error(`${fieldName === "alternativeNumber" ? "Alternative" : "Contact"} number is already registered.`);
+                    setErrors((prev) => ({ ...prev, [fieldName]: PHONE_EXISTS_MSG }));
                 } else {
-                    setErrors((prev) => ({ ...prev, contactNumber: "" }));
+                    setErrors((prev) => ({ ...prev, [fieldName]: "" }));
                 }
             } catch (error) {
-                console.error("Error checking contact number:", error);
+                console.error("Error checking phone number:", error);
             }
         }, 800);
     };
@@ -183,11 +189,7 @@ function EditPatientPage() {
         if (name === "contactNumber" || name === "alternativeNumber") {
             const numericValue = value.replace(/\D/g, "");
             setFormData((prev) => ({ ...prev, [name]: numericValue }));
-            
-            // Check for duplicate contact number
-            if (name === "contactNumber") {
-                checkContactAvailability(numericValue);
-            }
+            checkPhoneAvailability(numericValue, name);
             return;
         }
 
@@ -234,8 +236,8 @@ function EditPatientPage() {
         }
 
         // Check for duplicate contact number error before submitting
-        if (errors.contactNumber) {
-            toast.error("Please fix the contact number error before submitting");
+        if (errors.contactNumber || errors.alternativeNumber) {
+            toast.error("Please fix the phone number errors before submitting");
             return;
         }
 
@@ -378,6 +380,8 @@ function EditPatientPage() {
                                 onChange={handleChange}
                                 onKeyDown={handleKeyDown}
                                 inputProps={{ maxLength: 10 }}
+                                error={!!errors.alternativeNumber}
+                                helperText={errors.alternativeNumber || ""}
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>
