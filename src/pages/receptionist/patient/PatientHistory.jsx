@@ -36,7 +36,6 @@ import {
     ExpandMore,
     CalendarToday,
     LocalHospital,
-    Medication,
     Spa,
     Event,
     Receipt,
@@ -428,9 +427,6 @@ function PatientHistory() {
                                             <Typography variant="body2">Examinations: <strong>{summary.totalExaminations}</strong></Typography>
                                         </Grid>
                                         <Grid item xs={6}>
-                                            <Typography variant="body2">Prescriptions: <strong>{summary.totalPrescriptions}</strong></Typography>
-                                        </Grid>
-                                        <Grid item xs={6}>
                                             <Typography variant="body2">Therapy Sessions: <strong>{summary.totalTherapySessions}</strong></Typography>
                                         </Grid>
                                         <Grid item xs={6}>
@@ -790,88 +786,6 @@ function PatientHistory() {
                                                     </CardContent>
                                                 </Card>
                                             ))}
-                                        </AccordionDetails>
-                                    </Accordion>
-                                )}
-
-                                {/* Prescriptions */}
-                                {dayData.prescriptions.length > 0 && (
-                                    <Accordion defaultExpanded={dayIndex === 0} sx={{ mb: 2 }}>
-                                        <AccordionSummary expandIcon={<ExpandMore />}>
-                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
-                                                <Medication color="secondary" />
-                                                <Typography variant="h6" fontWeight={600}>
-                                                    Prescriptions ({dayData.prescriptions.length})
-                                                </Typography>
-                                            </Box>
-                                        </AccordionSummary>
-                                        <AccordionDetails>
-                                            <TableContainer>
-                                                <Table size="small">
-                                                    <TableHead>
-                                                        <TableRow>
-                                                            <TableCell><strong>Medication</strong></TableCell>
-                                                            <TableCell><strong>Dosage</strong></TableCell>
-                                                            <TableCell><strong>Frequency</strong></TableCell>
-                                                            <TableCell><strong>Duration</strong></TableCell>
-                                                            <TableCell><strong>Quantity</strong></TableCell>
-                                                            <TableCell><strong>Status</strong></TableCell>
-                                                            <TableCell><strong>Doctor</strong></TableCell>
-                                                            <TableCell><strong>Date</strong></TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {dayData.prescriptions.map((presc, idx) => (
-                                                            <TableRow key={idx}>
-                                                                <TableCell>
-                                                                    <Box>
-                                                                        <Typography variant="body2" fontWeight={600}>
-                                                                            {presc.medication}
-                                                                        </Typography>
-                                                                        {presc.medicineType && (
-                                                                            <Typography variant="caption" color="text.secondary">
-                                                                                {presc.medicineType} ({presc.administration || "Internal"})
-                                                                            </Typography>
-                                                                        )}
-                                                                        {presc.notes && (
-                                                                            <Typography variant="caption" color="text.secondary" display="block">
-                                                                                Notes: {presc.notes}
-                                                                            </Typography>
-                                                                        )}
-                                                                    </Box>
-                                                                </TableCell>
-                                                                <TableCell>{presc.dosage}</TableCell>
-                                                                <TableCell>{presc.frequency}</TableCell>
-                                                                <TableCell>{presc.duration || "N/A"}</TableCell>
-                                                                <TableCell>
-                                                                    {presc.dispensedQuantity > 0
-                                                                        ? `${presc.dispensedQuantity} / ${presc.quantity}`
-                                                                        : presc.quantity}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Chip
-                                                                        label={presc.status}
-                                                                        color={getStatusColor(presc.status)}
-                                                                        size="small"
-                                                                    />
-                                                                    {presc.isInpatient && (
-                                                                        <Chip label="IPD" size="small" color="info" sx={{ ml: 0.5 }} />
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell>{presc.doctor}</TableCell>
-                                                                <TableCell>
-                                                                    {formatDateTime(presc.createdAt)}
-                                                                    {presc.dispensedAt && (
-                                                                        <Typography variant="caption" display="block" color="text.secondary">
-                                                                            Dispensed: {formatDateTime(presc.dispensedAt)}
-                                                                        </Typography>
-                                                                    )}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
                                         </AccordionDetails>
                                     </Accordion>
                                 )}
