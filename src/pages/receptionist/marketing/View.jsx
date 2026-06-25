@@ -17,6 +17,7 @@ import SendIcon from "@mui/icons-material/Send";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ImageIcon from "@mui/icons-material/Image";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import DownloadIcon from "@mui/icons-material/Download";
 import ContactPhoneIcon from "@mui/icons-material/ContactPhone";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -375,6 +376,18 @@ function Marketing_View() {
         } finally {
             setIsUploadingContacts(false);
         }
+    };
+
+    const handleDownloadDemoExcel = () => {
+        const sampleData = [
+            { Name: "Rajesh Kumar", Phone: "9876543210" },
+            { Name: "Priya Sharma", Phone: "9123456789" },
+            { Name: "Amit Patel", Phone: "9988776655" },
+        ];
+        const worksheet = XLSX.utils.json_to_sheet(sampleData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
+        XLSX.writeFile(workbook, "marketing_contacts_demo.xlsx");
     };
 
     const handleStartEditContact = (contact) => {
@@ -830,6 +843,19 @@ function Marketing_View() {
                                     <p className="small text-muted mb-0">Columns: Name, Phone (exactly 10 digits)</p>
                                 </div>
                             )}
+                        </div>
+                        <div className="text-center mt-2">
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadDemoExcel();
+                                }}
+                            >
+                                <DownloadIcon fontSize="small" className="me-1" />
+                                Download Demo Excel
+                            </button>
                         </div>
 
                         <div className="mt-4">
