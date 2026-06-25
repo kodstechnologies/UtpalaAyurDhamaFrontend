@@ -772,62 +772,77 @@ function PrescriptionsAddPage() {
                 }}
             >
                 <Grid container spacing={3}>
-                    {/* Patient Name - Dropdown */}
+                    {/* Patient Name */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
                             Patient Name <span style={{ color: "red" }}>*</span>
                         </Typography>
-                        <Autocomplete
-                            options={opdPatients}
-                            getOptionLabel={(option) => option.user?.name || ""}
-                            value={selectedPatient}
-                            onChange={handlePatientSelect}
-                            loading={isLoadingPatients}
-                            disabled={isLoadingPatients}
-                            isOptionEqualToValue={(option, value) =>
-                                option._id?.toString() === value?._id?.toString()
-                            }
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    placeholder="Select patient name"
-                                    required
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        endAdornment: (
-                                            <>
-                                                {isLoadingPatients ? <CircularProgress size={20} /> : null}
-                                                {params.InputProps.endAdornment}
-                                            </>
-                                        ),
-                                    }}
-                                />
-                            )}
-                            renderOption={(props, option) => (
-                                <li {...props} key={option._id}>
-                                    <Box>
-                                        <Typography variant="body1">
-                                            {option.user?.name || "Unknown"}
-                                        </Typography>
-                                        {option.user?.uhid && (
-                                            <Typography variant="caption" color="text.secondary">
-                                                UHID: {option.user.uhid}
+                        {isEditMode ? (
+                            <TextField
+                                fullWidth
+                                value={formData.patientName}
+                                disabled
+                                required
+                                sx={{
+                                    "& .MuiInputBase-input.Mui-disabled": {
+                                        backgroundColor: "var(--color-bg-input)",
+                                        WebkitTextFillColor: "var(--color-text-dark)",
+                                    },
+                                }}
+                            />
+                        ) : (
+                            <Autocomplete
+                                options={opdPatients}
+                                getOptionLabel={(option) => option.user?.name || ""}
+                                value={selectedPatient}
+                                onChange={handlePatientSelect}
+                                loading={isLoadingPatients}
+                                disabled={isLoadingPatients}
+                                isOptionEqualToValue={(option, value) =>
+                                    option._id?.toString() === value?._id?.toString()
+                                }
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        placeholder="Select patient name"
+                                        required
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <>
+                                                    {isLoadingPatients ? <CircularProgress size={20} /> : null}
+                                                    {params.InputProps.endAdornment}
+                                                </>
+                                            ),
+                                        }}
+                                    />
+                                )}
+                                renderOption={(props, option) => (
+                                    <li {...props} key={option._id}>
+                                        <Box>
+                                            <Typography variant="body1">
+                                                {option.user?.name || "Unknown"}
                                             </Typography>
-                                        )}
-                                        {option.user?.phone && (
-                                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                                                Phone: {option.user.phone}
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </li>
-                            )}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    backgroundColor: "var(--color-bg-input)",
-                                },
-                            }}
-                        />
+                                            {option.user?.uhid && (
+                                                <Typography variant="caption" color="text.secondary">
+                                                    UHID: {option.user.uhid}
+                                                </Typography>
+                                            )}
+                                            {option.user?.phone && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                                    Phone: {option.user.phone}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </li>
+                                )}
+                                sx={{
+                                    "& .MuiOutlinedInput-root": {
+                                        backgroundColor: "var(--color-bg-input)",
+                                    },
+                                }}
+                            />
+                        )}
                     </Grid>
 
                     {/* UHID - Auto-filled */}

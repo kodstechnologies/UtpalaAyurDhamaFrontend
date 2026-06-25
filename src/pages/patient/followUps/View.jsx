@@ -87,7 +87,6 @@ function FollowUps_View() {
                                 followUpId: item.followUpId || null,
                                 examinationId: item.examinationId || null,
                                 date: item.date,
-                                note: item.note || "",
                                 daysUntil: daysUntil,
                                 isUpcoming: isUpcoming,
                                 status: item.completed ? "completed" : (isUpcoming ? "upcoming" : "past"),
@@ -209,11 +208,6 @@ function FollowUps_View() {
                     variant="outlined"
                 />
             ),
-        },
-        {
-            field: "note",
-            header: "Note",
-            render: (row) => row.note?.trim() || "No additional notes",
         },
     ];
 
