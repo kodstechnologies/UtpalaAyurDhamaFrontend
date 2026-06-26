@@ -168,19 +168,23 @@ function OPDTherapies_View() {
                         gap: 0.5,
                         maxWidth: "100%",
                     }}>
-                        {row.therapies.map((therapy, idx) => (
-                            <Chip
-                                key={idx}
-                                label={therapy.treatmentName}
-                                size="small"
-                                sx={{
-                                    backgroundColor: "var(--color-bg-a)",
-                                    color: "var(--color-text-dark)",
-                                    fontSize: "0.75rem",
-                                    maxWidth: "fit-content",
-                                }}
-                            />
-                        ))}
+                        {[...row.therapies]
+                            .sort((a, b) =>
+                                (a.treatmentName || "").localeCompare(b.treatmentName || "")
+                            )
+                            .map((therapy, idx) => (
+                                <Chip
+                                    key={idx}
+                                    label={therapy.treatmentName}
+                                    size="small"
+                                    sx={{
+                                        backgroundColor: "var(--color-bg-a)",
+                                        color: "var(--color-text-dark)",
+                                        fontSize: "0.75rem",
+                                        maxWidth: "fit-content",
+                                    }}
+                                />
+                            ))}
                     </Box>
                 );
             }

@@ -16,15 +16,22 @@ import {
     Checkbox,
     Chip,
     OutlinedInput,
-    IconButton,
     Paper,
 } from "@mui/material";
 import SubmitButton from "../../../components/buttons/SubmitButton";
 import CancelButton from "../../../components/buttons/CancelButton";
-import { X } from "lucide-react";
+import { X, Plus, Trash2, User, Stethoscope } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
+
+// Format a date value into YYYY-MM-DD for <input type="date">
+const formatDateForInput = (dateValue) => {
+    if (!dateValue) return "";
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-CA");
+};
 
 // Empty therapy row template (per-therapy configuration)
 const getEmptyTherapyRow = () => ({
@@ -37,6 +44,7 @@ const getEmptyTherapyRow = () => ({
     subTherapy: "",
     duration: "",
     treatmentDescription: "",
+    startDate: new Date().toLocaleDateString("en-CA"),
 });
 
 function OPDTherapiesAddPage() {
@@ -239,6 +247,7 @@ function OPDTherapiesAddPage() {
                         subTherapy: planObj.subTherapy || "",
                         duration: planObj.duration || "",
                         treatmentDescription: planObj.treatmentDescription || "",
+                        startDate: formatDateForInput(planObj.startDate),
                     };
                 };
 
@@ -375,6 +384,7 @@ function OPDTherapiesAddPage() {
                     duration: row.duration.trim() || "",
                     treatmentDescription: row.treatmentDescription.trim() || "",
                     therapistId: row.therapistId,
+                    startDate: row.startDate || undefined,
                 };
 
                 let response;
@@ -444,12 +454,46 @@ function OPDTherapiesAddPage() {
                 sx={{
                     backgroundColor: "var(--color-bg-card)",
                     borderRadius: 4,
-                    p: 4,
+                    p: { xs: 2.5, md: 4 },
                     border: "1px solid var(--color-border)",
                     boxShadow: "var(--shadow-medium)",
                     mt: 3,
                 }}
             >
+                {/* Section: Patient Information */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        mb: 2.5,
+                    }}
+                >
+                    <Box
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: "var(--color-primary-light-v)",
+                            color: "var(--color-primary)",
+                            flexShrink: 0,
+                        }}
+                    >
+                        <User size={20} />
+                    </Box>
+                    <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                            Patient Information
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: "var(--color-text-muted)" }}>
+                            Select the patient and the related examination
+                        </Typography>
+                    </Box>
+                </Box>
+
                 <Grid container spacing={3}>
                     {/* Patient Selection */}
                     <Grid item xs={12} md={6}>
@@ -526,39 +570,118 @@ function OPDTherapiesAddPage() {
                         </FormControl>
                     </Grid>
 
+                    {/* Section divider */}
+                    <Grid item xs={12}>
+                        <Box
+                            sx={{
+                                height: "1px",
+                                backgroundColor: "var(--color-border)",
+                                opacity: 0.25,
+                                my: 1,
+                            }}
+                        />
+                    </Grid>
+
                     {/* Therapy configuration: multiple rows similar to Walk-in Hub */}
                     <Grid item xs={12}>
-                        <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                            Therapy Planning <span style={{ color: "red" }}>*</span>
-                        </Typography>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                                mb: 2.5,
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 2,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    backgroundColor: "var(--color-primary-light-v)",
+                                    color: "var(--color-primary)",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <Stethoscope size={20} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                                    Therapy Planning <span style={{ color: "var(--color-primary)" }}>*</span>
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: "var(--color-text-muted)" }}>
+                                    Configure one or more therapies for this plan
+                                </Typography>
+                            </Box>
+                        </Box>
 
                         {formData.therapiesRows.map((row, index) => (
                             <Paper
                                 key={index}
                                 elevation={0}
                                 sx={{
-                                    mb: 2,
-                                    p: 2,
-                                    borderRadius: 2,
+                                    mb: 2.5,
+                                    borderRadius: 3,
                                     border: "1px solid var(--color-border)",
-                                    position: "relative",
+                                    borderLeft: "4px solid var(--color-primary)",
+                                    overflow: "hidden",
+                                    transition: "box-shadow 0.2s ease, transform 0.2s ease",
+                                    "&:hover": {
+                                        boxShadow: "var(--shadow-medium)",
+                                    },
                                 }}
                             >
-                                {formData.therapiesRows.length > 1 && (
-                                    <IconButton
-                                        size="small"
-                                        onClick={() => handleRemoveTherapyRow(index)}
-                                        sx={{
-                                            position: "absolute",
-                                            top: 8,
-                                            right: 8,
-                                        }}
-                                    >
-                                        <X size={14} />
-                                    </IconButton>
-                                )}
+                                {/* Card header */}
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        px: 2,
+                                        py: 1.25,
+                                        backgroundColor: "var(--color-primary-light-v)",
+                                        borderBottom: "1px solid var(--color-border)",
+                                    }}
+                                >
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Box
+                                            sx={{
+                                                width: 26,
+                                                height: 26,
+                                                borderRadius: "50%",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                backgroundColor: "var(--color-primary)",
+                                                color: "#fff",
+                                                fontSize: "0.8rem",
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            {index + 1}
+                                        </Box>
+                                        <Typography sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}>
+                                            {row.therapyId
+                                                ? therapies.find((t) => t._id === row.therapyId)?.therapyName || `Therapy ${index + 1}`
+                                                : `Therapy ${index + 1}`}
+                                        </Typography>
+                                    </Box>
+                                    {formData.therapiesRows.length > 1 && (
+                                        <Button
+                                            size="small"
+                                            color="error"
+                                            startIcon={<Trash2 size={15} />}
+                                            onClick={() => handleRemoveTherapyRow(index)}
+                                            sx={{ textTransform: "none", fontWeight: 600 }}
+                                        >
+                                            Remove
+                                        </Button>
+                                    )}
+                                </Box>
 
-                                <Grid container spacing={2}>
+                                <Grid container spacing={2} sx={{ p: 2.5 }}>
                                     {/* Therapy Type */}
                                     <Grid item xs={12} md={6}>
                                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
@@ -576,11 +699,15 @@ function OPDTherapiesAddPage() {
                                                 <MenuItem value="">
                                                     <em>Select Therapy...</em>
                                                 </MenuItem>
-                                                {therapies.map((therapy) => (
-                                                    <MenuItem key={therapy._id} value={therapy._id}>
-                                                        {therapy.therapyName}
-                                                    </MenuItem>
-                                                ))}
+                                                {[...therapies]
+                                                    .sort((a, b) =>
+                                                        (a.therapyName || "").localeCompare(b.therapyName || "")
+                                                    )
+                                                    .map((therapy) => (
+                                                        <MenuItem key={therapy._id} value={therapy._id}>
+                                                            {therapy.therapyName}
+                                                        </MenuItem>
+                                                    ))}
                                             </Select>
                                         </FormControl>
                                     </Grid>
@@ -643,20 +770,26 @@ function OPDTherapiesAddPage() {
                                                     </Box>
                                                 )}
                                             >
-                                                {therapists.map((therapist) => (
-                                                    <MenuItem key={therapist._id} value={therapist._id}>
-                                                        <Checkbox
-                                                            checked={row.therapistId.indexOf(therapist._id) > -1}
-                                                        />
-                                                        <Typography>
-                                                            {therapist.name ||
-                                                                therapist.user?.name ||
-                                                                `Therapist ${therapist._id}`}
-                                                            {therapist.specialization &&
-                                                                ` - ${therapist.specialization}`}
-                                                        </Typography>
-                                                    </MenuItem>
-                                                ))}
+                                                {[...therapists]
+                                                    .sort((a, b) =>
+                                                        (a.name || a.user?.name || "").localeCompare(
+                                                            b.name || b.user?.name || ""
+                                                        )
+                                                    )
+                                                    .map((therapist) => (
+                                                        <MenuItem key={therapist._id} value={therapist._id}>
+                                                            <Checkbox
+                                                                checked={row.therapistId.indexOf(therapist._id) > -1}
+                                                            />
+                                                            <Typography>
+                                                                {therapist.name ||
+                                                                    therapist.user?.name ||
+                                                                    `Therapist ${therapist._id}`}
+                                                                {therapist.specialization &&
+                                                                    ` - ${therapist.specialization}`}
+                                                            </Typography>
+                                                        </MenuItem>
+                                                    ))}
                                             </Select>
                                         </FormControl>
                                     </Grid>
@@ -687,7 +820,7 @@ function OPDTherapiesAddPage() {
                                     </Grid>
 
                                     {/* Sub Therapy */}
-                                    <Grid item xs={12}>
+                                    <Grid item xs={12} md={6}>
                                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
                                             Sub Therapy
                                         </Typography>
@@ -703,17 +836,21 @@ function OPDTherapiesAddPage() {
                                                 <MenuItem value="">
                                                     <em>None</em>
                                                 </MenuItem>
-                                                {subTherapies.map((st) => (
-                                                    <MenuItem key={st._id} value={st.name}>
-                                                        {st.name}
-                                                    </MenuItem>
-                                                ))}
+                                                {[...subTherapies]
+                                                    .sort((a, b) =>
+                                                        (a.name || "").localeCompare(b.name || "")
+                                                    )
+                                                    .map((st) => (
+                                                        <MenuItem key={st._id} value={st.name}>
+                                                            {st.name}
+                                                        </MenuItem>
+                                                    ))}
                                             </Select>
                                         </FormControl>
                                     </Grid>
 
                                     {/* Duration */}
-                                    <Grid item xs={12}>
+                                    <Grid item xs={12} md={3}>
                                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
                                             Duration
                                         </Typography>
@@ -724,6 +861,22 @@ function OPDTherapiesAddPage() {
                                                 handleTherapyRowChange(index, "duration", e.target.value)
                                             }
                                             placeholder="e.g. 45 mins, 1 hour"
+                                        />
+                                    </Grid>
+
+                                    {/* Start Date */}
+                                    <Grid item xs={12} md={3}>
+                                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
+                                            Start Date
+                                        </Typography>
+                                        <TextField
+                                            fullWidth
+                                            type="date"
+                                            value={row.startDate || ""}
+                                            onChange={(e) =>
+                                                handleTherapyRowChange(index, "startDate", e.target.value)
+                                            }
+                                            InputLabelProps={{ shrink: true }}
                                         />
                                     </Grid>
 
@@ -768,20 +921,42 @@ function OPDTherapiesAddPage() {
                             </Paper>
                         ))}
 
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={handleAddTherapyRow}
-                            >
-                                Add Another Therapy
-                            </Button>
+                        <Box
+                            onClick={handleAddTherapyRow}
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 1,
+                                mt: 1,
+                                py: 1.5,
+                                borderRadius: 3,
+                                border: "1.5px dashed var(--color-primary)",
+                                color: "var(--color-primary)",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                transition: "background-color 0.2s ease",
+                                "&:hover": {
+                                    backgroundColor: "var(--color-primary-light-v)",
+                                },
+                            }}
+                        >
+                            <Plus size={18} />
+                            Add Another Therapy
                         </Box>
                     </Grid>
                 </Grid>
 
                 {/* Action Buttons */}
-                <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+                <Box
+                    sx={{
+                        height: "1px",
+                        backgroundColor: "var(--color-border)",
+                        opacity: 0.25,
+                        mt: 4,
+                    }}
+                />
+                <Box sx={{ display: "flex", justifyContent: "space-between", mt: 3 }}>
                     <CancelButton onClick={() => navigate("/doctor/opd-therapies")}>
                         <X size={16} style={{ marginRight: "8px" }} />
                         Cancel

@@ -245,8 +245,14 @@ function WalkInHub() {
         });
         setNurses(sortedNurses);
       }
-      if (therapistsRes.data.success)
-        setTherapists(therapistsRes.data.data || []);
+      if (therapistsRes.data.success) {
+        const sortedTherapists = [...(therapistsRes.data.data || [])].sort((a, b) =>
+          (a?.user?.name || "").localeCompare(b?.user?.name || "", undefined, {
+            sensitivity: "base",
+          })
+        );
+        setTherapists(sortedTherapists);
+      }
       if (therapiesRes.data.success) {
         const sortedTherapies = [...(therapiesRes.data.data || [])].sort((a, b) =>
           (a?.therapyName || "").localeCompare(b?.therapyName || "", undefined, {

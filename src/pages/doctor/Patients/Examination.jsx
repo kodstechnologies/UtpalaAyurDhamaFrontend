@@ -545,9 +545,14 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
     const handleImageSelection = (event) => {
         const files = Array.from(event.target.files || []);
         if (!files.length) return;
-        const validFiles = files.filter((file) => file.type.startsWith("image/"));
-        if (validFiles.length !== files.length) {
+        const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+        const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+        if (imageFiles.length !== files.length) {
             toast.error("Only image files are allowed.");
+        }
+        const validFiles = imageFiles.filter((file) => file.size <= MAX_IMAGE_SIZE);
+        if (validFiles.length !== imageFiles.length) {
+            toast.error("Each image must be 10 MB or smaller.");
         }
         setSelectedPatientImages(validFiles);
     };
