@@ -13,17 +13,27 @@ import {
     CardContent,
     Dialog,
     DialogContent,
+    DialogTitle,
+    IconButton,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemSecondaryAction,
 } from "@mui/material";
 import {
     PersonOutline,
     ArrowBack,
     Image as ImageIcon,
+    PictureAsPdf,
+    Visibility,
+    Close,
 } from "@mui/icons-material";
 import axios from "axios";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
 import { Button } from "@mui/material";
+import patientDocumentService from "../../../services/patientDocumentService";
 
 function ExaminationDetails() {
     const navigate = useNavigate();
@@ -38,6 +48,9 @@ function ExaminationDetails() {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [previewImage, setPreviewImage] = useState(null);
+    const [documents, setDocuments] = useState([]);
+    const [selectedDocumentUrl, setSelectedDocumentUrl] = useState(null);
+    const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const appointmentData = location.state?.appointment || null;
     // Prioritize examinationId from URL params, then location state
     const examinationId = examIdFromParams || location.state?.examinationId || null;
@@ -143,6 +156,49 @@ function ExaminationDetails() {
         }
     }, [examination, patient.name]);
 
+    // Fetch patient PDF documents (non-image files)
+    const patientProfileId = examination?.patient?._id;
+    const fetchDocuments = useCallback(async () => {
+        if (!patientProfileId) return;
+        try {
+            const response = await patientDocumentService.getPatientDocuments(patientProfileId);
+            if (response && response.success) {
+                const allDocs = response.data || [];
+                const documentFiles = allDocs.filter((doc) => !doc.fileType?.startsWith("image/"));
+                setDocuments(documentFiles);
+            }
+        } catch (error) {
+            console.error("Error fetching documents:", error);
+        }
+    }, [patientProfileId]);
+
+    const handleViewDocument = async (documentId) => {
+        try {
+            const response = await patientDocumentService.getDocumentViewUrl(documentId);
+            if (response && response.success) {
+                setSelectedDocumentUrl(response.data.url);
+                setViewDialogOpen(true);
+            } else {
+                toast.error("Failed to load document");
+            }
+        } catch (error) {
+            console.error("Error viewing document:", error);
+            toast.error("Failed to load document");
+        }
+    };
+
+    const formatFileSize = (bytes) => {
+        if (!bytes && bytes !== 0) return "";
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    };
+
+    const formatDateTime = (date) => {
+        if (!date) return "";
+        return new Date(date).toLocaleString();
+    };
+
     useEffect(() => {
         fetchExaminationDetails();
     }, [fetchExaminationDetails]);
@@ -150,6 +206,10 @@ function ExaminationDetails() {
     useEffect(() => {
         fetchPatientInfo();
     }, [fetchPatientInfo]);
+
+    useEffect(() => {
+        fetchDocuments();
+    }, [fetchDocuments]);
 
     // Refetch data when page comes into focus (e.g., when returning from edit page)
     useEffect(() => {
@@ -519,6 +579,96 @@ function ExaminationDetails() {
                         </CardContent>
                     </Card>
                 )}
+
+                {documents.length > 0 && (
+                    <Card sx={{ mb: 3 }}>
+                        <CardContent>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                                <PictureAsPdf sx={{ fontSize: "1.5rem", color: "error.main" }} />
+                                <Typography variant="h6" sx={{ fontWeight: 700, color: "var(--color-primary)" }}>
+                                    Patient Documents ({documents.length})
+                                </Typography>
+                            </Box>
+                            <List sx={{ p: 0 }}>
+                                {documents.map((doc) => (
+                                    <ListItem
+                                        key={doc._id}
+                                        sx={{
+                                            border: "1px solid #e0e0e0",
+                                            borderRadius: 1,
+                                            mb: 1,
+                                            "&:hover": {
+                                                bgcolor: "#f5f5f5",
+                                            },
+                                        }}
+                                    >
+                                        <PictureAsPdf sx={{ color: "error.main", mr: 2 }} />
+                                        <ListItemText
+                                            primary={doc.originalFileName}
+                                            secondary={
+                                                <Box>
+                                                    <Typography variant="caption" display="block">
+                                                        {doc.description || "No description"}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {formatFileSize(doc.fileSize)} • {formatDateTime(doc.uploadedAt)} • {doc.category}
+                                                    </Typography>
+                                                </Box>
+                                            }
+                                        />
+                                        <ListItemSecondaryAction>
+                                            <IconButton
+                                                edge="end"
+                                                onClick={() => handleViewDocument(doc._id)}
+                                            >
+                                                <Visibility />
+                                            </IconButton>
+                                        </ListItemSecondaryAction>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* View PDF Document Dialog */}
+                <Dialog
+                    open={viewDialogOpen}
+                    onClose={() => setViewDialogOpen(false)}
+                    fullWidth
+                    PaperProps={{
+                        sx: {
+                            height: "98vh",
+                            width: "98vw",
+                            maxWidth: "98vw",
+                            maxHeight: "98vh",
+                            margin: "1vh 1vw",
+                        },
+                    }}
+                >
+                    <DialogTitle sx={{ pb: 1 }}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Typography variant="h6">View PDF Document</Typography>
+                            <IconButton onClick={() => setViewDialogOpen(false)}>
+                                <Close />
+                            </IconButton>
+                        </Box>
+                    </DialogTitle>
+                    <DialogContent sx={{ p: 0, height: "calc(98vh - 64px)", overflow: "hidden" }}>
+                        {selectedDocumentUrl && (
+                            <iframe
+                                src={selectedDocumentUrl}
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    border: "none",
+                                    minHeight: "calc(98vh - 64px)",
+                                }}
+                                title="PDF Viewer"
+                            />
+                        )}
+                    </DialogContent>
+                </Dialog>
 
                 <Dialog
                     open={Boolean(previewImage)}
