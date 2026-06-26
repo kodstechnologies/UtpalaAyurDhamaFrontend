@@ -7,6 +7,7 @@ import {
 import { toast } from "react-toastify";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import HeadingCard from "../../../../components/card/HeadingCard";
 import TableComponent from "../../../../components/table/TableComponent";
@@ -210,6 +211,13 @@ function OutsideDispense_View() {
                     const isPaid = row.paymentStatus === "Paid";
 
                     return [
+                        {
+                            label: "View",
+                            icon: <VisibilityIcon fontSize="small" />,
+                            color: "var(--color-info)",
+                            onClick: (actionRow) =>
+                                navigate(`/pharmacist/prescriptions/outside/${actionRow._id}`),
+                        },
                         {
                             label: "Edit",
                             icon: <EditIcon fontSize="small" />,
