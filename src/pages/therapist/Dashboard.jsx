@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -19,6 +19,7 @@ import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import GreetingBanner from "../../components/card/GreetingCard";
 import GreetingsImg from "../../assets/greeting/therapist.png"
 function Therapist_Dashboard() {
+    const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth);
     const therapistName = user?.name || "Therapist";
 
@@ -171,13 +172,18 @@ function Therapist_Dashboard() {
     };
 
 
-    // Upcoming sessions (today and future) - filter by status and date
+    // Upcoming / active sessions - includes ongoing multi-day treatments
+    // even if they started in the past, plus future scheduled sessions.
     const allUpcomingSessions = useMemo(() => {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         return treatments
             .filter((item) => {
-                const validStatuses = ['Scheduled', 'In Progress', 'Pending'];
+                // Ongoing treatments still need attention regardless of start date
+                if (item.status === 'In Progress') return true;
+
+                // Scheduled/Pending sessions only count if dated today or later
+                const validStatuses = ['Scheduled', 'Pending'];
                 if (!validStatuses.includes(item.status)) return false;
                 if (!item.date) return false;
                 const date = new Date(item.date);
@@ -466,9 +472,19 @@ function Therapist_Dashboard() {
                                     <div
                                         key={session.id}
                                         className="border rounded-3 p-3"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => navigate(`/therapist/therapy-progress/execution/${session.id}`)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                e.preventDefault();
+                                                navigate(`/therapist/therapy-progress/execution/${session.id}`);
+                                            }
+                                        }}
                                         style={{
                                             borderColor: "#dee2e6",
                                             transition: "all 0.2s ease",
+                                            cursor: "pointer",
                                         }}
                                         onMouseEnter={(e) => {
                                             e.currentTarget.style.borderColor = "#10b981";
@@ -511,6 +527,7 @@ function Therapist_Dashboard() {
                                                 to={`/therapist/patient-monitoring?patientId=${session.patientId}`}
                                                 className="btn btn-outline-primary btn-sm"
                                                 style={{ borderRadius: "12px" }}
+                                                onClick={(e) => e.stopPropagation()}
                                             >
                                                 View Profile
                                             </Link>
