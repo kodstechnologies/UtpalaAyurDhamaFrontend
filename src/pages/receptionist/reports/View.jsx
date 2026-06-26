@@ -529,11 +529,20 @@ function Reports_View({
                                         }}
                                     >
                                         <option value="">All Therapies</option>
-                                        {therapies.map((therapy) => (
-                                            <option key={therapy._id} value={therapy.therapyName}>
-                                                {therapy.therapyName}
-                                            </option>
-                                        ))}
+                                        {[...therapies]
+                                            .sort((a, b) =>
+                                                (a.therapyName || "").localeCompare(
+                                                    b.therapyName || ""
+                                                )
+                                            )
+                                            .map((therapy) => (
+                                                <option
+                                                    key={therapy._id}
+                                                    value={therapy.therapyName}
+                                                >
+                                                    {therapy.therapyName}
+                                                </option>
+                                            ))}
                                     </select>
                                 </div>
                                 <div className="col-12">
