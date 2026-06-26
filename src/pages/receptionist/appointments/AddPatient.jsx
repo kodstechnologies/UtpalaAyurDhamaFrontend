@@ -38,7 +38,10 @@ function AddPatientPage() {
         if (name === "contactNumber" || name === "alternativeNumber") {
             const numericValue = value.replace(/\D/g, "");
             setFormData((prev) => ({ ...prev, [name]: numericValue }));
-            checkPhoneAvailability(numericValue, name);
+            // Alternative number has no validation requirement
+            if (name === "contactNumber") {
+                checkPhoneAvailability(numericValue, name);
+            }
             return;
         }
 
@@ -112,13 +115,10 @@ function AddPatientPage() {
             toast.error("Contact number must be exactly 10 digits");
             return;
         }
-        if (formData.alternativeNumber && !contactRegex.test(formData.alternativeNumber)) {
-            toast.error("Alternative number must be exactly 10 digits");
-            return;
-        }
 
         // Check for duplicate phone number errors before submitting
-        if (errors.contactNumber || errors.alternativeNumber) {
+        // (Alternative number has no validation requirement)
+        if (errors.contactNumber) {
             toast.error("Please fix the phone number errors before submitting");
             return;
         }
