@@ -1,11 +1,13 @@
 import axios from "axios";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import { toast } from "react-toastify";
 import { getApiUrl, getAuthHeaders } from "../../../../config/api";
-import { getFooter } from "../../../../components/pdf/pdfFooter";
-import { getHeader } from "../../../../components/pdf/pdfHeader";
+import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
+import { getNote } from "../../../../components/pdf/note";
 import {
   buildPrescriptionBodyHtml,
   buildPrescriptionDocumentData,
-  buildPrescriptionPrintHtml,
 } from "./prescriptionPdfUtils";
 
 export const handlePrint = async (id, billingSnapshot = {}) => {
@@ -20,24 +22,149 @@ export const handlePrint = async (id, billingSnapshot = {}) => {
 
     const data = response.data?.data;
     if (!data) {
-      alert("No prescription data found");
+      toast.error("No prescription data found");
       return;
     }
 
     const doc = buildPrescriptionDocumentData(data, billingSnapshot, receptionistName);
-    const bodyHtml = buildPrescriptionBodyHtml(doc, "print");
-    const html = buildPrescriptionPrintHtml(getHeader(), bodyHtml, getFooter());
+    const bodyHtml = buildPrescriptionBodyHtml(doc, "pdf");
 
-    const printWindow = window.open("", "_blank", "width=1000,height=800,scrollbars=yes,resizable=yes");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-    } else {
-      alert("Popup blocked! Please allow popups to print the prescription.");
+    const renderToCanvas = async (html, width = 794) => {
+      const el = document.createElement("div");
+      el.style.position = "absolute";
+      el.style.left = "-9999px";
+      el.style.top = "0";
+      el.style.width = `${width}px`;
+      el.style.background = "#fff";
+      el.style.fontFamily = "Arial, Helvetica, sans-serif";
+      el.style.color = "#000";
+      el.innerHTML = `
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+        ${html}
+      `;
+      document.body.appendChild(el);
+      await new Promise((r) => setTimeout(r, 500));
+      const canvas = await html2canvas(el, {
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        windowWidth: width,
+        windowHeight: el.scrollHeight,
+      });
+      document.body.removeChild(el);
+      return canvas;
+    };
+
+    // Match the invoice PDF look: peach banner header + notes/signature/branch footer.
+    const headerHtml = `<div style="width:794px; box-sizing:border-box;">${pdfPrHeader()}</div>`;
+    const footerHtml = `<div style="width:794px; box-sizing:border-box; margin-bottom:45px;">${getNote()}</div>`;
+    const bodyCanvasHtml = `<div style="width:794px; box-sizing:border-box;">${bodyHtml}</div>`;
+
+    const [headerCanvas, footerCanvas, bodyCanvas] = await Promise.all([
+      renderToCanvas(headerHtml),
+      renderToCanvas(footerHtml),
+      renderToCanvas(bodyCanvasHtml),
+    ]);
+
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const contentW = pdfW - margin * 2;
+
+    const pxToMm = (canvas) => (canvas.height / canvas.width) * contentW;
+
+    const headerH = pxToMm(headerCanvas);
+    const footerH = pxToMm(footerCanvas);
+    const bodyTotalH = pxToMm(bodyCanvas);
+
+    const topPad = 5;
+    const botPad = 5;
+    const bodyAreaH = pdfH - headerH - footerH - topPad - botPad;
+
+    const headerImg = headerCanvas.toDataURL("image/png");
+    const footerImg = footerCanvas.toDataURL("image/png");
+
+    const totalPages = Math.max(1, Math.ceil(bodyTotalH / bodyAreaH));
+
+    for (let page = 0; page < totalPages; page++) {
+      if (page > 0) pdf.addPage();
+
+      pdf.addImage(headerImg, "PNG", margin, 0, contentW, headerH);
+
+      const bodyY = headerH + topPad;
+      const srcYPx = ((page * bodyAreaH) / bodyTotalH) * bodyCanvas.height;
+      const srcHPx = Math.min(
+        (bodyAreaH / bodyTotalH) * bodyCanvas.height,
+        bodyCanvas.height - srcYPx
+      );
+
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = bodyCanvas.width;
+      sliceCanvas.height = Math.round(srcHPx);
+      const ctx = sliceCanvas.getContext("2d");
+      ctx.drawImage(
+        bodyCanvas,
+        0,
+        Math.round(srcYPx),
+        bodyCanvas.width,
+        Math.round(srcHPx),
+        0,
+        0,
+        bodyCanvas.width,
+        Math.round(srcHPx)
+      );
+
+      const sliceImgData = sliceCanvas.toDataURL("image/png");
+      const sliceH = (sliceCanvas.height / sliceCanvas.width) * contentW;
+      pdf.addImage(sliceImgData, "PNG", margin, bodyY, contentW, sliceH);
+
+      const footerY = pdfH - footerH;
+      pdf.addImage(footerImg, "PNG", margin, footerY, contentW, footerH);
+
+      pdf.setFontSize(8);
+      pdf.setTextColor(150);
+      pdf.text(`Page ${page + 1} of ${totalPages}`, pdfW / 2, pdfH - 2, { align: "center" });
     }
+
+    // Trigger the print dialog from the generated PDF (same approach as the invoice print).
+    pdf.autoPrint({ variant: "non-conform" });
+
+    const blob = pdf.output("blob");
+    const blobURL = URL.createObjectURL(blob);
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.src = blobURL;
+    document.body.appendChild(iframe);
+
+    await new Promise((resolve) => {
+      let resolved = false;
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        resolve();
+      };
+
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (e) {
+          console.warn("Iframe print failed, falling back to new window", e);
+          window.open(blobURL, "_blank");
+        }
+        setTimeout(finish, 2000);
+      };
+
+      setTimeout(finish, 10000);
+    });
   } catch (error) {
     console.error("Error fetching prescription:", error);
-    alert("Error fetching prescription. Please try again.");
+    toast.error("Error fetching prescription. Please try again.");
   }
 };

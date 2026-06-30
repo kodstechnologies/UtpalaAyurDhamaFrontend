@@ -3,8 +3,8 @@ import { getApiUrl, getAuthHeaders } from "../../../../config/api";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
-import { getHeader } from "../../../../components/pdf/pdfHeader";
-import { getFooter } from "../../../../components/pdf/pdfFooter";
+import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
+import { getNote } from "../../../../components/pdf/note";
 import {
   buildPrescriptionBodyHtml,
   buildPrescriptionDocumentData,
@@ -55,8 +55,8 @@ export const handleDownload = async (id, billingSnapshot = {}) => {
       return canvas;
     };
 
-    const headerHtml = `<div style="width:794px; box-sizing:border-box; padding:15px 15px 0;">${getHeader()}</div>`;
-    const footerHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px 15px;">${getFooter()}</div>`;
+    const headerHtml = `<div style="width:794px; box-sizing:border-box;">${pdfPrHeader()}</div>`;
+    const footerHtml = `<div style="width:794px; box-sizing:border-box; margin-bottom:45px;">${getNote()}</div>`;
     const bodyCanvasHtml = `<div style="width:794px; box-sizing:border-box;">${bodyHtml}</div>`;
 
     const [headerCanvas, footerCanvas, bodyCanvas] = await Promise.all([
