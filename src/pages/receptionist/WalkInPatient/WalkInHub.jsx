@@ -119,6 +119,7 @@ function WalkInHub() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingExistingData, setIsLoadingExistingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [deletedTherapyIds, setDeletedTherapyIds] = useState([]);
   const [displayPatientName, setDisplayPatientName] = useState(patientName || "");
   const [therapyErrors, setTherapyErrors] = useState({});
@@ -869,6 +870,70 @@ function WalkInHub() {
     });
   };
 
+  const handleClear = async () => {
+    if (!patientProfileId) {
+      toast.error("Patient identification is missing");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "This will remove the assigned doctor, nurse, appointment time and all therapies for this patient, then save. Continue?",
+    );
+    if (!confirmed) return;
+
+    // Collect every existing therapy plan/session id so the backend deletes them
+    const existingTherapyIds = formData.therapies
+      .filter((t) => t._id)
+      .map((t) => t._id);
+    const therapyDeleteIds = Array.from(
+      new Set([...deletedTherapyIds, ...existingTherapyIds]),
+    );
+
+    const payload = {
+      mode,
+      patientProfileId,
+      doctorProfileId: null,
+      nurseProfileId: null,
+      wardCategory: mode === "IPD" ? formData.wardCategory : undefined,
+      roomNumber: mode === "IPD" ? "" : undefined,
+      bedNumber: mode === "IPD" ? "" : undefined,
+      isDaycare: mode === "OPD" ? false : undefined,
+      appointmentTime: undefined,
+      appointmentDate: formData.appointmentDate,
+      therapies: [],
+      therapyUpdates: [],
+      therapyDeleteIds,
+    };
+
+    setIsClearing(true);
+    try {
+      const response = await axios.post(
+        getApiUrl("walk-in/hub-submit"),
+        payload,
+        { headers: getAuthHeaders() },
+      );
+
+      if (response.data.success) {
+        toast.success("Cleared all assignments for this patient");
+        setDeletedTherapyIds([]);
+        setTherapyErrors({});
+        // Reset the form locally to the empty state. We intentionally do NOT
+        // reload from the backend here because loadExistingAssignments would
+        // re-derive the doctor from the URL doctorId param / latest examination.
+        setFormData(getEmptyFormState());
+      }
+    } catch (error) {
+      console.error("Error clearing walk-in record:", error);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to clear record",
+      );
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -992,6 +1057,27 @@ function WalkInHub() {
             </Box>
           )}
           <form onSubmit={handleSubmit} noValidate>
+            {/* Top-right Clear action */}
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                startIcon={
+                  isClearing ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <Trash2 size={16} />
+                  )
+                }
+                onClick={handleClear}
+                disabled={isClearing || isSubmitting || isLoadingData || !patientProfileId}
+                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
+              >
+                {isClearing ? "Clearing..." : "Clear"}
+              </Button>
+            </Box>
+
             {/* Section 1: Admission Mode */}
             <Box sx={{ mb: 4, textAlign: "center" }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>

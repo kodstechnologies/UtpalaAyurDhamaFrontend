@@ -1249,6 +1249,10 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
                                     />
                                 </Button>
 
+                                <Typography variant="caption" color="text.secondary">
+                                    Only image files are allowed. Maximum size is 10 MB per image.
+                                </Typography>
+
                                 {selectedPatientImages.length > 0 && (
                                     <Typography variant="body2" color="text.secondary">
                                         {selectedPatientImages.length} image(s) selected
@@ -1621,7 +1625,7 @@ function ExaminationRecordsFormView({ patient, appointmentId, appointmentData, o
 
                         {/* Prakriti Assessment */}
                         <FormSection
-                            title="Prakriti Assessment"
+                            title="Prakruti Assessment"
                             subtitle="Ayurvedic constitutional evaluation"
                             icon={Assessment}
                         >

@@ -104,8 +104,8 @@ function AddPatientPage() {
         e.preventDefault();
 
         // Basic validation
-        if (!formData.patientName || !formData.contactNumber) {
-            toast.error("Please fill in all required fields (Patient Name, Contact Number)");
+        if (!formData.patientName || !formData.contactNumber || !formData.gender) {
+            toast.error("Please fill in all required fields (Patient Name, Contact Number, Gender)");
             return;
         }
 
@@ -247,13 +247,13 @@ function AddPatientPage() {
                             />
                         </Grid>
                         <Grid item xs={12} md={6}>
-                            <FormControl fullWidth>
-                                <InputLabel>Gender</InputLabel>
+                            <FormControl fullWidth required>
+                                <InputLabel>Gender </InputLabel>
                                 <Select
                                     name="gender"
                                     value={formData.gender}
                                     onChange={handleChange}
-                                    label="Gender"
+                                    label="Gender "
                                 >
                                     <MenuItem value="">Select Gender</MenuItem>
                                     <MenuItem value="Male">Male</MenuItem>
