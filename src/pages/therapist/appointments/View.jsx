@@ -91,10 +91,10 @@ function Therapy_Progress() {
 
 
     const filteredSessions = useMemo(() => {
-        if (!search) return sessions;
         const searchLower = search.toLowerCase();
-        return sessions.filter(
-            (session) => {
+        const matched = !search
+            ? sessions
+            : sessions.filter((session) => {
                 const patientName = session.patient?.user?.name || "";
                 const uhid = session.patient?.user?.uhid || "";
                 const therapyName = session.treatmentName || "";
@@ -105,8 +105,30 @@ function Therapy_Progress() {
                     therapyName.toLowerCase().includes(searchLower) ||
                     status.toLowerCase().includes(searchLower)
                 );
+            });
+
+        // Group all of a patient's sessions together so completed + newly added
+        // therapies for the same patient always appear next to each other (one place),
+        // instead of being scattered across the table. Patients keep their first
+        // appearance order so the list stays stable.
+        const patientOrder = [];
+        const grouped = new Map();
+        matched.forEach((session) => {
+            const patientKey =
+                session.patient?.user?.uhid ||
+                session.patient?.user?._id ||
+                session.patient?._id ||
+                session.patient ||
+                "unknown";
+            const key = String(patientKey);
+            if (!grouped.has(key)) {
+                grouped.set(key, []);
+                patientOrder.push(key);
             }
-        );
+            grouped.get(key).push(session);
+        });
+
+        return patientOrder.flatMap((key) => grouped.get(key));
     }, [sessions, search]);
 
 

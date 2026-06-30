@@ -74,6 +74,7 @@ function OPConsultation_View() {
                         let hasExamination = false;
                         let examinationId = null;
                         let isAdmitted = false;
+                        let isBilled = false;
 
                         try {
                             const examResponse = await axios.get(
@@ -89,6 +90,7 @@ function OPConsultation_View() {
                                 else {
                                     hasExamination = true;
                                     examinationId = exam._id;
+                                    isBilled = !!exam.isBilled;
                                 }
                             }
                         } catch (error) {
@@ -113,6 +115,7 @@ function OPConsultation_View() {
                             patientUserId: appointment.patient?.user?._id || null, // For navigation to examination
                             hasExamination, // Flag indicating if examination exists
                             examinationId, // Examination ID if exists
+                            isBilled, // Whether this visit's consultation has been billed & paid
                             isFamilyMember: appointment.isFamilyMember || false,
                             familyMemberOf: appointment.familyMemberOf || null,
                             relation: appointment.relation || null,
@@ -159,8 +162,56 @@ function OPConsultation_View() {
                 // Exclude patients converted to IPD (should appear in In Patients, not OP Consultation)
                 const opdOnly = finalConsultations.filter((c) => !c.isAdmitted);
 
-                setConsultations(opdOnly);
-                setPagination((prev) => ({ ...prev, total }));
+                // Collapse multiple appointments/visits for the same patient into a single row,
+                // so the list shows one row per patient instead of one per appointment.
+                // Exception: once a consultation is billed & paid (isBilled), it is a closed
+                // episode and stays as its own row. A new assignment after that is unbilled, so
+                // it forms a separate "active" row instead of merging into the old billed one.
+                const patientGroups = new Map();
+                const patientOrder = [];
+                opdOnly.forEach((c) => {
+                    const patientKey = String(
+                        c.patientUserId ||
+                        c.fullAppointment?.patient?._id ||
+                        (c.patientId && c.patientId !== "N/A" ? c.patientId : "") ||
+                        c.phoneNumber ||
+                        c.patientName ||
+                        c._id
+                    );
+                    // Billed visits get a unique episode key; unbilled visits share one "active" key.
+                    const episodeKey = c.isBilled
+                        ? `billed:${c.examinationId || c._id}`
+                        : "active";
+                    const key = `${patientKey}|${episodeKey}`;
+                    if (!patientGroups.has(key)) {
+                        patientGroups.set(key, []);
+                        patientOrder.push(key);
+                    }
+                    patientGroups.get(key).push(c);
+                });
+
+                const sortableTime = (c) => {
+                    const d = c.appointmentDate && c.appointmentDate !== "N/A" ? c.appointmentDate : "0000-00-00";
+                    const t = c.appointmentTime && c.appointmentTime !== "N/A" ? c.appointmentTime : "00:00";
+                    return `${d} ${t}`;
+                };
+
+                const groupedConsultations = patientOrder.map((key) => {
+                    const group = patientGroups.get(key);
+                    // Prefer a visit that already has an examination; otherwise use the most recent visit.
+                    const withExam = group.filter((c) => c.hasExamination);
+                    const pool = withExam.length > 0 ? withExam : group;
+                    const representative = [...pool].sort(
+                        (a, b) => sortableTime(b).localeCompare(sortableTime(a))
+                    )[0];
+                    return { ...representative, visitCount: group.length };
+                });
+
+                // Keep the total count consistent with the merged rows shown on this page.
+                const mergedCount = opdOnly.length - groupedConsultations.length;
+
+                setConsultations(groupedConsultations);
+                setPagination((prev) => ({ ...prev, total: Math.max(0, total - mergedCount) }));
             } else {
                 toast.error(response.data.message || "Failed to fetch appointments");
             }
