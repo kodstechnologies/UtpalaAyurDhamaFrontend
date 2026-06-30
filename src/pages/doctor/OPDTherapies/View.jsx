@@ -43,16 +43,21 @@ function OPDTherapies_View() {
                 const total = response.data.meta?.total ?? 0;
                 setPagination((prev) => ({ ...prev, total }));
 
-                const groupedByPatient = {};
+                const groupedByExamination = {};
 
                 therapyData.forEach((therapy) => {
                     const patientId = therapy.examination?.patient?._id?.toString() || therapy.examination?.patient?.toString();
                     const patientUhid = therapy.examination?.patient?.user?.uhid || therapy.examination?.patient?.patientId || "N/A";
-                    const key = patientId || patientUhid;
+                    // Group by the specific examination (visit) so a patient with multiple
+                    // visits on the same day appears as separate rows. Fall back to patient
+                    // (or therapy id) for legacy plans without an examination link.
+                    const examinationId = therapy.examination?._id?.toString() || therapy.examination?.toString();
+                    const key = examinationId || patientId || therapy._id;
 
-                    if (!groupedByPatient[key]) {
-                        groupedByPatient[key] = {
-                            _id: key, // Use patient ID as the row ID
+                    if (!groupedByExamination[key]) {
+                        groupedByExamination[key] = {
+                            _id: key, // Use examination ID as the row ID
+                            examinationId: examinationId || null,
                             patientName: therapy.examination?.patient?.user?.name || "Unknown",
                             patientUhid: patientUhid,
                             patientId: patientId,
@@ -62,12 +67,12 @@ function OPDTherapies_View() {
                             therapyDate: therapy.createdAt
                                 ? new Date(therapy.createdAt).toISOString().split("T")[0]
                                 : new Date().toISOString().split("T")[0],
-                            therapies: [], // Array to store all therapies for this patient
+                            therapies: [], // Array to store all therapies for this visit
                         };
                     }
 
-                    // Add this therapy to the patient's list
-                    groupedByPatient[key].therapies.push({
+                    // Add this therapy to the visit's list
+                    groupedByExamination[key].therapies.push({
                         _id: therapy._id,
                         treatmentName: therapy.treatmentName || "N/A",
                         daysOfTreatment: therapy.daysOfTreatment || 0,
@@ -85,14 +90,14 @@ function OPDTherapies_View() {
                     // Update date to the latest therapy date
                     if (therapy.createdAt) {
                         const therapyDate = new Date(therapy.createdAt).toISOString().split("T")[0];
-                        if (therapyDate > groupedByPatient[key].therapyDate) {
-                            groupedByPatient[key].therapyDate = therapyDate;
+                        if (therapyDate > groupedByExamination[key].therapyDate) {
+                            groupedByExamination[key].therapyDate = therapyDate;
                         }
                     }
                 });
 
                 // Convert grouped object to array
-                const groupedTherapies = Object.values(groupedByPatient);
+                const groupedTherapies = Object.values(groupedByExamination);
 
                 setTherapies(groupedTherapies);
             } else {
