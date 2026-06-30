@@ -22,6 +22,7 @@ import {
 import { toast } from "react-toastify";
 import HeadingCard from "../../../components/card/HeadingCard";
 import appointmentService from "../../../services/appointmentService";
+import patientDocumentService from "../../../services/patientDocumentService";
 
 // Icons
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -35,6 +36,8 @@ import HealingIcon from "@mui/icons-material/Healing";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import EventIcon from "@mui/icons-material/Event";
 import ImageIcon from "@mui/icons-material/Image";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 function ConsultationDetails() {
     const { id } = useParams();
@@ -42,6 +45,9 @@ function ConsultationDetails() {
     const [loading, setLoading] = useState(true);
     const [consultationData, setConsultationData] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
+    const [documents, setDocuments] = useState([]);
+    const [selectedDocumentUrl, setSelectedDocumentUrl] = useState(null);
+    const [viewDialogOpen, setViewDialogOpen] = useState(false);
 
     useEffect(() => {
         const fetchConsultationDetails = async () => {
@@ -76,6 +82,54 @@ function ConsultationDetails() {
 
         fetchConsultationDetails();
     }, [id, navigate]);
+
+    useEffect(() => {
+        const patientProfileId =
+            consultationData?.appointment?.patient?._id ||
+            consultationData?.examination?.patient?._id ||
+            consultationData?.appointment?.patient ||
+            consultationData?.examination?.patient;
+
+        if (!patientProfileId) return;
+
+        const fetchDocuments = async () => {
+            try {
+                const response = await patientDocumentService.getPatientDocuments(patientProfileId);
+                if (response && response.success) {
+                    const nonImageDocs = (response.data || []).filter(
+                        (doc) => !doc.fileType?.startsWith("image/")
+                    );
+                    setDocuments(nonImageDocs);
+                }
+            } catch (error) {
+                console.error("Error fetching patient documents:", error);
+            }
+        };
+
+        fetchDocuments();
+    }, [consultationData]);
+
+    const handleViewDocument = async (documentId) => {
+        try {
+            const response = await patientDocumentService.getDocumentViewUrl(documentId);
+            if (response && response.success) {
+                setSelectedDocumentUrl(response.data.url);
+                setViewDialogOpen(true);
+            } else {
+                toast.error("Failed to load document");
+            }
+        } catch (error) {
+            console.error("Error loading document:", error);
+            toast.error("Failed to load document");
+        }
+    };
+
+    const formatFileSize = (bytes) => {
+        if (!bytes && bytes !== 0) return "";
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
 
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
@@ -660,6 +714,58 @@ function ConsultationDetails() {
                 </Card>
             )}
 
+            {/* Documents */}
+            {documents.length > 0 && (
+                <Card sx={{ boxShadow: 3, borderRadius: 2, marginBottom: 3 }}>
+                    <CardContent sx={{ padding: 4 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 3 }}>
+                            <DescriptionIcon sx={{ fontSize: "1.5rem", color: "#E53935" }} />
+                            <Typography variant="h5" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+                                Documents ({documents.length})
+                            </Typography>
+                        </Box>
+                        <Divider sx={{ marginY: 3 }} />
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                            {documents.map((doc) => (
+                                <Paper
+                                    key={doc._id}
+                                    variant="outlined"
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 2,
+                                        padding: 2,
+                                        borderRadius: 1.5,
+                                    }}
+                                >
+                                    <PictureAsPdfIcon sx={{ color: "error.main", fontSize: "2rem" }} />
+                                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                        <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>
+                                            {doc.originalFileName}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block">
+                                            {doc.description || "No description"}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {formatFileSize(doc.fileSize)}
+                                            {doc.uploadedAt ? ` • ${formatDate(doc.uploadedAt)}` : ""}
+                                        </Typography>
+                                    </Box>
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<VisibilityIcon />}
+                                        onClick={() => handleViewDocument(doc._id)}
+                                    >
+                                        View
+                                    </Button>
+                                </Paper>
+                            ))}
+                        </Box>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Therapy Sessions */}
             {therapySessions && therapySessions.length > 0 && (
                 <Card sx={{ boxShadow: 3, borderRadius: 2, marginBottom: 3 }}>
@@ -772,6 +878,31 @@ function ConsultationDetails() {
                                 maxHeight: "80vh",
                                 objectFit: "contain",
                                 borderRadius: 1,
+                            }}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={viewDialogOpen}
+                onClose={() => {
+                    setViewDialogOpen(false);
+                    setSelectedDocumentUrl(null);
+                }}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogContent sx={{ p: 1.5 }}>
+                    {selectedDocumentUrl && (
+                        <Box
+                            component="iframe"
+                            src={selectedDocumentUrl}
+                            title="Document"
+                            sx={{
+                                width: "100%",
+                                height: "80vh",
+                                border: "none",
                             }}
                         />
                     )}

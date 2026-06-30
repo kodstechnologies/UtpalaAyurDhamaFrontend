@@ -1128,8 +1128,11 @@ function PatientHistory() {
                                     {uploadForm.file ? uploadForm.file.name : 'Select PDF File'}
                                 </Button>
                             </label>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                Only PDF files are allowed. Maximum file size is 10 MB.
+                            </Typography>
                             {uploadForm.file && (
-                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                                     File size: {formatFileSize(uploadForm.file.size)}
                                 </Typography>
                             )}
