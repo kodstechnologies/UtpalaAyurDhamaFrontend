@@ -105,7 +105,7 @@ const invoiceHandleDownload = async (invoice) => {
     const categoryOrder = ["Doctor Consultation", "Therapy", "Medicines", "Food Charges", "Bed Charges", "Other"];
 
     let counter = 0;
-    let itemsHtml = "";
+    const categoryBlockHtmls = [];
 
     categoryOrder.forEach((cat) => {
       const catItems = grouped[cat];
@@ -120,7 +120,7 @@ const invoiceHandleDownload = async (invoice) => {
       // Skip rendering "Doctor Consultation" if its total is 0
       if (isConsultation && catTotal === 0) return;
 
-      itemsHtml += `
+      let blockHtml = `
         <div class="category-block-title" style=" background:#f5f5f5; margin-top:15px; padding: 0 0 12px 16px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
           <span>${cat}</span>
 
@@ -144,7 +144,7 @@ const invoiceHandleDownload = async (invoice) => {
         const unitPrice = item.unitPrice || item.amount || 0;
         const total = item.total || item.amount || 0;
 
-        itemsHtml += `
+        blockHtml += `
           <tr>
             <td style="border-left:1px solid #000; border-bottom:1px solid #000; border-right:1px solid #000; border-top:none; padding: 0 0 12px 0; text-align:center; font-size:11px;">${counter}</td>
             <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
@@ -164,10 +164,11 @@ const invoiceHandleDownload = async (invoice) => {
         `;
       });
 
-      itemsHtml += `
+      blockHtml += `
           </tbody>
         </table>
       `;
+      categoryBlockHtmls.push(blockHtml);
     });
 
     const subtotal = invoice.subtotal || 0;
@@ -226,11 +227,13 @@ const invoiceHandleDownload = async (invoice) => {
       return canvas;
     };
 
-    // ── Render header, footer, and body as separate canvases ──
+    // ── Render header, footer, and each section as separate canvases ──
+    // Sections are kept whole so page breaks never cut through a table
+    // row or the SUBTOTAL / summary block.
     const headerHtml = `<div style="width:794px; box-sizing:border-box; ">${pdfPrHeader()}</div>`;
     const footerHtml = `<div style="width:794px; box-sizing:border-box; margin-bottom: 45px; ">${getNote()}</div>`;
-    // Body = everything between header and footer
-    const bodyHtml = `
+
+    const infoSectionHtml = `
       <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
         <!-- PATIENT + INVOICE INFO -->
         <div style="display:flex; border:1px solid #000; margin:10px 0; height:100%">
@@ -243,7 +246,7 @@ const invoiceHandleDownload = async (invoice) => {
               ${patient.alternativeNumber ? `<tr><td style="font-weight:bold;">ALT. NO</td><td>:</td><td>${escapeHtml(patient.alternativeNumber)}</td></tr>` : ""}
               ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>` : ""}
               ${patient.email && patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email)}</td></tr>` : ""}
-              ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName)}</td></tr>` : ""}
+              ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName.replace(/\bProfile\b/g, "").trim())}</td></tr>` : ""}
               ${invoice.referredBy ? `<tr><td style="font-weight:bold; width:100px;">Referred By</td><td>:</td><td>${escapeHtml(invoice.referredBy)}</td></tr>` : ""}
               ${invoice.consultedBy ? `<tr><td style="font-weight:bold; width:100px;">Consulted By</td><td>:</td><td>${escapeHtml(invoice.consultedBy)}</td></tr>` : ""}
             </table>
@@ -291,11 +294,11 @@ const invoiceHandleDownload = async (invoice) => {
             </table>
           </div>
         </div>
+      </div>
+    `;
 
-        <!-- ITEMS TABLES -->
-        <div>
-          ${itemsHtml}
-        </div>
+    const summarySectionHtml = `
+      <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
         <div style="display:flex; justify-content:flex-end; margin-top:8px;">
           <table style="width:50%; border-collapse:collapse; border:1px solid #000;">
             <tr style="font-weight:bold;">
@@ -348,16 +351,25 @@ const invoiceHandleDownload = async (invoice) => {
             </div>
           </div>
         </div>
-
       </div>
     `;
 
-    // Render all three parts
-    const [headerCanvas, footerCanvas, bodyCanvas] = await Promise.all([
+    // Render static header/footer + each printable section separately.
+    // Rendering each section on its own lets us avoid splitting a section
+    // (especially item tables) across pages.
+    const [headerCanvas, footerCanvas, infoCanvas, summaryCanvas] = await Promise.all([
       renderToCanvas(headerHtml),
       renderToCanvas(footerHtml),
-      renderToCanvas(bodyHtml),
+      renderToCanvas(infoSectionHtml),
+      renderToCanvas(summarySectionHtml),
     ]);
+    const categoryCanvases = await Promise.all(
+      categoryBlockHtmls.map((blockHtml) =>
+        renderToCanvas(
+          `<div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">${blockHtml}</div>`
+        )
+      )
+    );
 
     // Create PDF
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -371,7 +383,6 @@ const invoiceHandleDownload = async (invoice) => {
 
     const headerH = pxToMm(headerCanvas);
     const footerH = pxToMm(footerCanvas);
-    const bodyTotalH = pxToMm(bodyCanvas);
 
     // Available body height per page (between header and footer)
     const topPad = 0;  // mm gap after header
@@ -380,57 +391,64 @@ const invoiceHandleDownload = async (invoice) => {
 
     const headerImg = headerCanvas.toDataURL("image/png");
     const footerImg = footerCanvas.toDataURL("image/png");
-    const bodyImg = bodyCanvas.toDataURL("image/png");
+    const sections = [infoCanvas, ...categoryCanvases, summaryCanvas];
 
-    // Calculate how many pages we need
-    const totalPages = Math.ceil(bodyTotalH / bodyAreaH);
+    // Pre-compute total page count so the footer can show "Page X of Y".
+    const totalPagesEstimate = (() => {
+      let pages = 1;
+      let usedH = 0;
+      sections.forEach((canvas) => {
+        const sectionH = pxToMm(canvas);
+        if (usedH > 0 && usedH + sectionH > bodyAreaH) {
+          pages += 1;
+          usedH = 0;
+        }
+        usedH += sectionH;
+      });
+      return pages;
+    })();
 
-    for (let page = 0; page < totalPages; page++) {
-      if (page > 0) pdf.addPage();
+    let currentPage = 1;
+    let cursorY = headerH + topPad;
+    let usedBodyH = 0;
 
-      // ── Draw header ──
+    const drawPageChrome = () => {
       pdf.addImage(headerImg, "PNG", margin, 0, contentW, headerH);
-
-      // ── Draw body slice ──
-      // We use clipping to show only the portion of body for this page
-      const bodyY = headerH + topPad;
-      const srcYPx = (page * bodyAreaH / bodyTotalH) * bodyCanvas.height;
-      const srcHPx = Math.min(
-        (bodyAreaH / bodyTotalH) * bodyCanvas.height,
-        bodyCanvas.height - srcYPx
-      );
-
-      // Create a temporary canvas for just this page's body slice
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = bodyCanvas.width;
-      sliceCanvas.height = Math.round(srcHPx);
-      const ctx = sliceCanvas.getContext("2d");
-      ctx.drawImage(
-        bodyCanvas,
-        0, Math.round(srcYPx),               // source x, y
-        bodyCanvas.width, Math.round(srcHPx), // source w, h
-        0, 0,                                  // dest x, y
-        bodyCanvas.width, Math.round(srcHPx)  // dest w, h
-      );
-
-      const sliceImgData = sliceCanvas.toDataURL("image/png");
-      const sliceH = (sliceCanvas.height / sliceCanvas.width) * contentW;
-      pdf.addImage(sliceImgData, "PNG", margin, bodyY, contentW, sliceH);
-
-      // ── Draw footer ──
       const footerY = pdfH - footerH;
       pdf.addImage(footerImg, "PNG", margin, footerY, contentW, footerH);
-
-      // ── Page number ──
       pdf.setFontSize(8);
       pdf.setTextColor(150);
-      pdf.text(
-        `Page ${page + 1} of ${totalPages}`,
-        pdfW / 2,
-        pdfH - 5, // 👈 move up
-        { align: "center" }
-      );
-    }
+      pdf.text(`Page ${currentPage} of ${totalPagesEstimate}`, pdfW / 2, pdfH - 5, { align: "center" });
+    };
+
+    drawPageChrome();
+
+    sections.forEach((canvas, idx) => {
+      const sectionH = pxToMm(canvas);
+      const sectionImg = canvas.toDataURL("image/png");
+
+      // Move to a new page if this whole section won't fit on the current one.
+      const requiresNewPage = usedBodyH > 0 && usedBodyH + sectionH > bodyAreaH;
+      if (requiresNewPage) {
+        pdf.addPage();
+        currentPage += 1;
+        cursorY = headerH + topPad;
+        usedBodyH = 0;
+        drawPageChrome();
+      }
+
+      // If a single section itself is taller than the page body, scale it to fit.
+      const renderH = sectionH > bodyAreaH ? bodyAreaH : sectionH;
+      pdf.addImage(sectionImg, "PNG", margin, cursorY, contentW, renderH);
+
+      cursorY += renderH;
+      usedBodyH += renderH;
+
+      if (idx !== sections.length - 1) {
+        cursorY += 1.5;
+        usedBodyH += 1.5;
+      }
+    });
 
     pdf.save(`Invoice_${invoiceNo.replace(/[\/\\]/g, "-")}.pdf`);
     toast.success("Invoice downloaded successfully");
