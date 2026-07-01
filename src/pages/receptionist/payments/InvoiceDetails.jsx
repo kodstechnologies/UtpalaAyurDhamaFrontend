@@ -171,6 +171,78 @@ function InvoiceDetails({
     { label: "Invoice Details" },
   ];
 
+  const enrichInvoicePatientIdentifiers = async (invoiceData) => {
+    if (!invoiceData) return invoiceData;
+
+    const existingUhid =
+      invoiceData.patient?.uhid ||
+      invoiceData.patient?.user?.uhid ||
+      invoiceData.examination?.patient?.uhid ||
+      invoiceData.examination?.patient?.user?.uhid ||
+      invoiceData.inpatient?.patient?.uhid ||
+      invoiceData.inpatient?.patient?.user?.uhid ||
+      invoiceData.uhid;
+
+    const existingPatientId =
+      invoiceData.patient?.patientId ||
+      invoiceData.examination?.patient?.patientId ||
+      invoiceData.inpatient?.patient?.patientId ||
+      invoiceData.patientId;
+
+    if (existingUhid && existingPatientId) return invoiceData;
+
+    const patientProfileId =
+      invoiceData.patient?._id ||
+      (typeof invoiceData.patient === "string" ? invoiceData.patient : null) ||
+      invoiceData.examination?.patient?._id ||
+      (typeof invoiceData.examination?.patient === "string" ? invoiceData.examination.patient : null) ||
+      invoiceData.inpatient?.patient?._id ||
+      (typeof invoiceData.inpatient?.patient === "string" ? invoiceData.inpatient.patient : null);
+
+    if (!patientProfileId) return invoiceData;
+
+    const examinationId = invoiceData.examination?._id || invoiceData.examinationId;
+    const inpatientId = invoiceData.inpatient?._id || invoiceData.inpatientId;
+
+    let patientFromBilling = null;
+    try {
+      const outpatientRes = await inpatientService.getOutpatientBillingSummary(patientProfileId, { examinationId });
+      if (outpatientRes?.success && outpatientRes?.data?.patient) {
+        patientFromBilling = outpatientRes.data.patient;
+      }
+    } catch (_) {
+      // Ignore; try unified billing as fallback
+    }
+
+    if (!patientFromBilling) {
+      try {
+        const unifiedRes = await inpatientService.getUnifiedBillingSummary(patientProfileId, inpatientId || null);
+        if (unifiedRes?.success && unifiedRes?.data?.patient) {
+          patientFromBilling = unifiedRes.data.patient;
+        }
+      } catch (_) {
+        // Keep original invoice if fallback calls fail
+      }
+    }
+
+    if (!patientFromBilling) return invoiceData;
+
+    return {
+      ...invoiceData,
+      uhid: existingUhid || patientFromBilling.uhid || patientFromBilling.user?.uhid || invoiceData.uhid,
+      patientId: existingPatientId || patientFromBilling.patientId || invoiceData.patientId,
+      patient: {
+        ...(invoiceData.patient || {}),
+        uhid:
+          invoiceData.patient?.uhid ||
+          patientFromBilling.uhid ||
+          invoiceData.patient?.user?.uhid ||
+          undefined,
+        patientId: invoiceData.patient?.patientId || patientFromBilling.patientId || undefined,
+      },
+    };
+  };
+
   const fetchInvoiceDetails = async () => {
     if (!id) return;
 
@@ -182,10 +254,12 @@ function InvoiceDetails({
 
       if (response && response.success) {
         if (adminViewMode && response.data?.invoice) {
-          setInvoice(response.data.invoice);
+          const enrichedInvoice = await enrichInvoicePatientIdentifiers(response.data.invoice);
+          setInvoice(enrichedInvoice);
           setHasAdminDisplay(Boolean(response.data.hasAdminDisplay));
         } else if (response.data) {
-          setInvoice(response.data);
+          const enrichedInvoice = await enrichInvoicePatientIdentifiers(response.data);
+          setInvoice(enrichedInvoice);
           setHasAdminDisplay(false);
         } else {
           toast.error("Failed to load invoice details");
@@ -654,14 +728,41 @@ function InvoiceDetails({
                 <PersonIcon sx={{ color: "#D4A574" }} /> Patient Information
               </Typography>
               <Box sx={{ bgcolor: "#f8f9fa", p: 2, borderRadius: 1 }}>
-                <Typography><strong>Name:</strong> {invoice.patient?.user?.name || invoice.patient?.name || "N/A"}</Typography>
-                {invoice.patient?.uhid && <Typography><strong>UHID:</strong> {invoice.patient.uhid}</Typography>}
-                <Typography><strong>Age/Gender:</strong> {invoice.patient?.age || ""} / {invoice.patient?.user?.gender || invoice.patient?.gender || ""}</Typography>
-                <Typography><strong>Phone:</strong> {invoice.patient?.user?.phone || ""}</Typography>
+                <Typography><strong>Name:</strong> {invoice.patient?.user?.name || invoice.patient?.name || invoice.patientName || "N/A"}</Typography>
+                <Typography>
+                  <strong>UHID:</strong>{" "}
+                  {invoice.patient?.uhid
+                    || invoice.patient?.user?.uhid
+                    || invoice.examination?.patient?.uhid
+                    || invoice.examination?.patient?.user?.uhid
+                    || invoice.inpatient?.patient?.uhid
+                    || invoice.inpatient?.patient?.user?.uhid
+                    || invoice.uhid
+                    || "N/A"}
+                </Typography>
+                <Typography>
+                  <strong>Patient ID:</strong>{" "}
+                  {invoice.patient?.patientId
+                    || invoice.examination?.patient?.patientId
+                    || invoice.inpatient?.patient?.patientId
+                    || invoice.patientId
+                    || "N/A"}
+                </Typography>
+                <Typography>
+                  <strong>Age:</strong>{" "}
+                  {(() => {
+                    const age = invoice.patient?.age;
+                    if (age === "" || age == null) return "N/A";
+                    const unit = String(invoice.patient?.ageUnit || "").toLowerCase();
+                    return `${age} ${unit.startsWith("month") ? "m" : "y"}`;
+                  })()}
+                </Typography>
+                <Typography><strong>Gender:</strong> {invoice.patient?.user?.gender || invoice.patient?.gender || "N/A"}</Typography>
+                <Typography><strong>Phone:</strong> {invoice.patient?.user?.phone || "N/A"}</Typography>
                 {invoice.patient?.alternativeNumber && (
                   <Typography><strong>Alternative Number:</strong> {invoice.patient.alternativeNumber}</Typography>
                 )}
-                <Typography><strong>Email:</strong> {invoice.patient?.user?.email || ""}</Typography>
+                <Typography><strong>Email:</strong> {invoice.patient?.user?.email || "_"}</Typography>
               </Box>
             </Box>
 

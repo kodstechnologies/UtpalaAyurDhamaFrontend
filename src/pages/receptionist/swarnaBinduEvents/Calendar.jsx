@@ -321,130 +321,142 @@ function SwarnaBinduEvents_Calendar() {
                     </Stack>
                 </Stack>
 
-                {isLoading ? (
-                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <Box
-                        sx={{
-                            "& .fc": {
-                                "--fc-border-color": "var(--color-border)",
-                                "--fc-today-bg-color": "rgba(139, 92, 246, 0.05)",
-                                fontFamily: "inherit",
-                            },
-                            "& .fc-col-header-cell": {
-                                py: 2,
-                                bgcolor: "var(--color-bg-hover)",
-                                fontWeight: 600,
-                                fontSize: "0.875rem",
-                            },
-                            "& .fc-daygrid-day-number": {
-                                p: 1.5,
-                                fontSize: "0.875rem",
-                                fontWeight: 500,
-                            },
-                            "& .fc-event": {
-                                borderRadius: 1.5,
-                                p: 0.5,
-                                border: "none",
-                                cursor: "pointer",
-                                backgroundColor: "transparent !important",
-                                color: "#000 !important",
-                                fontWeight: "600 !important",
-                            },
-                            "& .fc-daygrid-day.swarna-bindu-day": {
-                                backgroundColor: "#FFD700 !important",
-                                background: "linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important",
-                                border: "2px solid #FFA500 !important",
-                            },
-                            "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-number": {
-                                color: "#000 !important",
-                                fontWeight: "700 !important",
-                            },
-                            "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-frame": {
-                                backgroundColor: "transparent !important",
-                            },
-                            "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-events": {
-                                backgroundColor: "transparent !important",
-                            },
-                            "& .fc-daygrid-day.swarna-bindu-day .fc-event": {
-                                backgroundColor: "transparent !important",
-                                color: "#000 !important",
-                                fontWeight: "600 !important",
-                            },
+                <Box
+                    sx={{
+                        position: "relative",
+                        minHeight: "400px",
+                        "& .fc": {
+                            "--fc-border-color": "var(--color-border)",
+                            "--fc-today-bg-color": "rgba(139, 92, 246, 0.05)",
+                            fontFamily: "inherit",
+                        },
+                        "& .fc-col-header-cell": {
+                            py: 2,
+                            bgcolor: "var(--color-bg-hover)",
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                        },
+                        "& .fc-daygrid-day-number": {
+                            p: 1.5,
+                            fontSize: "0.875rem",
+                            fontWeight: 500,
+                        },
+                        "& .fc-event": {
+                            borderRadius: 1.5,
+                            p: 0.5,
+                            border: "none",
+                            cursor: "pointer",
+                            backgroundColor: "transparent !important",
+                            color: "#000 !important",
+                            fontWeight: "600 !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day": {
+                            backgroundColor: "#FFD700 !important",
+                            background: "linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important",
+                            border: "2px solid #FFA500 !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-number": {
+                            color: "#000 !important",
+                            fontWeight: "700 !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-frame": {
+                            backgroundColor: "transparent !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-daygrid-day-events": {
+                            backgroundColor: "transparent !important",
+                        },
+                        "& .fc-daygrid-day.swarna-bindu-day .fc-event": {
+                            backgroundColor: "transparent !important",
+                            color: "#000 !important",
+                            fontWeight: "600 !important",
+                        },
+                    }}
+                >
+                    <FullCalendar
+                        ref={calendarRef}
+                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+                        initialView="dayGridMonth"
+                        headerToolbar={false}
+                        events={events}
+                        datesSet={handleDatesSet}
+                        viewDidMount={handleViewChange}
+                        height="auto"
+                        eventDisplay="block"
+                        eventTimeFormat={{ hour: "2-digit", minute: "2-digit", meridiem: "short" }}
+                        slotMinTime="06:00:00"
+                        slotMaxTime="22:00:00"
+                        weekends
+                        editable={false}
+                        selectable={false}
+                        dayMaxEvents
+                        moreLinkClick="popover"
+                        lazyFetching={false}
+                        dayCellClassNames={(dateInfo) => {
+                            const dayEvents = events.filter((event) => {
+                                const eventDate = new Date(event.start);
+                                return eventDate.toDateString() === dateInfo.date.toDateString();
+                            });
+                            return dayEvents.length > 0 ? ["swarna-bindu-day"] : [];
                         }}
-                    >
-                        <FullCalendar
-                            ref={calendarRef}
-                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-                            initialView="dayGridMonth"
-                            headerToolbar={false}
-                            events={events}
-                            datesSet={handleDatesSet}
-                            viewDidMount={handleViewChange}
-                            height="auto"
-                            eventDisplay="block"
-                            eventTimeFormat={{ hour: "2-digit", minute: "2-digit", meridiem: "short" }}
-                            slotMinTime="06:00:00"
-                            slotMaxTime="22:00:00"
-                            weekends
-                            editable={false}
-                            selectable={false}
-                            dayMaxEvents
-                            moreLinkClick="popover"
-                            lazyFetching={false}
-                            dayCellClassNames={(dateInfo) => {
-                                const dayEvents = events.filter((event) => {
-                                    const eventDate = new Date(event.start);
-                                    return eventDate.toDateString() === dateInfo.date.toDateString();
-                                });
-                                return dayEvents.length > 0 ? ["swarna-bindu-day"] : [];
-                            }}
-                            eventContent={(eventInfo) => {
-                                const { startTime, endTime } = eventInfo.event.extendedProps;
-                                const timeLabel = getEventTimeLabel(startTime, endTime);
+                        eventContent={(eventInfo) => {
+                            const { startTime, endTime } = eventInfo.event.extendedProps;
+                            const timeLabel = getEventTimeLabel(startTime, endTime);
 
-                                return (
+                            return (
+                                <div
+                                    style={{
+                                        padding: "4px 6px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: 500,
+                                        overflow: "hidden",
+                                        cursor: "pointer",
+                                        lineHeight: 1.3,
+                                    }}
+                                >
                                     <div
                                         style={{
-                                            padding: "4px 6px",
-                                            fontSize: "0.75rem",
-                                            fontWeight: 500,
                                             overflow: "hidden",
-                                            cursor: "pointer",
-                                            lineHeight: 1.3,
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
                                         }}
                                     >
+                                        {eventInfo.event.title}
+                                    </div>
+                                    {timeLabel && (
                                         <div
                                             style={{
+                                                fontSize: "0.65rem",
+                                                fontWeight: 400,
+                                                marginTop: "2px",
                                                 overflow: "hidden",
                                                 textOverflow: "ellipsis",
                                                 whiteSpace: "nowrap",
                                             }}
                                         >
-                                            {eventInfo.event.title}
+                                            {timeLabel}
                                         </div>
-                                        {timeLabel && (
-                                            <div
-                                                style={{
-                                                    fontSize: "0.65rem",
-                                                    fontWeight: 400,
-                                                    marginTop: "2px",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                    whiteSpace: "nowrap",
-                                                }}
-                                            >
-                                                {timeLabel}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
+                                    )}
+                                </div>
+                            );
+                        }}
+                    />
+
+                    {isLoading && (
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                inset: 0,
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                bgcolor: "rgba(255,255,255,0.55)",
+                                zIndex: 2,
                             }}
-                        />
-                    </Box>
-                )}
+                        >
+                            <CircularProgress />
+                        </Box>
+                    )}
+                </Box>
             </Paper>
         </Box>
     );

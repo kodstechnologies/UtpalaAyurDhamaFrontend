@@ -45,6 +45,17 @@ const extractExaminationsData = (responseData) => {
     return [];
 };
 
+const dedupeExaminationsById = (examinationsData) => {
+    const seen = new Set();
+    return (examinationsData || []).filter((exam) => {
+        const examId = exam?._id?.toString();
+        if (!examId) return false;
+        if (seen.has(examId)) return false;
+        seen.add(examId);
+        return true;
+    });
+};
+
 const extractInvoicesData = (responseData) => {
     if (!responseData?.success) return [];
     if (Array.isArray(responseData.data)) return responseData.data;
@@ -255,7 +266,9 @@ function Outpatient_View() {
 
             if (patientsResponse.data.success && allExamsResponse.data.success) {
                 const patientsData = extractPatientsData(patientsResponse.data.data);
-                const examinationsData = extractExaminationsData(allExamsResponse.data.data);
+                const examinationsData = dedupeExaminationsById(
+                    extractExaminationsData(allExamsResponse.data.data)
+                );
                 const examinationIds = examinationsData
                     .filter((exam) => exam._id)
                     .map((exam) => exam._id.toString());
@@ -388,18 +401,22 @@ function Outpatient_View() {
                     throw new Error(examsResponse.data.message || "Failed to fetch outpatient visits");
                 }
 
-                const pageExams = extractExaminationsData(examsResponse.data.data);
+                const pageExams = dedupeExaminationsById(
+                    extractExaminationsData(examsResponse.data.data)
+                );
                 allExaminations.push(...pageExams);
                 totalPages = examsResponse.data.meta?.totalPages || 1;
                 page += 1;
             } while (page <= totalPages);
 
-            if (allExaminations.length === 0) {
+            const uniqueExaminations = dedupeExaminationsById(allExaminations);
+
+            if (uniqueExaminations.length === 0) {
                 toast.warning("No outpatients to export.");
                 return;
             }
 
-            const examinationIds = allExaminations
+            const examinationIds = uniqueExaminations
                 .filter((exam) => exam._id)
                 .map((exam) => exam._id.toString());
 
@@ -424,7 +441,7 @@ function Outpatient_View() {
             const invoicesMap = buildInvoicesMap(invoicesData, examinationIds);
 
             const exportRows = transformExaminationsToOutpatients(
-                allExaminations,
+                uniqueExaminations,
                 patientByIdMap,
                 invoicesMap
             )

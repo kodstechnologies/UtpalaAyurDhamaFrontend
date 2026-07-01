@@ -71,15 +71,52 @@ const invoiceHandleDownload = async (invoice) => {
 
   try {
     const patient = {
-      name: invoice.patient?.user?.name || invoice.patient?.name || "N/A",
-      gender: invoice.patient?.user?.gender || invoice.patient?.gender || "N/A",
-      age: invoice.patient?.age || "N/A",
+      name: invoice.patient?.user?.name || invoice.patient?.name || invoice.patientName || "N/A",
+      gender:
+        invoice.patient?.user?.gender ||
+        invoice.patient?.gender ||
+        invoice.examination?.patient?.user?.gender ||
+        invoice.examination?.patient?.gender ||
+        invoice.inpatient?.patient?.user?.gender ||
+        invoice.inpatient?.patient?.gender ||
+        invoice.gender ||
+        "N/A",
+      age:
+        invoice.patient?.age ??
+        invoice.examination?.patient?.age ??
+        invoice.inpatient?.patient?.age ??
+        invoice.age ??
+        "N/A",
+      ageUnit:
+        invoice.patient?.ageUnit ||
+        invoice.examination?.patient?.ageUnit ||
+        invoice.inpatient?.patient?.ageUnit ||
+        invoice.ageUnit ||
+        "years",
       phone: invoice.patient?.user?.phone || "N/A",
       alternativeNumber: invoice.patient?.alternativeNumber || "",
-      email: invoice.patient?.user?.email || "N/A",
-      uhid: invoice.patient?.uhid || invoice.patient?.patientId || "",
+      email: invoice.patient?.user?.email || "_",
+      uhid:
+        invoice.patient?.uhid ||
+        invoice.patient?.user?.uhid ||
+        invoice.examination?.patient?.uhid ||
+        invoice.examination?.patient?.user?.uhid ||
+        invoice.inpatient?.patient?.uhid ||
+        invoice.inpatient?.patient?.user?.uhid ||
+        invoice.uhid ||
+        "N/A",
+      patientId:
+        invoice.patient?.patientId ||
+        invoice.examination?.patient?.patientId ||
+        invoice.inpatient?.patient?.patientId ||
+        invoice.patientId ||
+        "N/A",
       address: invoice.patient?.address || invoice.patient?.user?.address || "N/A",
     };
+
+    const formattedAge = patient.age === "N/A"
+      ? "N/A"
+      : `${patient.age} ${String(patient.ageUnit).toLowerCase().startsWith("month") ? "m" : "y"}`;
 
     const doctorName = invoice.doctor
       ? (invoice.doctor.firstName
@@ -239,13 +276,15 @@ const invoiceHandleDownload = async (invoice) => {
         <div style="display:flex; border:1px solid #000; margin:10px 0; height:100%">
           <div style="width:60%; background:#fafafa; padding:12px; border-right:1px solid #000;">
             <table style="width:100%; font-size:12px;">
-              <tr><td style="font-weight:bold; width:100px;">NAME</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
-              <tr><td style="font-weight:bold;">AGE/GENDER</td><td>:</td><td>${escapeHtml(patient.age)} / ${escapeHtml(patient.gender)}</td></tr>
+              <tr><td style="font-weight:bold; width:100px;">PATIENT</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
+              <tr><td style="font-weight:bold;">AGE</td><td>:</td><td>${escapeHtml(formattedAge)}</td></tr>
+              <tr><td style="font-weight:bold;">GENDER</td><td>:</td><td>${escapeHtml(patient.gender)}</td></tr>
               ${patient.address && patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${escapeHtml(patient.address)}</td></tr>` : ""}
               ${patient.phone && patient.phone !== "N/A" ? `<tr><td style="font-weight:bold;">PHONE</td><td>:</td><td>${escapeHtml(patient.phone)}</td></tr>` : ""}
               ${patient.alternativeNumber ? `<tr><td style="font-weight:bold;">ALT. NO</td><td>:</td><td>${escapeHtml(patient.alternativeNumber)}</td></tr>` : ""}
-              ${patient.uhid ? `<tr><td style="font-weight:bold;">UHID</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>` : ""}
-              ${patient.email && patient.email !== "N/A" ? `<tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email)}</td></tr>` : ""}
+              <tr><td style="font-weight:bold;">UHID NO</td><td>:</td><td>${escapeHtml(patient.uhid)}</td></tr>
+              <tr><td style="font-weight:bold;">PATIENT ID</td><td>:</td><td>${escapeHtml(patient.patientId)}</td></tr>
+              <tr><td style="font-weight:bold;">E-MAIL</td><td>:</td><td>${escapeHtml(patient.email || "_")}</td></tr>
               ${doctorName !== "N/A" ? `<tr><td style="font-weight:bold;">DOCTOR</td><td>:</td><td>${escapeHtml(doctorName.replace(/\bProfile\b/g, "").trim())}</td></tr>` : ""}
               ${invoice.referredBy ? `<tr><td style="font-weight:bold; width:100px;">Referred By</td><td>:</td><td>${escapeHtml(invoice.referredBy)}</td></tr>` : ""}
               ${invoice.consultedBy ? `<tr><td style="font-weight:bold; width:100px;">Consulted By</td><td>:</td><td>${escapeHtml(invoice.consultedBy)}</td></tr>` : ""}

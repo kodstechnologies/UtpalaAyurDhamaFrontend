@@ -186,15 +186,6 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
         cleanedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         // Calculate totals from cleaned transactions
-        const totalIncomeFromAmount = cleanedTransactions
-            .filter(t => t.type === 'Income')
-            .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-        const totalIncome = totalPayable > 0 ? totalPayable : totalIncomeFromAmount;
-
-        const totalExpense = cleanedTransactions
-            .filter(t => t.type === 'Expense')
-            .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-
         const seenInvoiceIds = new Set();
         const totalPayable = cleanedTransactions.reduce((sum, transaction) => {
             const payable = transaction.totalPayable ?? transaction.invoice?.totalPayable;
@@ -208,6 +199,15 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
             }
             return sum + (parseFloat(payable) || 0);
         }, 0);
+
+        const totalIncomeFromAmount = cleanedTransactions
+            .filter(t => t.type === 'Income')
+            .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        const totalIncome = totalPayable > 0 ? totalPayable : totalIncomeFromAmount;
+
+        const totalExpense = cleanedTransactions
+            .filter(t => t.type === 'Expense')
+            .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
         const netTotal = totalIncome - totalExpense;
 
@@ -305,11 +305,12 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 11px;
+                    margin: 0 6px;
                 }
                 .items-table th,
                 .items-table td {
                     border: 1px solid #ddd;
-                    padding: 8px;
+                    padding: 8px 12px;
                 }
                 .items-table th {
                     background: #f5f5f5;
