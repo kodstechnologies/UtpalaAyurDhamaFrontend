@@ -13,6 +13,8 @@ import GreetingsImg from "../../assets/greeting/patient.png";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import patientService from "../../services/patientService";
+import profileService from "../../services/profileService";
+import BirthdayBanner from "../../components/card/BirthdayBanner";
 
 function Patient_Dashboard() {
     const navigate = useNavigate();
@@ -20,6 +22,7 @@ function Patient_Dashboard() {
     const [dashboardData, setDashboardData] = useState(null);
     const [reminders, setReminders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isBirthday, setIsBirthday] = useState(false);
 
     const patientName = user?.name || "User";
 
@@ -50,6 +53,32 @@ function Patient_Dashboard() {
         }
     }, [user]);
 
+    useEffect(() => {
+        const checkBirthday = async () => {
+            try {
+                const response = await profileService.getMyProfile();
+                const dob = response?.data?.dob || response?.data?.dateOfBirth;
+                if (!dob) {
+                    setIsBirthday(false);
+                    return;
+                }
+                const birthDate = new Date(dob);
+                const today = new Date();
+                setIsBirthday(
+                    birthDate.getMonth() === today.getMonth() &&
+                    birthDate.getDate() === today.getDate()
+                );
+            } catch (error) {
+                console.error("Error checking birthday:", error);
+                setIsBirthday(false);
+            }
+        };
+
+        if (user) {
+            checkBirthday();
+        }
+    }, [user]);
+
     const formatDate = (dateString) => {
         if (!dateString) return "";
         return new Date(dateString).toLocaleDateString("en-IN", {
@@ -69,6 +98,9 @@ function Patient_Dashboard() {
 
     return (
         <div style={{ paddingBottom: 50 }}>
+
+            {/* ⭐ Happy Birthday banner (only shows on the patient's birthday) */}
+            {isBirthday && <BirthdayBanner name={patientName} />}
 
             {/* ⭐ Greeting + Breadcrumb Inside */}
             <GreetingBanner

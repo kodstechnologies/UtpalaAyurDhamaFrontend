@@ -11,6 +11,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PaymentIcon from '@mui/icons-material/Payment';
 import CakeIcon from '@mui/icons-material/Cake';
 import EventIcon from '@mui/icons-material/Event';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
@@ -23,7 +24,14 @@ const getEventCalendarPath = (role) => {
     return '/admin/swarna-bindu-events/calendar';
 };
 
-function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders = [], eventNotifications = [] }) {
+function NotificationDrawer({
+    open,
+    onClose,
+    paymentReminders = [],
+    dobReminders = [],
+    eventNotifications = [],
+    missedTherapyNotifications = [],
+}) {
     const navigate = useNavigate();
     const role = useSelector((state) => state.auth.role);
     
@@ -51,16 +59,16 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
         return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     };
     
-    // Combine and format notifications
+    // Missed therapy sessions first, then birthdays, events, and payments last
     const allNotifications = [
-        ...paymentReminders.map((reminder) => ({
-            id: `payment-${reminder.id}`,
-            type: 'payment',
-            title: `Payment Due: ${reminder.patientName}`,
-            description: `Invoice #${reminder.invoiceNumber} - Amount Due: ${formatCurrency(reminder.amountDue)}`,
-            time: formatDate(reminder.createdAt),
+        ...missedTherapyNotifications.map((notification) => ({
+            id: `missed-therapy-${notification.id}`,
+            type: 'missed_therapy',
+            title: 'Missed Therapy Session',
+            description: notification.description,
+            time: formatDate(notification.missedDate),
             unread: true,
-            data: reminder,
+            data: notification,
         })),
         ...dobReminders.map((reminder) => ({
             id: `dob-${reminder.id}`,
@@ -80,9 +88,16 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
             unread: true,
             data: notification,
         })),
+        ...paymentReminders.map((reminder) => ({
+            id: `payment-${reminder.id}`,
+            type: 'payment',
+            title: `Payment Due: ${reminder.patientName}`,
+            description: `Invoice #${reminder.invoiceNumber} - Amount Due: ${formatCurrency(reminder.amountDue)}`,
+            time: formatDate(reminder.createdAt),
+            unread: true,
+            data: reminder,
+        })),
     ];
-    
-    const totalNotifications = allNotifications.length;
 
     const handleNotificationClick = (notification) => {
         if (notification.type === 'payment' && notification.data?.invoiceId) {
@@ -90,6 +105,9 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
         }
         if (notification.type === 'event') {
             navigate(getEventCalendarPath(role));
+        }
+        if (notification.type === 'missed_therapy' && notification.data?.sessionId) {
+            navigate(`/therapist/therapy-progress/execution/${notification.data.sessionId}`);
         }
         onClose();
     };
@@ -114,7 +132,7 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
         >
             <Box sx={{ p: 2, bgcolor: "var(--color-primary)", color: "var(--color-text-white)" }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Notifications ({totalNotifications})
+                    Notifications
                 </Typography>
             </Box>
 
@@ -135,7 +153,7 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
                             transition: "background 0.25s ease",
                             '&:hover': { bgcolor: "rgba(205,152,125,0.22)" },
                             '&:last-child': { borderBottom: 'none' },
-                            cursor: notification.type === 'payment' || notification.type === 'event' ? 'pointer' : 'default',
+                            cursor: notification.type === 'payment' || notification.type === 'event' || notification.type === 'missed_therapy' ? 'pointer' : 'default',
                         }}
                     >
                         <ListItemAvatar sx={{ minWidth: 42 }}>
@@ -143,6 +161,8 @@ function NotificationDrawer({ open, onClose, paymentReminders = [], dobReminders
                                 <PaymentIcon sx={{ color: "#f44336", fontSize: "1.5rem", mt: 0.5 }} />
                             ) : notification.type === 'event' ? (
                                 <EventIcon sx={{ color: "#FFA500", fontSize: "1.5rem", mt: 0.5 }} />
+                            ) : notification.type === 'missed_therapy' ? (
+                                <FitnessCenterIcon sx={{ color: "#DC2626", fontSize: "1.5rem", mt: 0.5 }} />
                             ) : (
                                 <CakeIcon sx={{ color: "#ff9800", fontSize: "1.5rem", mt: 0.5 }} />
                             )}
@@ -193,6 +213,7 @@ NotificationDrawer.propTypes = {
     paymentReminders: PropTypes.array,
     dobReminders: PropTypes.array,
     eventNotifications: PropTypes.array,
+    missedTherapyNotifications: PropTypes.array,
 };
 
 export default NotificationDrawer;

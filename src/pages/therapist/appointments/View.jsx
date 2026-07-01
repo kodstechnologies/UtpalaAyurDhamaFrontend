@@ -967,7 +967,7 @@ function Therapy_Progress() {
                                 </span>
                                 <span style={{ fontSize: "0.875rem" }}>Awaiting confirmation</span>
                             </div>
-                            <div className="d-flex align-items-center gap-2">
+                            {/* <div className="d-flex align-items-center gap-2">
                                 <span
                                     className="badge bg-danger"
                                     style={{ borderRadius: "50px", padding: "4px 10px", fontSize: "0.75rem" }}
@@ -975,7 +975,7 @@ function Therapy_Progress() {
                                     Cancelled
                                 </span>
                                 <span style={{ fontSize: "0.875rem" }}>Session cancelled</span>
-                            </div>
+                            </div> */}
                             <div className="d-flex align-items-center gap-2">
                                 <span
                                     className="badge"

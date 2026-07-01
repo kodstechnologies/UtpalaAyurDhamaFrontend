@@ -74,6 +74,22 @@ const notificationService = {
     },
 
     /**
+     * Get missed therapy session notifications (therapist only)
+     */
+    getMissedTherapyNotifications: async (limit = 15) => {
+        try {
+            const response = await axios.get(
+                getApiUrl(`notifications/missed-therapy-sessions?limit=${limit}`),
+                { headers: getAuthHeaders() }
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching missed therapy notifications:', error);
+            throw error.response?.data || error.message;
+        }
+    },
+
+    /**
      * Deactivate FCM token
      */
     deactivateToken: async (fcmToken) => {

@@ -16,6 +16,7 @@ export const useNotifications = () => {
     const [paymentReminders, setPaymentReminders] = useState([]);
     const [dobReminders, setDobReminders] = useState([]);
     const [eventNotifications, setEventNotifications] = useState([]);
+    const [missedTherapyNotifications, setMissedTherapyNotifications] = useState([]);
     const [showPaymentPopup, setShowPaymentPopup] = useState(false);
     const [showDOBPopup, setShowDOBPopup] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
@@ -27,6 +28,7 @@ export const useNotifications = () => {
     const shouldFetchPaymentReminders = userRole === 'receptionist';
     const shouldFetchDOBReminders = userRole && staffRoles.includes(userRole);
     const shouldFetchEventNotifications = Boolean(user && userRole);
+    const shouldFetchMissedTherapyNotifications = userRole === 'therapist';
     const shouldInitializeFirebase = Boolean(user && userRole);
 
     const fetchPaymentReminders = useCallback(async () => {
@@ -93,6 +95,26 @@ export const useNotifications = () => {
         }
     }, [shouldFetchEventNotifications]);
 
+    const fetchMissedTherapyNotifications = useCallback(async () => {
+        if (!shouldFetchMissedTherapyNotifications) {
+            setMissedTherapyNotifications([]);
+            return;
+        }
+
+        try {
+            const response = await notificationService.getMissedTherapyNotifications(15);
+
+            if (response.success && response.data) {
+                setMissedTherapyNotifications(response.data);
+            } else {
+                setMissedTherapyNotifications([]);
+            }
+        } catch (error) {
+            console.error('Error fetching missed therapy notifications:', error);
+            setMissedTherapyNotifications([]);
+        }
+    }, [shouldFetchMissedTherapyNotifications]);
+
     const handleForegroundMessage = useCallback((payload) => {
         const notificationType = payload.data?.type || payload.notification?.data?.type;
 
@@ -154,6 +176,9 @@ export const useNotifications = () => {
         if (shouldFetchEventNotifications) {
             fetchEventNotifications();
         }
+        if (shouldFetchMissedTherapyNotifications) {
+            fetchMissedTherapyNotifications();
+        }
 
         const interval = setInterval(() => {
             if (shouldFetchPaymentReminders) {
@@ -165,6 +190,9 @@ export const useNotifications = () => {
             if (shouldFetchEventNotifications) {
                 fetchEventNotifications();
             }
+            if (shouldFetchMissedTherapyNotifications) {
+                fetchMissedTherapyNotifications();
+            }
         }, 5 * 60 * 1000);
 
         return () => clearInterval(interval);
@@ -173,15 +201,18 @@ export const useNotifications = () => {
         shouldFetchPaymentReminders,
         shouldFetchDOBReminders,
         shouldFetchEventNotifications,
+        shouldFetchMissedTherapyNotifications,
         fetchPaymentReminders,
         fetchDOBReminders,
         fetchEventNotifications,
+        fetchMissedTherapyNotifications,
     ]);
 
     return {
         paymentReminders,
         dobReminders,
         eventNotifications,
+        missedTherapyNotifications,
         showPaymentPopup,
         showDOBPopup,
         setShowPaymentPopup,
@@ -189,6 +220,7 @@ export const useNotifications = () => {
         fetchPaymentReminders,
         fetchDOBReminders,
         fetchEventNotifications,
+        fetchMissedTherapyNotifications,
         fcmToken,
         isInitialized,
     };

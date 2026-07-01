@@ -50,10 +50,11 @@ function ResponsiveAppBar() {
   const userRole = role?.toLowerCase() || '';
   const isStaff = userRole && staffRoles.includes(userRole);
   const isReceptionist = userRole === 'receptionist';
+  const isTherapist = userRole === 'therapist';
   const showNotificationBell = Boolean(user && userRole);
-  const { paymentReminders, dobReminders, eventNotifications } = useNotifications();
+  const { paymentReminders, dobReminders, eventNotifications, missedTherapyNotifications } = useNotifications();
 
-  const totalNotifications = (eventNotifications?.length || 0) + (
+  const totalNotifications = (eventNotifications?.length || 0) + (missedTherapyNotifications?.length || 0) + (
     isReceptionist
       ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0))
       : isStaff
@@ -61,6 +62,48 @@ function ResponsiveAppBar() {
         : 0
   );
   const hasNotifications = showNotificationBell && totalNotifications > 0;
+
+  // Build a stable list of notification keys (mirrors NotificationDrawer ids)
+  const notificationKeys = React.useMemo(() => {
+    const keys = [
+      ...(eventNotifications || []).map((n) => `event-${n.id}`),
+    ];
+    if (isTherapist) {
+      keys.push(...(missedTherapyNotifications || []).map((n) => `missed-therapy-${n.id}`));
+    }
+    if (isReceptionist) {
+      keys.push(...(paymentReminders || []).map((n) => `payment-${n.id}`));
+    }
+    if (isReceptionist || isStaff) {
+      keys.push(...(dobReminders || []).map((n) => `dob-${n.id}`));
+    }
+    return keys;
+  }, [eventNotifications, missedTherapyNotifications, paymentReminders, dobReminders, isReceptionist, isStaff, isTherapist]);
+
+  // Track which notifications the user has already seen (persisted per user)
+  const seenStorageKey = user?._id ? `seenNotifications:${user._id}` : 'seenNotifications';
+  const [seenKeys, setSeenKeys] = React.useState([]);
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem(seenStorageKey);
+      setSeenKeys(stored ? JSON.parse(stored) : []);
+    } catch {
+      setSeenKeys([]);
+    }
+  }, [seenStorageKey]);
+
+  // Red dot shows only when there's at least one notification not yet seen
+  const hasUnread = showNotificationBell && notificationKeys.some((key) => !seenKeys.includes(key));
+
+  const markNotificationsAsSeen = React.useCallback(() => {
+    setSeenKeys(notificationKeys);
+    try {
+      localStorage.setItem(seenStorageKey, JSON.stringify(notificationKeys));
+    } catch {
+      // Ignore storage errors (e.g. private mode)
+    }
+  }, [notificationKeys, seenStorageKey]);
 
   // Blinking animation state
   const [isBlinking, setIsBlinking] = React.useState(false);
@@ -88,9 +131,9 @@ function ResponsiveAppBar() {
     }
   `;
 
-  // Blink 10 times every 1 minute when there are notifications
+  // Blink 10 times every 1 minute when there are unread notifications
   React.useEffect(() => {
-    if (!hasNotifications) {
+    if (!hasUnread) {
       setIsBlinking(false);
       return;
     }
@@ -128,7 +171,7 @@ function ResponsiveAppBar() {
     return () => {
       clearInterval(blinkInterval);
     };
-  }, [hasNotifications, totalNotifications]);
+  }, [hasUnread, totalNotifications]);
 
   // Scroll detection
   React.useEffect(() => {
@@ -181,7 +224,14 @@ function ResponsiveAppBar() {
   const handleUserClose = () => setAnchorElUser(null);
 
   const handleNotificationToggle = () => {
-    setNotificationDrawerOpen((prev) => !prev);
+    setNotificationDrawerOpen((prev) => {
+      const next = !prev;
+      // Opening the panel clears the red dot by marking everything as seen
+      if (next) {
+        markNotificationsAsSeen();
+      }
+      return next;
+    });
   };
 
   const handleToggleSidebar = () => {
@@ -322,7 +372,7 @@ function ResponsiveAppBar() {
             {/* Notification Bell Icon - All authenticated roles */}
             {showNotificationBell && (
               <>
-                <Tooltip title={hasNotifications ? "You have notifications" : "No notifications"}>
+                <Tooltip title={hasUnread ? "You have new notifications" : "No new notifications"}>
                   <IconButton
                     size="large"
                     color="inherit"
@@ -336,7 +386,7 @@ function ResponsiveAppBar() {
                   >
                     <Badge
                       badgeContent={null}
-                      invisible={!hasNotifications}
+                      invisible={!hasUnread}
                       color="error"
                       variant="dot"
                       anchorOrigin={{
@@ -364,6 +414,7 @@ function ResponsiveAppBar() {
                   paymentReminders={paymentReminders}
                   dobReminders={dobReminders}
                   eventNotifications={eventNotifications}
+                  missedTherapyNotifications={missedTherapyNotifications}
                 />
               </>
             )}

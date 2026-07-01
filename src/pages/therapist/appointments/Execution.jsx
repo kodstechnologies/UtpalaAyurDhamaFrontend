@@ -34,6 +34,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import PersonIcon from "@mui/icons-material/Person";
 import HistoryIcon from "@mui/icons-material/History";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -212,50 +213,25 @@ function Execution() {
         }
     };
 
-    // Check if sessions should be auto-started or auto-completed based on scheduled time
+    // Auto-complete only sessions that were started and reached their configured duration.
     const checkAutoStartAndComplete = async (data) => {
         if (!data || !data.slots) return;
-
-        const now = new Date();
-        const today = new Date(now);
-        today.setHours(0, 0, 0, 0);
-
-        // Get session time (format: "10:00" or "10:30")
-        const sessionTime = data.sessionTime || "10:00";
-        const timeParts = sessionTime.split(":");
-        const scheduledHour = parseInt(timeParts[0] || 10, 10);
-        const scheduledMinute = parseInt(timeParts[1] || 0, 10);
 
         for (const slot of data.slots) {
             const slotDate = new Date(slot.date);
             slotDate.setHours(0, 0, 0, 0);
 
-            // Get the day record for this slot
             const dayRecord = data.days?.find(day => {
                 const dayDate = new Date(day.date);
                 dayDate.setHours(0, 0, 0, 0);
                 return dayDate.getTime() === slotDate.getTime();
             });
 
-            // Skip if already completed
             if (dayRecord?.completed || slot.isCompleted) continue;
 
-            // Check if scheduled date has passed (auto-complete)
-            if (slotDate.getTime() < today.getTime()) {
-                await handleAutoComplete(slot, data);
+            if (dayRecord?.startTime) {
+                await triggerAutoCompleteIfDue(dayRecord, data);
             }
-            /* Auto-start logic removed to ensure manual control by therapist
-            else if (slotDate.getTimeimage.png
-            () === today.getTime()) {
-                const scheduledDateTime = new Date(slotDate);
-                scheduledDateTime.setHours(scheduledHour, scheduledMinute, 0, 0);
-// If current time >= scheduled time and not started, auto-start
-       
-                         if (now >= scheduledDateTime && !dayRecord?.startTime) {
-                    await handleAutoStart(slot, data);
-                }
-            }
-            */
         }
     };
 
@@ -628,6 +604,11 @@ function Execution() {
 
         if (slotDate.getTime() > today.getTime()) {
             toast.error(`Cannot start session scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. Please wait until the scheduled date.`);
+            return;
+        }
+
+        if (slotDate.getTime() < today.getTime() && !slot.isCompleted) {
+            toast.error("Cannot start a session that was missed.");
             return;
         }
 
@@ -1025,15 +1006,46 @@ function Execution() {
                                 const today = new Date();
                                 today.setHours(0, 0, 0, 0);
                                 const isFutureDate = slotDate.getTime() > today.getTime();
+                                const isPastDate = slotDate.getTime() < today.getTime();
+                                const isMissed = isPastDate && !slot.isCompleted && !isInProgress;
+                                const isStartDisabled = updatingSlot === slot.dateLabel || isFutureDate || isMissed;
+
+                                const statusLabel = slot.isCompleted
+                                    ? "Completed"
+                                    : isInProgress
+                                        ? (durationConfigured && durationReached ? "Duration Reached" : "In Progress")
+                                        : isMissed
+                                            ? "Missed"
+                                            : "Scheduled";
+
+                                const statusIcon = slot.isCompleted
+                                    ? <CheckCircleIcon fontSize="small" />
+                                    : isInProgress
+                                        ? <PlayCircleFilledIcon fontSize="small" />
+                                        : isMissed
+                                            ? <EventBusyIcon fontSize="small" />
+                                            : <PendingActionsIcon fontSize="small" />;
+
+                                const statusStyles = slot.isCompleted
+                                    ? { bgcolor: "#F0FFF4", color: "#2F855A" }
+                                    : isInProgress
+                                        ? { bgcolor: durationReached ? "#F0FFF4" : "#FFFBF0", color: durationReached ? "#16A34A" : "#F59E0B" }
+                                        : isMissed
+                                            ? { bgcolor: "#FEF2F2", color: "#DC2626" }
+                                            : { bgcolor: "#FFFBEB", color: "#D69E2E" };
 
                                 return (
                                     <Card
                                         key={index}
                                         sx={{
                                             borderRadius: "20px",
-                                            border: isInProgress ? (durationReached ? "2px solid #48BB78" : "2px solid #F59E0B") : "1px solid #E2E8F0",
-                                            boxShadow: slot.isCompleted ? "none" : isInProgress ? "0 4px 12px rgba(245,158,11,0.15)" : "0 4px 6px rgba(0,0,0,0.02)",
-                                            background: slot.isCompleted ? "#F7FAFC" : isInProgress ? "#FFFBF0" : "white",
+                                            border: isInProgress
+                                                ? (durationReached ? "2px solid #48BB78" : "2px solid #F59E0B")
+                                                : isMissed
+                                                    ? "2px solid #FCA5A5"
+                                                    : "1px solid #E2E8F0",
+                                            boxShadow: slot.isCompleted ? "none" : isInProgress ? "0 4px 12px rgba(245,158,11,0.15)" : isMissed ? "0 4px 12px rgba(220,38,38,0.08)" : "0 4px 6px rgba(0,0,0,0.02)",
+                                            background: slot.isCompleted ? "#F7FAFC" : isInProgress ? "#FFFBF0" : isMissed ? "#FFFAFA" : "white",
                                             transition: "transform 0.2s ease, box-shadow 0.2s ease",
                                             "&:hover": {
                                                 transform: slot.isCompleted ? "none" : "translateY(-4px)",
@@ -1052,8 +1064,8 @@ function Execution() {
                                                             display: "flex",
                                                             alignItems: "center",
                                                             justifyContent: "center",
-                                                            bgcolor: slot.isCompleted ? "#48BB78" : isInProgress ? "#FFC107" : "#EDF2F7",
-                                                            color: slot.isCompleted ? "white" : isInProgress ? "white" : "#718096"
+                                                            bgcolor: slot.isCompleted ? "#48BB78" : isInProgress ? "#FFC107" : isMissed ? "#DC2626" : "#EDF2F7",
+                                                            color: slot.isCompleted ? "white" : isInProgress ? "white" : isMissed ? "white" : "#718096"
                                                         }}
                                                     >
                                                         <Typography fontWeight={700}>{index + 1}</Typography>
@@ -1117,15 +1129,19 @@ function Execution() {
                                                         <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>STATUS</Typography>
                                                         <Chip
                                                             size="small"
-                                                            icon={slot.isCompleted ? <CheckCircleIcon fontSize="small" /> : isInProgress ? <PlayCircleFilledIcon fontSize="small" /> : <PendingActionsIcon fontSize="small" />}
-                                                            label={slot.isCompleted ? "Completed" : isInProgress ? (durationConfigured && durationReached ? "Duration Reached" : "In Progress") : "Scheduled"}
+                                                            icon={statusIcon}
+                                                            label={statusLabel}
                                                             sx={{
-                                                                bgcolor: slot.isCompleted ? "#F0FFF4" : isInProgress ? (durationReached ? "#F0FFF4" : "#FFFBF0") : "#FFFBEB",
-                                                                color: slot.isCompleted ? "#2F855A" : isInProgress ? (durationReached ? "#16A34A" : "#F59E0B") : "#D69E2E",
+                                                                ...statusStyles,
                                                                 border: "none",
                                                                 fontWeight: 600
                                                             }}
                                                         />
+                                                        {isMissed && (
+                                                            <Typography variant="caption" sx={{ color: "#DC2626", display: "block", mt: 0.5 }}>
+                                                                Session missed
+                                                            </Typography>
+                                                        )}
                                                         {isInProgress && (!durationConfigured || !durationReached) && (
                                                             <Typography variant="caption" sx={{ color: "#F59E0B", display: "block", mt: 0.5 }}>
                                                                 Running...
@@ -1139,17 +1155,23 @@ function Execution() {
                                                             variant="contained"
                                                             size="small"
                                                             onClick={() => handleStartSession(slot)}
-                                                            disabled={updatingSlot === slot.dateLabel || isFutureDate}
+                                                            disabled={isStartDisabled}
                                                             startIcon={updatingSlot === slot.dateLabel ? <CircularProgress size={16} color="inherit" /> : <PlayCircleFilledIcon />}
-                                                            title={isFutureDate ? `This session is scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. You can only start sessions on or after the scheduled date.` : ""}
+                                                            title={
+                                                                isFutureDate
+                                                                    ? `This session is scheduled for ${new Date(slot.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })}. You can only start sessions on or after the scheduled date.`
+                                                                    : isMissed
+                                                                        ? "This session was missed and can no longer be started."
+                                                                        : ""
+                                                            }
                                                             sx={{
                                                                 borderRadius: "10px",
                                                                 textTransform: "none",
-                                                                bgcolor: isFutureDate ? "#CBD5E0" : "#3182CE",
-                                                                boxShadow: isFutureDate ? "none" : "0 4px 6px rgba(49, 130, 206, 0.2)",
+                                                                bgcolor: isStartDisabled && !updatingSlot ? "#CBD5E0" : "#3182CE",
+                                                                boxShadow: isStartDisabled && !updatingSlot ? "none" : "0 4px 6px rgba(49, 130, 206, 0.2)",
                                                                 "&:hover": {
-                                                                    bgcolor: isFutureDate ? "#CBD5E0" : "#2B6CB0",
-                                                                    cursor: isFutureDate ? "not-allowed" : "pointer"
+                                                                    bgcolor: isStartDisabled && !updatingSlot ? "#CBD5E0" : "#2B6CB0",
+                                                                    cursor: isStartDisabled && !updatingSlot ? "not-allowed" : "pointer"
                                                                 },
                                                                 "&.Mui-disabled": {
                                                                     bgcolor: "#E2E8F0",
