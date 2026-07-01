@@ -369,7 +369,7 @@ function ScheduleAppointmentPage() {
               />
               <FormControl fullWidth required sx={{ mb: 2 }}>
                 <InputLabel id="doctor-select-label" shrink={!!formData.doctor}>
-                  Doctor *
+                  Doctor
                 </InputLabel>
                 <Select
                   labelId="doctor-select-label"
@@ -424,7 +424,7 @@ function ScheduleAppointmentPage() {
               </FormControl>
               <Box sx={{ display: "flex", gap: 2 }}>
                 <TextField
-                  label="Date *"
+                  label="Date"
                   name="date"
                   type="date"
                   fullWidth
@@ -434,7 +434,7 @@ function ScheduleAppointmentPage() {
                   InputLabelProps={{ shrink: true }}
                 />
                 <TextField
-                  label="Time *"
+                  label="Time"
                   name="time"
                   type="time"
                   fullWidth

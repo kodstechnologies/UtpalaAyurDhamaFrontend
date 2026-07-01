@@ -36,6 +36,15 @@ const escapeHtml = (text) => {
   return div.innerHTML;
 };
 
+const pickPatientUhid = (...values) => {
+  for (const value of values) {
+    if (value && value !== "N/A" && String(value).trim().startsWith("UA")) {
+      return String(value).trim();
+    }
+  }
+  return "N/A";
+};
+
 const categorizeItem = (item) => {
   if (item.category) {
     const map = {
@@ -96,15 +105,15 @@ const invoiceHandleDownload = async (invoice) => {
       phone: invoice.patient?.user?.phone || "N/A",
       alternativeNumber: invoice.patient?.alternativeNumber || "",
       email: invoice.patient?.user?.email || "_",
-      uhid:
-        invoice.patient?.uhid ||
-        invoice.patient?.user?.uhid ||
-        invoice.examination?.patient?.uhid ||
-        invoice.examination?.patient?.user?.uhid ||
-        invoice.inpatient?.patient?.uhid ||
-        invoice.inpatient?.patient?.user?.uhid ||
-        invoice.uhid ||
-        "N/A",
+      uhid: pickPatientUhid(
+        invoice.patient?.user?.uhid,
+        invoice.patient?.uhid,
+        invoice.examination?.patient?.user?.uhid,
+        invoice.examination?.patient?.uhid,
+        invoice.inpatient?.patient?.user?.uhid,
+        invoice.inpatient?.patient?.uhid,
+        invoice.uhid,
+      ),
       patientId:
         invoice.patient?.patientId ||
         invoice.examination?.patient?.patientId ||

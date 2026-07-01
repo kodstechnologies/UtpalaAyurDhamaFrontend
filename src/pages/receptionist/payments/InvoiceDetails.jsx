@@ -27,6 +27,7 @@ import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
 import HeadingCardingCard from "../../../components/card/HeadingCard";
 import invoiceService from "../../../services/invoiceService";
 import inpatientService from "../../../services/inpatientService";
+import patientService from "../../../services/patientService";
 
 // Icons
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -83,6 +84,99 @@ const categorizeInvoiceItem = (item) => {
 };
 
 const formatPaymentMethod = (method) => (method === "Online" ? "UPI" : method);
+
+const calculateAgeFromDob = (dob) => {
+  if (!dob) return null;
+  const birthDate = new Date(dob);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
+
+const getInvoicePatientSources = (invoice) => [
+  invoice?.patient,
+  invoice?.examination?.patient,
+  invoice?.inpatient?.patient,
+].filter(Boolean);
+
+const isGeneratedUhid = (value) => {
+  if (!value || value === "N/A") return false;
+  return String(value).trim().startsWith("UA");
+};
+
+const pickPatientUhid = (...values) => {
+  for (const value of values) {
+    if (isGeneratedUhid(value)) return String(value).trim();
+  }
+  return null;
+};
+
+const resolvePatientUhid = (invoice) =>
+  pickPatientUhid(
+    invoice?.patient?.user?.uhid,
+    invoice?.patient?.uhid,
+    invoice?.examination?.patient?.user?.uhid,
+    invoice?.examination?.patient?.uhid,
+    invoice?.inpatient?.patient?.user?.uhid,
+    invoice?.inpatient?.patient?.uhid,
+    invoice?.uhid,
+  );
+
+const resolvePatientId = (invoice) =>
+  invoice?.patient?.patientId ||
+  invoice?.examination?.patient?.patientId ||
+  invoice?.inpatient?.patient?.patientId ||
+  invoice?.patientId ||
+  null;
+
+const resolvePatientAgeInfo = (invoice) => {
+  for (const source of getInvoicePatientSources(invoice)) {
+    if (source.age != null && source.age !== "") {
+      return {
+        age: source.age,
+        ageUnit: source.ageUnit || invoice?.patient?.ageUnit || "years",
+      };
+    }
+  }
+
+  if (invoice?.age != null && invoice?.age !== "") {
+    return { age: invoice.age, ageUnit: invoice.ageUnit || "years" };
+  }
+
+  const dob =
+    invoice?.patient?.dateOfBirth ||
+    invoice?.patient?.user?.dob ||
+    invoice?.patient?.user?.dateOfBirth ||
+    invoice?.examination?.patient?.dateOfBirth ||
+    invoice?.inpatient?.patient?.dateOfBirth;
+
+  const calculatedAge = calculateAgeFromDob(dob);
+  if (calculatedAge != null) {
+    return { age: calculatedAge, ageUnit: "years" };
+  }
+
+  return null;
+};
+
+const resolvePatientGender = (invoice) => {
+  for (const source of getInvoicePatientSources(invoice)) {
+    const gender = source.user?.gender || source.gender;
+    if (gender) return gender;
+  }
+  return invoice?.gender || null;
+};
+
+const formatPatientAgeLabel = (ageInfo) => {
+  if (!ageInfo || ageInfo.age == null || ageInfo.age === "") return "N/A";
+  const unit = String(ageInfo.ageUnit || "years").toLowerCase();
+  return `${ageInfo.age} ${unit.startsWith("month") ? "m" : "y"}`;
+};
 
 const isAdminEditableInvoiceItem = (item) => {
   const category = categorizeInvoiceItem(item);
@@ -171,25 +265,17 @@ function InvoiceDetails({
     { label: "Invoice Details" },
   ];
 
-  const enrichInvoicePatientIdentifiers = async (invoiceData) => {
+  const enrichInvoicePatientData = async (invoiceData) => {
     if (!invoiceData) return invoiceData;
 
-    const existingUhid =
-      invoiceData.patient?.uhid ||
-      invoiceData.patient?.user?.uhid ||
-      invoiceData.examination?.patient?.uhid ||
-      invoiceData.examination?.patient?.user?.uhid ||
-      invoiceData.inpatient?.patient?.uhid ||
-      invoiceData.inpatient?.patient?.user?.uhid ||
-      invoiceData.uhid;
+    const existingUhid = resolvePatientUhid(invoiceData);
+    const existingPatientId = resolvePatientId(invoiceData);
+    const existingAgeInfo = resolvePatientAgeInfo(invoiceData);
+    const existingGender = resolvePatientGender(invoiceData);
 
-    const existingPatientId =
-      invoiceData.patient?.patientId ||
-      invoiceData.examination?.patient?.patientId ||
-      invoiceData.inpatient?.patient?.patientId ||
-      invoiceData.patientId;
-
-    if (existingUhid && existingPatientId) return invoiceData;
+    if (existingUhid && existingPatientId && existingAgeInfo && existingGender) {
+      return invoiceData;
+    }
 
     const patientProfileId =
       invoiceData.patient?._id ||
@@ -205,6 +291,8 @@ function InvoiceDetails({
     const inpatientId = invoiceData.inpatient?._id || invoiceData.inpatientId;
 
     let patientFromBilling = null;
+    let patientFromHistory = null;
+
     try {
       const outpatientRes = await inpatientService.getOutpatientBillingSummary(patientProfileId, { examinationId });
       if (outpatientRes?.success && outpatientRes?.data?.patient) {
@@ -225,20 +313,76 @@ function InvoiceDetails({
       }
     }
 
-    if (!patientFromBilling) return invoiceData;
+    if (!existingAgeInfo || !existingGender) {
+      try {
+        const historyRes = await patientService.getPatientHistory(patientProfileId);
+        if (historyRes?.success && historyRes?.data?.patient) {
+          patientFromHistory = historyRes.data.patient;
+        }
+      } catch (_) {
+        // Keep original invoice if history call fails
+      }
+    }
+
+    if (!patientFromBilling && !patientFromHistory) return invoiceData;
+
+    const billingAge = patientFromBilling?.dateOfBirth
+      ? calculateAgeFromDob(patientFromBilling.dateOfBirth)
+      : null;
+    const historyAge = patientFromHistory?.dateOfBirth
+      ? calculateAgeFromDob(patientFromHistory.dateOfBirth)
+      : null;
+
+    const mergedAge = existingAgeInfo?.age ?? patientFromBilling?.age ?? historyAge ?? null;
+    const mergedAgeUnit =
+      existingAgeInfo?.ageUnit ||
+      patientFromBilling?.ageUnit ||
+      (billingAge != null || historyAge != null ? "years" : "years");
+    const mergedGender =
+      existingGender ||
+      patientFromBilling?.gender ||
+      patientFromHistory?.gender ||
+      null;
+
+    const billingUhid = pickPatientUhid(patientFromBilling?.uhid);
+    const historyUhid = pickPatientUhid(patientFromHistory?.uhid);
+    const mergedUhid = existingUhid || billingUhid || historyUhid || null;
 
     return {
       ...invoiceData,
-      uhid: existingUhid || patientFromBilling.uhid || patientFromBilling.user?.uhid || invoiceData.uhid,
-      patientId: existingPatientId || patientFromBilling.patientId || invoiceData.patientId,
+      uhid: mergedUhid || invoiceData.uhid,
+      patientId:
+        existingPatientId ||
+        patientFromBilling?.patientId ||
+        patientFromHistory?.patientId ||
+        invoiceData.patientId,
       patient: {
         ...(invoiceData.patient || {}),
         uhid:
-          invoiceData.patient?.uhid ||
-          patientFromBilling.uhid ||
-          invoiceData.patient?.user?.uhid ||
+          pickPatientUhid(
+            invoiceData.patient?.user?.uhid,
+            invoiceData.patient?.uhid,
+            billingUhid,
+            historyUhid,
+          ) || undefined,
+        patientId:
+          invoiceData.patient?.patientId ||
+          patientFromBilling?.patientId ||
+          patientFromHistory?.patientId ||
           undefined,
-        patientId: invoiceData.patient?.patientId || patientFromBilling.patientId || undefined,
+        age: mergedAge ?? invoiceData.patient?.age,
+        ageUnit: mergedAgeUnit,
+        gender: mergedGender ?? invoiceData.patient?.gender,
+        user: {
+          ...(invoiceData.patient?.user || {}),
+          gender: invoiceData.patient?.user?.gender || mergedGender || undefined,
+          uhid:
+            pickPatientUhid(
+              invoiceData.patient?.user?.uhid,
+              billingUhid,
+              historyUhid,
+            ) || undefined,
+        },
       },
     };
   };
@@ -254,11 +398,11 @@ function InvoiceDetails({
 
       if (response && response.success) {
         if (adminViewMode && response.data?.invoice) {
-          const enrichedInvoice = await enrichInvoicePatientIdentifiers(response.data.invoice);
+          const enrichedInvoice = await enrichInvoicePatientData(response.data.invoice);
           setInvoice(enrichedInvoice);
           setHasAdminDisplay(Boolean(response.data.hasAdminDisplay));
         } else if (response.data) {
-          const enrichedInvoice = await enrichInvoicePatientIdentifiers(response.data);
+          const enrichedInvoice = await enrichInvoicePatientData(response.data);
           setInvoice(enrichedInvoice);
           setHasAdminDisplay(false);
         } else {
@@ -730,34 +874,17 @@ function InvoiceDetails({
               <Box sx={{ bgcolor: "#f8f9fa", p: 2, borderRadius: 1 }}>
                 <Typography><strong>Name:</strong> {invoice.patient?.user?.name || invoice.patient?.name || invoice.patientName || "N/A"}</Typography>
                 <Typography>
-                  <strong>UHID:</strong>{" "}
-                  {invoice.patient?.uhid
-                    || invoice.patient?.user?.uhid
-                    || invoice.examination?.patient?.uhid
-                    || invoice.examination?.patient?.user?.uhid
-                    || invoice.inpatient?.patient?.uhid
-                    || invoice.inpatient?.patient?.user?.uhid
-                    || invoice.uhid
-                    || "N/A"}
+                  <strong>UHID:</strong> {resolvePatientUhid(invoice) || "N/A"}
                 </Typography>
                 <Typography>
-                  <strong>Patient ID:</strong>{" "}
-                  {invoice.patient?.patientId
-                    || invoice.examination?.patient?.patientId
-                    || invoice.inpatient?.patient?.patientId
-                    || invoice.patientId
-                    || "N/A"}
+                  <strong>Patient ID:</strong> {resolvePatientId(invoice) || "N/A"}
                 </Typography>
                 <Typography>
-                  <strong>Age:</strong>{" "}
-                  {(() => {
-                    const age = invoice.patient?.age;
-                    if (age === "" || age == null) return "N/A";
-                    const unit = String(invoice.patient?.ageUnit || "").toLowerCase();
-                    return `${age} ${unit.startsWith("month") ? "m" : "y"}`;
-                  })()}
+                  <strong>Age:</strong> {formatPatientAgeLabel(resolvePatientAgeInfo(invoice))}
                 </Typography>
-                <Typography><strong>Gender:</strong> {invoice.patient?.user?.gender || invoice.patient?.gender || "N/A"}</Typography>
+                <Typography>
+                  <strong>Gender:</strong> {resolvePatientGender(invoice) || "N/A"}
+                </Typography>
                 <Typography><strong>Phone:</strong> {invoice.patient?.user?.phone || "N/A"}</Typography>
                 {invoice.patient?.alternativeNumber && (
                   <Typography><strong>Alternative Number:</strong> {invoice.patient.alternativeNumber}</Typography>
@@ -1176,7 +1303,7 @@ function InvoiceDetails({
           {(paymentMethod === "UPI" || paymentMethod === "Bank Transfer" || paymentMethod === "Card") && (
             <TextField
               fullWidth
-              label="Transaction/Reference ID *"
+              label="Transaction/Reference ID"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               sx={{ mt: 2 }}
