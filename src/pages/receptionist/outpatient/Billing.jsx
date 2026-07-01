@@ -93,6 +93,7 @@ const ChargesPanel = ({
     if (normalized === "completed" || normalized === "dispensed") return "badge bg-success";
     if (normalized === "in progress" || normalized === "ongoing") return "badge bg-warning";
     if (normalized === "pending") return "badge bg-info";
+    if (normalized === "scheduled") return "badge bg-primary";
     if (normalized === "missed") return "badge bg-danger";
     return "badge bg-secondary";
   };

@@ -154,6 +154,14 @@ export const therapistRoutes = [
             </Suspense>
         ),
     },
+    {
+        path: "/therapist/therapy_progress/execution/:id",
+        element: (
+            <Suspense fallback={<div>Loading...</div>}>
+                <ExecutionPage />
+            </Suspense>
+        ),
+    },
     /* Store Management */
     {
         path: "/therapist/store",
