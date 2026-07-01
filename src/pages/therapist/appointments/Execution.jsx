@@ -830,6 +830,29 @@ function Execution() {
     const { patientName, treatmentName, completed, total, slots } = progressData;
     const progressPercent = Math.round((completed / total) * 100);
 
+    const overallStatus = (() => {
+        if (total > 0 && completed >= total) return "Completed";
+        if (completed > 0) return "In Progress";
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let allMissed = slots.length > 0;
+        for (const slot of slots) {
+            const dayRecord = getDayRecord(slot);
+            const isInProgress = Boolean(dayRecord?.startTime && !dayRecord?.endTime && !dayRecord.completed);
+            if (isInProgress) return "In Progress";
+
+            const slotDate = new Date(slot.date);
+            slotDate.setHours(0, 0, 0, 0);
+            const isMissed = slotDate.getTime() < today.getTime() && !slot.isCompleted;
+            if (!isMissed) allMissed = false;
+        }
+
+        if (allMissed) return "Missed";
+        return progressData.status || "Scheduled";
+    })();
+
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: "1200px", margin: "0 auto" }}>
             <Breadcrumb items={breadcrumbItems} />
@@ -918,7 +941,7 @@ function Execution() {
                                 </Box>
                                 <Box>
                                     <Typography variant="caption" display="block">STATUS</Typography>
-                                    <Typography variant="h6" fontWeight={700}>{progressData.status}</Typography>
+                                    <Typography variant="h6" fontWeight={700}>{overallStatus}</Typography>
                                 </Box>
                             </Box>
                         </Box>

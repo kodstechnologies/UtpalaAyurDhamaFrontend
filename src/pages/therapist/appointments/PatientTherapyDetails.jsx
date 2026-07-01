@@ -8,6 +8,7 @@ import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingIcon from "@mui/icons-material/Pending";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import axios from "axios";
@@ -55,6 +56,55 @@ function PatientTherapyDetailsPage() {
 
     const session = progressData;
 
+
+    const getDayRecord = (slot) => {
+        if (!session?.days) return null;
+        const slotDate = new Date(slot.date);
+        slotDate.setHours(0, 0, 0, 0);
+        return session.days.find((day) => {
+            const dayDate = new Date(day.date);
+            dayDate.setHours(0, 0, 0, 0);
+            return dayDate.getTime() === slotDate.getTime();
+        });
+    };
+
+    const getSlotStatus = (slot) => {
+        if (slot.isCompleted) return "Completed";
+
+        const dayRecord = getDayRecord(slot);
+        const isInProgress = Boolean(dayRecord?.startTime && !dayRecord?.endTime && !dayRecord?.completed);
+        if (isInProgress) return "In Progress";
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const slotDate = new Date(slot.date);
+        slotDate.setHours(0, 0, 0, 0);
+        if (slotDate.getTime() < today.getTime()) return "Missed";
+
+        return "Planned";
+    };
+
+    const getSlotBorderColor = (status) => {
+        switch (status) {
+            case "Completed": return "#28a745";
+            case "In Progress": return "#0dcaf0";
+            case "Missed": return "#DC2626";
+            default: return "#ffc107";
+        }
+    };
+
+    const getSlotChipProps = (status) => {
+        switch (status) {
+            case "Completed":
+                return { label: "Completed", color: "success", variant: "filled", icon: <CheckCircleIcon /> };
+            case "In Progress":
+                return { label: "In Progress", color: "info", variant: "filled", icon: <PlayArrowIcon /> };
+            case "Missed":
+                return { label: "Missed", color: "error", variant: "filled", icon: <EventBusyIcon /> };
+            default:
+                return { label: "Planned", color: "warning", variant: "outlined", icon: <PendingIcon /> };
+        }
+    };
 
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
@@ -209,13 +259,17 @@ function PatientTherapyDetailsPage() {
                         <TherapistNote sessionId={sessionId} />
                         {session.slots && session.slots.length > 0 ? (
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-                                {session.slots.map((slot, index) => (
+                                {session.slots.map((slot, index) => {
+                                    const slotStatus = getSlotStatus(slot);
+                                    const chipProps = getSlotChipProps(slotStatus);
+
+                                    return (
                                     <Card
                                         key={index}
                                         sx={{
                                             borderRadius: 2,
                                             boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                                            borderLeft: `4px solid ${slot.isCompleted ? "#28a745" : "#ffc107"}`,
+                                            borderLeft: `4px solid ${getSlotBorderColor(slotStatus)}`,
                                         }}
                                     >
                                         <CardContent sx={{ py: "12px !important" }}>
@@ -238,17 +292,18 @@ function PatientTherapyDetailsPage() {
                                                 </Grid>
                                                 <Grid item xs={12} sm={4} sx={{ textAlign: "right" }}>
                                                     <Chip
-                                                        label={slot.isCompleted ? "Completed" : "Planned"}
+                                                        label={chipProps.label}
                                                         size="small"
-                                                        color={slot.isCompleted ? "success" : "warning"}
-                                                        variant={slot.isCompleted ? "filled" : "outlined"}
-                                                        icon={slot.isCompleted ? <CheckCircleIcon /> : <PendingIcon />}
+                                                        color={chipProps.color}
+                                                        variant={chipProps.variant}
+                                                        icon={chipProps.icon}
                                                     />
                                                 </Grid>
                                             </Grid>
                                         </CardContent>
                                     </Card>
-                                ))}
+                                    );
+                                })}
                             </Box>
                         ) : (
                             <Alert severity="info">No slots calculated for this session.</Alert>
