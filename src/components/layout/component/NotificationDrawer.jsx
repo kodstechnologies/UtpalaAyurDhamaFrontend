@@ -16,6 +16,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
 
+const MAX_NOTIFICATIONS = 15;
+
 const getEventCalendarPath = (role) => {
     const roleKey = role?.toLowerCase() || '';
     if (roleKey === 'receptionist') return '/receptionist/swarna-bindu-events/calendar';
@@ -97,7 +99,7 @@ function NotificationDrawer({
             unread: true,
             data: reminder,
         })),
-    ];
+    ].slice(0, MAX_NOTIFICATIONS);
 
     const handleNotificationClick = (notification) => {
         if (notification.type === 'payment' && notification.data?.invoiceId) {

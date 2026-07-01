@@ -8,6 +8,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import HistoryIcon from "@mui/icons-material/History";
+import DeleteIcon from "@mui/icons-material/Delete";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FullCalendar from "@fullcalendar/react";
@@ -30,6 +31,9 @@ function Therapy_Progress() {
 
     const [sessions, setSessions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [deletingSessionId, setDeletingSessionId] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const fetchSessions = async () => {
         setIsLoading(true);
@@ -131,6 +135,23 @@ function Therapy_Progress() {
         return patientOrder.flatMap((key) => grouped.get(key));
     }, [sessions, search]);
 
+    const totalPages = Math.max(1, Math.ceil(filteredSessions.length / rowsPerPage));
+
+    const paginatedSessions = useMemo(() => {
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        return filteredSessions.slice(startIndex, startIndex + rowsPerPage);
+    }, [filteredSessions, currentPage, rowsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, rowsPerPage]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
 
 
     const handleStartSession = async (sessionId) => {
@@ -174,6 +195,32 @@ function Therapy_Progress() {
             navigate(`/therapist/therapy-progress/details?sessionId=${session._id}`, {
                 state: { session }
             });
+        }
+    };
+
+    const handleDeleteSession = async (session) => {
+        const patientName = session.patient?.user?.name || "this patient";
+        const treatmentName = session.treatmentName || "therapy session";
+        const confirmed = window.confirm(
+            `Delete ${treatmentName} for ${patientName}? This action cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        setDeletingSessionId(session._id);
+        try {
+            const response = await axios.delete(
+                getApiUrl(`therapist-sessions/${session._id}`),
+                { headers: getAuthHeaders() }
+            );
+            if (response.data.success) {
+                toast.success("Therapy session deleted successfully");
+                setSessions((prev) => prev.filter((s) => s._id !== session._id));
+            }
+        } catch (error) {
+            console.error("Error deleting session:", error);
+            toast.error(error.response?.data?.message || "Failed to delete therapy session");
+        } finally {
+            setDeletingSessionId(null);
         }
     };
 
@@ -587,6 +634,7 @@ function Therapy_Progress() {
                                     <CircularProgress />
                                 </Box>
                             ) : filteredSessions.length > 0 ? (
+                                <>
                                 <div className="table-responsive">
                                     <table className="table table-hover">
                                         <thead>
@@ -602,8 +650,9 @@ function Therapy_Progress() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredSessions.map((session, index) => {
+                                            {paginatedSessions.map((session, index) => {
                                                 const isIPD = !!session.inpatient || session.patient?.inpatient;
+                                                const serialNumber = (currentPage - 1) * rowsPerPage + index + 1;
 
                                                 // Calculate progress for this session
                                                 const totalSessions = session.daysOfTreatment || 0;
@@ -613,7 +662,7 @@ function Therapy_Progress() {
 
                                                 return (
                                                     <tr key={session._id}>
-                                                        <td style={{ fontSize: "0.875rem" }}>{index + 1}</td>
+                                                        <td style={{ fontSize: "0.875rem" }}>{serialNumber}</td>
                                                         <td style={{ fontSize: "0.875rem" }}>{session.patient?.user?.uhid || "N/A"}</td>
                                                         <td style={{ fontSize: "0.875rem", fontWeight: 600 }}>
                                                             {session.patient?.user?.name || "Unknown"}
@@ -852,6 +901,52 @@ function Therapy_Progress() {
                                                                         )}
                                                                     </div>
                                                                 ) : null}
+                                                                <div style={{ position: "relative", display: "inline-block" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-sm"
+                                                                        onClick={() => handleDeleteSession(session)}
+                                                                        disabled={deletingSessionId === session._id}
+                                                                        onMouseEnter={() => setHoveredButton(`delete-${session._id}`)}
+                                                                        onMouseLeave={() => setHoveredButton(null)}
+                                                                        style={{
+                                                                            backgroundColor: "#dc3545",
+                                                                            borderColor: "#dc3545",
+                                                                            color: "#fff",
+                                                                            borderRadius: "8px",
+                                                                            padding: "6px 8px",
+                                                                            fontWeight: 500,
+                                                                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                                                            transition: "all 0.3s ease",
+                                                                            minWidth: "40px",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            opacity: deletingSessionId === session._id ? 0.6 : 1,
+                                                                        }}
+                                                                    >
+                                                                        <DeleteIcon fontSize="small" />
+                                                                    </button>
+                                                                    {hoveredButton === `delete-${session._id}` && (
+                                                                        <div
+                                                                            style={{
+                                                                                position: "absolute",
+                                                                                top: "-35px",
+                                                                                left: "50%",
+                                                                                transform: "translateX(-50%)",
+                                                                                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                                                                                color: "white",
+                                                                                padding: "4px 8px",
+                                                                                borderRadius: "4px",
+                                                                                whiteSpace: "nowrap",
+                                                                                zIndex: 1000,
+                                                                                pointerEvents: "none",
+                                                                            }}
+                                                                        >
+                                                                            Delete Session
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -860,6 +955,50 @@ function Therapy_Progress() {
                                         </tbody>
                                     </table>
                                 </div>
+                                    <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-4">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className="text-muted" style={{ fontSize: "0.875rem" }}>
+                                                Showing {(currentPage - 1) * rowsPerPage + 1}-
+                                                {Math.min(currentPage * rowsPerPage, filteredSessions.length)} of {filteredSessions.length}
+                                            </span>
+                                            <select
+                                                className="form-select form-select-sm"
+                                                style={{ width: "auto" }}
+                                                value={rowsPerPage}
+                                                onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                                            >
+                                                <option value={10}>10 / page</option>
+                                                <option value={25}>25 / page</option>
+                                                <option value={50}>50 / page</option>
+                                            </select>
+                                        </div>
+                                        {totalPages > 1 && (
+                                            <div className="d-flex justify-content-center align-items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center"
+                                                    style={{ width: "32px", height: "32px", borderRadius: "50%", padding: 0 }}
+                                                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                                    disabled={currentPage === 1}
+                                                >
+                                                    <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>‹</span>
+                                                </button>
+                                                <span className="text-muted" style={{ fontSize: "0.875rem" }}>
+                                                    Page {currentPage} of {totalPages}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center"
+                                                    style={{ width: "32px", height: "32px", borderRadius: "50%", padding: 0 }}
+                                                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                                    disabled={currentPage === totalPages}
+                                                >
+                                                    <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>›</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
                             ) : (
                                 <div className="text-center py-5">
                                     <p className="text-muted">No therapy sessions found. Try adjusting your search query.</p>

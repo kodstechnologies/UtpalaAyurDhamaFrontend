@@ -82,7 +82,7 @@ export const useNotifications = () => {
         }
 
         try {
-            const response = await notificationService.getEventNotifications(30);
+            const response = await notificationService.getEventNotifications(30, 15);
 
             if (response.success && response.data) {
                 setEventNotifications(response.data);

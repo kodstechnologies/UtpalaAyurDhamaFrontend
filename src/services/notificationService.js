@@ -60,10 +60,10 @@ const notificationService = {
     /**
      * Get Utpala event notifications
      */
-    getEventNotifications: async (daysBack = 30) => {
+    getEventNotifications: async (daysBack = 30, limit = 15) => {
         try {
             const response = await axios.get(
-                getApiUrl(`notifications/event-notifications?daysBack=${daysBack}`),
+                getApiUrl(`notifications/event-notifications?daysBack=${daysBack}&limit=${limit}`),
                 { headers: getAuthHeaders() }
             );
             return response.data;

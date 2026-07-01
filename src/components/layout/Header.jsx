@@ -54,12 +54,15 @@ function ResponsiveAppBar() {
   const showNotificationBell = Boolean(user && userRole);
   const { paymentReminders, dobReminders, eventNotifications, missedTherapyNotifications } = useNotifications();
 
-  const totalNotifications = (eventNotifications?.length || 0) + (missedTherapyNotifications?.length || 0) + (
-    isReceptionist
-      ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0))
-      : isStaff
-        ? (dobReminders?.length || 0)
-        : 0
+  const totalNotifications = Math.min(
+    (eventNotifications?.length || 0) + (missedTherapyNotifications?.length || 0) + (
+      isReceptionist
+        ? ((paymentReminders?.length || 0) + (dobReminders?.length || 0))
+        : isStaff
+          ? (dobReminders?.length || 0)
+          : 0
+    ),
+    15
   );
   const hasNotifications = showNotificationBell && totalNotifications > 0;
 
