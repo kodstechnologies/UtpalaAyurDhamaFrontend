@@ -92,6 +92,45 @@ function Therapy_Progress() {
         }
     };
 
+    const getSessionProgressCounts = (session) => {
+        const total = Number(session.daysOfTreatment) || 0;
+        const days = Array.isArray(session.days) ? session.days : [];
+        const completed = days.filter((d) => d?.completed).length;
+
+        if (total === 0) {
+            return { completed, total, missed: 0 };
+        }
+
+        const timeline = session.timeline || "Daily";
+        const stepDays = timeline === "Weekly" ? 7 : (timeline === "AlternateDay" ? 2 : 1);
+        const startDate = session.sessionDate ? new Date(session.sessionDate) : new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let missed = 0;
+        for (let i = 0; i < total; i++) {
+            const slotDate = new Date(startDate);
+            slotDate.setDate(startDate.getDate() + i * stepDays);
+            slotDate.setHours(0, 0, 0, 0);
+
+            const dayRecord = days.find((d) => {
+                const dDate = new Date(d.date);
+                dDate.setHours(0, 0, 0, 0);
+                return dDate.getTime() === slotDate.getTime();
+            });
+
+            const isInProgress = Boolean(dayRecord?.startTime && !dayRecord?.endTime && !dayRecord?.completed);
+            const isCompleted = Boolean(dayRecord?.completed);
+            const isPast = slotDate.getTime() < today.getTime();
+
+            if (isPast && !isCompleted && !isInProgress) {
+                missed += 1;
+            }
+        }
+
+        return { completed, total, missed };
+    };
+
 
 
     const filteredSessions = useMemo(() => {
@@ -655,10 +694,8 @@ function Therapy_Progress() {
                                                 const serialNumber = (currentPage - 1) * rowsPerPage + index + 1;
 
                                                 // Calculate progress for this session
-                                                const totalSessions = session.daysOfTreatment || 0;
-                                                const totalCompleted = Array.isArray(session.days)
-                                                    ? session.days.filter(d => d.completed).length
-                                                    : 0;
+                                                const { completed: totalCompleted, total: totalSessions, missed: totalMissed } =
+                                                    getSessionProgressCounts(session);
 
                                                 return (
                                                     <tr key={session._id}>
@@ -678,18 +715,28 @@ function Therapy_Progress() {
                                                             </div>
                                                         </td>
                                                         <td style={{ fontSize: "0.875rem" }}>
-                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                                <div style={{
-                                                                    fontSize: "0.75rem",
-                                                                    fontWeight: 600,
-                                                                    color: "#2D3748",
-                                                                    backgroundColor: "#EDF2F7",
-                                                                    padding: "2px 8px",
-                                                                    borderRadius: "4px"
-                                                                }}>
-                                                                    {totalCompleted} / {totalSessions}
-                                                                </div>
-                                                                <Typography variant="caption" color="text.secondary">Sessions</Typography>
+                                                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                                                    <div style={{
+                                                                        fontSize: "0.75rem",
+                                                                        fontWeight: 600,
+                                                                        color: "#2D3748",
+                                                                        backgroundColor: "#EDF2F7",
+                                                                        padding: "2px 8px",
+                                                                        borderRadius: "4px"
+                                                                    }}>
+                                                                        {totalCompleted} / {totalSessions}
+                                                                    </div>
+                                                                    <Typography variant="caption" color="text.secondary">Sessions</Typography>
+                                                                </Box>
+                                                                {totalMissed > 0 && (
+                                                                    <Typography
+                                                                        variant="caption"
+                                                                        sx={{ color: "#DC2626", fontWeight: 600, fontSize: "0.7rem" }}
+                                                                    >
+                                                                        {totalMissed} Missed
+                                                                    </Typography>
+                                                                )}
                                                             </Box>
                                                         </td>
                                                         <td style={{ fontSize: "0.875rem" }}>

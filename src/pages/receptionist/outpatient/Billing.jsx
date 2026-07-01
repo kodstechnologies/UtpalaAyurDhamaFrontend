@@ -93,6 +93,7 @@ const ChargesPanel = ({
     if (normalized === "completed" || normalized === "dispensed") return "badge bg-success";
     if (normalized === "in progress" || normalized === "ongoing") return "badge bg-warning";
     if (normalized === "pending") return "badge bg-info";
+    if (normalized === "missed") return "badge bg-danger";
     return "badge bg-secondary";
   };
 
@@ -187,9 +188,16 @@ const ChargesPanel = ({
                           )}
                         </td>
                         <td style={{ fontSize: "0.875rem", textAlign: "center" }}>
-                          <span className="badge bg-secondary" style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
-                            {charge.sessionsCount || 1}
-                          </span>
+                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                            <span className="badge bg-secondary" style={{ fontSize: "0.75rem", padding: "4px 10px", borderRadius: "50px" }}>
+                              {charge.completedCount ?? 0} / {charge.sessionsCount || 1}
+                            </span>
+                            {(charge.missedCount ?? 0) > 0 && (
+                              <Typography variant="caption" sx={{ color: "#DC2626", fontWeight: 600, fontSize: "0.7rem" }}>
+                                {charge.missedCount} Missed
+                              </Typography>
+                            )}
+                          </Box>
                         </td>
                         <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 500 }}>
                           {formatCurrency(charge.therapyCharge || 0)}
