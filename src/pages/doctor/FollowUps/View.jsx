@@ -660,6 +660,8 @@ import Search from "../../../components/search/Search";
 import ExportDataButton from "../../../components/buttons/ExportDataButton";
 import { getApiUrl, getAuthHeaders } from "../../../config/api";
 
+const MAX_MESSAGE_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 const isImageAttachment = (file) =>
     file?.fileType?.startsWith("image/") ||
     /\.(jpe?g|png|gif|webp)$/i.test(file?.originalFileName || "");
@@ -1100,6 +1102,19 @@ function FollowUps_View() {
         setEditFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
     };
 
+    const handleEditFilesChange = (event) => {
+        const selectedFiles = Array.from(event.target.files || []);
+        const totalSize = selectedFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+
+        if (totalSize > MAX_MESSAGE_UPLOAD_SIZE_BYTES) {
+            toast.error("Total upload size per message must be 10 MB or less.");
+            event.target.value = "";
+            return;
+        }
+
+        setEditFiles(selectedFiles);
+    };
+
     const handleUpdateFollowUp = async () => {
         if (!selectedFollowUp?.examinationId || !selectedFollowUp?.followUpId) {
             toast.error("Missing follow-up information.");
@@ -1351,9 +1366,12 @@ function FollowUps_View() {
                                     type="file"
                                     multiple
                                     accept=".pdf,image/*"
-                                    onChange={(e) => setEditFiles(Array.from(e.target.files || []))}
+                                    onChange={handleEditFilesChange}
                                 />
                             </Button>
+                            <Typography variant="caption" color="text.secondary">
+                                Maximum total upload size per message: 10 MB.
+                            </Typography>
                             {Array.isArray(followUpDetail?.attachments) && followUpDetail.attachments.length > 0 && (
                                 <Paper variant="outlined" sx={{ p: 1.5 }}>
                                     <Typography variant="subtitle2" gutterBottom fontWeight={600}>
