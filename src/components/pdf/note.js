@@ -1,8 +1,8 @@
 import { getFooter } from "./pdfFooter";
 
-export const getNote = () => `
+export const getNotesSection = () => `
   <!-- NOTES SECTION -->
-  <div class="notes-section" style="font-family: Arial, sans-serif; font-size:14px; color:#333; padding: 10px; 0">
+  <div class="notes-section" style="font-family: Arial, sans-serif; font-size:14px; color:#333; padding: 4px 10px 0;">
     
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
       
@@ -42,5 +42,6 @@ export const getNote = () => `
     </div>
 
   </div>
-  ${getFooter()}
 `;
+
+export const getNote = () => `${getNotesSection()}${getFooter()}`;

@@ -2,7 +2,8 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
 import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
-import { getNote } from "../../../../components/pdf/note";
+import { getNotesSection } from "../../../../components/pdf/note";
+import { getFooter } from "../../../../components/pdf/pdfFooter";
 import { buildInvoiceSummarySectionHtml } from "./invoiceSummarySectionHtml";
 import { getFoodChargeDisplay } from "../utils/foodChargeDisplay";
 
@@ -341,11 +342,10 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       return canvas;
     };
 
-    // ── Render header, footer, and each section as separate canvases ──
-    // Sections are kept whole so page breaks never cut through a table
-    // row or the SUBTOTAL / summary block.
+    // ── Render header, brown footer (all pages), notes (last page), and body sections ──
     const headerHtml = `<div style="width:794px; box-sizing:border-box; ">${pdfPrHeader()}</div>`;
-    const footerHtml = `<div style="width:794px; box-sizing:border-box; margin-bottom: 45px; ">${getNote()}</div>`;
+    const brownFooterHtml = `<div style="width:794px; box-sizing:border-box;">${getFooter()}</div>`;
+    const notesHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px;">${getNotesSection()}</div>`;
 
     const infoSectionHtml = `
       <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
@@ -408,9 +408,10 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
     // Render static header/footer + each printable section separately.
     // Rendering each section on its own lets us avoid splitting a section
     // (especially item tables) across pages.
-    const [headerCanvas, footerCanvas, infoCanvas, summaryCanvas] = await Promise.all([
+    const [headerCanvas, brownFooterCanvas, notesCanvas, infoCanvas, summaryCanvas] = await Promise.all([
       renderToCanvas(headerHtml),
-      renderToCanvas(footerHtml),
+      renderToCanvas(brownFooterHtml),
+      renderToCanvas(notesHtml),
       renderToCanvas(infoSectionHtml),
       renderToCanvas(summarySectionHtml),
     ]);
@@ -433,16 +434,15 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
     const pxToMm = (canvas) => (canvas.height / canvas.width) * contentW;
 
     const headerH = pxToMm(headerCanvas);
-    const footerH = pxToMm(footerCanvas);
+    const brownFooterH = pxToMm(brownFooterCanvas);
 
-    // Available body height per page (between header and footer)
-    const topPad = 0;  // mm gap after header
-    const botPad = 0;  // mm gap before footer
-    const bodyAreaH = pdfH - headerH - footerH - topPad - botPad;
+    const topPad = 0;
+    const botPad = 2;
+    const bodyAreaH = pdfH - headerH - brownFooterH - topPad - botPad;
 
     const headerImg = headerCanvas.toDataURL("image/png");
-    const footerImg = footerCanvas.toDataURL("image/png");
-    const sections = [infoCanvas, ...categoryCanvases, summaryCanvas];
+    const brownFooterImg = brownFooterCanvas.toDataURL("image/png");
+    const sections = [infoCanvas, ...categoryCanvases, summaryCanvas, notesCanvas];
 
     // Pre-compute total page count so the footer can show "Page X of Y".
     const totalPagesEstimate = (() => {
@@ -467,9 +467,12 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       pdf.addImage(headerImg, "PNG", margin, 0, contentW, headerH);
     };
 
-    const drawPageFooter = () => {
-      const footerY = pdfH - footerH;
-      pdf.addImage(footerImg, "PNG", margin, footerY, contentW, footerH);
+    const drawBrownFooter = () => {
+      const footerY = pdfH - brownFooterH - 6;
+      pdf.addImage(brownFooterImg, "PNG", margin, footerY, contentW, brownFooterH);
+    };
+
+    const drawPageNumber = () => {
       pdf.setFontSize(8);
       pdf.setTextColor(150);
       pdf.text(`Page ${currentPage} of ${totalPagesEstimate}`, pdfW / 2, pdfH - 5, { align: "center" });
@@ -480,12 +483,12 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
     sections.forEach((canvas, idx) => {
       const sectionH = pxToMm(canvas);
       const sectionImg = canvas.toDataURL("image/png");
+      const isNotesSection = idx === sections.length - 1;
 
-      // Move to a new page if this whole section won't fit on the current one.
       const requiresNewPage = usedBodyH > 0 && usedBodyH + sectionH > bodyAreaH;
       if (requiresNewPage) {
-        // Re-draw footer on top to avoid it being hidden by body rendering.
-        drawPageFooter();
+        drawBrownFooter();
+        drawPageNumber();
         pdf.addPage();
         currentPage += 1;
         cursorY = headerH + topPad;
@@ -493,9 +496,26 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
         drawPageChrome();
       }
 
-      // If a single section itself is taller than the page body, scale it to fit.
       const renderH = sectionH > bodyAreaH ? bodyAreaH : sectionH;
-      pdf.addImage(sectionImg, "PNG", margin, cursorY, contentW, renderH);
+      let drawY = cursorY;
+
+      if (isNotesSection) {
+        const footerY = pdfH - brownFooterH - 6;
+        drawY = footerY - renderH - 2;
+
+        if (drawY < cursorY + 2) {
+          drawBrownFooter();
+          drawPageNumber();
+          pdf.addPage();
+          currentPage += 1;
+          cursorY = headerH + topPad;
+          usedBodyH = 0;
+          drawPageChrome();
+          drawY = pdfH - brownFooterH - 6 - renderH - 2;
+        }
+      }
+
+      pdf.addImage(sectionImg, "PNG", margin, drawY, contentW, renderH);
 
       cursorY += renderH;
       usedBodyH += renderH;
@@ -506,8 +526,8 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       }
     });
 
-    // Ensure footer/note is visible on the final page too.
-    drawPageFooter();
+    drawBrownFooter();
+    drawPageNumber();
 
     const downloadFileName =
       options.fileName || `Invoice_${invoiceNo.replace(/[\/\\]/g, "-")}.pdf`;

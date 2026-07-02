@@ -82,7 +82,7 @@ export const buildInvoiceSummarySectionHtml = ({
     `;
 
   return `
-    <div style="width:794px; box-sizing:border-box; padding:0 15px 30px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
+    <div style="width:794px; box-sizing:border-box; padding:0 15px 8px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
       <table style="width:100%; border-collapse:collapse; margin-top:8px;">
         <tr>
           <td></td>
