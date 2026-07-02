@@ -638,11 +638,15 @@ function Outpatient_View() {
                                                             {patient.doctorName}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-muted">N/A</span>
+                                                        <span className="text-muted">_</span>
                                                     )}
                                                 </td>
                                                 <td style={{ fontSize: "0.875rem" }}>{patient.lastVisitDate}</td>
-                                                <td style={{ fontSize: "0.875rem" }}>{patient.allocatedNurse || <span className="text-muted">N/A</span>}</td>
+                                                <td style={{ fontSize: "0.875rem" }}>
+                                                    {patient.allocatedNurse && patient.allocatedNurse !== "N/A"
+                                                        ? patient.allocatedNurse
+                                                        : <span className="text-muted">_</span>}
+                                                </td>
                                                 <td style={{ fontSize: "0.875rem" }}>{patient.phone}</td>
                                                 <td style={{ fontSize: "0.875rem" }}>
                                                     <div className="d-flex gap-2">
