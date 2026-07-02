@@ -1048,7 +1048,7 @@ function Appointments_View() {
                                                             {patient.age !== "" && patient.age != null
                                                                 ? patient.ageUnit === "months"
                                                                     ? `${patient.age}m`
-                                                                    : patient.age
+                                                                    : `${patient.age}y`
                                                                 : ""}
                                                         </td>
                                                         <td>{patient.email}</td>
