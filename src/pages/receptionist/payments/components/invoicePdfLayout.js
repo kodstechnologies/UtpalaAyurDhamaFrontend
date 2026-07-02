@@ -105,8 +105,8 @@ export const layoutPdfSections = ({
   sections.forEach((canvas, idx) => {
     const sectionH = pxToMm(canvas);
     const sectionImg = canvas.toDataURL("image/png");
-    const isNotesSection = idx === sections.length - 1;
-    const isSummarySection = idx === sections.length - 2 && notesSectionH > 0;
+    const isNotesSection = notesSectionH > 0 && idx === sections.length - 1;
+    const isSummarySection = notesSectionH > 0 && idx === sections.length - 2;
     const gap = idx > 0 ? SECTION_GAP_MM : 0;
 
     const placementY = usedBodyH > 0 ? cursorY + gap : cursorY;
