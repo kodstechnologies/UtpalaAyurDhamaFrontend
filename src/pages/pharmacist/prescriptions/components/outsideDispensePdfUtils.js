@@ -246,10 +246,9 @@ export const buildOutsideDispensePdfData = (record) => {
     const invoiceNoRowHtml = buildInvoiceNoRowHtml(invoiceNo, showInvoiceNo, "print");
     const invoiceNoRowHtmlPdf = buildInvoiceNoRowHtml(invoiceNo, showInvoiceNo, "pdf");
 
-    const medicinesRows = items
-        .map((m, i) => {
-            const label = m.subType ? `${m.medicineName} (${m.subType})` : m.medicineName;
-            return `
+    const buildMedicineRowHtml = (m, i) => {
+        const label = m.subType ? `${m.medicineName} (${m.subType})` : m.medicineName;
+        return `
         <tr>
           <td style="text-align:center; border:1px solid #000; padding:5px; font-size:11px;">${i + 1}</td>
           <td style="border:1px solid #000; padding:5px; font-size:11px;">${escapeHtml(label)}</td>
@@ -258,8 +257,10 @@ export const buildOutsideDispensePdfData = (record) => {
           <td style="text-align:right; border:1px solid #000; padding:5px; font-size:11px;">${m.total.toFixed(2)}</td>
         </tr>
       `;
-        })
-        .join("");
+    };
+
+    const medicineRowHtmls = items.map((m, i) => buildMedicineRowHtml(m, i));
+    const medicinesRows = medicineRowHtmls.join("");
 
     const medicinesRowsPrint = items
         .map((m, i) => {
@@ -303,6 +304,7 @@ export const buildOutsideDispensePdfData = (record) => {
         invoiceNoRowHtml,
         invoiceNoRowHtmlPdf,
         medicinesRows,
+        medicineRowHtmls,
         medicinesRowsPrint,
     };
 };
