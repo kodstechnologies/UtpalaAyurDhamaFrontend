@@ -456,6 +456,9 @@ const invoiceHandlePrint = async (invoice, options = {}) => {
 
     const drawPageChrome = () => {
       pdf.addImage(headerImg, "PNG", margin, 0, contentW, headerH);
+    };
+
+    const drawPageFooter = () => {
       const footerY = pdfH - footerH;
       pdf.addImage(footerImg, "PNG", margin, footerY, contentW, footerH);
       pdf.setFontSize(8);
@@ -471,6 +474,8 @@ const invoiceHandlePrint = async (invoice, options = {}) => {
 
       const requiresNewPage = usedBodyH > 0 && usedBodyH + sectionH > bodyAreaH;
       if (requiresNewPage) {
+        // Re-draw footer on top to avoid it being hidden by body rendering.
+        drawPageFooter();
         pdf.addPage();
         currentPage += 1;
         cursorY = headerH + topPad;
@@ -490,6 +495,9 @@ const invoiceHandlePrint = async (invoice, options = {}) => {
         usedBodyH += 1.5;
       }
     });
+
+    // Ensure footer/note is visible on the final page too.
+    drawPageFooter();
 
     // ── TRIGGER PRINT ──
     // Use autoPrint to ensure the PDF itself requests a print dialog

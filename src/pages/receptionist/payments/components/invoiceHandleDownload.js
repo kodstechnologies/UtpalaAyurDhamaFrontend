@@ -465,6 +465,9 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
 
     const drawPageChrome = () => {
       pdf.addImage(headerImg, "PNG", margin, 0, contentW, headerH);
+    };
+
+    const drawPageFooter = () => {
       const footerY = pdfH - footerH;
       pdf.addImage(footerImg, "PNG", margin, footerY, contentW, footerH);
       pdf.setFontSize(8);
@@ -481,6 +484,8 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       // Move to a new page if this whole section won't fit on the current one.
       const requiresNewPage = usedBodyH > 0 && usedBodyH + sectionH > bodyAreaH;
       if (requiresNewPage) {
+        // Re-draw footer on top to avoid it being hidden by body rendering.
+        drawPageFooter();
         pdf.addPage();
         currentPage += 1;
         cursorY = headerH + topPad;
@@ -500,6 +505,9 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
         usedBodyH += 1.5;
       }
     });
+
+    // Ensure footer/note is visible on the final page too.
+    drawPageFooter();
 
     const downloadFileName =
       options.fileName || `Invoice_${invoiceNo.replace(/[\/\\]/g, "-")}.pdf`;

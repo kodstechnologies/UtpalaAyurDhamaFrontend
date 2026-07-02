@@ -55,6 +55,14 @@ export const buildInvoiceSummarySectionHtml = ({
 
   const rightColumnRows = isSinglePaymentReceipt
     ? `
+      ${summaryAmountRow("Subtotal:", formatCurrency(subtotal))}
+      ${taxAmount > 0 ? summaryAmountRow(`Tax (${invoice.taxRate}%):`, formatCurrency(taxAmount)) : ""}
+      ${discountAmount > 0 ? `
+        <tr>
+          <td style="padding:4px 0; font-size:12px; color:#2e7d32;">${discountText}:</td>
+          <td align="right" style="padding:4px 0; font-size:12px; color:#2e7d32;">-₹${formatCurrency(discountAmount)}</td>
+        </tr>
+      ` : ""}
       ${summaryAmountRow("TOTAL PAYABLE:", formatCurrency(totalPayable), { bold: true, fontSize: "14px", borderTop: true })}
       ${summaryAmountRow("Amount Paid:", formatCurrency(receiptAmount), { color: paidColor })}
       ${summaryAmountRow("Balance Due:", formatCurrency(balanceDue), { bold: true, fontSize: "13px", color: balanceColor, padding: "6px 0 0 0" })}

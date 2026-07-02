@@ -1154,6 +1154,8 @@ function InvoiceDetails({
                           ) : !isBedCharges && !isTherapy ? (
                             <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
                           ) : null}
+                          {isTherapy && <TableCell sx={{ fontWeight: 600 }}>Sub-Therapy</TableCell>}
+                          {isTherapy && <TableCell sx={{ fontWeight: 600 }}>Treatment Description</TableCell>}
                           {isTherapy && <TableCell align="center" sx={{ fontWeight: 600 }}>Sessions</TableCell>}
                           <TableCell align="right" sx={{ fontWeight: 600 }}>Unit Price</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 600 }}>Total</TableCell>
@@ -1162,17 +1164,12 @@ function InvoiceDetails({
                       <TableBody>
                         {items.map((item, idx) => {
                           const foodDisplay = category === "Food Charges" ? getFoodChargeDisplay(item) : null;
-
                           return (
-                          <TableRow key={idx} hover>
+                          <Fragment key={idx}>
+                          <TableRow hover>
                             <TableCell>{idx + 1}</TableCell>
                             <TableCell sx={{ fontWeight: 500 }}>
                               {foodDisplay?.name || item.name}
-                              {item.subTherapy && (
-                                <Typography variant="caption" sx={{ display: "block", color: "#666", mt: 0.5 }}>
-                                  <strong>Sub-Therapy:</strong> {item.subTherapy}
-                                </Typography>
-                              )}
                               {item.remarks && (
                                 <Typography variant="caption" sx={{ display: "block", color: "#666", mt: 0.5 }}>
                                   <strong>Remarks:</strong> {item.remarks}
@@ -1193,6 +1190,20 @@ function InvoiceDetails({
                                     {foodDisplay?.description || item.description}
                                   </Typography>
                                 ) : "—"}
+                              </TableCell>
+                            )}
+                            {isTherapy && (
+                              <TableCell>
+                                <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                                  {item.subTherapy || "_"}
+                                </Typography>
+                              </TableCell>
+                            )}
+                            {isTherapy && (
+                              <TableCell>
+                                <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                                  {item.description || item.subTherapyDescription || "_"}
+                                </Typography>
                               </TableCell>
                             )}
                             {isTherapy && <TableCell align="center">{item.quantity || 1}</TableCell>}
@@ -1225,6 +1236,7 @@ function InvoiceDetails({
                               )}
                             </TableCell>
                           </TableRow>
+                          </Fragment>
                         );
                         })}
                       </TableBody>
@@ -1342,7 +1354,7 @@ function InvoiceDetails({
                   </Typography>
                 )}
               </Box>
-
+              image.png
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                 <Typography color="#666">Amount Paid:</Typography>
                 {adminViewMode && isAdminEditing ? (
