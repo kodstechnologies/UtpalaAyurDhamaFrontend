@@ -3,6 +3,8 @@ import jsPDF from "jspdf";
 import { toast } from "react-toastify";
 import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
 import { getNote } from "../../../../components/pdf/note";
+import { buildInvoiceSummarySectionHtml } from "./invoiceSummarySectionHtml";
+import { getFoodChargeDisplay } from "../utils/foodChargeDisplay";
 
 // ── Reused helpers (same as in print version) ──
 const numberToWords = (num) => {
@@ -68,7 +70,7 @@ const categorizeItem = (item) => {
 /**
  * Download invoice as PDF — design matched to invoiceHandlePrint
  */
-const invoiceHandleDownload = async (invoice) => {
+const invoiceHandleDownload = async (invoice, options = {}) => {
 
   const receptionist = JSON.parse(localStorage.getItem("user"));
   const receptionistName = receptionist?.name;
@@ -77,6 +79,13 @@ const invoiceHandleDownload = async (invoice) => {
     toast.error("No invoice data available");
     return;
   }
+
+  const paymentIndex = options.paymentIndex;
+  const selectedPayment =
+    paymentIndex != null && invoice.payments?.[paymentIndex]
+      ? invoice.payments[paymentIndex]
+      : null;
+  const isSinglePaymentReceipt = selectedPayment != null;
 
   try {
     const patient = {
@@ -162,6 +171,7 @@ const invoiceHandleDownload = async (invoice) => {
       const isTherapy = cat === "Therapy";
       const isConsultation = cat === "Doctor Consultation";
       const isBedCharges = cat === "Bed Charges";
+      const isFood = cat === "Food Charges";
 
       // Skip rendering "Doctor Consultation" if its total is 0
       if (isConsultation && catTotal === 0) return;
@@ -175,7 +185,7 @@ const invoiceHandleDownload = async (invoice) => {
           <thead>
             <th style="border-left:1px solid #000; border-bottom:1px solid #000; border-right:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center; width:40px;">Sno</th>
               <th style="border-right:1px solid #000; border-bottom:1px solid #000; border-top:none; text-align:center; padding:0 0 12px 0;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
-              ${isConsultation ? '<th style="border-right:1px solid #000; border-bottom:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Doctor Name</th>' : !isBedCharges ? '<th style="border:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Description</th>' : ''}
+              ${isConsultation ? '<th style="border-right:1px solid #000; border-bottom:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Doctor Name</th>' : !isBedCharges && !isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Description</th>' : ''}
               ${isTherapy ? '<th style="border-right:1px solid #000; border-bottom:1px solid #000; border-top:none; padding:0 0 12px 0; width:60px; text-align:center;">Session</th>' : ''}
               <th style="border-right:1px solid #000; border-bottom:1px solid #000; text-align:center; border-top:none; padding:0 0 12px 0;  width:90px;">Unit Price</th>
               <th style="border-right:1px solid #000; border-bottom:1px solid #000; text-align:center; border-top:none; padding:0 0 12px 0;  width:90px;">Total</th>
@@ -189,18 +199,26 @@ const invoiceHandleDownload = async (invoice) => {
         const qty = item.dispensedQuantity || item.quantity || 1;
         const unitPrice = item.unitPrice || item.amount || 0;
         const total = item.total || item.amount || 0;
+        const foodDisplay = isFood ? getFoodChargeDisplay(item) : null;
+        const displayName = foodDisplay?.name || item.name || "Item";
+        const displayDescription = foodDisplay?.description || item.description || "";
 
         blockHtml += `
           <tr>
             <td style="border-left:1px solid #000; border-bottom:1px solid #000; border-right:1px solid #000; border-top:none; padding: 0 0 12px 0; text-align:center; font-size:11px;">${counter}</td>
             <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
-              ${escapeHtml(item.name || "Item")}
+              ${escapeHtml(displayName)}
               ${item.subTherapy ? `<div style="font-size:10px; color:#666; text-align:center; font-style:italic; margin-top:2px;">Sub-Therapy: ${escapeHtml(item.subTherapy)}</div>` : ""}
               ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${escapeHtml(item.remarks)}</div>` : ""}
             </td>
-            ${!isBedCharges ? `
+            ${isConsultation ? `
               <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
-                ${isConsultation ? ((item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : "") : (item.description ? escapeHtml(item.description).replace(/\\n/g, "<br>") : "—")}
+                ${(item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : ""}
+              </td>
+            ` : ""}
+            ${!isBedCharges && !isTherapy && !isConsultation ? `
+              <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
+                ${displayDescription ? escapeHtml(displayDescription).replace(/\\n/g, "<br>") : "—"}
               </td>
             ` : ""}
             ${isTherapy ? `<td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">${qty}</td>` : ''}
@@ -234,13 +252,63 @@ const invoiceHandleDownload = async (invoice) => {
     const totalPayable = invoice.totalPayable || 0;
     const amountPaid = invoice.amountPaid || 0;
     const balanceDue = totalPayable - amountPaid;
+    const receiptAmount = Number(selectedPayment?.amount || 0);
+    const displaySubtotal = isSinglePaymentReceipt ? receiptAmount : subtotal;
+    const displayAmountPaid = isSinglePaymentReceipt ? receiptAmount : amountPaid;
+    const paymentsForHistory = isSinglePaymentReceipt
+      ? [selectedPayment]
+      : (invoice.payments || []);
+    const subtotalBoxLabel = isSinglePaymentReceipt ? "AMOUNT RECEIVED" : "SUBTOTAL";
 
     const paymentStatus = amountPaid >= totalPayable ? "PAID" : amountPaid > 0 ? "PARTIALLY PAID" : "UNPAID";
     // const statusColor = amountPaid >= totalPayable ? "#2e7d32" : amountPaid > 0 ? "#f57c00" : "#d32f2f";
     const statusColor = amountPaid >= totalPayable ? "#2e7d32" : amountPaid > 0 ? "#000000ff" : "#000000ff";
     const bgColor = amountPaid >= totalPayable ? "#ffffffff" : amountPaid > 0 ? "#8686868a" : "#8686868a";
 
-    const amountInWords = `Rupees ${numberToWords(Math.round(totalPayable))} Only`;
+    const amountInWords = isSinglePaymentReceipt
+      ? `Rupees ${numberToWords(Math.round(receiptAmount))} Only`
+      : `Rupees ${numberToWords(Math.round(totalPayable))} Only`;
+
+    const receiptPanelTitle = "RECEIPT / INVOICE DETAILS";
+
+    const receiptDateTime = selectedPayment
+      ? `${formatDate(selectedPayment.date)} @ ${new Date(selectedPayment.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`
+      : `${invoiceDate} @ ${new Date(invoice.createdAt || Date.now()).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
+
+    const receiptDetailsRows = `
+              <tr>
+                <td style="font-weight:bold; width:45%; padding:6px 0;">Invoice No</td>
+                <td style="padding:6px 0;">: ${escapeHtml(invoiceNo)}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Date / Time</td>
+                <td style="padding:6px 0;">: ${escapeHtml(receiptDateTime)}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0; vertical-align:middle;">Status</td>
+                <td style="vertical-align:middle;">
+                  <span style="
+                    background-color:${bgColor};
+                    color:${statusColor};
+                    font-weight:600;
+                    font-size:11px;
+                    border-radius:4px;
+                    display:inline-block;
+                    padding: 0px 5px 12px;
+                  ">
+                    ${paymentStatus}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:6px 0;">Type</td>
+                <td style="padding:6px 0;">: ${invoice.inpatient ? "IN-PATIENT" : invoice.examination?.isDaycare ? "DAYCARE" : "OUT-PATIENT"}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold; padding:0 0 12px 0;">Generated By</td>
+                <td style="padding:0 0 12px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
+              </tr>
+      `;
 
 
 
@@ -283,9 +351,13 @@ const invoiceHandleDownload = async (invoice) => {
       <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
         <!-- PATIENT + INVOICE INFO -->
         <div style="display:flex; border:1px solid #000; margin:10px 0; height:100%">
-          <div style="width:60%; background:#fafafa; padding:12px; border-right:1px solid #000;">
+          <div style="width:60%; border-right:1px solid #000;">
+            <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:0 0 12px 0; background:#f5f0eb;">
+              PATIENT DETAILS
+            </div>
+            <div style="background:#fafafa; padding:12px;">
             <table style="width:100%; font-size:12px;">
-              <tr><td style="font-weight:bold; width:100px;">PATIENT</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
+              <tr><td style="font-weight:bold; width:100px;">NAME</td><td>:</td><td>${escapeHtml(patient.name)}</td></tr>
               <tr><td style="font-weight:bold;">AGE</td><td>:</td><td>${escapeHtml(formattedAge)}</td></tr>
               <tr><td style="font-weight:bold;">GENDER</td><td>:</td><td>${escapeHtml(patient.gender)}</td></tr>
               ${patient.address && patient.address !== "N/A" ? `<tr><td style="font-weight:bold;">ADDRESS</td><td>:</td><td>${escapeHtml(patient.address)}</td></tr>` : ""}
@@ -298,109 +370,40 @@ const invoiceHandleDownload = async (invoice) => {
               ${invoice.referredBy ? `<tr><td style="font-weight:bold; width:100px;">Referred By</td><td>:</td><td>${escapeHtml(invoice.referredBy)}</td></tr>` : ""}
               ${invoice.consultedBy ? `<tr><td style="font-weight:bold; width:100px;">Consulted By</td><td>:</td><td>${escapeHtml(invoice.consultedBy)}</td></tr>` : ""}
             </table>
+            </div>
           </div>
-          <div style="width:40%; ">
+          <div style="width:40%;">
             <div style="text-align:center; font-weight:bold; font-size:16px; border-bottom:1px solid #000; padding:0 0 12px 0; background:#f5f0eb;">
-              RECEIPT / INVOICE DETAILS
+              ${receiptPanelTitle}
             </div>
-            <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:5px; margin-left:5px;">
-              <tr>
-                <td style="font-weight:bold; width:45%; padding:6px 0;">Invoice No</td>
-                <td style="padding:6px 0;">: ${escapeHtml(invoiceNo)}</td>
-              </tr>
-              <tr>
-                <td style="font-weight:bold; padding:6px 0;">Date /Time</td>
-                <td style="padding:6px 0;">: ${invoiceDate} @ ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
-              </tr>
-          
-            <tr>
-  <td style="font-weight:bold; padding:6px 0; vertical-align:middle;">
-    Status
-  </td>
-  <td style="vertical-align:middle;">
-    <span style="
-      background-color:${bgColor};
-      color:${statusColor};
-      font-weight:600;
-      font-size:11px;
-      border-radius:4px;
-      display:inline-block;
-      padding: 0px 5px 12px;
-    ">
-      ${paymentStatus}
-    </span>
-  </td>
-</tr>
-<tr>
-                <td style="font-weight:bold; padding:6px 0;">Type</td>
-                <td style="padding:6px 0;">: ${invoice.inpatient ? "IN-PATIENT" : invoice.examination?.isDaycare ? "DAYCARE" : "OUT-PATIENT"}</td>
-              </tr>
-              <tr>
-                <td style="font-weight:bold; padding: 0 0 12px 0;">Generated By</td>
-                <td style="padding: 0 0 12px 0;">: ${escapeHtml(receptionistName || "N/A")}</td>
-              </tr>
+            <div style="background:#fafafa; padding:12px;">
+            <table style="width:100%; font-size:12px; border-collapse:collapse;">
+              ${receiptDetailsRows}
             </table>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const summarySectionHtml = `
-      <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
-        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-          <table style="width:50%; border-collapse:collapse; border:1px solid #000;">
-            <tr style="font-weight:bold;">
-              <td style="padding:0 0 14px 10px; border-right:1px solid #000;">SUBTOTAL</td>
-              <td style="padding:0 10px 14px 0 ; text-align:right;">₹${formatCurrency(subtotal)}</td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- SUMMARY + NOTES -->
-        <div style="display:flex; margin-top:15px; padding-top:10px;">
-          <div style="width:55%; padding-right:15px;">
-            <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
-            <div style="font-style:italic; font-size:12px;">${amountInWords}</div>
-
-            ${invoice.payments?.length > 0 ? `
-              <div style="margin-top:20px; font-weight:bold; font-size:13px;">Payment History:</div>
-              ${invoice.payments.map((p, i) => `
-                <div style="font-size:11px; margin-top:4px;">
-                  ${i + 1}. ₹${formatCurrency(p.amount)} via ${p.paymentMethod === "Online" ? "UPI" : (p.paymentMethod || "Cash")} on ${formatDate(p.date)}
-                  ${p.transactionId ? ` | ID: ${p.transactionId}` : ""}
-                  ${p.cardLastFourDigits ? ` | Card: •••• ${p.cardLastFourDigits}` : ""}
-                </div>
-              `).join("")}
-            ` : ""}
-          </div>
-
-          <div style="width:45%; font-size:12px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-              <span>Subtotal:</span><span>₹${formatCurrency(subtotal)}</span>
-            </div>
-            ${taxAmount > 0 ? `
-              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                <span>Tax (${invoice.taxRate}%):</span><span>₹${formatCurrency(taxAmount)}</span>
-              </div>
-            ` : ""}
-            ${discountAmount > 0 ? `
-              <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#2e7d32;">
-                <span>${discountText}:</span><span>-₹${formatCurrency(discountAmount)}</span>
-              </div>
-            ` : ""}
-            <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:2px solid #000; padding-top:8px; margin-top:8px;">
-              <span>TOTAL PAYABLE:</span><span>₹${formatCurrency(totalPayable)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-top:6px; color:#2e7d32;">
-              <span>Amount Paid:</span><span>₹${formatCurrency(amountPaid)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:13px; margin-bottom:20px; color:${statusColor}; margin-top:6px;">
-              <span>Balance Due:</span><span>₹${formatCurrency(balanceDue)}</span>
             </div>
           </div>
         </div>
       </div>
     `;
+
+    const summarySectionHtml = buildInvoiceSummarySectionHtml({
+      subtotalBoxLabel,
+      displaySubtotal,
+      amountInWords,
+      paymentsForHistory,
+      formatCurrency,
+      formatDate,
+      isSinglePaymentReceipt,
+      receiptAmount,
+      subtotal,
+      taxAmount,
+      invoice,
+      discountAmount,
+      discountText,
+      totalPayable,
+      displayAmountPaid,
+      balanceDue,
+    });
 
     // Render static header/footer + each printable section separately.
     // Rendering each section on its own lets us avoid splitting a section
@@ -498,8 +501,10 @@ const invoiceHandleDownload = async (invoice) => {
       }
     });
 
-    pdf.save(`Invoice_${invoiceNo.replace(/[\/\\]/g, "-")}.pdf`);
-    toast.success("Invoice downloaded successfully");
+    const downloadFileName =
+      options.fileName || `Invoice_${invoiceNo.replace(/[\/\\]/g, "-")}.pdf`;
+    pdf.save(downloadFileName);
+    toast.success(options.successMessage || "Invoice downloaded successfully");
 
   } catch (err) {
     console.error("PDF generation error:", err);

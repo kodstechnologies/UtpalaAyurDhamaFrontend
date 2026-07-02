@@ -21,6 +21,8 @@ import {
   TextField,
   CircularProgress,
   MenuItem,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import Breadcrumb from "../../../components/breadcrumb/Breadcrumb";
@@ -42,6 +44,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import RestoreIcon from "@mui/icons-material/Restore";
 import { invoiceHandlePrint } from "./components/invoiceHandlePrint";
 import { invoiceHandleDownload } from "./components/invoiceHandleDownload";
+import { getFoodChargeDisplay } from "./utils/foodChargeDisplay";
 
 const categorizeInvoiceItem = (item) => {
   if (item.category) {
@@ -84,6 +87,140 @@ const categorizeInvoiceItem = (item) => {
 };
 
 const formatPaymentMethod = (method) => (method === "Online" ? "UPI" : method);
+
+const renderPaymentReference = (payment) => {
+  if (payment.transactionId) {
+    return (
+      <Typography variant="body2" sx={{ color: "#666" }}>
+        <strong>ID:</strong> {payment.transactionId}
+      </Typography>
+    );
+  }
+  if (payment.cardLastFourDigits) {
+    return (
+      <Typography variant="body2" sx={{ color: "#666" }}>
+        <strong>Card (last 4):</strong> •••• {payment.cardLastFourDigits}
+      </Typography>
+    );
+  }
+  return <Typography variant="body2" sx={{ color: "#999" }}>—</Typography>;
+};
+
+const PaymentHistoryTable = ({
+  payments,
+  formatDate,
+  formatCurrency,
+  adminViewMode,
+  isAdminEditing,
+  adminPayments,
+  onPaymentAmountChange,
+  showActions = false,
+  onPrintRow,
+  onDownloadRow,
+  printingIndex = null,
+  downloadingIndex = null,
+}) => (
+  <Paper
+    elevation={0}
+    sx={{
+      overflow: "hidden",
+      border: "1px solid #e7e9ee",
+      borderRadius: 2,
+      bgcolor: "#fff",
+    }}
+  >
+    <Table size="small" sx={{ "& .MuiTableCell-root": { py: 1.2 } }}>
+      <TableHead>
+        <TableRow sx={{ bgcolor: "#f7f8fa" }}>
+          <TableCell sx={{ fontWeight: 700, width: 50, color: "#4a4f57" }}>#</TableCell>
+          <TableCell sx={{ fontWeight: 700, color: "#4a4f57" }}>Date</TableCell>
+          <TableCell sx={{ fontWeight: 700, color: "#4a4f57" }}>Method</TableCell>
+          <TableCell sx={{ fontWeight: 700, color: "#4a4f57" }}>Reference Details</TableCell>
+          <TableCell align="right" sx={{ fontWeight: 700, color: "#4a4f57" }}>Amount</TableCell>
+          {showActions && (
+            <TableCell align="center" sx={{ fontWeight: 700, width: 110, color: "#4a4f57" }}>Action</TableCell>
+          )}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {payments.map((payment, idx) => (
+          <TableRow
+            key={idx}
+            hover
+            sx={{
+              "&:last-child td": { borderBottom: "none" },
+              "&:hover": { bgcolor: "#fafbfd" },
+            }}
+          >
+            <TableCell sx={{ color: "#666" }}>{idx + 1}</TableCell>
+            <TableCell>{formatDate(payment.date)}</TableCell>
+            <TableCell>
+              <Chip
+                label={formatPaymentMethod(payment.paymentMethod)}
+                size="small"
+                variant="outlined"
+                sx={{ fontWeight: 500, borderColor: "#D4A574", color: "#D4A574" }}
+              />
+            </TableCell>
+            <TableCell>{renderPaymentReference(payment)}</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 700, color: "#2e7d32" }}>
+              {adminViewMode && isAdminEditing ? (
+                <TextField
+                  type="number"
+                  size="small"
+                  value={adminPayments?.[idx]?.amount ?? payment.amount}
+                  onChange={(e) => onPaymentAmountChange?.(idx, e.target.value)}
+                  inputProps={{ min: 0, step: 0.01 }}
+                  sx={{ width: 130 }}
+                />
+              ) : (
+                formatCurrency(payment.amount)
+              )}
+            </TableCell>
+            {showActions && (
+              <TableCell align="center">
+                <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5 }}>
+                  <Tooltip title="Print">
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="success"
+                        onClick={() => onPrintRow?.(idx)}
+                        disabled={printingIndex === idx || downloadingIndex === idx}
+                      >
+                        {printingIndex === idx ? (
+                          <CircularProgress size={18} color="inherit" />
+                        ) : (
+                          <PrintIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Download">
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => onDownloadRow?.(idx)}
+                        disabled={printingIndex === idx || downloadingIndex === idx}
+                      >
+                        {downloadingIndex === idx ? (
+                          <CircularProgress size={18} color="inherit" />
+                        ) : (
+                          <DownloadIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </Paper>
+);
 
 const calculateAgeFromDob = (dob) => {
   if (!dob) return null;
@@ -258,6 +395,9 @@ function InvoiceDetails({
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [printingReport, setPrintingReport] = useState(false);
+  const [paymentHistoryDialogOpen, setPaymentHistoryDialogOpen] = useState(false);
+  const [downloadingPaymentIndex, setDownloadingPaymentIndex] = useState(null);
+  const [printingPaymentIndex, setPrintingPaymentIndex] = useState(null);
 
   const breadcrumbItems = [
     { label: "Home", url: homeUrl },
@@ -696,6 +836,29 @@ function InvoiceDetails({
     }
   };
 
+  const handleDownloadSinglePayment = async (paymentIndex) => {
+    try {
+      setDownloadingPaymentIndex(paymentIndex);
+      const invoiceNo = (invoice.invoiceNumber || "invoice").replace(/[/\\]/g, "-");
+      await invoiceHandleDownload(invoice, {
+        paymentIndex,
+        fileName: `Payment_${paymentIndex + 1}_${invoiceNo}.pdf`,
+        successMessage: `Payment ${paymentIndex + 1} downloaded successfully`,
+      });
+    } finally {
+      setDownloadingPaymentIndex(null);
+    }
+  };
+
+  const handlePrintSinglePayment = async (paymentIndex) => {
+    try {
+      setPrintingPaymentIndex(paymentIndex);
+      await invoiceHandlePrint(invoice, { paymentIndex });
+    } finally {
+      setPrintingPaymentIndex(null);
+    }
+  };
+
   const handleDownloadDischargeReport = async () => {
     await invoiceHandleDownload(invoice);
   };
@@ -846,6 +1009,14 @@ function InvoiceDetails({
             >
               {printingReport ? "Preparing..." : "Print Report"}
             </Button>
+            <Button
+              variant="contained"
+              startIcon={<PaymentIcon />}
+              onClick={() => setPaymentHistoryDialogOpen(true)}
+              sx={{ backgroundColor: "#D4A574", "&:hover": { backgroundColor: "#c49563" } }}
+            >
+              Payment History
+            </Button>
           </>
         )}
       </Box>
@@ -980,7 +1151,7 @@ function InvoiceDetails({
                           <TableCell sx={{ fontWeight: 600 }}>Item Name</TableCell>
                           {isConsultation ? (
                             <TableCell sx={{ fontWeight: 600 }}>Doctor Name</TableCell>
-                          ) : !isBedCharges ? (
+                          ) : !isBedCharges && !isTherapy ? (
                             <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
                           ) : null}
                           {isTherapy && <TableCell align="center" sx={{ fontWeight: 600 }}>Sessions</TableCell>}
@@ -989,11 +1160,14 @@ function InvoiceDetails({
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {items.map((item, idx) => (
+                        {items.map((item, idx) => {
+                          const foodDisplay = category === "Food Charges" ? getFoodChargeDisplay(item) : null;
+
+                          return (
                           <TableRow key={idx} hover>
                             <TableCell>{idx + 1}</TableCell>
                             <TableCell sx={{ fontWeight: 500 }}>
-                              {item.name}
+                              {foodDisplay?.name || item.name}
                               {item.subTherapy && (
                                 <Typography variant="caption" sx={{ display: "block", color: "#666", mt: 0.5 }}>
                                   <strong>Sub-Therapy:</strong> {item.subTherapy}
@@ -1005,14 +1179,19 @@ function InvoiceDetails({
                                 </Typography>
                               )}
                             </TableCell>
-                            {!isBedCharges && (
+                            {isConsultation && (
                               <TableCell>
-                                {isConsultation ? (
-                                  <Typography variant="body2">
-                                    {(item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : ""}
+                                <Typography variant="body2">
+                                  {(item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : ""}
+                                </Typography>
+                              </TableCell>
+                            )}
+                            {!isBedCharges && !isTherapy && !isConsultation && (
+                              <TableCell>
+                                {(foodDisplay?.description || item.description) ? (
+                                  <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                                    {foodDisplay?.description || item.description}
                                   </Typography>
-                                ) : item.description ? (
-                                  <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>{item.description}</Typography>
                                 ) : "—"}
                               </TableCell>
                             )}
@@ -1046,7 +1225,8 @@ function InvoiceDetails({
                               )}
                             </TableCell>
                           </TableRow>
-                        ))}
+                        );
+                        })}
                       </TableBody>
                     </Table>
                   </Paper>
@@ -1073,64 +1253,15 @@ function InvoiceDetails({
               <Typography variant="h6" fontWeight={600} mb={2} display="flex" alignItems="center" gap={1}>
                 <PaymentIcon sx={{ color: "#D4A574" }} /> Payment History
               </Typography>
-              <Paper sx={{ overflow: "hidden", border: "1px solid #eee" }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: "#fff8f1" }}>
-                      <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Method</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Reference Details</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>Amount</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {invoice.payments.map((payment, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{formatDate(payment.date)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={formatPaymentMethod(payment.paymentMethod)}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontWeight: 500, borderColor: "#D4A574", color: "#D4A574" }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Box>
-                            {payment.transactionId && (
-                              <Typography variant="body2" sx={{ color: "#666" }}>
-                                <strong>ID:</strong> {payment.transactionId}
-                              </Typography>
-                            )}
-                            {payment.cardLastFourDigits && (
-                              <Typography variant="body2" sx={{ color: "#666" }}>
-                                <strong>Card (last 4):</strong> •••• {payment.cardLastFourDigits}
-                              </Typography>
-                            )}
-                            {!payment.transactionId && !payment.cardLastFourDigits && (
-                              <Typography variant="body2" sx={{ color: "#999" }}>—</Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, color: "#4CAF50" }}>
-                          {adminViewMode && isAdminEditing ? (
-                            <TextField
-                              type="number"
-                              size="small"
-                              value={adminEditForm.payments[idx]?.amount ?? payment.amount}
-                              onChange={(e) => updateAdminPaymentAmount(idx, e.target.value)}
-                              inputProps={{ min: 0, step: 0.01 }}
-                              sx={{ width: 130 }}
-                            />
-                          ) : (
-                            formatCurrency(payment.amount)
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Paper>
+              <PaymentHistoryTable
+                payments={invoice.payments}
+                formatDate={formatDate}
+                formatCurrency={formatCurrency}
+                adminViewMode={adminViewMode}
+                isAdminEditing={isAdminEditing}
+                adminPayments={adminEditForm.payments}
+                onPaymentAmountChange={updateAdminPaymentAmount}
+              />
             </Box>
           )}
 
@@ -1258,6 +1389,84 @@ function InvoiceDetails({
           </Box>
         </CardContent>
       </Card>
+
+      {/* Payment History Dialog */}
+      <Dialog
+        open={paymentHistoryDialogOpen}
+        onClose={() => setPaymentHistoryDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.2,
+            borderBottom: "1px solid #eef1f4",
+            py: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              bgcolor: "#fff6ec",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <PaymentIcon sx={{ color: "#D4A574", fontSize: 18 }} />
+          </Box>
+          <Typography variant="h6" sx={{ fontSize: "1.15rem", fontWeight: 700, color: "#30343a" }}>
+            Payment History
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0, bgcolor: "#fcfcfd" }}>
+          {invoice?.payments && invoice.payments.length > 0 ? (
+            <Box sx={{ p: 2 }}>
+              <PaymentHistoryTable
+                payments={invoice.payments}
+                formatDate={formatDate}
+                formatCurrency={formatCurrency}
+                showActions
+                onPrintRow={handlePrintSinglePayment}
+                onDownloadRow={handleDownloadSinglePayment}
+                printingIndex={printingPaymentIndex}
+                downloadingIndex={downloadingPaymentIndex}
+              />
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  mt: 2.5,
+                  pt: 2,
+                  borderTop: "1px dashed #dde2ea",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 2, fontWeight: 500 }}>
+                  Total Amount Paid:
+                </Typography>
+                <Typography variant="body1" fontWeight={800} sx={{ color: "#2e7d32" }}>
+                  {formatCurrency(
+                    invoice.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+                  )}
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            <Typography color="text.secondary" align="center" sx={{ py: 3, px: 2 }}>
+              No payment history available.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.8, borderTop: "1px solid #eef1f4", bgcolor: "#fff" }}>
+          <Button onClick={() => setPaymentHistoryDialogOpen(false)} sx={{ fontWeight: 600 }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onClose={handleClosePaymentDialog} maxWidth="sm" fullWidth>
