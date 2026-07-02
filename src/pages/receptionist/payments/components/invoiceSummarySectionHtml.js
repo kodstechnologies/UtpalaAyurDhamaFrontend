@@ -5,10 +5,10 @@ const formatPaymentMethodForSummary = (method) => {
 
 const summaryAmountRow = (label, value, options = {}) => `
   <tr>
-    <td style="padding:${options.padding || "4px 0"}; font-size:${options.fontSize || "12px"}; font-weight:${options.bold ? "bold" : "normal"}; color:${options.color || "#000"}; border-top:${options.borderTop ? "2px solid #000" : "none"}; padding-top:${options.borderTop ? "10px" : "4px"};">
+    <td style="padding:${options.padding || "4px 0"}; font-size:${options.fontSize || "12px"}; font-weight:${options.bold ? "bold" : "normal"}; color:${options.color || "#000"}; border-top:${options.borderTop ? "2px solid #000" : "none"}; padding-top:${options.borderTop ? "10px" : "4px"}; line-height:1.4;">
       ${label}
     </td>
-    <td align="right" style="padding:${options.padding || "4px 0"}; font-size:${options.fontSize || "12px"}; font-weight:${options.bold ? "bold" : "normal"}; color:${options.color || "#000"}; border-top:${options.borderTop ? "2px solid #000" : "none"}; padding-top:${options.borderTop ? "10px" : "4px"};">
+    <td align="right" style="padding:${options.padding || "4px 0"}; font-size:${options.fontSize || "12px"}; font-weight:${options.bold ? "bold" : "normal"}; color:${options.color || "#000"}; border-top:${options.borderTop ? "2px solid #000" : "none"}; padding-top:${options.borderTop ? "10px" : "4px"}; line-height:1.4;">
       ₹${value}
     </td>
   </tr>
@@ -65,7 +65,7 @@ export const buildInvoiceSummarySectionHtml = ({
       ` : ""}
       ${summaryAmountRow("TOTAL PAYABLE:", formatCurrency(totalPayable), { bold: true, fontSize: "14px", borderTop: true })}
       ${summaryAmountRow("Amount Paid:", formatCurrency(receiptAmount), { color: paidColor })}
-      ${summaryAmountRow("Balance Due:", formatCurrency(balanceDue), { bold: true, fontSize: "13px", color: balanceColor, padding: "6px 0 0 0" })}
+      ${summaryAmountRow("Balance Due:", formatCurrency(balanceDue), { bold: true, fontSize: "13px", color: balanceColor, padding: "6px 0 8px 0" })}
     `
     : `
       ${summaryAmountRow("Subtotal:", formatCurrency(subtotal))}
@@ -78,11 +78,11 @@ export const buildInvoiceSummarySectionHtml = ({
       ` : ""}
       ${summaryAmountRow("TOTAL PAYABLE:", formatCurrency(totalPayable), { bold: true, fontSize: "14px", borderTop: true })}
       ${summaryAmountRow("Amount Paid:", formatCurrency(displayAmountPaid), { color: paidColor })}
-      ${summaryAmountRow("Balance Due:", formatCurrency(balanceDue), { bold: true, fontSize: "13px", color: balanceColor, padding: "6px 0 0 0" })}
+      ${summaryAmountRow("Balance Due:", formatCurrency(balanceDue), { bold: true, fontSize: "13px", color: balanceColor, padding: "6px 0 8px 0" })}
     `;
 
   return `
-    <div style="width:794px; box-sizing:border-box; padding:0 15px 8px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
+    <div style="width:794px; box-sizing:border-box; padding:0 15px 12px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
       <table style="width:100%; border-collapse:collapse; margin-top:8px;">
         <tr>
           <td></td>
@@ -114,3 +114,4 @@ export const buildInvoiceSummarySectionHtml = ({
     </div>
   `;
 };
+

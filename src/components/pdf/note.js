@@ -2,7 +2,7 @@ import { getFooter } from "./pdfFooter";
 
 export const getNotesSection = () => `
   <!-- NOTES SECTION -->
-  <div class="notes-section" style="font-family: Arial, sans-serif; font-size:14px; color:#333; padding: 4px 10px 0;">
+  <div class="notes-section" style="font-family: Arial, sans-serif; font-size:14px; color:#333; padding: 4px 10px 0; margin:0;">
     
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
       
@@ -28,7 +28,7 @@ export const getNotesSection = () => `
 
       <!-- Right Side (Signature) -->
       <div style="width:25%; text-align:right;">
-        <div style="margin-bottom:50px; font-weight:bold;">
+        <div style="margin-bottom:12px; font-weight:bold;">
           For UTPALA AYURDHAMA
         </div>
         <div>Authorized Signature</div>
@@ -37,7 +37,7 @@ export const getNotesSection = () => `
     </div>
 
     <!-- Footer -->
-    <div style="text-align:center; margin-top:10px; font-size:13px; color:#666;">
+    <div style="text-align:center; margin-top:6px; font-size:12px; color:#666;">
       This is a system-generated invoice. You can use the invoice number to track it in the future.
     </div>
 

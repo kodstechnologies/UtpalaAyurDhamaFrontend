@@ -2,10 +2,11 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { toast } from "react-toastify";
 import { pdfPrHeader } from "../../../../components/pdf/pdfPrHeader";
-import { getNotesSection } from "../../../../components/pdf/note";
 import { getFooter } from "../../../../components/pdf/pdfFooter";
 import { buildInvoiceSummarySectionHtml } from "./invoiceSummarySectionHtml";
-import { getFoodChargeDisplay } from "../utils/foodChargeDisplay";
+import { buildInvoiceCategoryBlockHtmls } from "./invoiceCategoryBlockHtml";
+import { layoutPdfSections, trimCanvasBottomWhitespace } from "./invoicePdfLayout";
+import { getNotesSection } from "../../../../components/pdf/note";
 
 // ── Reused helpers (same as in print version) ──
 const numberToWords = (num) => {
@@ -46,26 +47,6 @@ const pickPatientUhid = (...values) => {
     }
   }
   return "N/A";
-};
-
-const categorizeItem = (item) => {
-  if (item.category) {
-    const map = {
-      consultation: "Doctor Consultation",
-      therapy: "Therapy",
-      pharmacy: "Medicines",
-      food: "Food Charges",
-      ward: "Bed Charges",
-    };
-    return map[item.category.toLowerCase()] || item.category;
-  }
-  const name = (item.name || "").toLowerCase();
-  if (name.includes("consultation") || name.includes("doctor") || name.includes("opd")) return "Doctor Consultation";
-  if (name.includes("therapy") || name.includes("session") || name.includes("treatment")) return "Therapy";
-  if (name.includes("food") || name.includes("meal") || name.includes("breakfast") || name.includes("lunch") || name.includes("dinner")) return "Food Charges";
-  if (name.includes("ward") || name.includes("bed") || name.includes("room")) return "Bed Charges";
-  if (name.includes("medicine") || name.includes("tablet") || name.includes("syrup") || name.includes("capsule")) return "Medicines";
-  return "Other";
 };
 
 /**
@@ -149,92 +130,7 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
     const invoiceDate = formatDate(invoice.createdAt);
     const invoiceNo = invoice.invoiceNumber || "N/A";
 
-    // Group items by category
-    const items = invoice.items || [];
-    const grouped = {};
-    items.forEach((item) => {
-      const cat = categorizeItem(item);
-      if (!grouped[cat]) grouped[cat] = [];
-      grouped[cat].push(item);
-    });
-
-    const categoryOrder = ["Doctor Consultation", "Therapy", "Medicines", "Food Charges", "Bed Charges", "Other"];
-
-    let counter = 0;
-    const categoryBlockHtmls = [];
-
-    categoryOrder.forEach((cat) => {
-      const catItems = grouped[cat];
-      if (!catItems || catItems.length === 0) return;
-
-      const catTotal = catItems.reduce((sum, i) => sum + (i.total || i.amount || 0), 0);
-
-      const isTherapy = cat === "Therapy";
-      const isConsultation = cat === "Doctor Consultation";
-      const isBedCharges = cat === "Bed Charges";
-      const isFood = cat === "Food Charges";
-
-      // Skip rendering "Doctor Consultation" if its total is 0
-      if (isConsultation && catTotal === 0) return;
-
-      let blockHtml = `
-        <div class="category-block-title" style=" background:#f5f5f5; margin-top:15px; padding: 0 0 12px 16px; border:1px solid #000; font-weight:bold; display:flex; justify-content:space-between;">
-          <span>${cat}</span>
-
-        </div>
-        <table style="width:100%; border-collapse:collapse; font-size:11px; border-top:none;">
-          <thead>
-            <th style="border-left:1px solid #000; border-bottom:1px solid #000; border-right:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center; width:40px;">Sno</th>
-              <th style="border-right:1px solid #000; border-bottom:1px solid #000; border-top:none; text-align:center; padding:0 0 12px 0;">${isTherapy ? "Therapy Name" : "Service Name"}</th>
-              ${isConsultation ? '<th style="border-right:1px solid #000; border-bottom:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Doctor Name</th>' : !isBedCharges && !isTherapy ? '<th style="border:1px solid #000; border-top:none; padding:0 0 12px 0; text-align:center;">Description</th>' : ''}
-              ${isTherapy ? '<th style="border-right:1px solid #000; border-bottom:1px solid #000; border-top:none; padding:0 0 12px 0; width:60px; text-align:center;">Session</th>' : ''}
-              <th style="border-right:1px solid #000; border-bottom:1px solid #000; text-align:center; border-top:none; padding:0 0 12px 0;  width:90px;">Unit Price</th>
-              <th style="border-right:1px solid #000; border-bottom:1px solid #000; text-align:center; border-top:none; padding:0 0 12px 0;  width:90px;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
-
-      catItems.forEach((item) => {
-        counter++;
-        const qty = item.dispensedQuantity || item.quantity || 1;
-        const unitPrice = item.unitPrice || item.amount || 0;
-        const total = item.total || item.amount || 0;
-        const foodDisplay = isFood ? getFoodChargeDisplay(item) : null;
-        const displayName = foodDisplay?.name || item.name || "Item";
-        const displayDescription = foodDisplay?.description || item.description || "";
-
-        blockHtml += `
-          <tr>
-            <td style="border-left:1px solid #000; border-bottom:1px solid #000; border-right:1px solid #000; border-top:none; padding: 0 0 12px 0; text-align:center; font-size:11px;">${counter}</td>
-            <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
-              ${escapeHtml(displayName)}
-              ${item.subTherapy ? `<div style="font-size:10px; color:#666; text-align:center; font-style:italic; margin-top:2px;">Sub-Therapy: ${escapeHtml(item.subTherapy)}</div>` : ""}
-              ${item.remarks ? `<div style="font-size:10px; color:#666; font-style:italic; margin-top:2px;">Remarks: ${escapeHtml(item.remarks)}</div>` : ""}
-            </td>
-            ${isConsultation ? `
-              <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
-                ${(item.total || item.amount || 0) > 0 ? (item.doctorName || invoice.doctor?.user?.name || "") : ""}
-              </td>
-            ` : ""}
-            ${!isBedCharges && !isTherapy && !isConsultation ? `
-              <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">
-                ${displayDescription ? escapeHtml(displayDescription).replace(/\\n/g, "<br>") : "—"}
-              </td>
-            ` : ""}
-            ${isTherapy ? `<td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">${qty}</td>` : ''}
-            <td style="border-bottom:1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">₹${formatCurrency(unitPrice)}</td>
-            <td style="border-bottom:1px solid #000; border-right: 1px solid #000; border-right: 1px solid #000; padding: 0 0 12px 0; text-align:center; font-size:11px;">₹${formatCurrency(total)}</td>
-          </tr>
-        `;
-      });
-
-      blockHtml += `
-          </tbody>
-        </table>
-      `;
-      categoryBlockHtmls.push(blockHtml);
-    });
+    const categoryBlockHtmls = buildInvoiceCategoryBlockHtmls(invoice, formatCurrency);
 
     const subtotal = invoice.subtotal || 0;
 
@@ -331,12 +227,14 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       document.body.appendChild(el);
       // Let the browser load fonts / icons
       await new Promise((r) => setTimeout(r, 500));
+      const captureHeight = el.scrollHeight + 16;
       const canvas = await html2canvas(el, {
         scale: 2.5,
         useCORS: true,
         backgroundColor: "#ffffff",
         windowWidth: width,
-        windowHeight: el.scrollHeight,
+        windowHeight: captureHeight,
+        height: captureHeight,
       });
       document.body.removeChild(el);
       return canvas;
@@ -345,7 +243,6 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
     // ── Render header, brown footer (all pages), notes (last page), and body sections ──
     const headerHtml = `<div style="width:794px; box-sizing:border-box; ">${pdfPrHeader()}</div>`;
     const brownFooterHtml = `<div style="width:794px; box-sizing:border-box;">${getFooter()}</div>`;
-    const notesHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px;">${getNotesSection()}</div>`;
 
     const infoSectionHtml = `
       <div style="width:794px; box-sizing:border-box; padding:0 15px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
@@ -386,7 +283,7 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       </div>
     `;
 
-    const summarySectionHtml = buildInvoiceSummarySectionHtml({
+    const summaryParams = {
       subtotalBoxLabel,
       displaySubtotal,
       amountInWords,
@@ -403,18 +300,21 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       totalPayable,
       displayAmountPaid,
       balanceDue,
-    });
+    };
+    const summarySectionHtml = buildInvoiceSummarySectionHtml(summaryParams);
+    const notesSectionHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px;">${getNotesSection()}</div>`;
 
     // Render static header/footer + each printable section separately.
     // Rendering each section on its own lets us avoid splitting a section
     // (especially item tables) across pages.
-    const [headerCanvas, brownFooterCanvas, notesCanvas, infoCanvas, summaryCanvas] = await Promise.all([
+    const [headerCanvas, brownFooterCanvas, infoCanvas, summaryCanvas, notesCanvasRaw] = await Promise.all([
       renderToCanvas(headerHtml),
       renderToCanvas(brownFooterHtml),
-      renderToCanvas(notesHtml),
       renderToCanvas(infoSectionHtml),
       renderToCanvas(summarySectionHtml),
+      renderToCanvas(notesSectionHtml),
     ]);
+    const notesCanvas = trimCanvasBottomWhitespace(notesCanvasRaw);
     const categoryCanvases = await Promise.all(
       categoryBlockHtmls.map((blockHtml) =>
         renderToCanvas(
@@ -443,25 +343,7 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
     const headerImg = headerCanvas.toDataURL("image/png");
     const brownFooterImg = brownFooterCanvas.toDataURL("image/png");
     const sections = [infoCanvas, ...categoryCanvases, summaryCanvas, notesCanvas];
-
-    // Pre-compute total page count so the footer can show "Page X of Y".
-    const totalPagesEstimate = (() => {
-      let pages = 1;
-      let usedH = 0;
-      sections.forEach((canvas) => {
-        const sectionH = pxToMm(canvas);
-        if (usedH > 0 && usedH + sectionH > bodyAreaH) {
-          pages += 1;
-          usedH = 0;
-        }
-        usedH += sectionH;
-      });
-      return pages;
-    })();
-
-    let currentPage = 1;
-    let cursorY = headerH + topPad;
-    let usedBodyH = 0;
+    const notesSectionH = pxToMm(notesCanvas);
 
     const drawPageChrome = () => {
       pdf.addImage(headerImg, "PNG", margin, 0, contentW, headerH);
@@ -472,62 +354,22 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
       pdf.addImage(brownFooterImg, "PNG", margin, footerY, contentW, brownFooterH);
     };
 
-    const drawPageNumber = () => {
-      pdf.setFontSize(8);
-      pdf.setTextColor(150);
-      pdf.text(`Page ${currentPage} of ${totalPagesEstimate}`, pdfW / 2, pdfH - 5, { align: "center" });
-    };
-
-    drawPageChrome();
-
-    sections.forEach((canvas, idx) => {
-      const sectionH = pxToMm(canvas);
-      const sectionImg = canvas.toDataURL("image/png");
-      const isNotesSection = idx === sections.length - 1;
-
-      const requiresNewPage = usedBodyH > 0 && usedBodyH + sectionH > bodyAreaH;
-      if (requiresNewPage) {
-        drawBrownFooter();
-        drawPageNumber();
-        pdf.addPage();
-        currentPage += 1;
-        cursorY = headerH + topPad;
-        usedBodyH = 0;
-        drawPageChrome();
-      }
-
-      const renderH = sectionH > bodyAreaH ? bodyAreaH : sectionH;
-      let drawY = cursorY;
-
-      if (isNotesSection) {
-        const footerY = pdfH - brownFooterH - 6;
-        drawY = footerY - renderH - 2;
-
-        if (drawY < cursorY + 2) {
-          drawBrownFooter();
-          drawPageNumber();
-          pdf.addPage();
-          currentPage += 1;
-          cursorY = headerH + topPad;
-          usedBodyH = 0;
-          drawPageChrome();
-          drawY = pdfH - brownFooterH - 6 - renderH - 2;
-        }
-      }
-
-      pdf.addImage(sectionImg, "PNG", margin, drawY, contentW, renderH);
-
-      cursorY += renderH;
-      usedBodyH += renderH;
-
-      if (idx !== sections.length - 1) {
-        cursorY += 1.5;
-        usedBodyH += 1.5;
-      }
+    layoutPdfSections({
+      pdf,
+      sections,
+      pxToMm,
+      bodyAreaH,
+      headerH,
+      topPad,
+      brownFooterH,
+      notesSectionH,
+      pdfH,
+      pdfW,
+      margin,
+      contentW,
+      drawPageChrome,
+      drawBrownFooter,
     });
-
-    drawBrownFooter();
-    drawPageNumber();
 
     const downloadFileName =
       options.fileName || `Invoice_${invoiceNo.replace(/[\/\\]/g, "-")}.pdf`;
