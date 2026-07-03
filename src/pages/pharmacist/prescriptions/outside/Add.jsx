@@ -360,6 +360,7 @@ function OutsideDispense_Add() {
                 alternativePhone: form.alternativePhone.trim(),
                 address: form.address.trim(),
                 age: form.age ? Number(form.age) : undefined,
+                ageUnit: ageInMonths ? "months" : "years",
                 disease: form.disease.trim(),
                 gst,
                 medicines: validMedicines.map((m) => ({

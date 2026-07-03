@@ -51,7 +51,7 @@ import HeadingCard from "../../../../components/card/HeadingCard";
 import outsideDispenseService from "../../../../services/outsideDispenseService";
 import { handleOutsidePrint } from "../components/OutsideDispenseGenerator";
 import { handleOutsideDownload } from "../components/OutsideDispenseDownload";
-import { displayField, formatPaymentMethodLabel, getOutsidePaymentHistory } from "../components/outsideDispensePdfUtils";
+import { displayField, formatOutsideDispenseAge, formatPaymentMethodLabel, getOutsidePaymentHistory } from "../components/outsideDispensePdfUtils";
 
 const LIST_PATH = "/pharmacist/prescriptions/outside";
 const BILL_LIST_PATH = "/pharmacist/prescriptions/list";
@@ -348,7 +348,7 @@ function OutsideDispense_Details() {
                                     <DetailCard label="Email" value={record.email} icon={<Email fontSize="small" />} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DetailCard label="Age" value={record.age != null && record.age !== "" ? record.age : ""} />
+                                    <DetailCard label="Age" value={formatOutsideDispenseAge(record.age, record.ageUnit)} />
                                 </Grid>
                                 <Grid item xs={12}>
                                     <DetailCard label="Address" value={record.address} />

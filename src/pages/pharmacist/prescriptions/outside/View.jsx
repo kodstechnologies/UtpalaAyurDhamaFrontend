@@ -17,6 +17,7 @@ import ExportDataButton from "../../../../components/buttons/ExportDataButton";
 import RedirectButton from "../../../../components/buttons/RedirectButton";
 import DeleteConfirmationModal from "../../../../components/modal/DeleteConfirmationModal";
 import outsideDispenseService from "../../../../services/outsideDispenseService";
+import { formatOutsideDispenseAge } from "../components/outsideDispensePdfUtils";
 
 const derivePaymentStatus = (record) => {
     const normalizedStatus = (record?.paymentStatus || "").toLowerCase();
@@ -85,7 +86,11 @@ function OutsideDispense_View() {
                 name: displayCell(record.name),
                 phone: displayCell(record.phone),
                 email: displayCell(record.email),
-                age: displayCell(record.age != null && String(record.age).trim() !== "" ? record.age : ""),
+                age: displayCell(
+                    record.age != null && String(record.age).trim() !== ""
+                        ? formatOutsideDispenseAge(record.age, record.ageUnit)
+                        : ""
+                ),
                 disease: displayCell(record.disease),
                 totalAmount: record.totalAmountWithGst ?? record.totalAmount ?? 0,
                 paymentStatus: derivePaymentStatus(record),

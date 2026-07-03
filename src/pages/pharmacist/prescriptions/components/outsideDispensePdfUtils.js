@@ -77,6 +77,14 @@ export const displayField = (value) => {
     return value;
 };
 
+export const formatOutsideDispenseAge = (age, ageUnit = "years") => {
+    if (age === "" || age == null) return "";
+    const num = Number(age);
+    if (!Number.isFinite(num)) return String(age);
+    const suffix = String(ageUnit).toLowerCase().startsWith("month") ? "m" : "y";
+    return `${num} ${suffix}`;
+};
+
 export const formatPaymentMethodLabel = (method) => {
     if (!method) return "";
     if (String(method).toLowerCase() === "online") return "UPI";
@@ -163,6 +171,7 @@ export const buildOutsideDispensePdfData = (record) => {
     const customer = {
         name: record?.name || "Walk-in Customer",
         age: record?.age ?? "",
+        ageUnit: record?.ageUnit || "years",
         phone: record?.phone || "",
         alternativePhone: record?.alternativePhone || "",
         address: record?.address || "",
@@ -325,7 +334,7 @@ export const buildOutsideDispenseInfoSectionHtml = ({
     <div style="width:65%; background:#fafafa; padding:12px; border-right:1px solid #000;">
       <table style="width:100%; font-size:12px;">
         <tr><td style="font-weight:bold; width:110px;">Customer Name</td><td>:</td><td>${escapeHtml(customer.name)}</td></tr>
-        <tr><td style="font-weight:bold;">Age</td><td>:</td><td>${customer.age !== "" && customer.age != null ? escapeHtml(String(customer.age)) : ""}</td></tr>
+        <tr><td style="font-weight:bold;">Age</td><td>:</td><td>${escapeHtml(formatOutsideDispenseAge(customer.age, customer.ageUnit))}</td></tr>
         <tr><td style="font-weight:bold;">Phone</td><td>:</td><td>${escapeHtml(customer.phone)}</td></tr>
         <tr><td style="font-weight:bold;">Alternative No.</td><td>:</td><td>${escapeHtml(customer.alternativePhone)}</td></tr>
         <tr><td style="font-weight:bold;">Email</td><td>:</td><td>${escapeHtml(customer.email)}</td></tr>

@@ -20,6 +20,8 @@ import {
     DialogContent,
     DialogContentText,
     DialogActions,
+    Checkbox,
+    FormControlLabel,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { toast } from "react-toastify";
@@ -110,6 +112,7 @@ function OutsideDispense_Edit() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [gst, setGst] = useState(0);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [ageInMonths, setAgeInMonths] = useState(false);
 
     const [form, setForm] = useState({
         name: "",
@@ -148,6 +151,7 @@ function OutsideDispense_Edit() {
             const recordMedicines = record.medicines || [];
             setOriginalMedicines(recordMedicines);
             setGst(Number(record.gst) || 0);
+            setAgeInMonths(record.ageUnit === "months");
             setForm({
                 name: record.name || "",
                 email: record.email || "",
@@ -186,11 +190,32 @@ function OutsideDispense_Edit() {
     }, [id, loadData]);
 
     const handleFormChange = (field, value) => {
-        const nextValue =
-            field === "phone" || field === "alternativePhone"
-                ? sanitizePhoneInput(value)
-                : value;
+        let nextValue = value;
+
+        if (field === "phone" || field === "alternativePhone") {
+            nextValue = sanitizePhoneInput(value);
+        }
+
+        if (field === "age") {
+            if (value === "") {
+                setForm((prev) => ({ ...prev, [field]: value }));
+                return;
+            }
+
+            if (!/^\d+$/.test(value)) return;
+
+            const ageNum = parseInt(value, 10);
+            const maxAge = ageInMonths ? 12 : 100;
+            if (ageNum > maxAge) return;
+            nextValue = value;
+        }
+
         setForm((prev) => ({ ...prev, [field]: nextValue }));
+    };
+
+    const handleAgeUnitToggle = (checked) => {
+        setAgeInMonths(checked);
+        setForm((prev) => ({ ...prev, age: "" }));
     };
 
     const handleMedicineChange = (index, field, value) => {
@@ -331,6 +356,7 @@ function OutsideDispense_Edit() {
                 alternativePhone: form.alternativePhone.trim(),
                 address: form.address.trim(),
                 age: form.age ? Number(form.age) : undefined,
+                ageUnit: ageInMonths ? "months" : "years",
                 disease: form.disease.trim(),
                 gst,
                 medicines: validMedicines.map((m) => ({
@@ -425,7 +451,36 @@ function OutsideDispense_Edit() {
                         <TextField fullWidth label="Email" type="email" value={form.email} onChange={(e) => handleFormChange("email", e.target.value)} />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                        <TextField fullWidth label="Age" type="number" value={form.age} onChange={(e) => handleFormChange("age", e.target.value)} />
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+                            <TextField
+                                fullWidth
+                                label={ageInMonths ? "Age (Months)" : "Age (Years)"}
+                                value={form.age}
+                                onChange={(e) => handleFormChange("age", e.target.value)}
+                                placeholder={ageInMonths ? "1-12" : "1-100"}
+                                helperText={ageInMonths ? "Enter age in months (1-12)" : "Enter age in years (1-100)"}
+                                inputProps={{ inputMode: "numeric" }}
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={ageInMonths}
+                                        onChange={(e) => handleAgeUnitToggle(e.target.checked)}
+                                        size="small"
+                                    />
+                                }
+                                label="Months"
+                                sx={{
+                                    mt: -0.5,
+                                    ml: 0,
+                                    mr: 0,
+                                    "& .MuiFormControlLabel-label": {
+                                        fontSize: "0.85rem",
+                                        color: "text.secondary",
+                                    },
+                                }}
+                            />
+                        </Box>
                     </Grid>
                     <Grid item xs={12}>
                         <TextField

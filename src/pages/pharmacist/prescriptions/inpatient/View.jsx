@@ -11,6 +11,12 @@ import Search from "../../../../components/search/Search";
 import ExportDataButton from "../../../../components/buttons/ExportDataButton";
 import prescriptionService from "../../../../services/prescriptionService";
 import { getRemainingPrescriptionQuantity } from "../../../../utils/prescriptionQuantity";
+import { formatOutsideDispenseAge } from "../components/outsideDispensePdfUtils";
+
+const formatAgeCell = (age, ageUnit) => {
+    if (age == null || age === "" || Number(age) <= 0) return "_";
+    return formatOutsideDispenseAge(age, ageUnit);
+};
 
 function Inpatient_View_Details() {
     const navigate = useNavigate();
@@ -57,7 +63,7 @@ function Inpatient_View_Details() {
                     examinationId: examinationId,
                     patientId: patientId,
                     name: prescription.patient?.user?.name || "Unknown",
-                    age: prescription.patientAge || 0,
+                    age: formatAgeCell(prescription.patientAge, prescription.patientAgeUnit),
                     doctor: prescription.doctor?.user?.name || "Unknown",
                     diagnosis: prescription.examination?.complaints || "N/A",
                     uhid: prescription.patient?.user?.uhid || prescription.patient?.uhid || "N/A",
