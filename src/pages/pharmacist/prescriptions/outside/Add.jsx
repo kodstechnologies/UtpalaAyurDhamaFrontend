@@ -765,7 +765,7 @@ function OutsideDispense_Add() {
                                                         <MenuItem value="Before Food">Before Food</MenuItem>
                                                         <MenuItem value="Early Morning">Early Morning</MenuItem>
                                                         <MenuItem value="After Breakfast">After Breakfast</MenuItem>
-                                                        <MenuItem value="Afternoon">Afternoon</MenuItem>
+                                                        <MenuItem value="After Lunch">After Lunch</MenuItem>
                                                         <MenuItem value="After Dinner">After Dinner</MenuItem>
                                                         <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
                                                         <MenuItem value="Before Bed">Before Bed</MenuItem>

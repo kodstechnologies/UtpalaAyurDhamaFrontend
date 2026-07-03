@@ -163,7 +163,7 @@ function OutsideDispense_Edit() {
                               medicineName: m.medicineName || "",
                               frequency: m.frequency || "",
                               duration: m.duration || "",
-                              foodTiming: m.foodTiming || "",
+                              foodTiming: m.foodTiming === "Afternoon" ? "After Lunch" : (m.foodTiming || ""),
                               foodTime: m.foodTime || "",
                               dosageSchedule: m.dosageSchedule || "",
                               subType: m.subType || "",
@@ -550,7 +550,7 @@ function OutsideDispense_Edit() {
                                             <MenuItem value="Before Food">Before Food</MenuItem>
                                             <MenuItem value="Early Morning">Early Morning</MenuItem>
                                             <MenuItem value="After Breakfast">After Breakfast</MenuItem>
-                                            <MenuItem value="Afternoon">Afternoon</MenuItem>
+                                            <MenuItem value="After Lunch">After Lunch</MenuItem>
                                             <MenuItem value="After Dinner">After Dinner</MenuItem>
                                             <MenuItem value="Empty Stomach">Empty Stomach</MenuItem>
                                             <MenuItem value="Before Bed">Before Bed</MenuItem>
