@@ -31,9 +31,15 @@ export const buildInvoiceSummarySectionHtml = ({
   totalPayable,
   displayAmountPaid,
   balanceDue,
+  previousPaid = 0,
+  openingBalance,
 }) => {
   const balanceColor = balanceDue <= 0 ? "#2e7d32" : "#000";
   const paidColor = "#2e7d32";
+  // Running balance for a single-payment receipt.
+  const receiptOpeningBalance = openingBalance != null ? openingBalance : totalPayable;
+  const receiptBalanceDue = receiptOpeningBalance - receiptAmount;
+  const receiptBalanceColor = receiptBalanceDue <= 0 ? "#2e7d32" : "#000";
 
   const paymentHistoryHtml = paymentsForHistory.length
     ? `
@@ -55,17 +61,9 @@ export const buildInvoiceSummarySectionHtml = ({
 
   const rightColumnRows = isSinglePaymentReceipt
     ? `
-      ${summaryAmountRow("Subtotal:", formatCurrency(subtotal))}
-      ${taxAmount > 0 ? summaryAmountRow(`Tax (${invoice.taxRate}%):`, formatCurrency(taxAmount)) : ""}
-      ${discountAmount > 0 ? `
-        <tr>
-          <td style="padding:4px 0; font-size:12px; color:#2e7d32;">${discountText}:</td>
-          <td align="right" style="padding:4px 0; font-size:12px; color:#2e7d32;">-₹${formatCurrency(discountAmount)}</td>
-        </tr>
-      ` : ""}
-      ${summaryAmountRow("TOTAL PAYABLE:", formatCurrency(totalPayable), { bold: true, fontSize: "14px", borderTop: true })}
+      ${summaryAmountRow("TOTAL PAYABLE:", formatCurrency(receiptOpeningBalance), { bold: true, fontSize: "14px", borderTop: true })}
       ${summaryAmountRow("Amount Paid:", formatCurrency(receiptAmount), { color: paidColor })}
-      ${summaryAmountRow("Balance Due:", formatCurrency(balanceDue), { bold: true, fontSize: "13px", color: balanceColor, padding: "6px 0 8px 0" })}
+      ${summaryAmountRow("Balance Due:", formatCurrency(receiptBalanceDue), { bold: true, fontSize: "13px", color: receiptBalanceColor, padding: "6px 0 8px 0" })}
     `
     : `
       ${summaryAmountRow("Subtotal:", formatCurrency(subtotal))}

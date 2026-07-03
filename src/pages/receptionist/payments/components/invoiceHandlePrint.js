@@ -125,7 +125,9 @@ const invoiceHandlePrint = async (invoice, options = {}) => {
     const invoiceDate = formatDate(invoice.createdAt);
     const invoiceNo = invoice.invoiceNumber || "N/A";
 
-    const categoryBlockHtmls = buildInvoiceCategoryBlockHtmls(invoice, formatCurrency);
+    const categoryBlockHtmls = buildInvoiceCategoryBlockHtmls(invoice, formatCurrency, {
+      isPaymentReceipt: isSinglePaymentReceipt,
+    });
 
     const subtotal = invoice.subtotal || 0;
 
@@ -145,6 +147,14 @@ const invoiceHandlePrint = async (invoice, options = {}) => {
     const amountPaid = invoice.amountPaid || 0;
     const balanceDue = totalPayable - amountPaid;
     const receiptAmount = Number(selectedPayment?.amount || 0);
+    // For per-payment receipts, show a running balance: opening balance before
+    // this payment = total payable minus everything paid in earlier receipts.
+    const previousPaid = isSinglePaymentReceipt
+      ? (invoice.payments || [])
+          .slice(0, paymentIndex)
+          .reduce((sum, p) => sum + Number(p.amount || 0), 0)
+      : 0;
+    const openingBalance = totalPayable - previousPaid;
     const displaySubtotal = isSinglePaymentReceipt ? receiptAmount : subtotal;
     const displayAmountPaid = isSinglePaymentReceipt ? receiptAmount : amountPaid;
     const paymentsForHistory = isSinglePaymentReceipt
@@ -300,6 +310,8 @@ const invoiceHandlePrint = async (invoice, options = {}) => {
       totalPayable,
       displayAmountPaid,
       balanceDue,
+      previousPaid,
+      openingBalance,
     };
     const summarySectionHtml = buildInvoiceSummarySectionHtml(summaryParams);
     const notesSectionHtml = `<div style="width:794px; box-sizing:border-box; padding:0 15px;">${getNotesSection()}</div>`;

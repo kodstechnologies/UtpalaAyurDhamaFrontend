@@ -53,7 +53,12 @@ const buildTherapyColgroup = () => `
   </colgroup>
 `;
 
-export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency) => {
+export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options = {}) => {
+  const isPaymentReceipt = Boolean(options.isPaymentReceipt ?? options.hideConsultationAndTherapy);
+  const hiddenCategories = isPaymentReceipt
+    ? new Set(["Doctor Consultation", "Therapy", "Food Charges", "Bed Charges"])
+    : null;
+
   const items = invoice.items || [];
   const grouped = {};
 
@@ -67,6 +72,8 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency) => {
   const categoryBlockHtmls = [];
 
   CATEGORY_ORDER.forEach((cat) => {
+    if (hiddenCategories?.has(cat)) return;
+
     const catItems = grouped[cat];
     if (!catItems?.length) return;
 
