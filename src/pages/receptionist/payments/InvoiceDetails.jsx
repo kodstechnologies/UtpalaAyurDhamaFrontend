@@ -92,7 +92,7 @@ const renderPaymentReference = (payment) => {
   if (payment.transactionId) {
     return (
       <Typography variant="body2" sx={{ color: "#666" }}>
-        <strong>ID:</strong> {payment.transactionId}
+        <strong>REF ID:</strong> {payment.transactionId}
       </Typography>
     );
   }
