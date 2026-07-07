@@ -34,6 +34,21 @@ const resolveInvoiceId = (payment) => {
     return null;
 };
 
+const resolvePaymentIndex = (payment) => {
+    if (payment?.paymentIndex != null) return payment.paymentIndex;
+    const rawId = String(payment?._id ?? "");
+    if (rawId.includes("_payment_")) {
+        const index = parseInt(rawId.split("_payment_")[1], 10);
+        return Number.isNaN(index) ? null : index;
+    }
+    return null;
+};
+
+const sumPaymentAmounts = (transactions) =>
+    transactions
+        .filter((transaction) => transaction.type === "Credit" || transaction.type === "Income")
+        .reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+
 function Reports_View({
     homeUrl = "/receptionist/dashboard",
     invoiceBasePath = "/receptionist/payments/invoice",
@@ -58,42 +73,32 @@ function Reports_View({
 
     // Calculate totals from report data (as fallback)
     const totals = useMemo(() => {
-        const dedupeInvoicePayable = (transactions) => {
-            const seen = new Set();
-            return transactions.reduce((sum, transaction) => {
-                if (transaction.totalPayable == null) return sum;
-                if (transaction.invoiceId) {
-                    if (seen.has(transaction.invoiceId)) return sum;
-                    seen.add(transaction.invoiceId);
-                }
-                return sum + (transaction.totalPayable || 0);
-            }, 0);
-        };
-
-        const totalPayable = summaryData?.totalPayable ?? dedupeInvoicePayable(reportData);
+        const totalPay =
+            summaryData?.totalPay ??
+            summaryData?.totalIncome ??
+            sumPaymentAmounts(reportData);
 
         if (summaryData) {
-            // Use backend summary data; credit reflects total payable for invoice income
             return {
-                credit: totalPayable > 0 ? totalPayable : (summaryData.totalIncome || 0),
+                credit: summaryData.totalIncome || totalPay,
                 debit: summaryData.totalExpense || 0,
-                balance: (totalPayable > 0 ? totalPayable : (summaryData.totalIncome || 0)) - (summaryData.totalExpense || 0),
+                balance: (summaryData.totalIncome || totalPay) - (summaryData.totalExpense || 0),
                 transactionCount: reportData.length,
-                totalPayable,
+                totalPay,
             };
         }
-        // Fallback: calculate from report data
-        const creditFromAmount = reportData.filter((t) => t.type === "Credit" || t.type === "Income").reduce((sum, t) => sum + (t.amount || 0), 0);
-        const credit = totalPayable > 0 ? totalPayable : creditFromAmount;
-        const debit = reportData.filter((t) => t.type === "Debit" || t.type === "Expense").reduce((sum, t) => sum + (t.amount || 0), 0);
-        const balance = credit - debit;
-        const transactionCount = reportData.length;
+        const credit = reportData
+            .filter((t) => t.type === "Credit" || t.type === "Income")
+            .reduce((sum, t) => sum + (t.amount || 0), 0);
+        const debit = reportData
+            .filter((t) => t.type === "Debit" || t.type === "Expense")
+            .reduce((sum, t) => sum + (t.amount || 0), 0);
         return {
             credit,
             debit,
-            balance,
-            transactionCount,
-            totalPayable,
+            balance: credit - debit,
+            transactionCount: reportData.length,
+            totalPay,
         };
     }, [reportData, summaryData]);
 
@@ -228,6 +233,8 @@ function Reports_View({
                     paymentMethod: payment.paymentMethod || "N/A",
                     originalType: payment.type,
                     invoiceId: resolveInvoiceId(payment),
+                    paymentIndex: resolvePaymentIndex(payment),
+                    isPartialPayment: payment.isPartialPayment ?? false,
                     doctorName: payment.doctorName || null,
                     therapyNames: payment.therapyNames || [],
                 }));
@@ -359,6 +366,13 @@ function Reports_View({
 
     const getTypeColor = (type) => {
         return type === "Credit" || type === "Income" ? "#198754" : "#dc3545"; // Green for Credit/Income, Red for Debit/Expense
+    };
+
+    const getTransactionPayAmount = (transaction) => transaction.amount || 0;
+
+    const handleViewTransaction = (transaction) => {
+        if (!transaction.invoiceId) return;
+        navigate(`${invoiceBasePath}/${transaction.invoiceId}`);
     };
 
     // Breadcrumb items
@@ -598,8 +612,8 @@ function Reports_View({
                             icon={MoneyOffIcon}
                         />
                         <DashboardCard
-                            title="Total Payable"
-                            count={totals.totalPayable}
+                            title="Total Pay"
+                            count={totals.totalPay}
                             prefix="₹"
                             icon={AccountBalanceIcon}
                         />
@@ -705,7 +719,7 @@ function Reports_View({
                                                 <th style={{ fontSize: "0.875rem" }}>Therapy</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Payment Method</th>
                                                 <th style={{ fontSize: "0.875rem" }}>Type</th>
-                                                <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Total Payable</th>
+                                                <th style={{ fontSize: "0.875rem", textAlign: "right" }}>Pay</th>
                                                 <th style={{ fontSize: "0.875rem", textAlign: "center", minWidth: "90px" }} className="no-print">Action</th>
                                             </tr>
                                         </thead>
@@ -746,21 +760,14 @@ function Reports_View({
                                                         </div>
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem", textAlign: "right", fontWeight: 600 }}>
-                                                        {(() => {
-                                                            const payable = transaction.totalPayable != null
-                                                                ? transaction.totalPayable
-                                                                : (transaction.type === "Debit" || transaction.type === "Expense"
-                                                                    ? transaction.amount
-                                                                    : null);
-                                                            return payable != null ? formatCurrency(payable) : "—";
-                                                        })()}
+                                                        {formatCurrency(getTransactionPayAmount(transaction))}
                                                     </td>
                                                     <td style={{ fontSize: "0.875rem", textAlign: "center" }} className="no-print">
                                                         {transaction.invoiceId ? (
                                                             <button
                                                                 type="button"
                                                                 className="btn btn-sm"
-                                                                onClick={() => navigate(`${invoiceBasePath}/${transaction.invoiceId}`)}
+                                                                onClick={() => handleViewTransaction(transaction)}
                                                                 title="View invoice details"
                                                                 style={{
                                                                     backgroundColor: "#1976d2",
@@ -790,10 +797,10 @@ function Reports_View({
                                         <tfoot style={{ borderTop: "2px solid #e0e0e0" }}>
                                             <tr>
                                                 <td colSpan={6} style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", paddingTop: "12px" }}>
-                                                    Total Payable:
+                                                    Total Pay:
                                                 </td>
                                                 <td style={{ fontSize: "0.875rem", fontWeight: 600, textAlign: "right", paddingTop: "12px" }}>
-                                                    {formatCurrency(totals.totalPayable)}
+                                                    {formatCurrency(totals.totalPay)}
                                                 </td>
                                                 <td className="no-print"></td>
                                             </tr>

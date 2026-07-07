@@ -186,24 +186,14 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
         cleanedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         // Calculate totals from cleaned transactions
-        const seenInvoiceIds = new Set();
-        const totalPayable = cleanedTransactions.reduce((sum, transaction) => {
-            const payable = transaction.totalPayable ?? transaction.invoice?.totalPayable;
-            if (payable == null) return sum;
-            const invoiceId = transaction.invoiceId || (String(transaction._id || "").includes("_payment_")
-                ? String(transaction._id).split("_payment_")[0]
-                : null);
-            if (invoiceId) {
-                if (seenInvoiceIds.has(invoiceId)) return sum;
-                seenInvoiceIds.add(invoiceId);
-            }
-            return sum + (parseFloat(payable) || 0);
-        }, 0);
+        const totalPay = cleanedTransactions
+            .filter((transaction) => transaction.type === "Income")
+            .reduce((sum, transaction) => sum + (parseFloat(transaction.amount) || 0), 0);
 
         const totalIncomeFromAmount = cleanedTransactions
             .filter(t => t.type === 'Income')
             .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-        const totalIncome = totalPayable > 0 ? totalPayable : totalIncomeFromAmount;
+        const totalIncome = totalIncomeFromAmount;
 
         const totalExpense = cleanedTransactions
             .filter(t => t.type === 'Expense')
@@ -219,9 +209,8 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
         };
 
         const rows = cleanedTransactions.map((t, i) => {
-            const payable = t.totalPayable ?? t.invoice?.totalPayable
-                ?? (t.type === "Expense" ? t.amount : null);
-            const payableText = payable != null ? `₹${parseFloat(payable).toFixed(2)}` : "—";
+            const payAmount = parseFloat(t.amount) || 0;
+            const payText = `₹${payAmount.toFixed(2)}`;
             return `
                 <tr>
                     <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${i + 1}</td>
@@ -229,7 +218,7 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
                     <td style="padding: 8px; border:1px solid #ddd;">${escapeHtml(t.description)}</td>
                     <td style="text-align:center; padding: 8px; border:1px solid #ddd;">${escapeHtml(t.paymentMethod || "Cash")}</td>
                     <td style="text-align:center; padding: 8px; border:1px solid #ddd; color: ${t.type === 'Income' ? '#198754' : '#dc3545'}; font-weight:bold;">${t.type}</td>
-                    <td style="text-align:right; padding: 8px; border:1px solid #ddd; font-weight:bold;">${payableText}</td>
+                    <td style="text-align:right; padding: 8px; border:1px solid #ddd; font-weight:bold;">${payText}</td>
                 </tr>
             `;
         }).join("");
@@ -352,8 +341,8 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
                                         <div class="summary-value" style="color: #198754;">₹${totalIncome.toFixed(2)}</div>
                                     </div>
                                     <div class="summary-card">
-                                        <div class="summary-label">Total Payable</div>
-                                        <div class="summary-value" style="color: #8B4513;">₹${totalPayable.toFixed(2)}</div>
+                                        <div class="summary-label">Total Pay</div>
+                                        <div class="summary-value" style="color: #8B4513;">₹${totalPay.toFixed(2)}</div>
                                     </div>
                                     <div class="summary-card">
                                         <div class="summary-label">Total Debit (Expense)</div>
@@ -370,7 +359,7 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
                                             <th style="width: 43%">Description</th>
                                             <th style="width: 15%">Method</th>
                                             <th style="width: 10%">Type</th>
-                                            <th style="width: 15%">Total Payable (₹)</th>
+                                            <th style="width: 15%">Pay (₹)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -378,8 +367,8 @@ export const handlePrint = async (startDate, endDate, options = {}) => {
                                     </tbody>
                                     <tfoot>
                                         <tr style="background: #f9f9f9; font-weight: bold;">
-                                            <td colspan="5" style="text-align:right; padding: 10px; border:1px solid #ddd;">TOTAL PAYABLE</td>
-                                            <td style="text-align:right; padding: 10px; border:1px solid #ddd;">₹${totalPayable.toFixed(2)}</td>
+                                            <td colspan="5" style="text-align:right; padding: 10px; border:1px solid #ddd;">TOTAL PAY</td>
+                                            <td style="text-align:right; padding: 10px; border:1px solid #ddd;">₹${totalPay.toFixed(2)}</td>
                                         </tr>
                                         <tr style="background: #f9f9f9; font-weight: bold;">
                                             <td colspan="5" style="text-align:right; padding: 10px; border:1px solid #ddd;">TOTAL CREDIT</td>
