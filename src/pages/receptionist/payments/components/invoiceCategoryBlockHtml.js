@@ -69,6 +69,7 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
   });
 
   let counter = 0;
+  let isFirstBlock = true;
   const categoryBlockHtmls = [];
 
   CATEGORY_ORDER.forEach((cat) => {
@@ -85,8 +86,11 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
 
     if (isConsultation && catTotal === 0) return;
 
+    const blockMarginTop = isFirstBlock ? "1px" : "3px";
+    isFirstBlock = false;
+
     let blockHtml = `
-      <div style="margin-top:12px; border:1px solid #000; overflow:hidden;">
+      <div style="margin-top:${blockMarginTop}; border:1px solid #000; overflow:hidden;">
         <div style="background:#e8f4f8; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:12px; border-bottom:1px solid #000;">
           <span>${cat}</span>
           <span>Total: ₹${formatCurrency(catTotal)}</span>

@@ -1,5 +1,14 @@
 export const SECTION_GAP_MM = 1.5;
+export const INFO_TO_CATEGORY_GAP_MM = 0;
+export const CATEGORY_TO_CATEGORY_GAP_MM = 0;
 export const SUMMARY_NOTES_GAP_MM = 4;
+
+const getSectionGap = (idx, categoryCount = 0) => {
+  if (idx <= 0) return 0;
+  if (idx === 1) return INFO_TO_CATEGORY_GAP_MM;
+  if (categoryCount > 0 && idx > 1 && idx <= categoryCount) return CATEGORY_TO_CATEGORY_GAP_MM;
+  return SECTION_GAP_MM;
+};
 
 export const trimCanvasBottomWhitespace = (canvas, whiteThreshold = 248) => {
   const ctx = canvas.getContext("2d");
@@ -35,13 +44,13 @@ export const trimCanvasBottomWhitespace = (canvas, whiteThreshold = 248) => {
   return trimmed;
 };
 
-export const estimatePdfPageCount = (sections, pxToMm, bodyAreaH) => {
+export const estimatePdfPageCount = (sections, pxToMm, bodyAreaH, categoryCount = 0) => {
   let pages = 1;
   let usedH = 0;
 
   sections.forEach((canvas, idx) => {
     const sectionH = pxToMm(canvas);
-    const gap = idx > 0 ? SECTION_GAP_MM : 0;
+    const gap = getSectionGap(idx, categoryCount);
 
     if (usedH > 0 && usedH + gap + sectionH > bodyAreaH) {
       pages += 1;
@@ -64,6 +73,7 @@ export const layoutPdfSections = ({
   topPad,
   brownFooterH,
   notesSectionH = 0,
+  categoryCount = 0,
   pdfH,
   pdfW,
   margin,
@@ -107,7 +117,7 @@ export const layoutPdfSections = ({
     const sectionImg = canvas.toDataURL("image/png");
     const isNotesSection = notesSectionH > 0 && idx === sections.length - 1;
     const isSummarySection = notesSectionH > 0 && idx === sections.length - 2;
-    const gap = idx > 0 ? SECTION_GAP_MM : 0;
+    const gap = getSectionGap(idx, categoryCount);
 
     const placementY = usedBodyH > 0 ? cursorY + gap : cursorY;
 

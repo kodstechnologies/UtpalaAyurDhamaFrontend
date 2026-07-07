@@ -80,8 +80,8 @@ export const buildInvoiceSummarySectionHtml = ({
     `;
 
   return `
-    <div style="width:794px; box-sizing:border-box; padding:0 15px 12px; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
-      <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+    <div style="width:794px; box-sizing:border-box; padding:3px 15px 12px; margin-top:0; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
+      <table style="width:100%; border-collapse:collapse; margin-top:0;">
         <tr>
           <td></td>
           <td align="right" style="width:50%;">
