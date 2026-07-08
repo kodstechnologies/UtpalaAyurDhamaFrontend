@@ -86,25 +86,30 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
 
     if (isConsultation && catTotal === 0) return;
 
-    const blockMarginTop = isFirstBlock || isTherapy ? "1px" : "3px";
+    const blockMarginTop = isTherapy ? "0" : isFirstBlock ? "1px" : "3px";
     isFirstBlock = false;
+    const therapyTh = (extra = "") =>
+      `border:1px solid #000; border-top:none; padding:0 6px 8px 6px; font-size:10px; font-weight:700; background:#f8f9fa; text-align:center; ${extra}`;
+    const therapyTd = (extra = "") =>
+      `border:1px solid #000; border-top:none; padding:0 6px 8px 6px; font-size:10px; vertical-align:top; word-break:break-word; ${extra}`;
+    const headerPad = isTherapy ? "0 12px 8px 12px" : "10px 12px";
 
     let blockHtml = `
       <div style="margin-top:${blockMarginTop}; border:1px solid #000; overflow:hidden;">
-        <div style="background:#e8f4f8; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:12px; border-bottom:1px solid #000;">
+        <div style="background:#e8f4f8; padding:${headerPad}; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:12px; border-bottom:1px solid #000;">
           <span>${cat}</span>
           <span>Total: ₹${formatCurrency(catTotal)}</span>
         </div>
-        <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-family:Arial, Helvetica, sans-serif;">
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-family:Arial, Helvetica, sans-serif; margin:0;">
           ${isTherapy ? buildTherapyColgroup() : ""}
           <thead>
             <tr>
-              <th style="${thStyle("width:40px;")}">#</th>
-              <th style="${thStyle()}">${isTherapy ? "Item Name" : "Service Name"}</th>
+              <th style="${isTherapy ? therapyTh("width:40px;") : thStyle("width:40px;")}">#</th>
+              <th style="${isTherapy ? therapyTh() : thStyle()}">${isTherapy ? "Item Name" : "Service Name"}</th>
               ${isConsultation ? `<th style="${thStyle()}">Doctor Name</th>` : !isBedCharges && !isTherapy ? `<th style="${thStyle()}">Description</th>` : ""}
-              ${isTherapy ? `<th style="${thStyle()}">Treatment Description</th><th style="${thStyle("width:55px;")}">Sessions</th>` : ""}
-              <th style="${thStyle("text-align:right;")}">Unit Price</th>
-              <th style="${thStyle("text-align:right;")}">Total</th>
+              ${isTherapy ? `<th style="${therapyTh()}">Treatment Description</th><th style="${therapyTh("width:55px;")}">Sessions</th>` : ""}
+              <th style="${isTherapy ? therapyTh("text-align:right;") : thStyle("text-align:right;")}">Unit Price</th>
+              <th style="${isTherapy ? therapyTh("text-align:right;") : thStyle("text-align:right;")}">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -123,10 +128,10 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
 
       blockHtml += `
         <tr>
-          <td style="${cellStyle("text-align:center;")}">${counter}</td>
-          <td style="${cellStyle(isTherapy ? "text-align:left;" : "text-align:center;")}">
-            <div style="font-weight:${isTherapy ? "600" : "500"}; font-size:10px; line-height:1.35;">${escapeHtml(displayName)}</div>
-            ${isTherapy ? `<div style="font-size:9px; color:#666; margin-top:4px; line-height:1.35; white-space:pre-line;">${escapeHtml(therapySubTherapy)}</div>` : ""}
+          <td style="${isTherapy ? therapyTd("text-align:center;") : cellStyle("text-align:center;")}">${counter}</td>
+          <td style="${isTherapy ? therapyTd("text-align:left;") : cellStyle("text-align:center;")}">
+            <div style="font-weight:${isTherapy ? "600" : "500"}; font-size:10px; line-height:1.35; margin:0;">${escapeHtml(displayName)}</div>
+            ${isTherapy ? `<div style="font-size:9px; color:#666; margin:0; line-height:1.35; white-space:pre-line;">${escapeHtml(therapySubTherapy)}</div>` : ""}
             ${item.remarks ? `<div style="font-size:9px; color:#666; font-style:italic; margin-top:3px;">Remarks: ${escapeHtml(item.remarks)}</div>` : ""}
           </td>
           ${isConsultation ? `
@@ -140,11 +145,11 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
             </td>
           ` : ""}
           ${isTherapy ? `
-            <td style="${cellStyle("text-align:left;")}">${escapeHtml(therapyDescription)}</td>
-            <td style="${cellStyle("text-align:center;")}">${qty}</td>
+            <td style="${therapyTd("text-align:left;")}">${escapeHtml(therapyDescription)}</td>
+            <td style="${therapyTd("text-align:center;")}">${qty}</td>
           ` : ""}
-          <td style="${cellStyle("text-align:right;")}">₹${formatCurrency(unitPrice)}</td>
-          <td style="${cellStyle("text-align:right; font-weight:700;")}">₹${formatCurrency(total)}</td>
+          <td style="${isTherapy ? therapyTd("text-align:right;") : cellStyle("text-align:right;")}">₹${formatCurrency(unitPrice)}</td>
+          <td style="${isTherapy ? therapyTd("text-align:right; font-weight:700;") : cellStyle("text-align:right; font-weight:700;")}">₹${formatCurrency(total)}</td>
         </tr>
       `;
     });

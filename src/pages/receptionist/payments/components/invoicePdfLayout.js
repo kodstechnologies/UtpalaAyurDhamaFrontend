@@ -1,12 +1,15 @@
 export const SECTION_GAP_MM = 1.5;
 export const INFO_TO_CATEGORY_GAP_MM = 0;
 export const CATEGORY_TO_CATEGORY_GAP_MM = 0;
+export const CATEGORY_TO_SUMMARY_GAP_MM = 0;
 export const SUMMARY_NOTES_GAP_MM = 4;
 
 const getSectionGap = (idx, categoryCount = 0) => {
   if (idx <= 0) return 0;
   if (idx === 1) return INFO_TO_CATEGORY_GAP_MM;
   if (categoryCount > 0 && idx > 1 && idx <= categoryCount) return CATEGORY_TO_CATEGORY_GAP_MM;
+  // Summary sits right after last category block (index = categoryCount + 1)
+  if (categoryCount > 0 && idx === categoryCount + 1) return CATEGORY_TO_SUMMARY_GAP_MM;
   return SECTION_GAP_MM;
 };
 

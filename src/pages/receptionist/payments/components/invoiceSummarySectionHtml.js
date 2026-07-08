@@ -80,15 +80,15 @@ export const buildInvoiceSummarySectionHtml = ({
     `;
 
   return `
-    <div style="width:794px; box-sizing:border-box; padding:1px 15px 1px; margin-top:0; font-family:Arial, Helvetica, sans-serif; color:#000;">
-      <table style="width:100%; border-collapse:collapse; margin:0;">
+    <div style="width:794px; box-sizing:border-box; padding:0 15px 1px; margin:0; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
+      <table style="width:100%; border-collapse:collapse; margin:0; padding:0;">
         <tr>
-          <td></td>
-          <td align="right" style="width:50%;">
-            <table style="width:100%; border-collapse:collapse; border:1px solid #000; ">
+          <td style="padding:0;"></td>
+          <td align="right" style="width:50%; padding:0; vertical-align:top;">
+            <table style="width:100%; border-collapse:collapse; border:1px solid #000; margin:0;">
               <tr style="font-weight:bold;">
-                <td style="padding:0 10px 10px 10px; border-right:1px solid #000;">${subtotalBoxLabel}</td>
-                <td align="right" style="padding:0 10px 10px 10px;">₹${formatCurrency(displaySubtotal)}</td>
+                <td style="padding:0 10px 8px 10px; border-right:1px solid #000; vertical-align:top;">${subtotalBoxLabel}</td>
+                <td align="right" style="padding:0 10px 8px 10px; vertical-align:top;">₹${formatCurrency(displaySubtotal)}</td>
               </tr>
             </table>
           </td>
