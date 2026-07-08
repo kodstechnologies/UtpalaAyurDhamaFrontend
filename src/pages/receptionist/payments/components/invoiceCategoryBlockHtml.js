@@ -8,10 +8,10 @@ const escapeHtml = (text) => {
 };
 
 const cellStyle = (extra = "") =>
-  `border:1px solid #000; border-top:none; padding:8px 6px; font-size:10px; vertical-align:top; word-break:break-word; ${extra}`;
+  `border:1px solid #000; padding:8px 6px; font-size:10px; vertical-align:top; word-break:break-word; ${extra}`;
 
 const thStyle = (extra = "") =>
-  `border:1px solid #000; border-top:none; padding:8px 6px; font-size:10px; font-weight:700; background:#f8f9fa; text-align:center; ${extra}`;
+  `border:1px solid #000; padding:8px 6px; font-size:10px; font-weight:700; background:#f8f9fa; text-align:center; ${extra}`;
 
 export const categorizeInvoicePdfItem = (item) => {
   if (item.category) {
@@ -89,10 +89,11 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
     const hideCategoryHeader = isTherapy || isConsultation || isBedCharges || isFood;
     const blockMarginTop = hideCategoryHeader ? "0" : isFirstBlock ? "1px" : "3px";
     isFirstBlock = false;
+    // Single-line borders only (no border-top:none). Avoids double lines in PDF/html2canvas.
     const therapyTh = (extra = "") =>
-      `border:1px solid #000; border-top:none; padding:0 6px 8px 6px; font-size:10px; font-weight:700; background:#f8f9fa; text-align:center; ${extra}`;
+      `border:1px solid #000; padding:0 6px 8px 6px; font-size:10px; font-weight:700; background:#f8f9fa; text-align:center; ${extra}`;
     const therapyTd = (extra = "") =>
-      `border:1px solid #000; border-top:none; padding:0 6px 8px 6px; font-size:10px; vertical-align:top; word-break:break-word; ${extra}`;
+      `border:1px solid #000; padding:0 6px 8px 6px; font-size:10px; vertical-align:top; word-break:break-word; ${extra}`;
     const headerPad = "10px 12px";
     const categoryHeaderHtml = hideCategoryHeader
       ? ""
@@ -101,28 +102,28 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
           <span>Total: ₹${formatCurrency(catTotal)}</span>
         </div>`;
     const nameColumnLabel = isTherapy
-      ? "Therapy Name"
+      ? "THERAPY NAME"
       : isConsultation
-        ? "Doctor Name"
+        ? "DOCTOR NAME"
         : isBedCharges
-          ? "Bed Type"
+          ? "BED TYPE"
           : isFood
-            ? "Food Name"
+            ? "FOOD NAME"
             : "Service Name";
 
     let blockHtml = `
-      <div style="margin-top:${blockMarginTop}; border:1px solid #000; overflow:hidden;">
+      <div style="margin-top:${blockMarginTop}; overflow:hidden;">
         ${categoryHeaderHtml}
-        <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-family:Arial, Helvetica, sans-serif; margin:0;">
+        <table style="width:100%; border:1px solid #000; border-collapse:collapse; border-spacing:0; table-layout:fixed; font-family:Arial, Helvetica, sans-serif; margin:0;">
           ${isTherapy ? buildTherapyColgroup() : ""}
           <thead>
             <tr>
               <th style="${isTherapy ? therapyTh("width:40px;") : thStyle("width:40px;")}">#</th>
               <th style="${isTherapy ? therapyTh() : thStyle()}">${nameColumnLabel}</th>
-              ${!isBedCharges && !isTherapy && !isConsultation ? `<th style="${thStyle()}">Description</th>` : ""}
-              ${isTherapy ? `<th style="${therapyTh()}">Treatment Description</th><th style="${therapyTh("width:55px;")}">Sessions</th>` : ""}
-              <th style="${isTherapy ? therapyTh("text-align:center ;") : thStyle("text-align:center;")}">Unit Price</th>
-              <th style="${isTherapy ? therapyTh("text-align:center;") : thStyle("text-align:center;")}">Total</th>
+              ${!isBedCharges && !isTherapy && !isConsultation ? `<th style="${thStyle()}">DESCRIPTION</th>` : ""}
+              ${isTherapy ? `<th style="${therapyTh()}">TREATMENT DESCRIPTION</th><th style="${therapyTh("width:55px;")}">SESSIONS</th>` : ""}
+              <th style="${isTherapy ? therapyTh("text-align:center;") : thStyle("text-align:center;")}">UNIT PRICE</th>
+              <th style="${isTherapy ? therapyTh("text-align:center;") : thStyle("text-align:center;")}">TOTAL</th>
             </tr>
           </thead>
           <tbody>
