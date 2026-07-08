@@ -8,7 +8,7 @@ export const pdfPrHeader = () => `
           align-items:center;
           justify-content:center;
           text-align:center;
-          padding:12px 15px;
+          padding:10px 15px 10px;
           background:#f4d7b5;
           border-radius:3px;
           box-sizing:border-box;
@@ -17,7 +17,7 @@ export const pdfPrHeader = () => `
           margin-top: 10px;
         ">
           <!-- Logo -->
-          <img src="${logo}" style="height:120px;" alt="Logo"/>
+          <img src="${logo}" style="height:100px;" alt="Logo"/>
           
 
           <!-- Address -->
