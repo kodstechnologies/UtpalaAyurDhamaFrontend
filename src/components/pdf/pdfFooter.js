@@ -1,11 +1,11 @@
 export const getFooter = () => `
   <div style="
-    margin-top:auto;
+    margin:auto;
     background:#5d4037;
     color:#fff;
     display:flex;
     justify-content:space-between;
-    padding:20px 30px;
+    padding:10px 30px 20px;
     font-size:14px;
     border-radius:4px;
     margin-top: 5px;
