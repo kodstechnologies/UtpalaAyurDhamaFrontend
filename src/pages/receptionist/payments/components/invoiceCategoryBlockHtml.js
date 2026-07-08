@@ -86,7 +86,7 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
 
     if (isConsultation && catTotal === 0) return;
 
-    const blockMarginTop = isFirstBlock ? "1px" : "3px";
+    const blockMarginTop = isFirstBlock || isTherapy ? "1px" : "3px";
     isFirstBlock = false;
 
     let blockHtml = `

@@ -80,22 +80,22 @@ export const buildInvoiceSummarySectionHtml = ({
     `;
 
   return `
-    <div style="width:794px; box-sizing:border-box; padding:3px 15px 12px; margin-top:0; font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff;">
-      <table style="width:100%; border-collapse:collapse; margin-top:0;">
+    <div style="width:794px; box-sizing:border-box; padding:1px 15px 1px; margin-top:0; font-family:Arial, Helvetica, sans-serif; color:#000;">
+      <table style="width:100%; border-collapse:collapse; margin:0;">
         <tr>
           <td></td>
           <td align="right" style="width:50%;">
-            <table style="width:100%; border-collapse:collapse; border:1px solid #000;">
+            <table style="width:100%; border-collapse:collapse; border:1px solid #000; ">
               <tr style="font-weight:bold;">
-                <td style="padding:10px; border-right:1px solid #000;">${subtotalBoxLabel}</td>
-                <td align="right" style="padding:10px;">₹${formatCurrency(displaySubtotal)}</td>
+                <td style="padding:0 10px 10px 10px; border-right:1px solid #000;">${subtotalBoxLabel}</td>
+                <td align="right" style="padding:0 10px 10px 10px;">₹${formatCurrency(displaySubtotal)}</td>
               </tr>
             </table>
           </td>
         </tr>
       </table>
 
-      <table style="width:100%; border-collapse:collapse; margin-top:18px;">
+      <table style="width:100%; border-collapse:collapse; margin-top:1px;">
         <tr>
           <td style="width:55%; vertical-align:top; padding-right:20px;">
             <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
