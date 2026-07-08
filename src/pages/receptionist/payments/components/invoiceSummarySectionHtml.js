@@ -43,12 +43,12 @@ export const buildInvoiceSummarySectionHtml = ({
 
   const paymentHistoryHtml = paymentsForHistory.length
     ? `
-      <div style="margin-top:18px; font-weight:bold; font-size:13px; margin-bottom:8px;">Payment History:</div>
-      <table style="width:100%; border-collapse:collapse; font-size:11px;">
+      <div style="margin-top:5px; padding:0; font-weight:bold; font-size:13px; line-height:1.2;">Payment History:</div>
+      <table style="width:100%; border-collapse:collapse; font-size:11px; margin:0;">
         ${paymentsForHistory.map((p, i) => `
-          <tr>
-            <td style="padding:3px 8px 3px 0; vertical-align:top; width:18px; white-space:nowrap;">${i + 1}.</td>
-            <td style="padding:3px 0; line-height:1.6; word-break:break-word;">
+          <tr style="margin: 10px 20px;">
+            <td style="padding:0 8px 0 0; vertical-align:top; width:18px; white-space:nowrap;">${i + 1}.</td>
+            <td style="padding:0; line-height:1.3; word-break:break-word;">
               ₹${formatCurrency(p.amount)} via ${formatPaymentMethodForSummary(p.paymentMethod)} on ${formatDate(p.date)}
               ${p.transactionId ? ` | ID: ${p.transactionId}` : ""}
               ${p.cardLastFourDigits ? ` | Card: •••• ${p.cardLastFourDigits}` : ""}
@@ -95,11 +95,11 @@ export const buildInvoiceSummarySectionHtml = ({
         </tr>
       </table>
 
-      <table style="width:100%; border-collapse:collapse; margin-top:1px;">
+      <table style="width:100%; border-collapse:collapse; margin-top:0;">
         <tr>
           <td style="width:55%; vertical-align:top; padding-right:20px;">
-            <div style="font-weight:bold; font-size:13px; margin-bottom:6px;">Amount in Words:</div>
-            <div style="font-style:italic; font-size:12px; line-height:1.5;">${amountInWords}</div>
+            <div style="font-weight:bold; font-size:13px; margin:0; padding:0; line-height:1.2;">Amount in Words:</div>
+            <div style="font-style:italic; font-size:12px; line-height:1.3; margin:0; padding:0;">${amountInWords}</div>
             ${paymentHistoryHtml}
           </td>
           <td style="width:45%; vertical-align:top;">
@@ -112,4 +112,3 @@ export const buildInvoiceSummarySectionHtml = ({
     </div>
   `;
 };
-
