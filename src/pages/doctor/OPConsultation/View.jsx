@@ -292,18 +292,15 @@ function OPConsultation_View() {
     ];
 
     const handleOpenPrescription = async (row) => {
-        if (!row.hasExamination || !row.examinationId) {
-            toast.error("Please add an examination before opening prescription.");
-            return;
-        }
-
         try {
-            const response = await prescriptionService.getPrescriptionsByExamination(row.examinationId);
-            const prescriptions = response?.data || [];
+            if (row.hasExamination && row.examinationId) {
+                const response = await prescriptionService.getPrescriptionsByExamination(row.examinationId);
+                const prescriptions = response?.data || [];
 
-            if (response?.success && prescriptions.length > 0) {
-                navigate(`/doctor/prescriptions/edit/${prescriptions[0]._id}`);
-                return;
+                if (response?.success && prescriptions.length > 0) {
+                    navigate(`/doctor/prescriptions/edit/${prescriptions[0]._id}`);
+                    return;
+                }
             }
 
             const patientProfileId = row.fullAppointment?.patient?._id;
@@ -314,8 +311,9 @@ function OPConsultation_View() {
             }
 
             const uhid = row.patientId; // Note: row.patientId actually holds the UHID evaluated earlier
+            const examQuery = row.examinationId ? `&examinationId=${row.examinationId}` : "";
             navigate(
-                `/doctor/prescriptions/new?patientId=${patientProfileId}&patientName=${encodeURIComponent(name)}&uhid=${encodeURIComponent(uhid)}`
+                `/doctor/prescriptions/new?patientId=${patientProfileId}&patientName=${encodeURIComponent(name)}&uhid=${encodeURIComponent(uhid)}${examQuery}`
             );
         } catch (error) {
             console.error("Error opening prescription:", error);
