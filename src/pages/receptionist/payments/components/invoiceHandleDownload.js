@@ -394,5 +394,3 @@ const invoiceHandleDownload = async (invoice, options = {}) => {
 
 export { invoiceHandleDownload };
 export default invoiceHandleDownload;
-export { invoiceHandleDownload };
-export default invoiceHandleDownload;
