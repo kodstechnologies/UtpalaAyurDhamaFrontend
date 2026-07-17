@@ -1156,7 +1156,9 @@ function InvoiceDetails({
                           ) : null}
                           {isTherapy && <TableCell sx={{ fontWeight: 600 }}>Treatment Description</TableCell>}
                           {isTherapy && <TableCell align="center" sx={{ fontWeight: 600 }}>Sessions</TableCell>}
-                          <TableCell align="right" sx={{ fontWeight: 600 }}>Unit Price</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600 }}>
+                            {isConsultation ? "Consultation Price" : "Unit Price"}
+                          </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 600 }}>Total</TableCell>
                         </TableRow>
                       </TableHead>
