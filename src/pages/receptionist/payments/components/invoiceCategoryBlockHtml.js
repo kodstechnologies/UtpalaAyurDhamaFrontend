@@ -122,7 +122,7 @@ export const buildInvoiceCategoryBlockHtmls = (invoice, formatCurrency, options 
               <th style="${isTherapy ? therapyTh() : thStyle()}">${nameColumnLabel}</th>
               ${!isBedCharges && !isTherapy && !isConsultation ? `<th style="${thStyle()}">DESCRIPTION</th>` : ""}
               ${isTherapy ? `<th style="${therapyTh()}">TREATMENT DESCRIPTION</th><th style="${therapyTh("width:55px;")}">SESSIONS</th>` : ""}
-              <th style="${isTherapy ? therapyTh("text-align:center;") : thStyle("text-align:center;")}">${isConsultation ? "CONSULTATION PRICE" : "UNIT PRICE"}</th>
+              <th style="${isTherapy ? therapyTh("text-align:center;") : thStyle("text-align:center;")}">${isConsultation ? "CONSULTATION" : "UNIT PRICE"}</th>
               <th style="${isTherapy ? therapyTh("text-align:center;") : thStyle("text-align:center;")}">TOTAL</th>
             </tr>
           </thead>
