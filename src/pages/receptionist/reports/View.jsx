@@ -61,8 +61,10 @@ function Reports_View({
     const [endDate, setEndDate] = useState("");
     const [doctorId, setDoctorId] = useState("");
     const [therapyName, setTherapyName] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("");
     const [doctors, setDoctors] = useState([]);
     const [therapies, setTherapies] = useState([]);
+    const paymentMethodOptions = ["Cash", "Card", "UPI", "Online", "Bank Transfer"];
     const [loading, setLoading] = useState(false);
     const [hasGenerated, setHasGenerated] = useState(false);
     const [pagination, setPagination] = useState({
@@ -131,6 +133,7 @@ function Reports_View({
 
         if (doctorId) params.doctorId = doctorId;
         if (therapyName) params.therapyName = therapyName;
+        if (paymentMethod) params.paymentMethod = paymentMethod;
 
         return params;
     };
@@ -488,7 +491,7 @@ function Reports_View({
                                 <h5 className="card-title mb-0">Select Date Range & Filters</h5>
                             </div>
                             <div className="row g-3 align-items-end">
-                                <div className="col-md-3">
+                                <div className="col-md-4 col-lg">
                                     <label className="form-label">Start Date</label>
                                     <input
                                         type="date"
@@ -501,7 +504,7 @@ function Reports_View({
                                         max={endDate || undefined}
                                     />
                                 </div>
-                                <div className="col-md-3">
+                                <div className="col-md-4 col-lg">
                                     <label className="form-label">End Date</label>
                                     <input
                                         type="date"
@@ -514,7 +517,7 @@ function Reports_View({
                                         min={startDate || undefined}
                                     />
                                 </div>
-                                <div className="col-md-3">
+                                <div className="col-md-4 col-lg">
                                     <label className="form-label">Doctor</label>
                                     <select
                                         className="form-select"
@@ -532,7 +535,7 @@ function Reports_View({
                                         ))}
                                     </select>
                                 </div>
-                                <div className="col-md-3">
+                                <div className="col-md-4 col-lg">
                                     <label className="form-label">Therapy</label>
                                     <select
                                         className="form-select"
@@ -557,6 +560,24 @@ function Reports_View({
                                                     {therapy.therapyName}
                                                 </option>
                                             ))}
+                                    </select>
+                                </div>
+                                <div className="col-md-4 col-lg">
+                                    <label className="form-label">Payment Method</label>
+                                    <select
+                                        className="form-select"
+                                        value={paymentMethod}
+                                        onChange={(e) => {
+                                            setPaymentMethod(e.target.value);
+                                            handleFilterChange();
+                                        }}
+                                    >
+                                        <option value="">All Methods</option>
+                                        {paymentMethodOptions.map((method) => (
+                                            <option key={method} value={method}>
+                                                {method}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div className="col-12">
